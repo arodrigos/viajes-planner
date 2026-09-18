@@ -2,8 +2,8 @@ import { franjasParaDestino } from "../config-franjas";
 import type { Dia, Franja, Plan } from "../tipos";
 
 // Fixture de referencia: cinco días en Sevilla para una familia de cuatro.
-// Dos paradas por día (mañana y tarde), procedencia mixta para ejercitar los
-// tres orígenes en otros bloques (apertura, presupuesto, procedencia).
+// Dos paradas por día (mañana y tarde); procedencia siempre
+// "propuesto-sin-verificar" porque en fase 1 no hay otro valor posible.
 const DESTINO = "Sevilla";
 
 function franjasDelDia(): Franja[] {
@@ -29,18 +29,22 @@ function diaFixture(fecha: string, indice: number): Dia {
       {
         id: `parada-${indice}-manana`,
         franja_id: "manana",
-        sitio: { nombre: `Sitio mañana ${indice}`, lat: 37.389, lon: -5.984 },
+        nombre: `Sitio mañana ${indice}`,
+        descripcion: `Parada de mañana número ${indice}, sin verificar contra ninguna ficha todavía.`,
+        coordenadas: { lat: 37.389, lon: -5.984 },
         duracion_min: 90,
         prioridad: 70,
-        procedencia: { fuente: "oficial", url: "https://es.wikivoyage.org/wiki/Sevilla" },
+        procedencia: { fuente: "propuesto-sin-verificar" },
       },
       {
         id: `parada-${indice}-tarde`,
         franja_id: "tarde",
-        sitio: { nombre: `Sitio tarde ${indice}`, lat: 37.386, lon: -5.992 },
+        nombre: `Sitio tarde ${indice}`,
+        descripcion: `Parada de tarde número ${indice}, sin verificar contra ninguna ficha todavía.`,
+        coordenadas: { lat: 37.386, lon: -5.992 },
         duracion_min: 60,
         prioridad: 50,
-        procedencia: { fuente: "estimado" },
+        procedencia: { fuente: "propuesto-sin-verificar" },
       },
     ],
   };

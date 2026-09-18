@@ -10,7 +10,7 @@ export interface FranjaPublica {
 
 export interface DiaPublico {
   fecha: string;
-  ancla_alojamiento: AnclaAlojamiento;
+  ancla_alojamiento?: AnclaAlojamiento;
   franjas: FranjaPublica[];
   paradas: Parada[];
 }

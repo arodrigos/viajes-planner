@@ -7,7 +7,7 @@ import type { AnclaAlojamiento, Dia, Franja, Parada, Plan } from "./tipos";
 // visitas (bloques posteriores) necesitan referenciarlas una a una.
 interface DiaAlmacenado {
   fecha: string;
-  ancla_alojamiento: AnclaAlojamiento;
+  ancla_alojamiento?: AnclaAlojamiento;
   franjas: Franja[];
 }
 
@@ -46,7 +46,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
     for (const parada of dia.paradas) {
       const { data: procedenciaInsertada, error: errorProcedencia } = await supabase
         .from("procedencias")
-        .insert({ fuente: parada.procedencia.fuente, url: parada.procedencia.url ?? null })
+        .insert({ fuente: parada.procedencia.fuente })
         .select("id")
         .single();
       if (errorProcedencia || !procedenciaInsertada) {
@@ -58,9 +58,10 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
         plan_version_id: planVersionId,
         dia_index: diaIndex,
         franja_id: parada.franja_id,
-        sitio_nombre: parada.sitio.nombre,
-        sitio_lat: parada.sitio.lat,
-        sitio_lon: parada.sitio.lon,
+        nombre: parada.nombre,
+        descripcion: parada.descripcion,
+        lat: parada.coordenadas?.lat ?? null,
+        lon: parada.coordenadas?.lon ?? null,
         duracion_min: parada.duracion_min,
         prioridad: parada.prioridad,
         procedencia_id: procedenciaInsertada.id,
@@ -100,7 +101,7 @@ export async function recuperarPlan(
 
   const { data: paradaRows, error: errorParadas } = await supabase
     .from("paradas")
-    .select("id_externo, dia_index, franja_id, sitio_nombre, sitio_lat, sitio_lon, duracion_min, prioridad, procedencias(fuente, url)")
+    .select("id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, procedencias(fuente)")
     .eq("plan_version_id", versionRow.id)
     .order("dia_index", { ascending: true });
   if (errorParadas) throw new Error(`No se pudieron leer las paradas: ${errorParadas.message}`);
@@ -111,13 +112,17 @@ export async function recuperarPlan(
       .filter((fila) => fila.dia_index === indice)
       .map((fila) => {
         const procedencia = Array.isArray(fila.procedencias) ? fila.procedencias[0] : fila.procedencias;
+        const lat = fila.lat as number | null;
+        const lon = fila.lon as number | null;
         return {
           id: fila.id_externo as string,
           franja_id: fila.franja_id as string,
-          sitio: { nombre: fila.sitio_nombre as string, lat: fila.sitio_lat as number, lon: fila.sitio_lon as number },
+          nombre: fila.nombre as string,
+          descripcion: fila.descripcion as string,
           duracion_min: fila.duracion_min as number,
           prioridad: fila.prioridad as number,
-          procedencia: { fuente: procedencia.fuente, url: procedencia.url ?? undefined },
+          procedencia: { fuente: procedencia.fuente },
+          ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
         };
       });
     return {
