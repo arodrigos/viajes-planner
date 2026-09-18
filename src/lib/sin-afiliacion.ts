@@ -18,13 +18,20 @@ export function contieneParametrosAfiliacion(url: string): boolean {
   return PARAMETROS_AFILIACION.test(url);
 }
 
-export function contieneScriptPublicitario(html: string): boolean {
-  return DOMINIOS_PUBLICIDAD.some((dominio) => html.includes(dominio));
-}
-
 export function extraerUrls(html: string): string[] {
   const coincidencias = html.matchAll(/(?:href|src)="([^"]+)"/g);
   return Array.from(coincidencias, (m) => m[1]);
+}
+
+// Busca los dominios SOLO en las URLs que el navegador cargaría de verdad
+// (atributos href/src), nunca en el texto visible: el texto libre del
+// modelo puede mencionar un dominio sin que eso cargue ningún script, y
+// contarlo como positivo confundía la mención inerte con el script real
+// (falso positivo reproducido en vista.e2e.ts con "patrocinado por
+// doubleclick.net" dentro de una descripción, nunca en un atributo).
+export function contieneScriptPublicitario(html: string): boolean {
+  const urls = extraerUrls(html);
+  return DOMINIOS_PUBLICIDAD.some((dominio) => urls.some((url) => url.includes(dominio)));
 }
 
 export function auditarHtml(html: string): { ok: boolean; motivos: string[] } {
