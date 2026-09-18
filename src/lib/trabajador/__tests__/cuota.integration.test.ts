@@ -54,6 +54,24 @@ function dobleLimitado(resetsAt: string): EjecutorModelo & { invocaciones: numbe
   return doble;
 }
 
+// trabajador-ac6: la caducidad de reintento_no_antes_de y de tomado_hasta
+// la compara la RPC contra el now() real de Postgres, así que ningún reloj
+// de este proceso puede adelantarlo — y supabase/ está congelado por
+// trabajador-ac5(c), así que tampoco es opción moverlo desde la RPC. Lo que
+// sí está bajo control del test es qué instante queda ESCRITO: en vez de
+// esperar tiempo real a que un plazo futuro se cumpla (la carrera que tumbó
+// este test en CI), se escribe directamente el instante ya vencido que un
+// reloj real habría dejado — con margen de horas, no de milisegundos, e
+// indistinguible para la RPC de uno al que de verdad le hubiera dado
+// tiempo de pasar.
+function dentroDeHoras(horas: number): string {
+  return new Date(Date.now() + horas * 3_600_000).toISOString();
+}
+
+function haceHoras(horas: number): string {
+  return new Date(Date.now() - horas * 3_600_000).toISOString();
+}
+
 // trabajador-ac5(b): comprobación de tipos en compilación (tsc --noEmit),
 // no en runtime — nunca se llama. Si alguien le devuelve a usedPercentage
 // un valor por defecto que finja ser siempre un número, esta asignación
@@ -94,6 +112,19 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
       .eq("id", id)
       .single();
     return data;
+  }
+
+  // "Adelanta el reloj" del trabajo: sobrescribe su plazo de reintento y su
+  // arrendamiento (si lo tenía) con instantes ya vencidos, sin esperar nada
+  // real. Es la misma siembra directa que ya usa este fichero para la fila
+  // envenenada, aplicada esta vez a los campos que la RPC compara con
+  // now() — no un mock del comportamiento del sistema, sino del paso del
+  // tiempo que ese comportamiento necesita para activarse.
+  async function vencerPlazos(id: string): Promise<void> {
+    await supabase
+      .from("trabajos")
+      .update({ reintento_no_antes_de: haceHoras(1), tomado_hasta: haceHoras(1) })
+      .eq("id", id);
   }
 
   it("(ac4) con la cuota semanal sembrada al 100% y VIGENTE, el trabajador invoca igualmente: el freno preventivo ya no existe", async () => {
@@ -140,7 +171,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     mismoInstante(trabajo?.reintento_no_antes_de, resetsAt);
   });
 
-  it("(ac6) recuperación encadenada: sobrevive a la fila envenenada, no libera antes de tiempo, y aguanta dos límites seguidos sin limpiar entre medias", async () => {
+  it("(ac6) recuperación encadenada: sobrevive a la fila envenenada, no libera antes de tiempo, y aguanta dos límites seguidos sin limpiar entre medias ni depender de tiempo real transcurrido", async () => {
     // (1) Se siembra a propósito la fila que hoy causa el bloqueo
     // permanente: used_percentage 100 con resets_at vencido hace 24 horas.
     // Con el pre-chequeo retirado esta fila ya no tiene ningún lector; la
@@ -149,16 +180,15 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
       familia: "sonnet",
       ventana: "seven_day",
       used_percentage: 100,
-      resets_at: new Date(Date.now() - 24 * 3_600_000).toISOString(),
+      resets_at: haceHoras(24),
     });
     const trabajoId = await crearTrabajo();
 
-    // La caducidad la compara Postgres con su propio now() dentro de la RPC
-    // tomar_siguiente_trabajo, no un reloj de este proceso: no hay forma de
-    // "adelantar" ese reloj desde el test. En vez de esperar horas reales,
-    // se usan horas de reinicio a milisegundos vista y se espera de verdad
-    // ese margen — sigue siendo tiempo real transcurrido, solo que corto.
-    const primerReset = new Date(Date.now() + 150).toISOString();
+    // (2) Primer límite, con una hora de reinicio genuinamente futura (2h
+    // vista, no milisegundos): se ejercita procesarTrabajo directamente
+    // porque este paso no reclama el trabajo por la cola, solo prueba que
+    // invocarOPausar escribe exactamente la hora que dio el modelo.
+    const primerReset = dentroDeHoras(2);
     const dobleLimite1 = dobleLimitado(primerReset);
     const resultado1 = await procesarTrabajo(
       supabase,
@@ -171,8 +201,10 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     mismoInstante(trabajo?.reintento_no_antes_de, primerReset);
     expect(trabajo?.plan_id).toBeNull();
 
-    // (2) Tick inmediato, sin dejar pasar la hora de reinicio: la RPC no
-    // debe devolver el trabajo, así que el doble no se invoca.
+    // (3) Tick inmediato: reintento_no_antes_de sigue a dos horas vista de
+    // verdad, así que la RPC no debe devolver el trabajo. La comprobación
+    // es instantánea contra un instante realmente futuro -- no depende de
+    // cuánto tarde esta máquina, así que no necesita esperar nada.
     const dobleNoDeberiaLlamarse = dobleFijo([DIAS_VALIDOS]);
     const tickInmediato = await tick(supabase, {
       ejecutor: dobleNoDeberiaLlamarse,
@@ -183,23 +215,17 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     expect(tickInmediato.trabajosProcesados).toBe(0);
     expect(dobleNoDeberiaLlamarse.invocaciones).toBe(0);
 
-    // Espera real hasta pasar primerReset: los pasos (1) y (2) no garantizan
-    // por sí mismos que los 150 ms hayan transcurrido -- en un runner de CI
-    // rápido pueden completarse antes, y el paso (3) fallaría por una carrera
-    // de tiempo, no por un defecto real (así falló en CI la primera vez).
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // (4) Se vence el primer plazo sin esperar tiempo real (ver
+    // vencerPlazos): el trabajo pasa a ser reclamable para la RPC tal y
+    // como lo habría dejado un reloj real dos horas después.
+    await vencerPlazos(trabajoId);
 
-    // (3) Pasada la primera hora de reinicio, un tick real lo retoma SOLO
-    // por la cola —esta es la única reclamación de arrendamiento de todo el
-    // test, a propósito: tomar_siguiente_trabajo fija tomado_hasta a
-    // ARRENDAMIENTO_MIN (10 minutos por defecto, cola-y-acceso, fuera de
-    // alcance de este bloque) y pausarPorCuota no lo toca —corrección 3, no
-    // se cambia más allá de lo que exige la corrección 1—, así que una
-    // segunda reclamación real quedaría bloqueada por ese arrendamiento
-    // muchos minutos después de que expire reintento_no_antes_de. Encadenar
-    // aquí el SEGUNDO límite, dentro de esta misma reclamación, prueba a la
-    // vez la recuperación real vía RPC y que aguanta dos límites seguidos.
-    const segundoReset = new Date(Date.now() + 150).toISOString();
+    // (5) Tick de recuperación: la RPC reclama el trabajo porque su plazo
+    // ya venció (fija su propio tomado_hasta) y lo procesa; el doble lanza
+    // un SEGUNDO límite con una hora nueva, y el trabajo vuelve a quedar
+    // pausado con ESA hora, no con la primera. Es la propia RPC, no el
+    // test, quien decide que el trabajo ya es reclamable.
+    const segundoReset = dentroDeHoras(1);
     const dobleLimite2 = dobleLimitado(segundoReset);
     const tickRecuperacion = await tick(supabase, {
       ejecutor: dobleLimite2,
@@ -213,20 +239,25 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     expect(trabajo?.estado).toBe("pausado-por-cuota");
     mismoInstante(trabajo?.reintento_no_antes_de, segundoReset);
 
-    // (4) Pasada la segunda hora de reinicio, el trabajo se completa sin
-    // que nadie intervenga. Se ejercita procesarTrabajo directamente —la
-    // misma función que tick() invoca internamente tras reclamar— en vez
-    // de un tercer tick(), para no esperar a que expire el arrendamiento de
-    // 10 minutos fijado en el paso (3); eso pertenece a cola-y-acceso, ya
-    // aprobado, y no lo reabre este bloque.
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // (6) Se vencen el segundo plazo Y el arrendamiento (tomado_hasta) que
+    // dejó el tick anterior, otra vez por escritura directa: los diez
+    // minutos de arrendamiento por defecto de tomar_siguiente_trabajo
+    // pertenecen a cola-y-acceso (bloque aprobado, no se toca), y esperarlos
+    // de verdad le costaría minutos reales a cada corrida de CI.
+    await vencerPlazos(trabajoId);
+
+    // (7) Tick que cierra la recuperación -- por un tick real, no por una
+    // llamada directa a procesarTrabajo, para que sea la propia RPC quien
+    // demuestre que el trabajo vuelve a ser reclamable tras el segundo
+    // límite.
     const dobleFinal = dobleFijo([DIAS_VALIDOS]);
-    const resultadoFinal = await procesarTrabajo(
-      supabase,
-      { id: trabajoId, plan_id: trabajo?.plan_id ?? null, criterios: CRITERIOS },
-      { ejecutor: dobleFinal, directorio: "/tmp" },
-    );
-    expect(resultadoFinal.estado).toBe("completado");
+    const tickFinal = await tick(supabase, {
+      ejecutor: dobleFinal,
+      directorio: "/tmp",
+      esperaOciosaMs: 0,
+      intervaloOciosoMs: 10,
+    });
+    expect(tickFinal.trabajosProcesados).toBe(1);
     expect(dobleFinal.invocaciones).toBe(1);
     trabajo = await leerTrabajo(trabajoId);
     expect(trabajo?.estado).toBe("completado");
