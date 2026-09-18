@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { GET } from "@/app/api/cron/latido/route";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -9,24 +9,22 @@ const SECRETO = "secreto-de-integracion";
 
 // Aquí lo que se comprueba con Postgres real es el efecto del endpoint
 // (autorización + fila en salud), no el BCE en sí — eso ya lo cubre
-// refrescar.integration.test.ts contra la misma base de datos real. Se fija
-// el fetch al BCE para no depender de la disponibilidad de un tercero en
-// cada ejecución de este test concreto.
+// refrescar.integration.test.ts contra la misma base de datos real, con el
+// fetch al BCE fijado ahí donde SÍ se puede aislar sin arrastrar también
+// las llamadas del cliente de Supabase (que usan el mismo fetch global:
+// sustituirlo aquí rompía silenciosamente las propias consultas del test,
+// visto contra CI real). El endpoint responde 200 pase lo que pase con el
+// BCE, así que dejarlo pegar a la red real de verdad no cambia lo que se
+// comprueba, solo añade unos segundos.
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/cron/latido con secreto correcto (latido-ac1)", () => {
   const original = process.env.CRON_SECRET;
-  const fetchOriginal = global.fetch;
 
   beforeAll(() => {
     process.env.CRON_SECRET = SECRETO;
-    global.fetch = vi.fn(async () => new Response("", { status: 503 }));
   });
 
   afterEach(() => {
     process.env.CRON_SECRET = original ?? SECRETO;
-  });
-
-  afterAll(() => {
-    global.fetch = fetchOriginal;
   });
 
   it("con la cabecera Authorization correcta responde 200 y deja rastro en salud", async () => {
