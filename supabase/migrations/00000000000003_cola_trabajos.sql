@@ -12,9 +12,14 @@ as $$
 declare
   v_id uuid;
 begin
+  -- No solo "encolado"/"pausado-por-cuota": un trabajo "en-curso" cuyo
+  -- arrendamiento ha vencido (el trabajador que lo tomó murió o se colgó)
+  -- tiene que poder recuperarse igual, que es literalmente lo que pide
+  -- cola-ac2. Se excluyen los estados terminales, no se enumeran los
+  -- reclamables.
   select id into v_id
   from trabajos
-  where estado in ('encolado', 'pausado-por-cuota')
+  where estado not in ('completado', 'fallido', 'caducado')
     and (reintento_no_antes_de is null or reintento_no_antes_de <= now())
     and (tomado_hasta is null or tomado_hasta < now())
   order by prioridad desc, creado_en asc
