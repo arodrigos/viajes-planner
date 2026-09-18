@@ -35,6 +35,17 @@ done
 echo "== esqueleto-ac1: /api/salud responde e identifica el commit desplegado =="
 curl -fsS "$VIAJES_URL/api/salud" | tee /tmp/salud.json | jq -e '.ok == true and (.commit | length) == 40'
 
+echo "== latido-ac1: /api/cron/latido rechaza sin el secreto de cron =="
+CODIGO="$(curl -s -o /dev/null -w '%{http_code}' "$VIAJES_URL/api/cron/latido")"
+if [ "$CODIGO" != "401" ]; then
+  echo "FALLO: se esperaba 401 sin cabecera Authorization, se obtuvo $CODIGO" >&2
+  exit 1
+fi
+
+echo "== latido-ac2: vercel.json declara tres crons diarios, y /api/salud lo confirma =="
+jq -e '.crons | length == 3 and (map(.schedule | test("^[0-9]+ [0-9]+ \\* \\* \\*$")) | all)' vercel.json >/dev/null
+jq -e '.crons_registrados == 3' /tmp/salud.json >/dev/null
+
 echo "== esqueleto-ac3: el HTML servido no lleva afiliación ni publicidad =="
 HTML="$(curl -fsS "$VIAJES_URL/")"
 if echo "$HTML" | grep -qE '[?&](tag|aid|ref|affiliate|partner_?id)='; then

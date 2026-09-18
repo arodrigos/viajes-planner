@@ -13,18 +13,23 @@ export interface RespuestaSalud {
   version: string;
   commit: string;
   dependencias: EstadoDependencia[];
+  crons_registrados?: number;
 }
 
 export function commitDesplegado(): string {
   return process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.COMMIT_SHA ?? "0".repeat(40);
 }
 
-export function construirSalud(dependencias: EstadoDependencia[] = []): RespuestaSalud {
+export function construirSalud(
+  dependencias: EstadoDependencia[] = [],
+  cronsRegistrados?: number,
+): RespuestaSalud {
   const commit = commitDesplegado();
   return {
     ok: commit.length === 40 && dependencias.every((d) => d.ok),
     version: process.env.npm_package_version ?? "0.0.0",
     commit,
     dependencias,
+    ...(cronsRegistrados === undefined ? {} : { crons_registrados: cronsRegistrados }),
   };
 }
