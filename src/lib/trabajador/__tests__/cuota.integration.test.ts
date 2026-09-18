@@ -20,6 +20,15 @@ const CRITERIOS: CriteriosViaje = {
 
 const DIAS_VALIDOS = JSON.stringify({ dias: planFixture.dias });
 
+// Postgres devuelve timestamptz con su propio formato ('+00:00', sin ceros
+// finales de milisegundos) en vez del 'Z' de Date.toISOString(); comparar
+// el instante, no la representación en texto, es lo correcto contra una
+// base de datos real.
+function mismoInstante(a: string | null | undefined, b: string): void {
+  expect(a).toBeTruthy();
+  expect(new Date(a as string).getTime()).toBe(new Date(b).getTime());
+}
+
 function dobleFijo(respuestas: string[]): EjecutorModelo & { invocaciones: number } {
   const doble = {
     invocaciones: 0,
@@ -83,7 +92,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
       .single();
     expect(filaAlta?.estado).toBe("pausado-por-cuota");
     expect(filaAlta?.motivo).toBe("reserva-de-flota");
-    expect(filaAlta?.reintento_no_antes_de).toBe(resetsAt);
+    mismoInstante(filaAlta?.reintento_no_antes_de, resetsAt);
 
     await supabase.from("uso_suscripcion").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     await supabase.from("uso_suscripcion").insert({ familia: "sonnet", ventana: "seven_day", used_percentage: 70, resets_at: resetsAt });
@@ -118,7 +127,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
       .eq("id", trabajoId)
       .single();
     expect(trabajo?.estado).toBe("pausado-por-cuota");
-    expect(trabajo?.reintento_no_antes_de).toBe(resetsAt);
+    mismoInstante(trabajo?.reintento_no_antes_de, resetsAt);
     expect(trabajo?.plan_id).toBeNull();
 
     // La lectura del límite queda registrada para el pre-chequeo del
@@ -129,7 +138,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
       .eq("familia", "sonnet")
       .eq("ventana", "seven_day")
       .single();
-    expect(lectura?.resets_at).toBe(resetsAt);
+    mismoInstante(lectura?.resets_at, resetsAt);
   });
 
   it("(c) pasada la hora de reinicio, un tick posterior retoma y completa el trabajo pausado sin intervención", async () => {
@@ -148,7 +157,12 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     if (error || !trabajo) throw new Error(`No se pudo crear el trabajo de prueba: ${error?.message}`);
 
     const doble = dobleFijo([DIAS_VALIDOS]);
-    const resultado = await tick(supabase, { ejecutor: doble, directorio: "/tmp" });
+    // esperaOciosaMs mínima: tras procesar el único trabajo, la cola queda
+    // vacía y tick se quedaría despierto ~ESPERA_OCIOSA_MS por defecto
+    // (arquitectura: "se queda un rato antes de morir"); no es lo que este
+    // caso prueba, así que se recorta para no correr contra el timeout del
+    // test.
+    const resultado = await tick(supabase, { ejecutor: doble, directorio: "/tmp", esperaOciosaMs: 50, intervaloOciosoMs: 20 });
 
     expect(resultado.trabajosProcesados).toBe(1);
     expect(doble.invocaciones).toBe(1);
