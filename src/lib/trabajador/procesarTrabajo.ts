@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
+import { postProcesarPlan } from "@/lib/generacion/postProcesar";
 import { validarPlan, type ErrorValidacion } from "@/lib/plan/validar";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { Plan } from "@/lib/plan/tipos";
@@ -135,7 +136,11 @@ export async function procesarTrabajo(
   }
 
   await publicarEtapa(supabase, trabajo.id, "guardando");
-  await guardarPlan(supabase, intento.plan);
+  // generacion-ac1/ac2: red de seguridad determinista sobre el plan ya
+  // validado estructuralmente, no una confianza ciega en que el modelo
+  // obedeció el tope y la exclusión de categorías pedidos en el prompt.
+  const { plan: planFinal } = postProcesarPlan(intento.plan, trabajo.criterios);
+  await guardarPlan(supabase, planFinal);
   await supabase
     .from("trabajos")
     .update({ estado: "completado", plan_id: planId, etapa: "guardando", actualizado_en: new Date().toISOString() })

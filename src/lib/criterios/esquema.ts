@@ -46,5 +46,6 @@ export const esquemaCriterios = {
       required: ["direccion"],
       properties: { direccion: { type: "string", minLength: 1 } },
     },
+    tope_sitios_por_franja: { type: "integer", minimum: 1, maximum: 10 },
   },
 } as const;
