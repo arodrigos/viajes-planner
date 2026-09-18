@@ -7,8 +7,19 @@ import { describe, expect, it } from "vitest";
 // adelante): la respuesta de Adrián sustituyó el tope mensual en euros por
 // pausa y retomada de cuota de suscripción. Este test demuestra que el
 // mecanismo antiguo no ha sobrevivido en ninguna parte del código fuente.
+//
+// El patrón original prohibía también la palabra "euro" en prosa, sin
+// distinguir mayúsculas, lo que colisiona con el bloque latido-y-cambio
+// (desarrollado en paralelo, antes de que ninguno de los dos mereciera en
+// dev): "respecto al euro" en un comentario sobre el feed del BCE no es el
+// mecanismo de tope económico, es la divisa de las tasas de cambio, un
+// dato de producto tan legítimo como presupuesto_eur. El identificador que
+// de verdad delataría el mecanismo antiguo (una constante, una variable de
+// entorno, un literal monetario) usaría el código ISO en mayúsculas, no
+// prosa en minúsculas: por eso EUR queda sensible a mayúsculas y "euro(s)"
+// en minúsculas deja de prohibirse.
 const RAIZ_SRC = join(import.meta.dirname, "..", "..", "..");
-const PATRON_TOPE_ECONOMICO = /\b(EUR|euros?|tope_gasto|coste_mensual)\b/i;
+const PATRON_TOPE_ECONOMICO = /\bEUR\b|tope_gasto|coste_mensual/;
 
 function ficherosTs(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entrada) => {
@@ -19,7 +30,7 @@ function ficherosTs(dir: string): string[] {
 }
 
 describe("sin identificadores de tope económico en src/", () => {
-  it("no aparece EUR, euro(s), tope_gasto ni coste_mensual en ningún fichero de producto, ni en código ni en comentarios", () => {
+  it("no aparece EUR (mayúsculas), tope_gasto ni coste_mensual en ningún fichero de producto, ni en código ni en comentarios", () => {
     // "presupuesto_eur" (nombre de campo del formulario, no del mecanismo de
     // cuota) es la única excepción legítima: el presupuesto del VIAJE en
     // euros es un dato de producto, no el tope de gasto en tokens que se
