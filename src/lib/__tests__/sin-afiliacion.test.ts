@@ -21,6 +21,11 @@ describe("contieneScriptPublicitario", () => {
   it("no marca HTML limpio", () => {
     expect(contieneScriptPublicitario("<html><body>hola</body></html>")).toBe(false);
   });
+
+  it("no marca un dominio publicitario mencionado como texto inerte, solo como recurso cargado", () => {
+    const html = "<p>Reserva patrocinada por doubleclick.net, sin ningún script real</p>";
+    expect(contieneScriptPublicitario(html)).toBe(false);
+  });
 });
 
 describe("auditarHtml", () => {

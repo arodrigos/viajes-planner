@@ -40,6 +40,27 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
     expect(doble.llamadas).toBe(0);
   });
 
+  // esqueleto-ac1: /api/salud lee la fila 'trabajador-vps1' más reciente de
+  // `salud` para trabajador.visto_hace_seg; esto prueba que tick() la deja
+  // de verdad, contra Postgres real, no que el código "debería" escribirla.
+  it("deja constancia de vida en `salud` aunque la cola esté vacía", async () => {
+    const antes = new Date().toISOString();
+
+    await tick(supabase, { ejecutor: dobleContador(), directorio: "/tmp" });
+
+    const { data, error } = await supabase
+      .from("salud")
+      .select("origen, registrado_en")
+      .eq("origen", "trabajador-vps1")
+      .order("registrado_en", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    expect(error).toBeNull();
+    expect(data?.origen).toBe("trabajador-vps1");
+    expect(data?.registrado_en >= antes).toBe(true);
+  });
+
   it("dos ticks a la vez: exactamente uno adquiere el cerrojo y arranca", async () => {
     const dobleA = dobleContador();
     const dobleB = dobleContador();

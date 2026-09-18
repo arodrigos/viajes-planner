@@ -40,6 +40,11 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
     return { cerrojoAdquirido: false, trabajosProcesados: 0 };
   }
 
+  // esqueleto-ac1: deja constancia de que VPS1 sigue vivo (/api/salud lee la
+  // fila más reciente de este origen). Va aquí, no en procesarTrabajo, para
+  // que un tick con la cola vacía cuente igual que uno que sí trabaja.
+  await supabase.from("salud").insert({ origen: "trabajador-vps1" });
+
   let trabajosProcesados = 0;
   try {
     let ociosoDesde: number | null = null;

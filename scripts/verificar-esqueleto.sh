@@ -35,16 +35,30 @@ done
 echo "== esqueleto-ac1: /api/salud responde e identifica el commit desplegado =="
 curl -fsS "$VIAJES_URL/api/salud" | tee /tmp/salud.json | jq -e '.ok == true and (.commit | length) == 40'
 
-echo "== latido-ac1: /api/cron/latido rechaza sin el secreto de cron =="
-CODIGO="$(curl -s -o /dev/null -w '%{http_code}' "$VIAJES_URL/api/cron/latido")"
-if [ "$CODIGO" != "401" ]; then
-  echo "FALLO: se esperaba 401 sin cabecera Authorization, se obtuvo $CODIGO" >&2
-  exit 1
-fi
+echo "== esqueleto-ac1: vercel.json declara el único cron diario del esqueleto, y /api/salud lo confirma =="
+jq -e '.crons | length == 1 and .[0].path == "/api/salud" and (.[0].schedule | test("^[0-9]+ [0-9]+ \\* \\* \\*$"))' \
+  vercel.json >/dev/null
+jq -e '.crons_registrados == 1' /tmp/salud.json >/dev/null
 
-echo "== latido-ac2: vercel.json declara tres crons diarios, y /api/salud lo confirma =="
-jq -e '.crons | length == 3 and (map(.schedule | test("^[0-9]+ [0-9]+ \\* \\* \\*$")) | all)' vercel.json >/dev/null
-jq -e '.crons_registrados == 3' /tmp/salud.json >/dev/null
+# LIMITACIÓN DECLARADA (ver desviaciones en el entregable de desarrollo):
+# este job arranca la app a propósito sin SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY
+# (más abajo, trabajador-vps1, depende de ese vacío para probar su propio
+# camino de error) y sin un trabajador de VPS1 corriendo tick(). Por eso
+# solo se comprueba que estos campos existen con el TIPO que el smoke_test
+# del manifiesto espera, no los valores "sanos" (supabase: "activa",
+# trabajador.visto_hace_seg < 300...): esos sí los comprueba de verdad
+# el test de integración de route.ts contra Supabase local (npm run
+# test:integration, job "persistencia"), y el smoke_test completo solo
+# tiene sentido contra el despliegue real ya con VPS1 vivo.
+echo "== esqueleto-ac1: /api/salud trae la forma completa que pide el smoke_test del manifiesto =="
+jq -e '
+  (.supabase == "error") and
+  (.esquema_version == 1) and
+  (.modelo_acceso == "suscripcion-vps1") and
+  (.trabajador.visto_hace_seg == null) and
+  (.secretos_faltantes | index("SUPABASE_URL") != null) and
+  (.credenciales_modelo_en_web == false)
+' /tmp/salud.json >/dev/null
 
 echo "== esqueleto-ac3: el HTML servido no lleva afiliación ni publicidad =="
 HTML="$(curl -fsS "$VIAJES_URL/")"
