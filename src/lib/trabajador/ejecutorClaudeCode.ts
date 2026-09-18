@@ -18,7 +18,10 @@ const PATRON_HORA_ISO = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/;
 function limiteDeUsoDesde(texto: string): LimiteDeUsoAlcanzado | null {
   if (!PATRON_LIMITE_DE_USO.test(texto)) return null;
   const horaReinicio = texto.match(PATRON_HORA_ISO)?.[0];
-  return horaReinicio ? new LimiteDeUsoAlcanzado(horaReinicio) : null;
+  // trabajador-ac5: null explícito, no un porcentaje inventado — este
+  // camino (parseo de la salida de `claude -p`) nunca ha tenido de dónde
+  // sacar el consumido real.
+  return horaReinicio ? new LimiteDeUsoAlcanzado(horaReinicio, null) : null;
 }
 
 // Implementación real, para VPS1: ejecuta `claude -p` en modo no

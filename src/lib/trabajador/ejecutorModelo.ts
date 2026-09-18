@@ -17,14 +17,17 @@ export interface EjecutorModelo {
 }
 
 // trabajador-ac4 (b): señal de límite de uso alcanzado a media invocación.
-// resetsAt es obligatoria (a diferencia de EstadoCuota.resetsAt, donde
-// "no sé" es una respuesta legítima): sin una hora de reinicio no hay con
-// qué fijar reintento_no_antes_de, así que un ejecutor que la lance sin
-// ella incumple el contrato de este error, no el de invocar().
+// resetsAt es obligatoria: sin una hora de reinicio no hay con qué fijar
+// reintento_no_antes_de, así que un ejecutor que la lance sin ella incumple
+// el contrato de este error, no el de invocar(). trabajador-ac5: el modo
+// headless no publica el porcentaje consumido, así que usedPercentage es
+// number | null y SIN valor por defecto — quien construye el error tiene
+// que decidir explícitamente si de verdad sabe el número o pasa null; ya
+// no hay un 100 fabricado que se cuele por omisión.
 export class LimiteDeUsoAlcanzado extends Error {
   constructor(
     public readonly resetsAt: string,
-    public readonly usedPercentage: number = 100,
+    public readonly usedPercentage: number | null,
   ) {
     super("límite de uso del modelo alcanzado");
     this.name = "LimiteDeUsoAlcanzado";

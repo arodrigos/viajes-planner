@@ -52,14 +52,14 @@ test("un trabajo pausado por cuota explica el motivo y la hora de reanudación",
         estado: "pausado-por-cuota",
         etapa: null,
         porcentaje: 0,
-        motivo: "reserva-de-flota",
+        motivo: "límite de uso del modelo alcanzado",
         reintento_no_antes_de: "2026-09-20T10:00:00Z",
       },
     }),
   );
 
   await page.goto("/trabajos/abc");
-  await expect(page.getByText("reserva-de-flota")).toBeVisible();
+  await expect(page.getByText("límite de uso del modelo alcanzado")).toBeVisible();
   await expect(page.getByText(/Se retomará a partir de/)).toBeVisible();
 });
 
