@@ -59,4 +59,21 @@ for dominio in googlesyndication.com doubleclick.net "adsystem.amazon" taboola.c
   fi
 done
 
+echo "== trabajador-vps1: scripts/trabajador-tick.ts carga fuera de Next.js (--conditions=react-server) =="
+# El script del cron de VPS1 corre con `tsx` puro, sin el bundler de
+# Next.js: sin --conditions=react-server, cada módulo "server-only" que
+# importa (clienteServicio, procesarTrabajo...) lanza al cargar. Aquí no
+# hay SUPABASE_URL, así que el fallo esperado es ESE, no el de server-only.
+SALIDA_TRABAJADOR="$(npm run --silent trabajador:tick 2>&1 || true)"
+if echo "$SALIDA_TRABAJADOR" | grep -q "cannot be imported from a Client Component"; then
+  echo "FALLO: scripts/trabajador-tick.ts no carga fuera de Next.js (falta --conditions=react-server)" >&2
+  echo "$SALIDA_TRABAJADOR" >&2
+  exit 1
+fi
+if ! echo "$SALIDA_TRABAJADOR" | grep -q "Faltan SUPABASE_URL"; then
+  echo "FALLO: se esperaba el error de configuración de trabajador-tick.ts, salida distinta:" >&2
+  echo "$SALIDA_TRABAJADOR" >&2
+  exit 1
+fi
+
 echo "OK: verificación de esqueleto completa"
