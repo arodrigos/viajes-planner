@@ -18,9 +18,10 @@ export const esquemaPlan = {
     dia: {
       type: "object",
       additionalProperties: false,
-      required: ["fecha", "ancla_alojamiento", "franjas", "paradas"],
+      required: ["fecha", "franjas", "paradas"],
       properties: {
         fecha: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        // Opcional en fase 1: el modelo no propone alojamiento todavía (F2-06).
         ancla_alojamiento: { $ref: "#/$defs/anclaAlojamiento" },
         franjas: { type: "array", minItems: 1, items: { $ref: "#/$defs/franja" } },
         paradas: { type: "array", items: { $ref: "#/$defs/parada" } },
@@ -67,30 +68,30 @@ export const esquemaPlan = {
       additionalProperties: false,
       required: ["fuente"],
       properties: {
-        fuente: { enum: ["oficial", "secundaria", "estimado"] },
-        url: { type: "string" },
+        // Un único valor posible en fase 1 (ver tipos.ts): el esquema no
+        // admite "url" todavía, que es la propia comprobación de que
+        // ninguna URL generada por el modelo llega al plan guardado.
+        fuente: { const: "propuesto-sin-verificar" },
       },
     },
     parada: {
       type: "object",
       additionalProperties: false,
-      required: ["id", "franja_id", "sitio", "duracion_min", "prioridad", "procedencia"],
+      required: ["id", "franja_id", "nombre", "descripcion", "duracion_min", "prioridad", "procedencia"],
       properties: {
         id: { type: "string", minLength: 1 },
         franja_id: { type: "string", minLength: 1 },
-        sitio: {
-          type: "object",
-          additionalProperties: false,
-          required: ["nombre", "lat", "lon"],
-          properties: {
-            nombre: { type: "string", minLength: 1 },
-            lat: { type: "number" },
-            lon: { type: "number" },
-          },
-        },
+        nombre: { type: "string", minLength: 1 },
+        descripcion: { type: "string", minLength: 1 },
         duracion_min: { type: "number", exclusiveMinimum: 0 },
         prioridad: { type: "number", minimum: 0, maximum: 100 },
         procedencia: { $ref: "#/$defs/procedencia" },
+        coordenadas: {
+          type: "object",
+          additionalProperties: false,
+          required: ["lat", "lon"],
+          properties: { lat: { type: "number" }, lon: { type: "number" } },
+        },
       },
     },
   },

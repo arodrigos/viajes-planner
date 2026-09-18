@@ -3,17 +3,14 @@
 // tipos-publicos.ts): son la traducción directa a ventana temporal de VROOM
 // (costura con la fase 2) y no deben llegar nunca al cliente.
 
-export type FuenteProcedencia = "oficial" | "secundaria" | "estimado";
+// En fase 1 la parada es "propuesto-sin-verificar" siempre: no hay ficha
+// contra la que resolverla todavía. F2-08 añadirá los orígenes reales
+// (ficha con fecha, ficha sin fecha, estimado); hasta entonces este es el
+// único valor posible, no una enumeración a medio llenar.
+export type FuenteProcedencia = "propuesto-sin-verificar";
 
 export interface Procedencia {
   fuente: FuenteProcedencia;
-  url?: string;
-}
-
-export interface Sitio {
-  nombre: string;
-  lat: number;
-  lon: number;
 }
 
 // Las seis franjas de un día. Los límites horarios son configuración por
@@ -25,13 +22,21 @@ export interface Franja {
   hora_fin: string; // "HH:MM"
 }
 
+// nombre y descripcion son lo único que la fase 1 escribe de verdad.
+// coordenadas, ficha, apertura y presupuesto se declaran opcionales desde
+// ahora para que las fases siguientes (resolución contra fichas, F2-02 en
+// adelante) no obliguen a migrar los planes ya guardados: guardar un campo
+// opcional sin usar cuesta la columna; añadirlo después cuesta reescribir
+// cada plan existente.
 export interface Parada {
   id: string;
   franja_id: string;
-  sitio: Sitio;
+  nombre: string;
+  descripcion: string;
   duracion_min: number;
   prioridad: number; // 0-100
   procedencia: Procedencia;
+  coordenadas?: { lat: number; lon: number };
 }
 
 export type AnclaAlojamiento =
@@ -40,7 +45,8 @@ export type AnclaAlojamiento =
 
 export interface Dia {
   fecha: string; // "YYYY-MM-DD"
-  ancla_alojamiento: AnclaAlojamiento;
+  // Opcional en fase 1: el modelo no propone alojamiento todavía (F2-06).
+  ancla_alojamiento?: AnclaAlojamiento;
   franjas: Franja[];
   paradas: Parada[];
 }
