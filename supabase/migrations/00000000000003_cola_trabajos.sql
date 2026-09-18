@@ -35,3 +35,11 @@ begin
   returning *;
 end;
 $$;
+
+-- Postgres concede EXECUTE a PUBLIC por defecto en las funciones nuevas:
+-- sin este revoke, anon/authenticated (que ya tienen USAGE sobre el
+-- esquema) podrían invocar la función RPC directamente. RLS seguiría
+-- bloqueando el UPDATE de fondo, pero no hace falta dejar la puerta ahí
+-- para comprobarlo -mismo criterio de denegación por defecto que las
+-- tablas.
+revoke execute on function tomar_siguiente_trabajo(text, integer) from public;
