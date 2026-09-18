@@ -34,7 +34,13 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
 
   const { data: versionInsertada, error: errorInsertarVersion } = await supabase
     .from("plan_versiones")
-    .insert({ plan_id: plan.id, version: siguienteVersion, personas: plan.personas, dias: diasAlmacenados })
+    .insert({
+      plan_id: plan.id,
+      version: siguienteVersion,
+      personas: plan.personas,
+      dias: diasAlmacenados,
+      avisos: plan.avisos ?? [],
+    })
     .select("id")
     .single();
   if (errorInsertarVersion || !versionInsertada) {
@@ -88,7 +94,7 @@ export async function recuperarPlan(
 
   let consultaVersion = supabase
     .from("plan_versiones")
-    .select("id, version, personas, dias")
+    .select("id, version, personas, dias, avisos")
     .eq("plan_id", planId);
   consultaVersion =
     version === undefined
@@ -139,5 +145,6 @@ export async function recuperarPlan(
     destino: planRow.destino as string,
     personas: versionRow.personas as number,
     dias,
+    avisos: (versionRow.avisos as string[] | null) ?? [],
   };
 }

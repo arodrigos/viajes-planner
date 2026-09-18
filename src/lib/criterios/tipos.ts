@@ -15,4 +15,9 @@ export interface CriteriosViaje {
   perfil: Perfil;
   presupuesto_eur: number;
   alojamiento?: { direccion: string };
+  // bloque generacion: el único parámetro numérico del sistema. Por
+  // defecto lo deriva el perfil (ver src/lib/generacion/tope.ts) porque no
+  // existe señal de datos abiertos que signifique "apto para familias";
+  // esto permite al usuario sobrescribirlo explícitamente.
+  tope_sitios_por_franja?: number;
 }

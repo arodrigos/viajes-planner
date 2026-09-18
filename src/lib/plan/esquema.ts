@@ -13,6 +13,11 @@ export const esquemaPlan = {
     destino: { type: "string", minLength: 1 },
     personas: { type: "integer", minimum: 1 },
     dias: { type: "array", minItems: 1, items: { $ref: "#/$defs/dia" } },
+    // bloque generacion (ac2): explicación de exclusiones por categoría de
+    // riesgo. No la produce el modelo (candidato se ensambla sin ella en
+    // procesarTrabajo); la añade el post-proceso determinista después de
+    // validar contra este mismo esquema.
+    avisos: { type: "array", items: { type: "string" } },
   },
   $defs: {
     dia: {

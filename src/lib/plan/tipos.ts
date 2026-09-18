@@ -57,4 +57,8 @@ export interface Plan {
   destino: string;
   personas: number;
   dias: Dia[];
+  // bloque generacion (ac2): explica en vez de callar cuando se excluyen
+  // paradas por categoría de riesgo. Vacío o ausente cuando no hubo nada
+  // que excluir.
+  avisos?: string[];
 }

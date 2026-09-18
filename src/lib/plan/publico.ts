@@ -21,6 +21,7 @@ export interface PlanPublico {
   destino: string;
   personas: number;
   dias: DiaPublico[];
+  avisos: string[];
 }
 
 export function aPlanPublico(plan: Plan): PlanPublico {
@@ -35,5 +36,6 @@ export function aPlanPublico(plan: Plan): PlanPublico {
       franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
       paradas: dia.paradas,
     })),
+    avisos: plan.avisos ?? [],
   };
 }

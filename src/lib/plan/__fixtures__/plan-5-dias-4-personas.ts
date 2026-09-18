@@ -62,4 +62,7 @@ export const planFixture: Plan = {
     diaFixture("2026-10-08", 3),
     diaFixture("2026-10-09", 4),
   ],
+  // Explícito, no ausente: recuperarPlan siempre devuelve avisos (bloque
+  // generacion), y este fixture se compara con toEqual contra lo recuperado.
+  avisos: [],
 };
