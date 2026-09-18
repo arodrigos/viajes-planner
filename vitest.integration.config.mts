@@ -13,6 +13,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
+      // "server-only" solo distingue Server/Client Components bajo el
+      // bundler de Next.js (condición de exports "react-server"); fuera de
+      // ahí (aquí, bajo Vite/Vitest) su índice por defecto siempre lanza.
+      // El repositorio SÍ debe seguir siendo server-only en el build real.
+      "server-only": path.resolve(import.meta.dirname, "node_modules/server-only/empty.js"),
     },
   },
 });
