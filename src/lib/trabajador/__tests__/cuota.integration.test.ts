@@ -183,6 +183,12 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     expect(tickInmediato.trabajosProcesados).toBe(0);
     expect(dobleNoDeberiaLlamarse.invocaciones).toBe(0);
 
+    // Espera real hasta pasar primerReset: los pasos (1) y (2) no garantizan
+    // por sí mismos que los 150 ms hayan transcurrido -- en un runner de CI
+    // rápido pueden completarse antes, y el paso (3) fallaría por una carrera
+    // de tiempo, no por un defecto real (así falló en CI la primera vez).
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
     // (3) Pasada la primera hora de reinicio, un tick real lo retoma SOLO
     // por la cola —esta es la única reclamación de arrendamiento de todo el
     // test, a propósito: tomar_siguiente_trabajo fija tomado_hasta a
