@@ -15,3 +15,18 @@ export interface ResultadoInvocacion {
 export interface EjecutorModelo {
   invocar(prompt: string, opciones: OpcionesInvocacion): Promise<ResultadoInvocacion>;
 }
+
+// trabajador-ac4 (b): señal de límite de uso alcanzado a media invocación.
+// resetsAt es obligatoria (a diferencia de EstadoCuota.resetsAt, donde
+// "no sé" es una respuesta legítima): sin una hora de reinicio no hay con
+// qué fijar reintento_no_antes_de, así que un ejecutor que la lance sin
+// ella incumple el contrato de este error, no el de invocar().
+export class LimiteDeUsoAlcanzado extends Error {
+  constructor(
+    public readonly resetsAt: string,
+    public readonly usedPercentage: number = 100,
+  ) {
+    super("límite de uso del modelo alcanzado");
+    this.name = "LimiteDeUsoAlcanzado";
+  }
+}
