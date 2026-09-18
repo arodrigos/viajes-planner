@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main, dev]
 
+# CORREOS_PERMITIDOS no es un secreto de producto (lo es la lista real de
+# Adrián, que vive solo en Vercel); es el valor de prueba que necesita
+# cualquier `npm run build` en CI desde que el prebuild lo exige (acceso-ac2).
+env:
+  CORREOS_PERMITIDOS: "ci-test@example.com"
+
 jobs:
   lint-typecheck-test:
     runs-on: ubuntu-latest
