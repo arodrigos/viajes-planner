@@ -13,7 +13,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // antes que el trabajo que este fichero acaba de insertar. Vaciar la tabla
 // antes de cada caso es lo que hace estos tests deterministas sin dejar de
 // ser reales.
-describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tomarSiguienteTrabajo (cola-ac2)", () => {
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tomarSiguienteTrabajo (acceso-ac3)", () => {
   const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
 
   beforeEach(async () => {

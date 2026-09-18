@@ -3,8 +3,9 @@ import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { crearTrabajoGeneracion } from "@/lib/cola/crear";
 
-// cola-ac1 / acceso-ac1 / acceso-ac3: sin sesión, 401; criterios inválidos,
-// 400; límite superado, 429; si no, 202 con el identificador al instante.
+// acceso-ac1 / acceso-ac3: sin sesión, 401 (acceso-ac1); criterios
+// inválidos, 400; límite superado, 429 (acceso-ac1); si no, 202 con el
+// identificador al instante (acceso-ac3).
 export async function POST(request: NextRequest) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;

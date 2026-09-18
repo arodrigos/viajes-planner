@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// criterios-ac2: usable a 360px de ancho sin desbordamiento horizontal, con
+// acceso-ac2: usable a 360px de ancho sin desbordamiento horizontal, con
 // todos los controles alcanzables por teclado.
 test.use({ viewport: { width: 360, height: 740 } });
 

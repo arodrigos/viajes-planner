@@ -2,11 +2,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// acceso-ac4 (parte que sí es responsabilidad de este bloque, no del tick
-// del trabajador que construye trabajador-vps1/cuota-suscripcion más
-// adelante): la respuesta de Adrián sustituyó el tope mensual en euros por
-// pausa y retomada de cuota de suscripción. Este test demuestra que el
-// mecanismo antiguo no ha sobrevivido en ninguna parte del código fuente.
+// Salvaguarda permanente, no atada a un criterio de aceptación concreto: la
+// respuesta de Adrián sustituyó el tope mensual en euros por pausa y
+// retomada de cuota de suscripción (ver trabajador-vps1). Este test
+// demuestra que el mecanismo antiguo no ha sobrevivido en ninguna parte del
+// código fuente.
 //
 // El patrón original prohibía también la palabra "euro" en prosa, sin
 // distinguir mayúsculas, lo que colisiona con el bloque latido-y-cambio

@@ -14,7 +14,7 @@ export interface EstadoTrabajo {
 
 const MOTIVO_CADUCADO = "el trabajador no ha recogido el trabajo a tiempo";
 
-// cola-ac3: un trabajo que nadie toma caduca con motivo en vez de girar
+// acceso-ac3: un trabajo que nadie toma caduca con motivo en vez de girar
 // indefinidamente. Se comprueba en el momento de leer (no hay un cron
 // aparte para esto): si sigue "encolado" pasada CADUCIDAD_HORAS desde su
 // creación, se marca "caducado" aquí mismo antes de responder.

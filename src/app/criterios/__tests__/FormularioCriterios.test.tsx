@@ -14,7 +14,7 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-describe("FormularioCriterios (criterios-ac1)", () => {
+describe("FormularioCriterios (acceso-ac2)", () => {
   it("valida sin tocar el alojamiento y restaura el estado tras recargar", async () => {
     const usuario = userEvent.setup();
     render(<FormularioCriterios />);

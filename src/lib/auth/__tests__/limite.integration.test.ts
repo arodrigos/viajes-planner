@@ -5,12 +5,12 @@ import { dentroDelLimite } from "@/lib/auth/limite";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// acceso-ac3: superado el límite de trabajos por usuario, no se encola
+// acceso-ac1: superado el límite de trabajos por usuario, no se encola
 // nada más. Se verifica la función que ese gate usa contra una base de
 // datos real (no HTTP: /api/plan lo construye el bloque cola-trabajos,
 // que depende de este; ese bloque reverifica el 429 en la capa HTTP
 // reutilizando exactamente esta función).
-describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("dentroDelLimite (acceso-ac3)", () => {
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("dentroDelLimite (acceso-ac1)", () => {
   const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
   let usuarioId = "";
   const LIMITE = 3;

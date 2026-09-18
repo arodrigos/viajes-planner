@@ -9,7 +9,7 @@ export interface TrabajoTomado {
   plan_id: string | null;
 }
 
-// cola-ac2: dos tomas concurrentes no pueden llevarse el mismo trabajo. La
+// acceso-ac3: dos tomas concurrentes no pueden llevarse el mismo trabajo. La
 // atomicidad la da la función de Postgres tomar_siguiente_trabajo (FOR
 // UPDATE SKIP LOCKED + UPDATE en la misma transacción del lado del
 // servidor), no un candado a nivel de aplicación que dos procesos
