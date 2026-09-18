@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { franjasParaDestino } from "@/lib/plan/config-franjas";
+import { auditarHtml } from "@/lib/sin-afiliacion";
 
 // vista-ac2: a 360px, con los días y franjas por su etiqueta visible, sin
 // ningún valor horario interno ni duración en minutos/horas en el HTML
@@ -8,6 +9,13 @@ test.use({ viewport: { width: 360, height: 740 } });
 
 const DESTINO = "Sevilla";
 
+// esqueleto-ac3: nombre y descripcion son los dos únicos campos que el
+// modelo redacta libremente (generacion-ac1/ac2 solo acota tope y
+// categorías, no el texto). Aquí simulan, a propósito, el peor caso -una
+// respuesta con pinta de enlace de afiliación y de dominio publicitario-
+// para comprobar que la vista los deja como texto inerte, no como href/src
+// reales: es la única ruta donde el HTML auditado por
+// verificar-esqueleto.sh (solo "/" ) no llega.
 function diaFixture(fecha: string, indice: number) {
   const franjasConfig = franjasParaDestino(DESTINO);
   const franjas = Object.entries(franjasConfig).map(([id, def]) => ({ id, etiqueta: def.etiqueta }));
@@ -19,7 +27,10 @@ function diaFixture(fecha: string, indice: number) {
         id: `parada-${indice}`,
         franja_id: "manana",
         nombre: `Sitio del día ${indice + 1}`,
-        descripcion: "Una visita tranquila, sin verificar contra ninguna ficha todavía.",
+        descripcion:
+          indice === 0
+            ? "Reserva en https://booking.com/hotel?aid=999, patrocinado por doubleclick.net"
+            : "Una visita tranquila, sin verificar contra ninguna ficha todavía.",
       },
     ],
   };
@@ -49,8 +60,13 @@ test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni d
   const anchoDocumento = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(anchoDocumento).toBeLessThanOrEqual(360);
 
-  // (b) ningún horario interno ni duración en minutos/horas.
+  // (b) ningún horario interno ni duración en minutos/horas, y el texto
+  // libre del modelo (nombre/descripcion, con pinta de afiliación y de
+  // dominio publicitario a propósito) llega como texto inerte, nunca como
+  // un href/src real.
   const html = await page.content();
+  const auditoria = auditarHtml(html);
+  expect(auditoria.ok, auditoria.motivos.join("; ")).toBe(true);
   const horasConfiguradas = Object.values(franjasParaDestino(DESTINO)).flatMap((f) => [f.hora_inicio, f.hora_fin]);
   for (const hora of horasConfiguradas) {
     expect(html).not.toContain(hora);

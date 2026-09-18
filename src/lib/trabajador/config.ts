@@ -4,6 +4,9 @@
 // mitigación #1 del modelo de amenazas de trabajador-vps1.
 export const MODELO_GENERACION = process.env.TRABAJADOR_MODELO ?? "claude-sonnet-5";
 export const HERRAMIENTAS_PERMITIDAS = ["Read", "Write"] as const;
+// /api/salud (esqueleto-ac1) lo expone tal cual: decisión de arquitectura
+// que no cambia con el entorno, a diferencia de MODELO_GENERACION.
+export const MODELO_ACCESO = "suscripcion-vps1";
 
 export const CERROJO_TTL_MIN = Number(process.env.TRABAJADOR_CERROJO_TTL_MIN ?? 10);
 // trabajador-ac4: reserva de flota. Con la ventana semanal por encima de
