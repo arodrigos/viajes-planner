@@ -1,12 +1,24 @@
 import { createClient } from "@supabase/supabase-js";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { tomarSiguienteTrabajo } from "@/lib/cola/tomar";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// tomar_siguiente_trabajo no filtra por usuario ni por ningún marcador de
+// prueba: coge el más antiguo de TODA la tabla. Contra la base de datos
+// compartida que usan el resto de tests de integración (misma pila local
+// de Supabase, sin reset entre ficheros), una fila que sobreviva de
+// crear.integration.test.ts o consultar.integration.test.ts se cuela
+// antes que el trabajo que este fichero acaba de insertar. Vaciar la tabla
+// antes de cada caso es lo que hace estos tests deterministas sin dejar de
+// ser reales.
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tomarSiguienteTrabajo (cola-ac2)", () => {
   const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+
+  beforeEach(async () => {
+    await supabase.from("trabajos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  });
 
   it("dos tomas concurrentes del mismo trabajo: exactamente una se lo lleva", async () => {
     const { data: trabajo, error } = await supabase
@@ -44,7 +56,6 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tomarSiguienteTrabajo (cola-ac2)
   });
 
   it("sin trabajos disponibles, devuelve null", async () => {
-    await supabase.from("trabajos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     const resultado = await tomarSiguienteTrabajo(supabase, "worker-x");
     expect(resultado).toBeNull();
   });
