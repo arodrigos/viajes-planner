@@ -5,7 +5,7 @@ import { procesarSolicitudEnlace } from "@/lib/auth/solicitarEnlace";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-describe.skipIf(!SUPABASE_URL || !ANON_KEY)("procesarSolicitudEnlace (acceso-ac2)", () => {
+describe.skipIf(!SUPABASE_URL || !ANON_KEY)("procesarSolicitudEnlace (acceso-ac1)", () => {
   it("un correo fuera de la lista blanca no llega a pedir el enlace y no crea usuario", async () => {
     const signInWithOtp = vi.fn();
     const supabaseFalso = { auth: { signInWithOtp } } as never;

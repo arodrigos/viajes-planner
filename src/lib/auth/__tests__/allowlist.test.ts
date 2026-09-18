@@ -36,7 +36,7 @@ describe("correoPermitido", () => {
   });
 });
 
-describe("scripts/comprobar-entorno.ts (acceso-ac2, arranque)", () => {
+describe("scripts/comprobar-entorno.ts (acceso-ac1, arranque)", () => {
   it("termina con código distinto de cero y nombra la variable cuando la lista está vacía", () => {
     expect(() =>
       execFileSync("npx", ["tsx", "scripts/comprobar-entorno.ts"], {

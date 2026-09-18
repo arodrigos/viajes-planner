@@ -5,7 +5,7 @@ import { obtenerTrabajo } from "@/lib/cola/consultar";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("obtenerTrabajo (cola-ac1, cola-ac3, exposición de planes)", () => {
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("obtenerTrabajo (acceso-ac3, exposición de planes)", () => {
   const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
   let usuarioId = "";
 
@@ -48,7 +48,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("obtenerTrabajo (cola-ac1, cola-a
     expect(resultado?.porcentaje).toBeGreaterThan(0);
   });
 
-  it("un trabajo encolado hace tiempo caduca con motivo al leerlo (cola-ac3)", async () => {
+  it("un trabajo encolado hace tiempo caduca con motivo al leerlo (acceso-ac3)", async () => {
     const haceMucho = new Date(Date.now() - 100 * 3_600_000).toISOString();
     const { data: trabajo, error } = await supabase
       .from("trabajos")

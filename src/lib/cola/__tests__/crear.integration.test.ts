@@ -15,7 +15,7 @@ const CRITERIOS_VALIDOS = {
   presupuesto_eur: 1200,
 };
 
-describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("crearTrabajoGeneracion (cola-ac1, acceso-ac3)", () => {
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("crearTrabajoGeneracion (acceso-ac3)", () => {
   const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
   let usuarioId = "";
 
@@ -43,7 +43,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("crearTrabajoGeneracion (cola-ac1
     expect(resultado.estado).toBe("criterios-invalidos");
   });
 
-  it("superado el límite por hora, deja de encolar (acceso-ac3 en la capa de cola)", async () => {
+  it("superado el límite por hora, deja de encolar (acceso-ac1 en la capa de cola)", async () => {
     const correo = `limite-cola-${Date.now()}@ej.com`;
     const { data: usuario, error } = await supabase.auth.admin.createUser({ email: correo, email_confirm: true });
     if (error || !usuario.user) throw new Error(`No se pudo crear el usuario de prueba: ${error?.message}`);

@@ -9,7 +9,7 @@ export type ResultadoSolicitudEnlace =
 
 // Separado de la Route Handler para poder probar el gate de la lista
 // blanca sin depender de una petición HTTP real ni de la entrega de
-// correo: acceso-ac2 solo pide que el correo no listado no complete el
+// correo: acceso-ac1 solo pide que el correo no listado no complete el
 // alta, no que se compruebe la bandeja de entrada.
 export async function procesarSolicitudEnlace(
   supabase: SupabaseClient,

@@ -23,7 +23,7 @@ const CRITERIOS_VALIDOS = {
 // route.ts envuelve: la ruta en sí es un mapeo directo de ese resultado a
 // un código HTTP, sin lógica propia que justifique repetir cada caso aquí
 // con una sesión fabricada.
-describe.skipIf(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY)("POST /api/plan (cola-ac1, acceso-ac1)", () => {
+describe.skipIf(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY)("POST /api/plan (acceso-ac1)", () => {
   it("sin sesión responde 401 y no crea ningún trabajo", async () => {
     const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
     const { count: antes } = await supabase.from("trabajos").select("id", { count: "exact", head: true });
