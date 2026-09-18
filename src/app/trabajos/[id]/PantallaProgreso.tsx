@@ -7,13 +7,19 @@ interface EstadoTrabajo {
   etapa: string | null;
   porcentaje: number;
   motivo: string | null;
+  reintento_no_antes_de: string | null;
 }
 
 const INTERVALO_MS = 3000;
 
-// cola-ac3: el usuario ve el NOMBRE de la etapa en curso, no una barra
-// genérica -es lo que Adrián pidió a cambio de aceptar más espera- y un
-// trabajo caducado lo dice con su motivo en vez de seguir girando.
+function formatearFecha(iso: string): string {
+  return new Date(iso).toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short" });
+}
+
+// vista-ac1: el usuario ve el NOMBRE de la etapa en curso, no una barra
+// genérica -es lo que Adrián pidió a cambio de aceptar más espera-, y cada
+// estado que no es éxito se explica con su motivo y, cuando lo hay, con su
+// hora de reanudación, en vez de seguir girando en silencio.
 export function PantallaProgreso({ id }: { id: string }) {
   const [trabajo, setTrabajo] = useState<EstadoTrabajo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +68,25 @@ export function PantallaProgreso({ id }: { id: string }) {
 
   if (trabajo.estado === "encolado") {
     return <p>Encolado, esperando a que un trabajador lo recoja…</p>;
+  }
+
+  if (trabajo.estado === "pausado-por-cuota") {
+    return (
+      <div>
+        <p>El viaje está pausado: la suscripción ha llegado a su límite de uso.</p>
+        <p>{trabajo.motivo}</p>
+        {trabajo.reintento_no_antes_de && <p>Se retomará a partir de {formatearFecha(trabajo.reintento_no_antes_de)}.</p>}
+      </div>
+    );
+  }
+
+  if (trabajo.estado === "fallido") {
+    return (
+      <div>
+        <p>No se ha podido generar el viaje.</p>
+        <p>{trabajo.motivo}</p>
+      </div>
+    );
   }
 
   return (

@@ -10,6 +10,9 @@ export interface EstadoTrabajo {
   porcentaje: number;
   motivo: string | null;
   creado_en: string;
+  // vista-ac1: un trabajo pausado por cuota necesita su hora de reanudación
+  // para explicarse, no solo el motivo.
+  reintento_no_antes_de: string | null;
 }
 
 const MOTIVO_CADUCADO = "el trabajador no ha recogido el trabajo a tiempo";
@@ -25,7 +28,7 @@ export async function obtenerTrabajo(
 ): Promise<EstadoTrabajo | null> {
   const { data, error } = await supabase
     .from("trabajos")
-    .select("id, estado, etapa, motivo, creado_en")
+    .select("id, estado, etapa, motivo, creado_en, reintento_no_antes_de")
     .eq("id", id)
     .eq("usuario_id", usuarioId)
     .maybeSingle();
@@ -43,6 +46,7 @@ export async function obtenerTrabajo(
         porcentaje: porcentajeParaEtapa(data.etapa),
         motivo: MOTIVO_CADUCADO,
         creado_en: data.creado_en,
+        reintento_no_antes_de: null,
       };
     }
   }
@@ -54,5 +58,6 @@ export async function obtenerTrabajo(
     porcentaje: porcentajeParaEtapa(data.etapa),
     motivo: data.motivo,
     creado_en: data.creado_en,
+    reintento_no_antes_de: data.reintento_no_antes_de,
   };
 }
