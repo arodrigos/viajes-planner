@@ -1,7 +1,25 @@
 import "server-only";
 import { spawn } from "node:child_process";
 import { construirInvocacion, type OpcionesInvocacion } from "./invocacion";
-import type { EjecutorModelo, ResultadoInvocacion } from "./ejecutorModelo";
+import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
+
+// trabajador-ac4 (b), incertidumbre declarada (ver entregable,
+// desviaciones): la documentación de Claude Code confirma el tipo
+// SessionRateLimit (kind, percentUsed, resetsAt) para sesiones
+// interactivas, pero no un formato estable para esta señal en modo no
+// interactivo ('-p --output-format json'). Sin esa confirmación, reconoce
+// el límite por el texto del mensaje Y por una hora de reinicio ISO-8601
+// explícita en él; si falta cualquiera de las dos, no arriesga a inventar
+// una hora de reinicio y cae al camino de error genérico de abajo — el
+// trabajo queda 'fallido' con motivo, no perdido en silencio.
+const PATRON_LIMITE_DE_USO = /usage limit|rate limit|límite de uso/i;
+const PATRON_HORA_ISO = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/;
+
+function limiteDeUsoDesde(texto: string): LimiteDeUsoAlcanzado | null {
+  if (!PATRON_LIMITE_DE_USO.test(texto)) return null;
+  const horaReinicio = texto.match(PATRON_HORA_ISO)?.[0];
+  return horaReinicio ? new LimiteDeUsoAlcanzado(horaReinicio) : null;
+}
 
 // Implementación real, para VPS1: ejecuta `claude -p` en modo no
 // interactivo bajo la sesión de Adrián (Claude Code — Non-interactive
@@ -28,6 +46,11 @@ export const ejecutorClaudeCode: EjecutorModelo = {
 
       proceso.on("error", reject);
       proceso.on("close", (codigo) => {
+        const limite = limiteDeUsoDesde(`${salida}\n${salidaError}`);
+        if (limite) {
+          reject(limite);
+          return;
+        }
         if (codigo !== 0) {
           reject(new Error(`claude terminó con código ${codigo}: ${salidaError || salida}`));
           return;

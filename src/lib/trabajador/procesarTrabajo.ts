@@ -4,10 +4,11 @@ import type { CriteriosViaje } from "@/lib/criterios/tipos";
 import { validarPlan, type ErrorValidacion } from "@/lib/plan/validar";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { Plan } from "@/lib/plan/tipos";
-import type { EjecutorModelo } from "./ejecutorModelo";
+import { estadoCuota, familiaDeModelo, registrarLecturaCuota } from "./cuota";
+import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
 import { generarIdPlan } from "./id";
-import { MODELO_GENERACION } from "./config";
+import { MODELO_GENERACION, UMBRAL_CUOTA_SEMANAL } from "./config";
 
 export interface TrabajoAProcesar {
   id: string;
@@ -50,25 +51,77 @@ async function publicarEtapa(supabase: SupabaseClient, trabajoId: string, etapa:
   await supabase.from("trabajos").update({ etapa, actualizado_en: new Date().toISOString() }).eq("id", trabajoId);
 }
 
+async function pausarPorCuota(
+  supabase: SupabaseClient,
+  trabajoId: string,
+  motivo: string,
+  reintentoNoAntesDe: string | null,
+): Promise<void> {
+  await supabase
+    .from("trabajos")
+    .update({
+      estado: "pausado-por-cuota",
+      motivo,
+      reintento_no_antes_de: reintentoNoAntesDe,
+      actualizado_en: new Date().toISOString(),
+    })
+    .eq("id", trabajoId);
+}
+
+type RespuestaOLimitada = ResultadoInvocacion | { limitado: true };
+
+// trabajador-ac4 (b): un límite de uso a media invocación no debe crashear
+// ni perder el trabajo — se traduce a la misma pausa que el pre-chequeo
+// (a), solo que con el motivo real del modelo, y se registra la lectura
+// para que el pre-chequeo del próximo trabajo la vea.
+async function invocarOPausar(
+  supabase: SupabaseClient,
+  trabajoId: string,
+  familia: ReturnType<typeof familiaDeModelo>,
+  ejecutor: EjecutorModelo,
+  prompt: string,
+  directorio: string,
+): Promise<RespuestaOLimitada> {
+  try {
+    return await ejecutor.invocar(prompt, { directorio, modelo: MODELO_GENERACION });
+  } catch (error) {
+    if (!(error instanceof LimiteDeUsoAlcanzado)) throw error;
+    await registrarLecturaCuota(supabase, familia, error.usedPercentage, error.resetsAt);
+    await pausarPorCuota(supabase, trabajoId, error.message, error.resetsAt);
+    return { limitado: true };
+  }
+}
+
 // trabajador-ac1 (no en CI, ver ejecutorModelo.ts) / trabajador-ac2: un
 // trabajo se completa de extremo a extremo o queda 'fallido' con motivo;
-// nunca hay una escritura a medias en planes.
+// nunca hay una escritura a medias en planes. trabajador-ac4: ni arranca
+// por encima del umbral de cuota ni se pierde si el límite llega a media
+// invocación.
 export async function procesarTrabajo(
   supabase: SupabaseClient,
   trabajo: TrabajoAProcesar,
   { ejecutor, directorio }: DependenciasProcesarTrabajo,
-): Promise<{ estado: "completado" | "fallido" }> {
+): Promise<{ estado: "completado" | "fallido" | "pausado-por-cuota" }> {
+  const familia = familiaDeModelo(MODELO_GENERACION);
+  const cuota = await estadoCuota(supabase, familia, UMBRAL_CUOTA_SEMANAL);
+  if (cuota.superaUmbral) {
+    await pausarPorCuota(supabase, trabajo.id, "reserva-de-flota", cuota.resetsAt);
+    return { estado: "pausado-por-cuota" };
+  }
+
   await publicarEtapa(supabase, trabajo.id, "preparando la petición");
   const planId = trabajo.plan_id ?? generarIdPlan();
 
   await publicarEtapa(supabase, trabajo.id, "generando el plan");
   const prompt = construirPrompt(trabajo.criterios);
-  const primeraRespuesta = await ejecutor.invocar(prompt, { directorio, modelo: MODELO_GENERACION });
+  const primeraRespuesta = await invocarOPausar(supabase, trabajo.id, familia, ejecutor, prompt, directorio);
+  if ("limitado" in primeraRespuesta) return { estado: "pausado-por-cuota" };
   let intento = ensamblarYValidar(trabajo.criterios, planId, primeraRespuesta.texto);
 
   if (!intento.valido) {
     const promptReintento = construirPromptReintento(prompt, intento.errores);
-    const segundaRespuesta = await ejecutor.invocar(promptReintento, { directorio, modelo: MODELO_GENERACION });
+    const segundaRespuesta = await invocarOPausar(supabase, trabajo.id, familia, ejecutor, promptReintento, directorio);
+    if ("limitado" in segundaRespuesta) return { estado: "pausado-por-cuota" };
     intento = ensamblarYValidar(trabajo.criterios, planId, segundaRespuesta.texto);
   }
 

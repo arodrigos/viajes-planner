@@ -17,10 +17,10 @@ function dobleContador(): EjecutorModelo & { llamadas: number } {
   return doble;
 }
 
-// trabajador-ac4: la exclusión mutua y el atajo de cola vacía se
+// trabajador-ac3 (c): la exclusión mutua y el atajo de cola vacía se
 // comprueban contra el cerrojo real de Postgres, no contra un mock en
 // memoria — dos procesos de verdad no podrían compartir un mock.
-describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac4)", () => {
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
   const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
 
   beforeEach(async () => {

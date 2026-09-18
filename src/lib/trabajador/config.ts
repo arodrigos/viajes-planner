@@ -6,6 +6,11 @@ export const MODELO_GENERACION = process.env.TRABAJADOR_MODELO ?? "claude-sonnet
 export const HERRAMIENTAS_PERMITIDAS = ["Read", "Write"] as const;
 
 export const CERROJO_TTL_MIN = Number(process.env.TRABAJADOR_CERROJO_TTL_MIN ?? 10);
+// trabajador-ac4: reserva de flota. Con la ventana semanal por encima de
+// este porcentaje, el trabajador no arranca trabajos nuevos aunque la cola
+// no esté vacía — deja margen para el resto del pipeline horizontal, que
+// comparte la misma suscripción.
+export const UMBRAL_CUOTA_SEMANAL = Number(process.env.TRABAJADOR_UMBRAL_CUOTA ?? 80);
 // Tiempo que el trabajador se queda despierto tras vaciar la cola antes de
 // morir (arquitectura: "se queda un rato antes de morir" para que la guía
 // responda en caliente). En tests se sobreescribe a un valor minúsculo.

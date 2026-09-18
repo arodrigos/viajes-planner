@@ -2,11 +2,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Salvaguarda permanente, no atada a un criterio de aceptación concreto: la
+// Salvaguarda permanente, no atada a un único criterio de aceptación: la
 // respuesta de Adrián sustituyó el tope mensual en euros por pausa y
-// retomada de cuota de suscripción (ver trabajador-vps1). Este test
-// demuestra que el mecanismo antiguo no ha sobrevivido en ninguna parte del
-// código fuente.
+// retomada de cuota de suscripción (ver src/lib/trabajador/cuota.ts, donde
+// vive el mecanismo, y trabajador-ac4 (d), que también cita este test).
+// Demuestra que el tope antiguo no ha sobrevivido en ninguna parte del
+// código fuente, incluido lo que ya existía antes de ese bloque.
 //
 // El patrón original prohibía también la palabra "euro" en prosa, sin
 // distinguir mayúsculas, lo que colisiona con el bloque latido-y-cambio
