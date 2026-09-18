@@ -15,6 +15,9 @@ PORT="${PORT:-3100}"
 export COMMIT_SHA
 COMMIT_SHA="$(git rev-parse HEAD)"
 VIAJES_URL="http://localhost:${PORT}"
+# acceso-ac2: el prebuild exige la lista blanca configurada; en un build
+# real de Vercel la pone Adrián, aquí basta un valor de prueba.
+export CORREOS_PERMITIDOS="${CORREOS_PERMITIDOS:-ci-test@example.com}"
 
 npm run build
 
