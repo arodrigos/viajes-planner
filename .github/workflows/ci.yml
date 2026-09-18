@@ -31,3 +31,38 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: bash scripts/verificar-esqueleto.sh
+
+  persistencia:
+    runs-on: ubuntu-latest
+    needs: lint-typecheck-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      # persistencia-ac1: las migraciones aplican en limpio y el esquema
+      # resultante coincide con el commiteado.
+      - name: supabase db reset && supabase db diff (esquema limpio)
+        run: |
+          supabase db reset
+          supabase db diff --schema public > /tmp/db-diff.sql
+          if [ -s /tmp/db-diff.sql ]; then
+            echo "El esquema aplicado difiere de las migraciones commiteadas:"
+            cat /tmp/db-diff.sql
+            exit 1
+          fi
+      - name: exportar credenciales de la pila local
+        run: |
+          supabase status -o env > /tmp/supabase-status.env
+          source /tmp/supabase-status.env
+          echo "SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+      # persistencia-ac2 (RLS) y persistencia-ac3 (round-trip del fixture).
+      - run: npm run test:integration
