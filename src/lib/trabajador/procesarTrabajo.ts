@@ -5,11 +5,11 @@ import { postProcesarPlan } from "@/lib/generacion/postProcesar";
 import { validarPlan, type ErrorValidacion } from "@/lib/plan/validar";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { Plan } from "@/lib/plan/tipos";
-import { estadoCuota, familiaDeModelo, registrarLecturaCuota } from "./cuota";
+import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
 import { generarIdPlan } from "./id";
-import { MODELO_GENERACION, UMBRAL_CUOTA_SEMANAL } from "./config";
+import { MODELO_GENERACION } from "./config";
 
 export interface TrabajoAProcesar {
   id: string;
@@ -72,9 +72,11 @@ async function pausarPorCuota(
 type RespuestaOLimitada = ResultadoInvocacion | { limitado: true };
 
 // trabajador-ac4 (b): un límite de uso a media invocación no debe crashear
-// ni perder el trabajo — se traduce a la misma pausa que el pre-chequeo
-// (a), solo que con el motivo real del modelo, y se registra la lectura
-// para que el pre-chequeo del próximo trabajo la vea.
+// ni perder el trabajo — queda pausado con el motivo real del modelo y su
+// hora de reinicio exacta. trabajador-ac5: la lectura solo se registra
+// cuando el ejecutor de verdad sabe el porcentaje consumido (nunca hoy, en
+// modo headless); si usedPercentage es null no se escribe ninguna fila
+// inventada en uso_suscripcion.
 async function invocarOPausar(
   supabase: SupabaseClient,
   trabajoId: string,
@@ -87,7 +89,9 @@ async function invocarOPausar(
     return await ejecutor.invocar(prompt, { directorio, modelo: MODELO_GENERACION });
   } catch (error) {
     if (!(error instanceof LimiteDeUsoAlcanzado)) throw error;
-    await registrarLecturaCuota(supabase, familia, error.usedPercentage, error.resetsAt);
+    if (error.usedPercentage !== null) {
+      await registrarLecturaCuota(supabase, familia, error.usedPercentage, error.resetsAt);
+    }
     await pausarPorCuota(supabase, trabajoId, error.message, error.resetsAt);
     return { limitado: true };
   }
@@ -95,20 +99,15 @@ async function invocarOPausar(
 
 // trabajador-ac1 (no en CI, ver ejecutorModelo.ts) / trabajador-ac2: un
 // trabajo se completa de extremo a extremo o queda 'fallido' con motivo;
-// nunca hay una escritura a medias en planes. trabajador-ac4: ni arranca
-// por encima del umbral de cuota ni se pierde si el límite llega a media
-// invocación.
+// nunca hay una escritura a medias en planes. trabajador-ac4: ya no hay
+// pre-chequeo — con la cola no vacía el trabajador invoca siempre; el
+// único mecanismo de cuota es la pausa reactiva de invocarOPausar.
 export async function procesarTrabajo(
   supabase: SupabaseClient,
   trabajo: TrabajoAProcesar,
   { ejecutor, directorio }: DependenciasProcesarTrabajo,
 ): Promise<{ estado: "completado" | "fallido" | "pausado-por-cuota" }> {
   const familia = familiaDeModelo(MODELO_GENERACION);
-  const cuota = await estadoCuota(supabase, familia, UMBRAL_CUOTA_SEMANAL);
-  if (cuota.superaUmbral) {
-    await pausarPorCuota(supabase, trabajo.id, "reserva-de-flota", cuota.resetsAt);
-    return { estado: "pausado-por-cuota" };
-  }
 
   await publicarEtapa(supabase, trabajo.id, "preparando la petición");
   const planId = trabajo.plan_id ?? generarIdPlan();
