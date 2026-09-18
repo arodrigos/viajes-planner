@@ -121,3 +121,12 @@ alter table cache_fichas enable row level security;
 alter table tipos_cambio enable row level security;
 alter table uso_suscripcion enable row level security;
 alter table salud enable row level security;
+
+-- Sin GRANT, PostgREST no expone la tabla y responde 404 -tanto para una
+-- tabla protegida como para una que no existe-, lo que hace indistinguible
+-- "denegado por RLS" de "no hay tabla" en el propio test de persistencia-ac2.
+-- El GRANT deja el 404 solo para lo que de verdad no existe; la denegación
+-- real la sigue haciendo RLS, que no tiene ni una política para anon ni
+-- para authenticated en ninguna tabla.
+grant usage on schema public to anon, authenticated;
+grant select on all tables in schema public to anon, authenticated;
