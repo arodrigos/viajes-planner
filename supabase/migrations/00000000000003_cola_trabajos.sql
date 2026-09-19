@@ -3,6 +3,8 @@
 -- atómica de verdad -no un candado de aplicación que dos procesos
 -- distintos no podrían compartir-, usando FOR UPDATE SKIP LOCKED dentro de
 -- una única función de Postgres.
+set search_path = viajes_planner, public, extensions;
+
 alter table trabajos add column criterios jsonb;
 
 create or replace function tomar_siguiente_trabajo(p_tomado_por text, p_arrendamiento_min integer)
@@ -48,3 +50,9 @@ $$;
 -- para comprobarlo -mismo criterio de denegación por defecto que las
 -- tablas.
 revoke execute on function tomar_siguiente_trabajo(text, integer) from public;
+
+-- En `public`, service_role tenía EXECUTE de fábrica y el revoke anterior
+-- era inofensivo; en `viajes_planner` no lo hereda (Supabase — Using Custom
+-- Schemas), así que sin este GRANT explícito la cola se congelaría en
+-- silencio: el trabajador seguiría vivo pero la RPC devolvería 404/42501.
+grant execute on function tomar_siguiente_trabajo(text, integer) to service_role;

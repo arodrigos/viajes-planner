@@ -10,7 +10,11 @@ enabled = true
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
-schemas = ["public", "graphql_public"]
+# `viajes_planner` va en último lugar a propósito: así `public` sigue siendo
+# el perfil por defecto de PostgREST en local, igual que en el proyecto real
+# tras el traspaso automático (issue #137/#138), y una petición sin cabecera
+# de perfil se resuelve contra `public` en los dos sitios por igual.
+schemas = ["public", "graphql_public", "viajes_planner"]
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size

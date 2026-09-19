@@ -52,14 +52,14 @@ jobs:
         with:
           version: latest
       - run: supabase start
-      # persistencia-ac1: las migraciones aplican en limpio y el esquema
-      # resultante coincide con el commiteado.
-      - name: supabase db reset && supabase db diff (esquema limpio)
+      # esquema-ac3(a,b): las migraciones aplican en limpio dentro de
+      # `viajes_planner` y el esquema resultante coincide con el commiteado.
+      - name: supabase db reset && supabase db diff (esquema viajes_planner limpio)
         run: |
           supabase db reset
-          supabase db diff --schema public > /tmp/db-diff.sql
+          supabase db diff --schema viajes_planner > /tmp/db-diff.sql
           if [ -s /tmp/db-diff.sql ]; then
-            echo "El esquema aplicado difiere de las migraciones commiteadas:"
+            echo "El esquema viajes_planner aplicado difiere de las migraciones commiteadas:"
             cat /tmp/db-diff.sql
             exit 1
           fi
@@ -70,7 +70,84 @@ jobs:
           echo "SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
           echo "SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
           echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
-      # persistencia-ac2 (RLS) y persistencia-ac3 (round-trip del fixture).
+          echo "SUPABASE_DB_URL=$DB_URL" >> "$GITHUB_ENV"
+      # esquema-ac3(c,d): las 12 tablas y las 3 funciones del catálogo viven
+      # en `viajes_planner`, y `public` se queda sin un solo objeto del
+      # producto -el efecto colateral que esta incisión corrige de raíz.
+      - name: contar objetos por esquema (esquema-ac3)
+        run: |
+          set -euo pipefail
+          contar() { psql "$SUPABASE_DB_URL" -tAc "$1" | tr -d '[:space:]'; }
+          tablas_vp=$(contar "select count(*) from information_schema.tables where table_schema = 'viajes_planner'")
+          tablas_public=$(contar "select count(*) from information_schema.tables where table_schema = 'public'")
+          rutinas_vp=$(contar "select count(*) from information_schema.routines where routine_schema = 'viajes_planner'")
+          rutinas_public=$(contar "select count(*) from information_schema.routines where routine_schema = 'public'")
+          echo "tablas: viajes_planner=$tablas_vp public=$tablas_public"
+          echo "rutinas: viajes_planner=$rutinas_vp public=$rutinas_public"
+          [ "$tablas_vp" -eq 12 ]
+          [ "$tablas_public" -eq 0 ]
+          [ "$rutinas_vp" -eq 3 ]
+          [ "$rutinas_public" -eq 0 ]
+      # esquema-ac5: service_role conserva EXECUTE sobre las tres funciones y
+      # DML sobre las tablas del esquema nuevo pese a los `revoke ... from
+      # public`, y la clave anónima sigue sin poder ejecutar ninguna. Va
+      # ANTES de test:integration a propósito: la cola tiene que estar
+      # vacía de verdad ("cola vacía" del criterio), y test:integration
+      # comparte la misma pila sin resetear entre ficheros, así que después
+      # de ella la tabla trabajos ya no está garantizada a estar limpia.
+      - name: privilegios de service_role sobre viajes_planner (esquema-ac5)
+        run: |
+          set -euo pipefail
+          codigo() { curl -sS -o /tmp/r -w '%{http_code}' "$@"; }
+
+          # (a) La cola sigue viva para service_role pese a los revoke.
+          c=$(codigo -X POST "$SUPABASE_URL/rest/v1/rpc/tomar_siguiente_trabajo" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" -H "Content-Profile: viajes_planner" \
+            -d '{"p_tomado_por":"ci","p_arrendamiento_min":5}')
+          [ "$c" = "200" ]
+          [ "$(cat /tmp/r)" = "[]" ]
+
+          c=$(codigo -X POST "$SUPABASE_URL/rest/v1/rpc/adquirir_cerrojo_trabajador" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" -H "Content-Profile: viajes_planner" \
+            -d '{"p_tomado_por":"ci","p_ttl_min":5}')
+          [ "$c" = "200" ]
+          [ "$(cat /tmp/r)" = "true" ]
+
+          c=$(codigo -X POST "$SUPABASE_URL/rest/v1/rpc/liberar_cerrojo_trabajador" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" -H "Content-Profile: viajes_planner" \
+            -d '{"p_tomado_por":"ci"}')
+          [ "$c" = "204" ] || [ "$c" = "200" ]
+
+          # (b) La clave anónima sigue sin poder ejecutar la RPC de la cola.
+          c=$(codigo -X POST "$SUPABASE_URL/rest/v1/rpc/tomar_siguiente_trabajo" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" -H "Content-Profile: viajes_planner" \
+            -d '{"p_tomado_por":"ci","p_arrendamiento_min":5}')
+          [ "$c" != "200" ]
+
+          # (c) Escritura real en `salud`: demuestra USAGE + DML sobre el
+          # esquema nuevo, no solo EXECUTE sobre las tres funciones.
+          c=$(codigo -X POST "$SUPABASE_URL/rest/v1/salud" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" -H "Content-Profile: viajes_planner" \
+            -H "Prefer: return=representation" \
+            -d '{"origen":"ci"}')
+          [ "$c" = "201" ]
+          fila_id=$(jq -r '.[0].id' /tmp/r)
+
+          c=$(codigo "$SUPABASE_URL/rest/v1/salud?id=eq.$fila_id&select=id" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Accept-Profile: viajes_planner")
+          [ "$c" = "200" ]
+
+          codigo -X DELETE "$SUPABASE_URL/rest/v1/salud?id=eq.$fila_id" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Profile: viajes_planner" > /dev/null
+      # esquema-ac4(a,b) (RLS contra el esquema propio, con el caso hermano
+      # sin cabecera) y persistencia-ac3 (round-trip del fixture).
       - run: npm run test:integration
 
   e2e:
