@@ -1,13 +1,12 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { clienteAnonimo } from "@/lib/db/cliente";
 import { procesarSolicitudEnlace } from "@/lib/auth/solicitarEnlace";
 
 export async function POST(request: Request) {
   const { email } = (await request.json()) as { email?: string };
   if (!email) return NextResponse.json({ error: "falta email" }, { status: 400 });
 
-  const supabase = createClient(process.env.SUPABASE_URL ?? "", process.env.SUPABASE_ANON_KEY ?? "");
-  const resultado = await procesarSolicitudEnlace(supabase, email);
+  const resultado = await procesarSolicitudEnlace(clienteAnonimo(), email);
 
   switch (resultado.estado) {
     case "enviado":

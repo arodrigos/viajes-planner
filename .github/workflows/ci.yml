@@ -71,6 +71,11 @@ jobs:
           echo "SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
           echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
           echo "SUPABASE_DB_URL=$DB_URL" >> "$GITHUB_ENV"
+          # cliente-ac2: la fábrica de cliente (src/lib/db/cliente.ts) y el
+          # ayudante de pruebas (clienteDePrueba.ts) leen SUPABASE_SCHEMA y
+          # lanzan si falta -sin ella, npm run test:integration entero
+          # fallaría, que es justo el fail-closed que corrige esta incisión.
+          echo "SUPABASE_SCHEMA=viajes_planner" >> "$GITHUB_ENV"
       # esquema-ac3(c,d): las 12 tablas y las 3 funciones del catálogo viven
       # en `viajes_planner`, y `public` se queda sin un solo objeto del
       # producto -el efecto colateral que esta incisión corrige de raíz.

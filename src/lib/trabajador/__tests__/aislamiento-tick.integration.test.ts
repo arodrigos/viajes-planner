@@ -1,7 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecutorModelo";
 import { tick } from "@/lib/trabajador/tick";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -21,7 +21,7 @@ function dobleContador(): EjecutorModelo & { llamadas: number } {
 // comprueban contra el cerrojo real de Postgres, no contra un mock en
 // memoria — dos procesos de verdad no podrían compartir un mock.
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
 
   beforeEach(async () => {
     await supabase.from("cerrojo_trabajador").update({ tomado_por: null, tomado_hasta: null }).eq("id", 1);

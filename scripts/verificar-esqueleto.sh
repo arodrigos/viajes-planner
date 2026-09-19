@@ -53,10 +53,11 @@ jq -e '.crons_registrados == 1' /tmp/salud.json >/dev/null
 echo "== esqueleto-ac1: /api/salud trae la forma completa que pide el smoke_test del manifiesto =="
 jq -e '
   (.supabase == "error") and
-  (.esquema_version == 1) and
+  (.esquema_version == 2) and
   (.modelo_acceso == "suscripcion-vps1") and
   (.trabajador.visto_hace_seg == null) and
   (.secretos_faltantes | index("SUPABASE_URL") != null) and
+  (.secretos_faltantes | index("SUPABASE_SCHEMA") != null) and
   (.credenciales_modelo_en_web == false)
 ' /tmp/salud.json >/dev/null
 

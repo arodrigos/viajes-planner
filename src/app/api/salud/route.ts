@@ -10,6 +10,7 @@ const SECRETOS_REQUERIDOS = [
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_SCHEMA",
   "CRON_SECRET",
   "CORREOS_PERMITIDOS",
 ] as const;
@@ -58,6 +59,7 @@ export async function GET(request: NextRequest) {
   const salud = construirSalud({
     cronsRegistrados: vercelConfig.crons.length,
     supabase: estado,
+    esquema: process.env.SUPABASE_SCHEMA,
     esquemaVersion: ESQUEMA_VERSION,
     modeloAcceso: MODELO_ACCESO,
     trabajadorVistoHaceSeg: vistoHaceSeg,

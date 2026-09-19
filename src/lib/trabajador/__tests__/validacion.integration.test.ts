@@ -1,9 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
 import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecutorModelo";
 import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -34,7 +34,7 @@ function dobleFijo(respuestas: string[]): EjecutorModelo & { invocaciones: numbe
 const DIAS_VALIDOS = JSON.stringify({ dias: planFixture.dias });
 
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
 
   async function crearTrabajo() {
     const { data, error } = await supabase

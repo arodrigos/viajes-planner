@@ -14,6 +14,12 @@ npm install
 npm run dev
 ```
 
+Copia `.env.example` a `.env.local` con las credenciales del proyecto
+Supabase compartido de la flota (`VPSClaudeCodeProject-DEV` en local/CI,
+`-PROD` en producción -nunca un proyecto propio de este producto) y
+`SUPABASE_SCHEMA=viajes_planner`, el esquema de este producto dentro de ese
+proyecto compartido.
+
 ## Verificación
 
 ```bash

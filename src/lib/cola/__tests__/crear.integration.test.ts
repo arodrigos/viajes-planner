@@ -1,7 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { crearTrabajoGeneracion } from "@/lib/cola/crear";
 import { LIMITE_TRABAJOS_POR_HORA } from "@/lib/cola/config";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,7 +16,7 @@ const CRITERIOS_VALIDOS = {
 };
 
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("crearTrabajoGeneracion (acceso-ac3)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
   let usuarioId = "";
 
   beforeAll(async () => {

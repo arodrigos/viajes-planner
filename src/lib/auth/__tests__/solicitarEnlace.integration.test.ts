@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 import { procesarSolicitudEnlace } from "@/lib/auth/solicitarEnlace";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -17,7 +17,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("procesarSolicitudEnlace (acceso-ac1
   });
 
   it("un correo de la lista blanca sí pide el enlace mágico contra Supabase Auth real", async () => {
-    const supabase = createClient(SUPABASE_URL ?? "", ANON_KEY ?? "");
+    const supabase = clienteDePrueba("anonimo");
     const resultado = await procesarSolicitudEnlace(supabase, "ci-test@example.com");
     expect(resultado).toEqual({ estado: "enviado" });
   });

@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { tomarSiguienteTrabajo } from "@/lib/cola/tomar";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -14,7 +14,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // antes de cada caso es lo que hace estos tests deterministas sin dejar de
 // ser reales.
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tomarSiguienteTrabajo (acceso-ac3)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
 
   beforeEach(async () => {
     await supabase.from("trabajos").delete().neq("id", "00000000-0000-0000-0000-000000000000");

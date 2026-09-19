@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { dentroDelLimite } from "@/lib/auth/limite";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -11,7 +11,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // que depende de este; ese bloque reverifica el 429 en la capa HTTP
 // reutilizando exactamente esta función).
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("dentroDelLimite (acceso-ac1)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
   let usuarioId = "";
   const LIMITE = 3;
 
