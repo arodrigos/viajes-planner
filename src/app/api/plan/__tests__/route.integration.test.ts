@@ -1,7 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import { POST } from "@/app/api/plan/route";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -25,7 +25,7 @@ const CRITERIOS_VALIDOS = {
 // con una sesión fabricada.
 describe.skipIf(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY)("POST /api/plan (acceso-ac1)", () => {
   it("sin sesión responde 401 y no crea ningún trabajo", async () => {
-    const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+    const supabase = clienteDePrueba();
     const { count: antes } = await supabase.from("trabajos").select("id", { count: "exact", head: true });
 
     const respuesta = await POST(

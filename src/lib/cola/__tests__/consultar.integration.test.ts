@@ -1,12 +1,12 @@
-import { createClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { obtenerTrabajo } from "@/lib/cola/consultar";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("obtenerTrabajo (acceso-ac3, exposición de planes)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
   let usuarioId = "";
 
   beforeAll(async () => {

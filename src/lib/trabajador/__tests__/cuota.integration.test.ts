@@ -1,10 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "@/lib/trabajador/ejecutorModelo";
 import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
 import { tick } from "@/lib/trabajador/tick";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -87,7 +87,7 @@ function _tipoUsedPercentageEsNullable(resetsAt: string): number {
 }
 
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajador-ac4, ac5, ac6)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
 
   beforeEach(async () => {
     await supabase.from("uso_suscripcion").delete().neq("id", "00000000-0000-0000-0000-000000000000");

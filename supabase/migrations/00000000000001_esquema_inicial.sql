@@ -3,8 +3,26 @@
 -- anon/authenticated): la única vía de lectura/escritura es la clave de
 -- servicio, que en Supabase atraviesa RLS. El bloque acceso añade las
 -- políticas por propietario cuando exista auth.users que referenciar.
-
+--
+-- pgcrypto se deja donde el proyecto ya la tenga (el `public` por defecto de
+-- una instalación fresca): es una extensión compartida de Postgres, no un
+-- objeto del producto, y por eso se crea ANTES de mover el search_path al
+-- esquema propio -si se creara después, "if not exists" la instalaría
+-- dentro de `viajes_planner` en una pila nueva.
 create extension if not exists pgcrypto;
+
+-- ESQUEMA PROPIO (incisión sobre esquema-y-persistencia, issue #137/#138):
+-- este producto comparte proyecto de Supabase con el resto de la flota, así
+-- que nada del producto puede aterrizar en `public` ni un instante -ver
+-- amenaza de colisión y de GRANT de lectura anónima colateral en el diseño.
+-- `create schema if not exists` es idempotente a propósito: el traspaso
+-- automático (provisionar.py) ya habrá creado `viajes_planner` en DEV antes
+-- de que esta migración se aplique, y no debe fallar por ello. `search_path`
+-- se fija en cada fichero de migración -no solo en este- para que tablas,
+-- índices, constraints y funciones aterricen en el esquema propio sin
+-- cualificar a mano cada nombre.
+create schema if not exists viajes_planner;
+set search_path = viajes_planner, public, extensions;
 
 create table planes (
   id text primary key,
@@ -124,9 +142,29 @@ alter table salud enable row level security;
 
 -- Sin GRANT, PostgREST no expone la tabla y responde 404 -tanto para una
 -- tabla protegida como para una que no existe-, lo que hace indistinguible
--- "denegado por RLS" de "no hay tabla" en el propio test de persistencia-ac2.
--- El GRANT deja el 404 solo para lo que de verdad no existe; la denegación
--- real la sigue haciendo RLS, que no tiene ni una política para anon ni
--- para authenticated en ninguna tabla.
-grant usage on schema public to anon, authenticated;
-grant select on all tables in schema public to anon, authenticated;
+-- "denegado por RLS" de "no hay tabla" en el propio test de esquema-ac4. El
+-- GRANT deja el 404 solo para lo que de verdad no existe; la denegación real
+-- la sigue haciendo RLS, que no tiene ni una política para anon ni para
+-- authenticated en ninguna tabla.
+--
+-- Los dos GRANT nombran `viajes_planner`, nunca `public`: sobre un proyecto
+-- compartido, un `grant select on all tables in schema public` concedería
+-- lectura anónima sobre las tablas de otros productos de la flota.
+grant usage on schema viajes_planner to anon, authenticated, service_role;
+grant select on all tables in schema viajes_planner to anon, authenticated;
+
+-- En `public`, service_role hereda privilegios de fábrica sobre las tablas;
+-- en un esquema propio no hereda nada (Supabase — Using Custom Schemas), así
+-- que sin este GRANT explícito el trabajador no podría ni leer ni escribir
+-- una sola fila pese a tener la clave de servicio.
+grant select, insert, update, delete on all tables in schema viajes_planner to service_role;
+
+-- Para que una tabla o función futura no dependa de que alguien se acuerde
+-- de repetir estos GRANT a mano (cerrojo_trabajador, creada en la migración
+-- 4, es la primera en beneficiarse de esto).
+alter default privileges in schema viajes_planner
+  grant select on tables to anon, authenticated;
+alter default privileges in schema viajes_planner
+  grant select, insert, update, delete on tables to service_role;
+alter default privileges in schema viajes_planner
+  grant execute on functions to service_role;

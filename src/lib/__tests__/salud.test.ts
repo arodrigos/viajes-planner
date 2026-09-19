@@ -31,10 +31,11 @@ describe("construirSalud", () => {
     expect(salud.ok).toBe(false);
   });
 
-  it("expone supabase, esquema_version, modelo_acceso, trabajador, secretos_faltantes y credenciales_modelo_en_web", () => {
+  it("expone supabase, esquema, esquema_version, modelo_acceso, trabajador, secretos_faltantes y credenciales_modelo_en_web", () => {
     const salud = construirSalud({
       cronsRegistrados: 1,
       supabase: "activa",
+      esquema: "viajes_planner",
       esquemaVersion: ESQUEMA_VERSION,
       modeloAcceso: "suscripcion-vps1",
       trabajadorVistoHaceSeg: 42,
@@ -45,7 +46,8 @@ describe("construirSalud", () => {
     expect(salud).toMatchObject({
       crons_registrados: 1,
       supabase: "activa",
-      esquema_version: 1,
+      esquema: "viajes_planner",
+      esquema_version: 2,
       modelo_acceso: "suscripcion-vps1",
       trabajador: { visto_hace_seg: 42 },
       secretos_faltantes: [],

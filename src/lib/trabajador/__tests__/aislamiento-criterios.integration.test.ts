@@ -1,9 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
 import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecutorModelo";
 import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,7 +33,7 @@ function dobleFijo(respuesta: string): EjecutorModelo & { invocaciones: number }
 }
 
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("aislamiento frente a criterios envenenados (trabajador-ac3)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
 
   it("(a) el trabajo se completa igual, y el texto inducido no aparece en el plan guardado", async () => {
     const { data: trabajo, error } = await supabase

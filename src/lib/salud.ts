@@ -19,6 +19,7 @@ export interface RespuestaSalud {
   dependencias: EstadoDependencia[];
   crons_registrados?: number;
   supabase?: "activa" | "error";
+  esquema?: string;
   esquema_version?: number;
   modelo_acceso?: string;
   trabajador?: EstadoTrabajador;
@@ -28,9 +29,10 @@ export interface RespuestaSalud {
 
 // Se incrementa a mano cuando una migración cambia una forma que este
 // endpoint u otro consumidor externo observan (no en cada migración: la
-// mayoría son aditivas y no rompen a nadie). Hoy solo existe la migración
-// inicial (00000000000001_esquema_inicial.sql), de ahí el 1.
-export const ESQUEMA_VERSION = 1;
+// mayoría son aditivas y no rompen a nadie). Sube a 2 con la incisión que
+// mueve las doce tablas y las tres funciones de `public` a `viajes_planner`:
+// es exactamente el tipo de cambio que un consumidor externo observa.
+export const ESQUEMA_VERSION = 2;
 
 export function commitDesplegado(): string {
   return process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.COMMIT_SHA ?? "0".repeat(40);
@@ -40,6 +42,7 @@ export interface OpcionesSalud {
   dependencias?: EstadoDependencia[];
   cronsRegistrados?: number;
   supabase?: "activa" | "error";
+  esquema?: string;
   esquemaVersion?: number;
   modeloAcceso?: string;
   trabajadorVistoHaceSeg?: number | null;
@@ -62,6 +65,7 @@ export function construirSalud(opciones: OpcionesSalud = {}): RespuestaSalud {
     dependencias,
     ...(opciones.cronsRegistrados === undefined ? {} : { crons_registrados: opciones.cronsRegistrados }),
     ...(opciones.supabase === undefined ? {} : { supabase: opciones.supabase }),
+    ...(opciones.esquema === undefined ? {} : { esquema: opciones.esquema }),
     ...(opciones.esquemaVersion === undefined ? {} : { esquema_version: opciones.esquemaVersion }),
     ...(opciones.modeloAcceso === undefined ? {} : { modelo_acceso: opciones.modeloAcceso }),
     ...(opciones.trabajadorVistoHaceSeg === undefined

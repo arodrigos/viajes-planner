@@ -1,14 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { guardarPlan, recuperarPlan } from "@/lib/plan/repositorio";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import type { Plan } from "@/lib/plan/tipos";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("persistencia del plan (persistencia-ac3)", () => {
-  const supabase = createClient(SUPABASE_URL ?? "", SERVICE_KEY ?? "");
+  const supabase = clienteDePrueba();
 
   beforeAll(async () => {
     // Aislar el fixture de otras ejecuciones sobre la misma base local.

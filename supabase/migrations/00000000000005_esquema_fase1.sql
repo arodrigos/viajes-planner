@@ -8,6 +8,7 @@
 -- referencia; sustituirla por columnas en paradas sería una migración
 -- destructiva para ahorrar una tabla que ya funciona, no un requisito real
 -- de ningún criterio de aceptación).
+set search_path = viajes_planner, public, extensions;
 
 alter table paradas rename column sitio_nombre to nombre;
 alter table paradas add column descripcion text not null default '';
