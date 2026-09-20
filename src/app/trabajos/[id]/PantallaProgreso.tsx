@@ -59,7 +59,7 @@ export function PantallaProgreso({ id }: { id: string }) {
 
   if (trabajo.estado === "caducado") {
     return (
-      <div>
+      <div className="pila">
         <p>El trabajo ha caducado.</p>
         <p>{trabajo.motivo}</p>
       </div>
@@ -72,7 +72,7 @@ export function PantallaProgreso({ id }: { id: string }) {
 
   if (trabajo.estado === "pausado-por-cuota") {
     return (
-      <div>
+      <div className="pila">
         <p>El viaje está pausado: la suscripción ha llegado a su límite de uso.</p>
         <p>{trabajo.motivo}</p>
         {trabajo.reintento_no_antes_de && <p>Se retomará a partir de {formatearFecha(trabajo.reintento_no_antes_de)}.</p>}
@@ -82,7 +82,7 @@ export function PantallaProgreso({ id }: { id: string }) {
 
   if (trabajo.estado === "fallido") {
     return (
-      <div>
+      <div className="pila">
         <p>No se ha podido generar el viaje.</p>
         <p>{trabajo.motivo}</p>
       </div>
@@ -90,7 +90,7 @@ export function PantallaProgreso({ id }: { id: string }) {
   }
 
   return (
-    <div>
+    <div className="pila">
       <p>{trabajo.etapa ?? "preparando la petición"}</p>
       <progress value={trabajo.porcentaje} max={100} aria-label="Progreso de la generación" />
     </div>

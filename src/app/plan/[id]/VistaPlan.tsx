@@ -63,7 +63,7 @@ export function VistaPlan({ id }: { id: string }) {
   }, [id]);
 
   return (
-    <div>
+    <div className="pila">
       <p role="note">{AVISO_FIJO}</p>
 
       {error && <p role="alert">{error}</p>}
@@ -74,15 +74,15 @@ export function VistaPlan({ id }: { id: string }) {
       ))}
 
       {plan?.dias.map((dia) => (
-        <section key={dia.fecha} aria-label={`Día ${dia.fecha}`} style={{ marginTop: "1.5rem" }}>
+        <section key={dia.fecha} aria-label={`Día ${dia.fecha}`} className="seccion-dia">
           <h2>{dia.fecha}</h2>
           {dia.franjas.map((franja) => {
             const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
             if (paradasDeLaFranja.length === 0) return null;
             return (
-              <div key={franja.id} style={{ marginTop: "0.75rem" }}>
+              <div key={franja.id} className="seccion-franja">
                 <h3>{franja.etiqueta}</h3>
-                <ul>
+                <ul className="pila">
                   {paradasDeLaFranja.map((parada) => (
                     <li key={parada.id}>
                       <strong>{parada.nombre}</strong>

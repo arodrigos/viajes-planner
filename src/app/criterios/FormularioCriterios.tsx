@@ -60,15 +60,14 @@ export function FormularioCriterios() {
   }
 
   return (
-    <form onSubmit={alSubmit} aria-label="Criterios del viaje" style={{ maxWidth: "100%", display: "grid", gap: "1rem" }}>
-      <div>
+    <form onSubmit={alSubmit} aria-label="Criterios del viaje" className="formulario">
+      <div className="campo">
         <label htmlFor="destino_o_tipo">Destino o tipo de viaje</label>
         <input
           id="destino_o_tipo"
           type="text"
           value={criterios.destino_o_tipo}
           onChange={(e) => setCriterios((c) => ({ ...c, destino_o_tipo: e.target.value }))}
-          style={{ width: "100%" }}
         />
       </div>
 
@@ -89,7 +88,6 @@ export function FormularioCriterios() {
             type="text"
             value={criterios.fechas.epoca}
             onChange={(e) => setCriterios((c) => ({ ...c, fechas: { modo: "epoca", epoca: e.target.value } }))}
-            style={{ width: "100%" }}
           />
         )}
         <label>
@@ -102,7 +100,7 @@ export function FormularioCriterios() {
           Usar fechas concretas
         </label>
         {criterios.fechas.modo === "fechas" && (
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <div className="fila">
             <input
               aria-label="Fecha de inicio"
               type="date"
@@ -129,7 +127,7 @@ export function FormularioCriterios() {
         )}
       </fieldset>
 
-      <div>
+      <div className="campo">
         <label htmlFor="dias">Número de días</label>
         <input
           id="dias"
@@ -144,7 +142,7 @@ export function FormularioCriterios() {
       <fieldset>
         <legend>Personas y edades</legend>
         {criterios.personas.map((persona, indice) => (
-          <div key={indice} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <div key={indice} className="fila">
             <label htmlFor={`edad-${indice}`}>Persona {indice + 1}, edad</label>
             <input
               id={`edad-${indice}`}
@@ -166,7 +164,7 @@ export function FormularioCriterios() {
         </button>
       </fieldset>
 
-      <div>
+      <div className="campo">
         <label htmlFor="perfil">Perfil de viaje</label>
         <select
           id="perfil"
@@ -180,7 +178,7 @@ export function FormularioCriterios() {
         </select>
       </div>
 
-      <div>
+      <div className="campo">
         <label htmlFor="presupuesto_eur">Presupuesto total (€)</label>
         <input
           id="presupuesto_eur"
@@ -210,7 +208,6 @@ export function FormularioCriterios() {
             type="text"
             value={criterios.alojamiento?.direccion ?? ""}
             onChange={(e) => setCriterios((c) => ({ ...c, alojamiento: { direccion: e.target.value } }))}
-            style={{ width: "100%" }}
           />
         )}
       </fieldset>
@@ -218,7 +215,7 @@ export function FormularioCriterios() {
       <button type="submit">Continuar</button>
 
       {errores.length > 0 && (
-        <ul role="alert">
+        <ul role="alert" className="pila">
           {errores.map((error) => (
             <li key={error}>{error}</li>
           ))}

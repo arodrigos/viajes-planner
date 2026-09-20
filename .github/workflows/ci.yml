@@ -167,3 +167,13 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      # visual-ac1: el gatekeeper juzga estas ocho capturas (issue #141),
+      # no un veredicto mecánico -por eso se publican como artefacto en vez
+      # de solo comprobarse en el propio job.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capturas-movil
+          path: artefactos/capturas/
+          retention-days: 30
+          if-no-files-found: warn
