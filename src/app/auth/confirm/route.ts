@@ -7,23 +7,21 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 // Esta ruta SÍ tiene que poner la cookie de sesión, así que necesita su
 // propio `setAll` que escriba sobre la respuesta de redirección.
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  // `new URL(request.url)` no vale aquí: bajo `next start` su origin refleja
-  // el hostname interno del servidor (a menudo "localhost"), no el host real
-  // por el que ha entrado la petición, y el enlace del correo manda a la app
-  // por ese host real (127.0.0.1 en local/CI). `request.nextUrl` -el patrón
-  // que usan los propios ejemplos de Supabase para esta ruta- sí lo respeta.
+  // Ni `new URL(request.url)` ni `request.nextUrl` valen aquí: bajo
+  // `next start` los dos devuelven "localhost" como host sin importar el
+  // Host real de la petición, y el enlace del correo manda a la app por ese
+  // host real (127.0.0.1 en local/CI). La cabecera Host es la única fuente
+  // fiable, porque es literalmente la que mandó el navegador en la petición.
   const url = request.nextUrl;
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type") as EmailOtpType | null;
   const next = url.searchParams.get("next") ?? "/criterios";
 
-  const redirigirAError = () => {
-    const destino = url.clone();
-    destino.pathname = "/criterios";
-    destino.search = "";
-    destino.searchParams.set("acceso", "error");
-    return NextResponse.redirect(destino);
-  };
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
+  const protocolo = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
+  const origen = `${protocolo}://${host}`;
+
+  const redirigirAError = () => NextResponse.redirect(new URL("/criterios?acceso=error", origen));
 
   if (!tokenHash || !type) return redirigirAError();
 
@@ -31,9 +29,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const anon = process.env.SUPABASE_ANON_KEY;
   if (!supabaseUrl || !anon) throw new Error("Faltan SUPABASE_URL o SUPABASE_ANON_KEY en el entorno");
 
-  const destinoExito = url.clone();
-  destinoExito.pathname = next;
-  destinoExito.search = "";
+  const destinoExito = new URL(next, origen);
   destinoExito.searchParams.set("acceso", "confirmado");
   const respuestaExito = NextResponse.redirect(destinoExito);
 
