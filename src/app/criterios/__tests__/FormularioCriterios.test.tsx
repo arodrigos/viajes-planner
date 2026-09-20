@@ -1,17 +1,34 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FormularioCriterios } from "@/app/criterios/FormularioCriterios";
 import { leerBorrador } from "@/lib/criterios/borrador";
 import { validarCriterios } from "@/lib/criterios/validar";
 
+// acceso-ac6: al confirmar el envío, enviarPlan navega con useRouter(); este
+// componente no vive bajo un App Router real en el test, así que hace falta
+// el doble de next/navigation que usan las convenciones de Next.js para
+// pruebas unitarias de componentes cliente.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 beforeEach(() => {
   window.localStorage.clear();
+  // acceso-ac6: "Continuar" ya dispara POST /api/plan de verdad; este
+  // archivo comprueba validación y persistencia del borrador, no la red, así
+  // que se dobla con la respuesta real de un visitante sin sesión (401) en
+  // vez de dejar que jsdom intente una petición de red que nunca resolverá.
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(JSON.stringify({ error: "no autenticado" }), { status: 401 })),
+  );
 });
 
 describe("FormularioCriterios (acceso-ac2)", () => {

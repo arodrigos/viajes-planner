@@ -163,7 +163,10 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# El puerto 3100 es el que usa `npm run test:e2e` (playwright.config.ts):
+# sin esta entrada, Supabase Auth rechaza el `emailRedirectTo` que pide el
+# enlace mágico contra la pila local y acceso-ac4 no puede pasar en CI.
+additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3100/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -250,6 +253,18 @@ otp_expiry = 3600
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
+
+# Plantilla local del enlace mágico, réplica de la que hay que configurar a
+# mano en el panel del proyecto Supabase compartido (Authentication ->
+# Emails -> "Magic Link", ver manifiesto): usa `{{ .RedirectTo }}` -no
+# `{{ .SiteURL }}`, que es un ajuste único del proyecto compartido- y añade
+# `token_hash`/`type` en la URL para que el enlace apunte directo a
+# `/auth/confirm` en vez de al `/auth/v1/verify` por defecto de Supabase.
+# Sin esto, el correo que lee acceso-ac4 en la pila local no tiene el
+# enlace que la aplicación sabe procesar.
+[auth.email.template.magic_link]
+subject = "Tu enlace de acceso a Viajes"
+content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

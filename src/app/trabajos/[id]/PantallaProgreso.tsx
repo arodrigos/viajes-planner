@@ -23,6 +23,7 @@ function formatearFecha(iso: string): string {
 export function PantallaProgreso({ id }: { id: string }) {
   const [trabajo, setTrabajo] = useState<EstadoTrabajo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sesionCaducada, setSesionCaducada] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -31,7 +32,13 @@ export function PantallaProgreso({ id }: { id: string }) {
       try {
         const respuesta = await fetch(`/api/trabajos/${id}`);
         if (!respuesta.ok) {
-          if (!cancelado) setError("No se ha podido consultar el trabajo.");
+          if (cancelado) return;
+          // acceso-ac6(d): el middleware renueva la sesión en cada
+          // navegación, pero esta pantalla vive minutos u horas sin
+          // recargar -si aun así el token muere, decirlo en vez de repetir
+          // el genérico "no se ha podido consultar", que no explica nada.
+          if (respuesta.status === 401) setSesionCaducada(true);
+          else setError("No se ha podido consultar el trabajo.");
           return;
         }
         const datos: EstadoTrabajo = await respuesta.json();
@@ -43,6 +50,7 @@ export function PantallaProgreso({ id }: { id: string }) {
 
     consultar();
     const intervalo = setInterval(() => {
+      if (sesionCaducada) return;
       if (trabajo && ["completado", "fallido", "caducado"].includes(trabajo.estado)) return;
       consultar();
     }, INTERVALO_MS);
@@ -54,6 +62,17 @@ export function PantallaProgreso({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- el intervalo comprueba el estado más reciente por closure, no hace falta reiniciarlo en cada respuesta
   }, [id]);
 
+  if (sesionCaducada) {
+    return (
+      <div className="pila" role="alert">
+        <p>Tu sesión ha caducado.</p>
+        <p>
+          Puedes volver a entrar desde <a href="/criterios">/criterios</a>; el trabajo sigue su curso y esta misma
+          dirección te lo mostrará cuando vuelvas.
+        </p>
+      </div>
+    );
+  }
   if (error) return <p role="alert">{error}</p>;
   if (!trabajo) return <p>Consultando el estado del trabajo…</p>;
 

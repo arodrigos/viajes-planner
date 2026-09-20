@@ -166,6 +166,22 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # acceso-ac4/ac6: el camino de acceso completo (pedir el enlace,
+      # leer el correo real del servidor de correo local y confirmarlo)
+      # necesita la pila real de Supabase, no solo el doblado de red que
+      # bastaba para el resto de las pantallas.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      - name: exportar credenciales de la pila local
+        run: |
+          supabase status -o env > /tmp/supabase-status.env
+          source /tmp/supabase-status.env
+          echo "SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SCHEMA=viajes_planner" >> "$GITHUB_ENV"
       - run: npm run test:e2e
       # visual-ac1: el gatekeeper juzga estas ocho capturas (issue #141),
       # no un veredicto mecánico -por eso se publican como artefacto en vez
