@@ -243,13 +243,75 @@ progress {
    caja de contenido -que es lo que provoca desbordamiento horizontal real
    en un móvil estrecho, no aparente-, ahora que * { padding: 0 } le ha
    quitado la sangría por defecto. */
-ul {
+ul,
+ol {
   list-style-position: inside;
+}
+
+ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-2);
 }
 
 :focus-visible {
   outline: 2px solid var(--foco);
   outline-offset: 2px;
+}
+
+/* Ayuda persistente y visible (bloque guia-y-usabilidad): texto secundario
+   bajo un control, atado con aria-describedby. NO es un tooltip de hover
+   -en táctil no existe el hover, y la especificación HTML desaconseja
+   apoyarse en title- así que tiene que ocupar sitio siempre, no aparecer. */
+.ayuda {
+  font-size: var(--texto-pequeno);
+  opacity: 0.8;
+}
+
+/* Aviso destacado: lo que hay que saber ANTES de actuar (el correo que va
+   a hacer falta confirmar) o MIENTRAS SE ESPERA (que la dirección actual
+   es la única forma de volver). Un solo mecanismo para los dos usos. */
+.aviso {
+  padding: var(--espacio-3);
+  border: 1px solid var(--foco);
+  border-radius: 0.375rem;
+  background: var(--superficie);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-1);
+}
+
+/* <details> es el único "desplegable" de este producto -lo implementa ya
+   el navegador, sin JavaScript ni componente propio- para la ayuda que es
+   más larga que una línea. */
+details {
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+  padding: var(--espacio-2) var(--espacio-3);
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: var(--objetivo-tactil);
+  display: flex;
+  align-items: center;
+}
+
+footer {
+  padding: var(--espacio-4);
+  text-align: center;
+  font-size: var(--texto-pequeno);
+}
+
+/* visual-ac2(a) no hace excepción para un enlace de texto discreto: el
+   objetivo táctil de 44px aplica también al enlace del pie y al enlace
+   secundario a la guía en la portada, aunque no lleven pinta de botón. */
+footer a,
+.enlace-discreto {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--objetivo-tactil);
 }
 
 @media (min-width: 640px) {

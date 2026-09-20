@@ -149,6 +149,13 @@ export function FormularioCriterios() {
 
   return (
     <form onSubmit={alSubmit} aria-label="Criterios del viaje" className="formulario">
+      {/* usabilidad-ac8(b): el aviso previo es la pieza central de este
+          bloque. Va ANTES de cualquier interacción, no solo cuando el envío
+          falla con 401 -convierte la sorpresa de "pulsé Continuar y no pasó
+          nada" en una expectativa desde el principio. */}
+      <div className="aviso">
+        <p>Para pedir el plan te pediremos que confirmes tu correo con un enlace. No perderás lo que escribas mientras tanto.</p>
+      </div>
       {enviando && <p role="status">Enviando…</p>}
       {mensajeEnvio && (
         <p role="alert" className="pila">
@@ -160,9 +167,13 @@ export function FormularioCriterios() {
         <input
           id="destino_o_tipo"
           type="text"
+          aria-describedby="ayuda-destino_o_tipo"
           value={criterios.destino_o_tipo}
           onChange={(e) => setCriterios((c) => ({ ...c, destino_o_tipo: e.target.value }))}
         />
+        <p id="ayuda-destino_o_tipo" className="ayuda">
+          Un destino concreto («Roma») o un tipo de viaje («playa tranquila», «ciudad con niños»).
+        </p>
       </div>
 
       <fieldset>
@@ -278,9 +289,13 @@ export function FormularioCriterios() {
           id="presupuesto_eur"
           type="number"
           min={1}
+          aria-describedby="ayuda-presupuesto_eur"
           value={criterios.presupuesto_eur}
           onChange={(e) => setCriterios((c) => ({ ...c, presupuesto_eur: Number(e.target.value) }))}
         />
+        <p id="ayuda-presupuesto_eur" className="ayuda">
+          Presupuesto total del viaje, no por persona.
+        </p>
       </div>
 
       <fieldset>
