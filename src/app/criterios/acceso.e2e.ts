@@ -12,7 +12,7 @@ const EMAIL = "ci-test@example.com";
 test("pide acceso, confirma el enlace recibido por correo y reenvía el plan pendiente", async ({ page }) => {
   await page.goto("/criterios");
   await page.getByLabel("Destino o tipo de viaje").fill("Sevilla");
-  await page.getByLabel("Época del año").fill("primavera");
+  await page.getByLabel("Época del año", { exact: true }).fill("primavera");
   await page.getByRole("button", { name: "Continuar" }).click();
 
   await page.getByLabel("Tu correo").fill(EMAIL);
