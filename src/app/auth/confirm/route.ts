@@ -8,6 +8,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 // propio `setAll` que escriba sobre la respuesta de redirección.
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = new URL(request.url);
+  console.log(`[debug auth/confirm] request.url: ${request.url} origin: ${url.origin}`);
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type") as EmailOtpType | null;
   const next = url.searchParams.get("next") ?? "/criterios";
