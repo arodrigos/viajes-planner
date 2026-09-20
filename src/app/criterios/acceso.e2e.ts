@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { leerEnlaceMagico } from "@/lib/auth/__tests__/mailpit";
+import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 // El único correo de CORREOS_PERMITIDOS en CI (.github/workflows/ci.yml);
 // fuera de CI hace falta exportar la misma variable con este valor.
@@ -23,4 +24,16 @@ test("pide acceso, confirma el enlace recibido por correo y reenvía el plan pen
   await page.goto(enlace);
 
   await expect(page).toHaveURL(/\/trabajos\/[^/]+$/, { timeout: 15_000 });
+
+  // acceso-ac4(h): el paso (g) solo prueba que el navegador LLEGA a esa
+  // URL, no que el reenvío automático haya encolado de verdad el trabajo
+  // con los criterios escritos antes del desvío por el correo -- sin esta
+  // comprobación, una regresión que dejara el reenvío como no-op seguiría
+  // aterrizando en /trabajos/<id> con un identificador que no existe en
+  // la base de datos, y el test seguiría en verde.
+  const id = page.url().split("/").pop();
+  const supabase = clienteDePrueba("servicio");
+  const { data: trabajo } = await supabase.from("trabajos").select("estado, criterios").eq("id", id).single();
+  expect(trabajo?.estado).toBe("encolado");
+  expect(trabajo?.criterios).toMatchObject({ destino_o_tipo: "Sevilla", fechas: { modo: "epoca", epoca: "primavera" } });
 });
