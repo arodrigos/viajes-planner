@@ -165,8 +165,11 @@ site_url = "http://127.0.0.1:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 # El puerto 3100 es el que usa `npm run test:e2e` (playwright.config.ts):
 # sin esta entrada, Supabase Auth rechaza el `emailRedirectTo` que pide el
-# enlace mágico contra la pila local y acceso-ac4 no puede pasar en CI.
-additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3100/**"]
+# enlace mágico contra la pila local y acceso-ac4 no puede pasar en CI. Se
+# deja también la ruta exacta además del comodín: en la ejecución de CI que
+# falló, el comodín `/**` no evitó la caída a `site_url`, así que la entrada
+# exacta es la que de verdad se comprueba.
+additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3100/**", "http://127.0.0.1:3100/auth/confirm"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
