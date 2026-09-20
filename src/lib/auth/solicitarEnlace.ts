@@ -12,17 +12,25 @@ export type ResultadoSolicitudEnlace =
 // correo: acceso-ac1 solo pide que el correo no listado no complete el
 // alta, no que se compruebe la bandeja de entrada.
 //
-// `origenPeticion` es el origen (protocolo+host) de la petición entrante a
-// `/api/acceso/solicitar-enlace`, no una URL fija de configuración: así el
-// enlace devuelve al usuario al MISMO despliegue desde el que está usando
-// la aplicación (local, preview de Vercel o producción) sin ninguna
-// variable de entorno nueva. `shouldCreateUser` se deja en su valor por
-// defecto a propósito: ponerlo en `false` impediría el primer acceso de un
-// familiar autorizado, y la lista blanca ya es la puerta.
+// Desviación de diseño (acceso-ac4/ac6): el diseño original pasaba aquí el
+// origen de la petición entrante y lo mandaba como `emailRedirectTo`, para
+// que el enlace volviera al mismo despliegue (local, preview de Vercel o
+// producción) sin variables de entorno nuevas. Contra la pila real de
+// Supabase Auth, `emailRedirectTo` no se refleja en la plantilla del enlace
+// mágico (la variable `{{ .RedirectTo }}` cae en silencio a `site_url`
+// aunque la URL esté en `additional_redirect_urls`): el correo real
+// entregado en CI enlazaba a la raíz de `site_url`, sin ruta ni parámetros.
+// El propio patrón que documenta Supabase para este tipo de plantilla usa
+// `{{ .SiteURL }}` en vez de `{{ .RedirectTo }}` (ver
+// supabase/templates/magic_link.html), así que el origen de destino pasa a
+// ser `site_url` -uno por entorno, configurado donde corresponda (dashboard
+// en producción, config.toml en local/CI)- y no algo que esta función deba
+// calcular por petición. `shouldCreateUser` se deja en su valor por defecto
+// a propósito: ponerlo en `false` impediría el primer acceso de un familiar
+// autorizado, y la lista blanca ya es la puerta.
 export async function procesarSolicitudEnlace(
   supabase: SupabaseClient,
   correo: string,
-  origenPeticion: string,
 ): Promise<ResultadoSolicitudEnlace> {
   let permitido: boolean;
   try {
@@ -36,10 +44,7 @@ export async function procesarSolicitudEnlace(
 
   if (!permitido) return { estado: "correo-no-permitido" };
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email: correo,
-    options: { emailRedirectTo: `${origenPeticion}/auth/confirm` },
-  });
+  const { error } = await supabase.auth.signInWithOtp({ email: correo });
   if (error) throw new Error(`No se pudo enviar el enlace mágico: ${error.message}`);
   return { estado: "enviado" };
 }
