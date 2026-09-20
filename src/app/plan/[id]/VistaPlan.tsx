@@ -46,13 +46,17 @@ export function VistaPlan({ id }: { id: string }) {
       try {
         const respuesta = await fetch(`/api/plan/${id}`);
         if (!respuesta.ok) {
-          if (!cancelado) setError("No se ha podido cargar el plan.");
+          if (!cancelado)
+            setError("No se ha podido cargar el plan. Vuelve a intentarlo en un momento; esta misma dirección seguirá funcionando.");
           return;
         }
         const datos: PlanPublico = await respuesta.json();
         if (!cancelado) setPlan(datos);
       } catch {
-        if (!cancelado) setError("No se ha podido cargar el plan.");
+        if (!cancelado)
+          setError(
+            "No se ha podido cargar el plan: revisa tu conexión y vuelve a intentarlo. Esta misma dirección seguirá funcionando cuando la recuperes.",
+          );
       }
     }
 
@@ -65,6 +69,12 @@ export function VistaPlan({ id }: { id: string }) {
   return (
     <div className="pila">
       <p role="note">{AVISO_FIJO}</p>
+      {/* usabilidad-ac8(b): el mismo aviso de "guarda esta dirección" que en
+          /trabajos/[id], para que quien llega hasta aquí sepa que no hay
+          cuenta ni lista de viajes -esta URL es todo lo que hay. */}
+      <div className="aviso">
+        <p>Esta dirección es la única forma de volver a este plan: consérvala.</p>
+      </div>
 
       {error && <p role="alert">{error}</p>}
       {!error && !plan && <p>Cargando el plan…</p>}

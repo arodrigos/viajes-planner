@@ -28,7 +28,10 @@ export function PanelAcceso({ mensaje }: { mensaje?: string | null }) {
         return;
       }
       if (respuesta.status === 403) {
-        setError("Ese correo no tiene acceso a esta aplicación.");
+        // usabilidad-ac8(c): dice qué ha pasado y cómo salir, SIN confirmar
+        // ni negar qué otras direcciones están autorizadas (modelo de
+        // amenazas: la composición de la lista blanca es dato personal).
+        setError("Ese correo no tiene acceso a esta aplicación. Si crees que deberías tenerlo, pídeselo a Adrián.");
       } else {
         setError("No se ha podido enviar el enlace. Inténtalo de nuevo en un momento.");
       }
@@ -59,7 +62,18 @@ export function PanelAcceso({ mensaje }: { mensaje?: string | null }) {
       <p>Para pedir el plan hace falta confirmar tu correo. Lo que has escrito no se pierde mientras tanto.</p>
       <div className="campo">
         <label htmlFor="email-acceso">Tu correo</label>
-        <input id="email-acceso" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input
+          id="email-acceso"
+          type="email"
+          required
+          aria-describedby="ayuda-email-acceso"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <p id="ayuda-email-acceso" className="ayuda">
+          Solo funcionan los correos autorizados de la familia. El enlace caduca en una hora, es de un solo uso, y
+          solo puedes pedir uno nuevo cada 60 segundos.
+        </p>
       </div>
       <button type="submit" disabled={estado === "enviando"}>
         {estado === "enviando" ? "Enviando…" : "Enviar enlace de acceso"}

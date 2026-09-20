@@ -38,13 +38,19 @@ export function PantallaProgreso({ id }: { id: string }) {
           // recargar -si aun así el token muere, decirlo en vez de repetir
           // el genérico "no se ha podido consultar", que no explica nada.
           if (respuesta.status === 401) setSesionCaducada(true);
-          else setError("No se ha podido consultar el trabajo.");
+          // usabilidad-ac8(c): el mensaje no puede reducirse al código HTTP
+          // ni a "Error:" -el usuario no sabe qué significa un 500- y tiene
+          // que ofrecer una salida real, no solo constatar el fallo.
+          else setError("No se ha podido consultar el trabajo. Vuelve a intentarlo en un momento; esta misma dirección seguirá funcionando.");
           return;
         }
         const datos: EstadoTrabajo = await respuesta.json();
         if (!cancelado) setTrabajo(datos);
       } catch {
-        if (!cancelado) setError("No se ha podido consultar el trabajo.");
+        if (!cancelado)
+          setError(
+            "No se ha podido consultar el trabajo: revisa tu conexión y vuelve a intentarlo. Esta misma dirección seguirá funcionando cuando la recuperes.",
+          );
       }
     }
 
@@ -85,16 +91,32 @@ export function PantallaProgreso({ id }: { id: string }) {
     );
   }
 
+  // usabilidad-ac8(b): en todo estado de espera hay que recordar que esta
+  // dirección -no un botón ni una cuenta- es la única forma de volver a
+  // encontrar el trabajo, porque es el error real que motivó este bloque:
+  // gente cerrando la pestaña sin guardar nada.
+  const avisoDireccion = (
+    <div className="aviso">
+      <p>Puedes cerrar esta pantalla y volver cuando quieras: esta dirección es la única forma de encontrar este trabajo, así que conviene guardarla.</p>
+    </div>
+  );
+
   if (trabajo.estado === "encolado") {
-    return <p>Encolado, esperando a que un trabajador lo recoja…</p>;
+    return (
+      <div className="pila">
+        <p>Tu viaje está en la cola: un agente lo va a generar en cuanto le llegue el turno, y puede tardar varios minutos.</p>
+        {avisoDireccion}
+      </div>
+    );
   }
 
   if (trabajo.estado === "pausado-por-cuota") {
     return (
       <div className="pila">
-        <p>El viaje está pausado: la suscripción ha llegado a su límite de uso.</p>
+        <p>El viaje está pausado, no roto: la suscripción ha llegado a su límite de uso y se retomará sola.</p>
         <p>{trabajo.motivo}</p>
         {trabajo.reintento_no_antes_de && <p>Se retomará a partir de {formatearFecha(trabajo.reintento_no_antes_de)}.</p>}
+        {avisoDireccion}
       </div>
     );
   }
@@ -112,6 +134,7 @@ export function PantallaProgreso({ id }: { id: string }) {
     <div className="pila">
       <p>{trabajo.etapa ?? "preparando la petición"}</p>
       <progress value={trabajo.porcentaje} max={100} aria-label="Progreso de la generación" />
+      {avisoDireccion}
     </div>
   );
 }

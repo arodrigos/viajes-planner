@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,10 +16,19 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// guia-ac7(a): el enlace del pie tiene que existir en las cuatro páginas
+// -por eso vive en el layout raíz y no en cada page.tsx- y alcanza además
+// al usuario que ya está atascado a mitad de camino, que es el caso real
+// que motivó este bloque.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        {children}
+        <footer>
+          <Link href="/guia">Guía: cómo funciona esta aplicación</Link>
+        </footer>
+      </body>
     </html>
   );
 }

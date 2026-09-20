@@ -1,7 +1,19 @@
 import type { NextConfig } from "next";
 
+// Producto de uso personal y familiar (sin-afiliacion.ts): ninguna ruta se
+// indexa, incluida /guia -pese a ser pública y sin sesión, dice que el
+// acceso está limitado a los correos autorizados de una familia, que es
+// dato personal (guia-ac7.d). Va aquí y no en middleware.ts porque el
+// matcher de éste excluye a propósito /guia de su procesamiento.
 const nextConfig: NextConfig = {
-  /* config options here */
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
