@@ -20,9 +20,7 @@ test("pide acceso, confirma el enlace recibido por correo y reenvía el plan pen
   await expect(page.getByText(`Te hemos enviado un enlace a ${EMAIL}.`)).toBeVisible();
 
   const enlace = await leerEnlaceMagico(EMAIL);
-  console.log(`[debug acceso-e2e] enlace recibido: ${enlace}`);
   await page.goto(enlace);
-  console.log(`[debug acceso-e2e] tras goto, url: ${page.url()}`);
 
   await expect(page).toHaveURL(/\/trabajos\/[^/]+$/, { timeout: 15_000 });
 });
