@@ -251,6 +251,18 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Plantilla local del enlace mágico, réplica de la que hay que configurar a
+# mano en el panel del proyecto Supabase compartido (Authentication ->
+# Emails -> "Magic Link", ver manifiesto): usa `{{ .RedirectTo }}` -no
+# `{{ .SiteURL }}`, que es un ajuste único del proyecto compartido- y añade
+# `token_hash`/`type` en la URL para que el enlace apunte directo a
+# `/auth/confirm` en vez de al `/auth/v1/verify` por defecto de Supabase.
+# Sin esto, el correo que lee acceso-ac4 en la pila local no tiene el
+# enlace que la aplicación sabe procesar.
+[auth.email.template.magic_link]
+subject = "Tu enlace de acceso a Viajes"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

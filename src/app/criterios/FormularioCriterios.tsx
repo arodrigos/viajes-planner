@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { guardarBorrador, leerBorrador } from "@/lib/criterios/borrador";
 import { validarCriterios } from "@/lib/criterios/validar";
+import { hayEnvioPendiente, limpiarEnvioPendiente, marcarEnvioPendiente } from "@/lib/criterios/envioPendiente";
+import { PanelAcceso } from "./PanelAcceso";
 import type { CriteriosViaje, Perfil } from "@/lib/criterios/tipos";
 
 const CRITERIOS_INICIALES: CriteriosViaje = {
@@ -15,11 +18,22 @@ const CRITERIOS_INICIALES: CriteriosViaje = {
   alojamiento: undefined,
 };
 
+// acceso-ac4/ac6: qué pantalla se muestra dentro de /criterios además del
+// propio formulario. "pidiendo-acceso" cubre tanto el 401 al enviar como
+// `?acceso=error` (enlace caducado/inválido); "sin-borrador" es el aviso
+// explícito de acceso-ac6(b), nunca un formulario vacío en silencio.
+type Vista = "formulario" | "pidiendo-acceso" | "sin-borrador";
+
 export function FormularioCriterios() {
+  const router = useRouter();
   const [criterios, setCriterios] = useState<CriteriosViaje>(CRITERIOS_INICIALES);
   const [conAlojamiento, setConAlojamiento] = useState(false);
   const [errores, setErrores] = useState<string[]>([]);
   const [cargado, setCargado] = useState(false);
+  const [vista, setVista] = useState<Vista>("formulario");
+  const [mensajeAcceso, setMensajeAcceso] = useState<string | null>(null);
+  const [mensajeEnvio, setMensajeEnvio] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     // localStorage no existe en el servidor: hidratar el borrador tiene que
@@ -32,11 +46,71 @@ export function FormularioCriterios() {
       setConAlojamiento(Boolean(borrador.alojamiento));
     }
     setCargado(true);
+
+    // window.location, no useSearchParams: este componente no tiene un
+    // límite <Suspense> por encima (page.tsx no lo pone) y no hace falta
+    // añadir uno solo para leer un parámetro que solo importa en el cliente.
+    const parametros = new URLSearchParams(window.location.search);
+    if (parametros.get("acceso") === "error") {
+      setMensajeAcceso("El enlace no es válido o ha caducado.");
+      setVista("pidiendo-acceso");
+      return;
+    }
+    if (parametros.get("acceso") === "confirmado") {
+      if (!borrador) {
+        // acceso-ac6(b): el enlace se abrió en un contexto de navegador
+        // distinto (p. ej. la vista web aislada del cliente de correo) y
+        // este localStorage nunca tuvo el borrador. Hay sesión pero no hay
+        // nada que reenviar: decirlo, no mostrar el formulario en blanco.
+        setVista("sin-borrador");
+        return;
+      }
+      if (hayEnvioPendiente()) {
+        limpiarEnvioPendiente();
+        void enviarPlan(borrador);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe ejecutarse una vez, al montar
   }, []);
 
   useEffect(() => {
     if (cargado) guardarBorrador(criterios);
   }, [criterios, cargado]);
+
+  async function enviarPlan(datos: CriteriosViaje) {
+    setEnviando(true);
+    setMensajeEnvio(null);
+    try {
+      const respuesta = await fetch("/api/plan", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(datos),
+      });
+
+      if (respuesta.status === 202) {
+        const { id } = (await respuesta.json()) as { id: string };
+        router.push(`/trabajos/${id}`);
+        return;
+      }
+      if (respuesta.status === 401) {
+        marcarEnvioPendiente();
+        setVista("pidiendo-acceso");
+        return;
+      }
+      if (respuesta.status === 429) {
+        // acceso-ac6(c): el borrador ya está en localStorage desde el
+        // primer cambio (ver el efecto de guardarBorrador); no se toca
+        // aquí, así que sobrevive al intento fallido sin hacer nada extra.
+        setMensajeEnvio("Has alcanzado el límite de viajes por hora. Puedes volver a intentarlo más tarde: lo escrito no se pierde.");
+        return;
+      }
+      setMensajeEnvio("Los criterios no son válidos. Revisa el formulario e inténtalo de nuevo.");
+    } catch {
+      setMensajeEnvio("No se ha podido enviar la solicitud. Comprueba tu conexión e inténtalo de nuevo.");
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   function actualizarPersona(indice: number, edad: number) {
     setCriterios((c) => ({
@@ -57,10 +131,30 @@ export function FormularioCriterios() {
     e.preventDefault();
     const resultado = validarCriterios(criterios);
     setErrores(resultado.errores);
+    if (resultado.valido) void enviarPlan(criterios);
+  }
+
+  if (vista === "sin-borrador") {
+    return (
+      <div className="pila" role="alert">
+        <p>Tu sesión ya está iniciada, pero los criterios que escribiste se quedaron en otro navegador.</p>
+        <p>Vuelve a la pestaña o app donde los escribiste: ahí se enviarán solos.</p>
+      </div>
+    );
+  }
+
+  if (vista === "pidiendo-acceso") {
+    return <PanelAcceso mensaje={mensajeAcceso} />;
   }
 
   return (
     <form onSubmit={alSubmit} aria-label="Criterios del viaje" className="formulario">
+      {enviando && <p role="status">Enviando…</p>}
+      {mensajeEnvio && (
+        <p role="alert" className="pila">
+          {mensajeEnvio}
+        </p>
+      )}
       <div className="campo">
         <label htmlFor="destino_o_tipo">Destino o tipo de viaje</label>
         <input
@@ -212,7 +306,9 @@ export function FormularioCriterios() {
         )}
       </fieldset>
 
-      <button type="submit">Continuar</button>
+      <button type="submit" disabled={enviando}>
+        Continuar
+      </button>
 
       {errores.length > 0 && (
         <ul role="alert" className="pila">

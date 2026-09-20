@@ -1,6 +1,7 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
+import { correoPermitido } from "./allowlist";
 
 export interface Sesion {
   usuarioId: string;
@@ -34,10 +35,23 @@ const RESPUESTA_NO_AUTENTICADO = () =>
     headers: { "content-type": "application/json" },
   });
 
+const RESPUESTA_CORREO_NO_AUTORIZADO = () =>
+  new Response(JSON.stringify({ error: "correo no autorizado" }), {
+    status: 403,
+    headers: { "content-type": "application/json" },
+  });
+
 // acceso-ac1: los endpoints que consumen cuota rechazan peticiones sin
 // sesión válida. Devuelve la sesión o ya la Response 401 lista para usar,
 // para que cada endpoint escriba `const s = await requireSesion(req); if (s instanceof Response) return s;`
+//
+// acceso-ac5: `auth.users` es de un proyecto Supabase COMPARTIDO entre toda
+// la flota, así que tener sesión no basta -- sin repetir esta comprobación
+// en cada endpoint, una sesión emitida por otro producto de la flota podría
+// encolar trabajos contra la suscripción de Adrián.
 export async function requireSesion(request: NextRequest): Promise<Sesion | Response> {
   const sesion = await obtenerSesion(request);
-  return sesion ?? RESPUESTA_NO_AUTENTICADO();
+  if (!sesion) return RESPUESTA_NO_AUTENTICADO();
+  if (!correoPermitido(sesion.email)) return RESPUESTA_CORREO_NO_AUTORIZADO();
+  return sesion;
 }

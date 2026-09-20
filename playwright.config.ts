@@ -6,7 +6,13 @@ export default defineConfig({
   fullyParallel: true,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    // acceso-ac4/ac6: tiene que coincidir con [auth].site_url de
+    // supabase/config.toml. El correo del enlace mágico se construye con
+    // {{ .SiteURL }} (ver supabase/templates/magic_link.html), no con un
+    // origen por petición: Supabase Auth no aplica de forma fiable el
+    // `emailRedirectTo` dinámico en esta plantilla, así que el puerto de la
+    // app bajo prueba tiene que ser el mismo que el configurado como sitio.
+    baseURL: "http://127.0.0.1:3000",
     trace: "off",
   },
   projects: [
@@ -19,8 +25,8 @@ export default defineConfig({
     { name: "movil", testMatch: /\.movil\.e2e\.ts$/, use: { ...devices["Pixel 5"] } },
   ],
   webServer: {
-    command: "npm run build && npm run start -- -p 3100",
-    url: "http://127.0.0.1:3100",
+    command: "npm run build && npm run start -- -p 3000",
+    url: "http://127.0.0.1:3000",
     reuseExistingServer: false,
     timeout: 180000,
   },

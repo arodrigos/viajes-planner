@@ -81,3 +81,14 @@ test("un trabajo fallido explica el motivo", async ({ page }) => {
   await expect(page.getByText("No se ha podido generar el viaje.")).toBeVisible();
   await expect(page.getByText("la respuesta del modelo no es JSON válido")).toBeVisible();
 });
+
+// acceso-ac6(d): un 401 a mitad de espera (el JWT de una hora caducó antes
+// que el trabajo) explica que hay que volver a entrar, en vez de repetir el
+// genérico "no se ha podido consultar" que no dice qué ha pasado.
+test("un 401 a mitad de espera explica que la sesión ha caducado, no un error genérico", async ({ page }) => {
+  await page.route("**/api/trabajos/*", (route) => route.fulfill({ status: 401, json: { error: "no autenticado" } }));
+
+  await page.goto("/trabajos/abc");
+  await expect(page.getByText("Tu sesión ha caducado.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "/criterios" })).toBeVisible();
+});
