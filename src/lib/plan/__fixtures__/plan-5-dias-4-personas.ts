@@ -1,20 +1,10 @@
-import { franjasParaDestino } from "../config-franjas";
-import type { Dia, Franja, Plan } from "../tipos";
+import { franjasComoArray } from "../config-franjas";
+import type { Dia, Plan } from "../tipos";
 
 // Fixture de referencia: cinco días en Sevilla para una familia de cuatro.
 // Dos paradas por día (mañana y tarde); procedencia siempre
 // "propuesto-sin-verificar" porque en fase 1 no hay otro valor posible.
 const DESTINO = "Sevilla";
-
-function franjasDelDia(): Franja[] {
-  const config = franjasParaDestino(DESTINO);
-  return Object.entries(config).map(([id, def]) => ({
-    id,
-    etiqueta: def.etiqueta,
-    hora_inicio: def.hora_inicio,
-    hora_fin: def.hora_fin,
-  }));
-}
 
 function diaFixture(fecha: string, indice: number): Dia {
   return {
@@ -24,7 +14,7 @@ function diaFixture(fecha: string, indice: number): Dia {
       centroide: { lat: 37.3891 + indice * 0.001, lon: -5.9845 },
       radio_m: 800,
     },
-    franjas: franjasDelDia(),
+    franjas: franjasComoArray(DESTINO),
     paradas: [
       {
         id: `parada-${indice}-manana`,

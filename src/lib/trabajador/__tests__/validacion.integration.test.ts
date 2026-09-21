@@ -4,7 +4,19 @@ import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecu
 import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
-import { RESPUESTA_MODELO_CON_VALLA_MARKDOWN } from "./__fixtures__/respuesta-modelo-con-valla-markdown";
+import { RESPUESTA_MODELO_FORMA_NUEVA } from "./__fixtures__/respuesta-modelo-forma-nueva";
+
+// Los criterios reales con los que se capturó RESPUESTA_MODELO_FORMA_NUEVA
+// -- necesarios para que franjasComoArray(destino) calce con los franja_id
+// que trae la respuesta real.
+const CRITERIOS_DE_LA_CAPTURA: CriteriosViaje = {
+  destino_o_tipo: "Roma",
+  fechas: { modo: "epoca", epoca: "primavera" },
+  dias: 3,
+  personas: [{ edad: 38 }, { edad: 36 }],
+  perfil: "pareja",
+  presupuesto_eur: 900,
+};
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -37,10 +49,10 @@ const DIAS_VALIDOS = JSON.stringify({ dias: planFixture.dias });
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)", () => {
   const supabase = clienteDePrueba();
 
-  async function crearTrabajo() {
+  async function crearTrabajo(criterios: CriteriosViaje = CRITERIOS) {
     const { data, error } = await supabase
       .from("trabajos")
-      .insert({ tipo: "generacion", criterios: CRITERIOS })
+      .insert({ tipo: "generacion", criterios })
       .select("id")
       .single();
     if (error || !data) throw new Error(`No se pudo crear el trabajo de prueba: ${error?.message}`);
@@ -104,29 +116,77 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     expect(trabajo?.motivo).toMatch(/prioridad/);
   });
 
-  it("respuesta real envuelta en valla de markdown: se extrae en vez de morir en '(raíz)'", async () => {
-    // Captura literal de la primera invocación real de este código
-    // (2026-09-21): el modelo envolvió el JSON en ```json ... ``` pese a
-    // que el prompt pedía explícitamente que no lo hiciera. Antes del fix,
-    // esto moría con motivo "(raíz): la respuesta del modelo no es JSON
-    // válido" en las dos invocaciones (intento y reintento) -- este test
-    // falla con el código de antes y pasa con extraerJson().
-    const trabajoId = await crearTrabajo();
-    const doble = dobleFijo([RESPUESTA_MODELO_CON_VALLA_MARKDOWN]);
+  it("respuesta real (forma nueva, sin valla): el trabajo llega a 'completado' de verdad", async () => {
+    // Captura literal de una invocación real de claude -p (2026-09-21) tras
+    // el fix de campos: el prompt ya pide fecha+paradas planas con
+    // nombre/descripcion/duracion_min/prioridad/franja_id, y deja que el
+    // sistema rellene id/franjas/procedencia. Esta es la prueba real de que
+    // el producto genera un viaje, no solo de que un test pasa.
+    const trabajoId = await crearTrabajo(CRITERIOS_DE_LA_CAPTURA);
+    const doble = dobleFijo([RESPUESTA_MODELO_FORMA_NUEVA]);
 
-    await procesarTrabajo(
+    const resultado = await procesarTrabajo(
       supabase,
-      { id: trabajoId, plan_id: null, criterios: CRITERIOS },
+      { id: trabajoId, plan_id: null, criterios: CRITERIOS_DE_LA_CAPTURA },
       { ejecutor: doble, directorio: "/tmp" },
     );
 
-    const { data: trabajo } = await supabase.from("trabajos").select("motivo").eq("id", trabajoId).single();
-    // La respuesta real no encaja del todo con el esquema estricto del plan
-    // (nombres de campo distintos a los de tipos.ts) -- eso es un problema
-    // aparte, de completitud del prompt, no del parseo. Lo que este test
-    // demuestra es que ya NO muere en el parseo: si el motivo nombrara
-    // "(raíz)" seguiríamos sin extraer el JSON de la valla.
-    expect(trabajo?.motivo).not.toMatch(/\(raíz\)/);
+    expect(resultado.estado).toBe("completado");
+    expect(doble.invocaciones).toBe(1);
+    const { data: trabajo } = await supabase.from("trabajos").select("estado, motivo, plan_id").eq("id", trabajoId).single();
+    expect(trabajo?.estado).toBe("completado");
+    expect(trabajo?.plan_id).toBeTruthy();
+    const { count } = await supabase
+      .from("plan_versiones")
+      .select("id", { count: "exact", head: true })
+      .eq("plan_id", trabajo?.plan_id);
+    expect(count).toBe(1);
+  });
+
+  it("un día sin ninguna parada: 'fallido' en vez de 'completado' vacío", async () => {
+    // Hallazgo real (2026-09-21): al dejar que el sistema rellene
+    // id/franjas/procedencia (ensamblarDia en procesarTrabajo.ts), un día
+    // sin ninguna parada del modelo colaba un "completado" vacío -- la
+    // clave "paradas" siempre se emite (aunque sea []), y el esquema no
+    // exigía ningún mínimo. Un viaje sin una sola parada no es un viaje.
+    const trabajoId = await crearTrabajo(CRITERIOS_DE_LA_CAPTURA);
+    const sinParadas = JSON.stringify({
+      dias: [{ fecha: "2027-04-15" }, { fecha: "2027-04-16" }, { fecha: "2027-04-17" }],
+    });
+    const doble = dobleFijo([sinParadas, sinParadas]);
+
+    const resultado = await procesarTrabajo(
+      supabase,
+      { id: trabajoId, plan_id: null, criterios: CRITERIOS_DE_LA_CAPTURA },
+      { ejecutor: doble, directorio: "/tmp" },
+    );
+
+    expect(resultado.estado).toBe("fallido");
+    const { data: trabajo } = await supabase.from("trabajos").select("motivo, plan_id").eq("id", trabajoId).single();
+    expect(trabajo?.motivo).toMatch(/paradas/);
+    expect(trabajo?.plan_id).toBeNull();
+  });
+
+  it("la misma respuesta real, envuelta en valla a mano: sigue completando (defensa en profundidad)", async () => {
+    // No es una segunda captura real -- es la MISMA respuesta real de
+    // arriba, envuelta en la valla que el modelo sí usó la primera vez que
+    // se probó este código (issue trabajador, 2026-09-21). Prueba las dos
+    // defensas juntas (extraerJson + el mapeo de campos nuevo) sin gastar
+    // una tercera invocación real. Falla con el código de antes del fix
+    // del fence (motivo "(raíz)...") y con el código de antes del fix de
+    // campos (motivo con "must have required property").
+    const trabajoId = await crearTrabajo(CRITERIOS_DE_LA_CAPTURA);
+    const conValla = "```json\n" + RESPUESTA_MODELO_FORMA_NUEVA + "\n```";
+    const doble = dobleFijo([conValla]);
+
+    const resultado = await procesarTrabajo(
+      supabase,
+      { id: trabajoId, plan_id: null, criterios: CRITERIOS_DE_LA_CAPTURA },
+      { ejecutor: doble, directorio: "/tmp" },
+    );
+
+    expect(resultado.estado).toBe("completado");
+    expect(doble.invocaciones).toBe(1);
   });
 
   it("el reintento devuelve un plan válido: 'completado' y guardado", async () => {
