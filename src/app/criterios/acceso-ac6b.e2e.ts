@@ -51,7 +51,9 @@ test("confirmar sin borrador en ese navegador avisa explícitamente y no encola 
   await paginaB.goto(enlace);
 
   // (i) aviso explícito y legible, nunca un formulario vacío en silencio.
-  const aviso = paginaB.getByRole("alert");
+  // El filtro por texto descarta el otro role="alert" que Next.js inyecta
+  // siempre (el route announcer), que si no haría fallar en modo estricto.
+  const aviso = paginaB.getByRole("alert").filter({ hasText: /otro navegador/ });
   await expect(aviso).toBeVisible();
   const textoAviso = (await aviso.textContent()) ?? "";
   expect(textoAviso.length).toBeGreaterThanOrEqual(60);

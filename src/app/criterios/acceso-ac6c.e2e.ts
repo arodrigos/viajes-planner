@@ -63,8 +63,10 @@ test("el envío que choca con el límite por hora conserva lo escrito tras recar
   expect(respuestaPlan.status()).toBe(429);
 
   // (ii) mensaje visible que nombra el límite por hora y dice que lo
-  // escrito no se pierde, sin código de estado ni jerga.
-  const aviso = pagina.getByRole("alert");
+  // escrito no se pierde, sin código de estado ni jerga. El filtro por
+  // texto descarta el otro role="alert" que Next.js inyecta siempre (el
+  // route announcer), que si no haría fallar en modo estricto.
+  const aviso = pagina.getByRole("alert").filter({ hasText: /límite/ });
   await expect(aviso).toBeVisible();
   const textoAviso = (await aviso.textContent()) ?? "";
   expect(textoAviso).toMatch(/límite/i);
