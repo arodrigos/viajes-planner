@@ -3,6 +3,8 @@
 // por eso esto es configuración por destino con un valor por defecto, y el
 // resto del proyecto no debe declarar ninguna hora suelta.
 
+import type { Franja } from "./tipos";
+
 export interface DefinicionFranja {
   etiqueta: string;
   hora_inicio: string;
@@ -42,4 +44,19 @@ export function franjasParaDestino(destino: string): ConfigFranjas {
     if (definicion) resultado[id] = definicion;
   }
   return resultado;
+}
+
+// trabajador-ac1 (real, 2026-09-21): las horas de franja son configuración
+// determinista por destino, nunca algo que el modelo deba inventar -- pedir
+// que las reproduzca es la misma trampa que pedirle `procedencia`. El
+// trabajador solo necesita pedirle al modelo un `franja_id` de esta lista;
+// la forma completa (etiqueta, horas) la pone este módulo, siempre igual
+// para un mismo destino.
+export function franjasComoArray(destino: string): Franja[] {
+  return Object.entries(franjasParaDestino(destino)).map(([id, def]) => ({
+    id,
+    etiqueta: def.etiqueta,
+    hora_inicio: def.hora_inicio,
+    hora_fin: def.hora_fin,
+  }));
 }

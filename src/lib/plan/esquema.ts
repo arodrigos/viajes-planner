@@ -29,7 +29,13 @@ export const esquemaPlan = {
         // Opcional en fase 1: el modelo no propone alojamiento todavía (F2-06).
         ancla_alojamiento: { $ref: "#/$defs/anclaAlojamiento" },
         franjas: { type: "array", minItems: 1, items: { $ref: "#/$defs/franja" } },
-        paradas: { type: "array", items: { $ref: "#/$defs/parada" } },
+        // trabajador-ac1 (real, 2026-09-21): sin minItems, un día sin
+        // ninguna parada validaba igual que uno completo -- el fix que deja
+        // que el sistema rellene id/franjas/procedencia (procesarTrabajo.ts)
+        // siempre emite la clave "paradas", así que un modelo que no
+        // proponga ninguna colaba un "completado" vacío en vez de
+        // reintentar con el hueco señalado.
+        paradas: { type: "array", minItems: 1, items: { $ref: "#/$defs/parada" } },
       },
     },
     anclaAlojamiento: {

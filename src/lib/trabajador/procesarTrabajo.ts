@@ -2,13 +2,14 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
 import { postProcesarPlan } from "@/lib/generacion/postProcesar";
+import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { validarPlan, type ErrorValidacion } from "@/lib/plan/validar";
 import { guardarPlan } from "@/lib/plan/repositorio";
-import type { Plan } from "@/lib/plan/tipos";
+import type { Dia, Franja, Parada, Plan } from "@/lib/plan/tipos";
 import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
-import { generarIdPlan } from "./id";
+import { generarIdParada, generarIdPlan } from "./id";
 import { MODELO_GENERACION } from "./config";
 
 export interface TrabajoAProcesar {
@@ -40,9 +41,20 @@ function extraerJson(texto: string): string {
   return texto;
 }
 
-// trabajador-ac2: el modelo solo aporta "dias" (y lo que contengan); id,
-// version, destino y personas los fija el proceso, nunca el modelo — el
-// modelo nunca decide la identidad del plan, solo su contenido.
+// trabajador-ac2, ampliado tras la primera invocación real (2026-09-21): el
+// modelo solo aporta, por parada, lo que de verdad puede originar --
+// nombre, descripcion, duracion_min, prioridad, franja_id. Todo lo demás lo
+// fija el proceso, nunca el modelo:
+// - id (de plan y de cada parada): el modelo nunca decide identidad.
+// - franjas: horario determinista por destino (config-franjas.ts). Pedirle
+//   al modelo que reproduzca id/etiqueta/hora_inicio/hora_fin es la misma
+//   trampa que pedirle procedencia -- y en la práctica nunca acertaba el
+//   formato exacto.
+// - procedencia: único valor posible en fase 1 (tipos.ts). Pedírsela al
+//   modelo es invitarlo a inventar con formato correcto un dato sobre sí
+//   mismo que no puede saber de verdad.
+// - ancla_alojamiento: fase 1 no resuelve ubicaciones reales (F2-06); se
+//   omite siempre, nunca a medias con datos que el modelo se inventaría.
 function ensamblarYValidar(criterios: CriteriosViaje, planId: string, texto: string): IntentoEnsamblado {
   let datos: unknown;
   try {
@@ -51,17 +63,45 @@ function ensamblarYValidar(criterios: CriteriosViaje, planId: string, texto: str
     return { valido: false, errores: [{ ruta: "(raíz)", mensaje: "la respuesta del modelo no es JSON válido" }] };
   }
 
-  const dias = (datos as { dias?: unknown }).dias;
+  const diasCrudos = (datos as { dias?: unknown }).dias;
+  const franjas = franjasComoArray(criterios.destino_o_tipo);
+  const dias: Dia[] = Array.isArray(diasCrudos)
+    ? diasCrudos.map((diaCrudo) => ensamblarDia(diaCrudo as Record<string, unknown> | null, franjas))
+    : [];
+
   const candidato: Plan = {
     id: planId,
     version: 1,
     destino: criterios.destino_o_tipo,
     personas: criterios.personas.length,
-    dias: (dias as Plan["dias"]) ?? [],
+    dias,
   };
 
   const resultado = validarPlan(candidato);
   return resultado.valido ? { valido: true, plan: candidato } : { valido: false, errores: resultado.errores };
+}
+
+function ensamblarDia(diaCrudo: Record<string, unknown> | null, franjas: Franja[]): Dia {
+  const paradasCrudas = diaCrudo?.paradas;
+  return {
+    fecha: diaCrudo?.fecha as string,
+    franjas,
+    paradas: Array.isArray(paradasCrudas)
+      ? paradasCrudas.map((paradaCruda) => ensamblarParada(paradaCruda as Record<string, unknown> | null))
+      : [],
+  };
+}
+
+function ensamblarParada(paradaCruda: Record<string, unknown> | null): Parada {
+  return {
+    id: generarIdParada(),
+    franja_id: paradaCruda?.franja_id as string,
+    nombre: paradaCruda?.nombre as string,
+    descripcion: paradaCruda?.descripcion as string,
+    duracion_min: paradaCruda?.duracion_min as number,
+    prioridad: paradaCruda?.prioridad as number,
+    procedencia: { fuente: "propuesto-sin-verificar" },
+  };
 }
 
 async function publicarEtapa(supabase: SupabaseClient, trabajoId: string, etapa: string): Promise<void> {
