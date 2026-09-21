@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { destinoSeguro } from "@/lib/auth/destinoSeguro";
 
 // Cliente propio, distinto del de sesion.ts: aquél es de solo lectura
 // (`setAll: () => {}`) porque no tiene una respuesta en la que escribir.
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = request.nextUrl;
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type") as EmailOtpType | null;
-  const next = url.searchParams.get("next") ?? "/criterios";
+  const next = url.searchParams.get("next");
 
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
   const protocolo = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
@@ -29,7 +30,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const anon = process.env.SUPABASE_ANON_KEY;
   if (!supabaseUrl || !anon) throw new Error("Faltan SUPABASE_URL o SUPABASE_ANON_KEY en el entorno");
 
-  const destinoExito = new URL(next, origen);
+  // seg-ac1/seg-ac2: `next` es entrada del usuario (viene del propio enlace
+  // de correo, que un tercero puede fabricar con cualquier valor) y nunca
+  // se sanea para reutilizarlo -- se valida contra la lista blanca de rutas
+  // relativas del propio origen y, si no lo es, cae al destino por defecto.
+  // La sesión se crea igual: el token es del usuario, un `next` hostil no
+  // es motivo para negarle el acceso, solo para no llevarle donde pide.
+  const destinoExito = new URL(destinoSeguro(next, origen), origen);
   destinoExito.searchParams.set("acceso", "confirmado");
   const respuestaExito = NextResponse.redirect(destinoExito);
 
