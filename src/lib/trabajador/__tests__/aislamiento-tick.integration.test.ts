@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecutorModelo";
+import { adquirirCerrojo, liberarCerrojo } from "@/lib/trabajador/cerrojo";
 import { tick } from "@/lib/trabajador/tick";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
@@ -61,16 +62,33 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
     expect(data?.registrado_en >= antes).toBe(true);
   });
 
-  it("dos ticks a la vez: exactamente uno adquiere el cerrojo y arranca", async () => {
-    const dobleA = dobleContador();
-    const dobleB = dobleContador();
+  // Reescrito (issue #151): la versión anterior lanzaba dos tick() con
+  // Promise.all y esperaba que "exactamente uno" ganase la carrera contra
+  // Postgres real. La exclusión que da el UPDATE ... WHERE atómico de
+  // adquirir_cerrojo_trabajador es real, pero DOS peticiones HTTP disparadas
+  // "a la vez" desde Node no llegan garantizadamente a la vez a PostgREST:
+  // el orden de entrega, no la base de datos, es lo que decidía el
+  // resultado, y esa carrera de tiempos ya puso este test en rojo en CI más
+  // de una vez sin que el producto estuviera roto. La propiedad que importa
+  // -que un cerrojo ya tomado no se puede volver a tomar- no necesita dos
+  // llamadas concurrentes para comprobarse: basta con tomarlo de verdad
+  // contra Postgres, dejarlo tomado, e intentar tomarlo otra vez mientras
+  // sigue tomado. Sigue siendo el cerrojo real, nunca un mock en memoria.
+  it("con el cerrojo ya tomado por otro proceso, tick no lo adquiere ni invoca al modelo", async () => {
+    const tomadoExternamente = await adquirirCerrojo(supabase, "tick-externo");
+    expect(tomadoExternamente).toBe(true);
 
-    const [a, b] = await Promise.all([
-      tick(supabase, { ejecutor: dobleA, directorio: "/tmp", tomadoPor: "tick-a" }),
-      tick(supabase, { ejecutor: dobleB, directorio: "/tmp", tomadoPor: "tick-b" }),
-    ]);
+    const doble = dobleContador();
+    const resultado = await tick(supabase, { ejecutor: doble, directorio: "/tmp", tomadoPor: "tick-b" });
 
-    const adquiridos = [a, b].filter((r) => r.cerrojoAdquirido);
-    expect(adquiridos).toHaveLength(1);
+    expect(resultado.cerrojoAdquirido).toBe(false);
+    expect(resultado.trabajosProcesados).toBe(0);
+    expect(doble.llamadas).toBe(0);
+
+    // Liberado el cerrojo externo, un tick real vuelve a poder tomarlo: la
+    // exclusión no lo deja huérfano.
+    await liberarCerrojo(supabase, "tick-externo");
+    const trasLiberar = await tick(supabase, { ejecutor: dobleContador(), directorio: "/tmp", tomadoPor: "tick-c" });
+    expect(trasLiberar.cerrojoAdquirido).toBe(true);
   });
 });
