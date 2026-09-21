@@ -122,15 +122,27 @@ test("un trabajo completado deja de girar y enlaza al plan, no a la barra de pro
   await expect(page.locator("progress")).toHaveCount(0);
   await expect(page.getByText("guardando")).toHaveCount(0);
 
+  // final-ac3(c), regresión: el <h1> era fijo ("Tu viaje se está
+  // generando") y contradecía este mismo estado ("Tu viaje está listo").
+  // Contra el código de antes de esta tanda, el heading sigue diciendo
+  // "generando" y esta aserción falla.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tu viaje está listo");
+
   const enlace = page.getByRole("link", { name: "Ver el itinerario" });
   await expect(enlace).toBeVisible();
   await expect(enlace).toHaveAttribute("href", "/plan/plan-progreso-e2e");
+  // final-ac3(c): el enlace es la ACCIÓN PRINCIPAL, con el mismo estilo de
+  // botón que el CTA de la portada -no texto corrido sin marcar.
+  await expect(enlace).toHaveClass(/\bboton-principal\b/);
 
   // (b) el aviso se mueve, no desaparece: ahora señala la dirección del
-  // PLAN como la que hay que guardar, no la de esta pantalla.
+  // PLAN como la que hay que guardar, no la de esta pantalla. Ya no lleva
+  // la caja con borde destacado (`.aviso`) que competía en peso visual con
+  // el enlace principal: es una nota secundaria (`.ayuda`).
   const aviso = page.getByText(/dirección que conviene guardar es la del plan/);
   await expect(aviso).toBeVisible();
   expect((await aviso.innerText()).length).toBeGreaterThanOrEqual(60);
+  await expect(aviso).toHaveClass(/\bayuda\b/);
 });
 
 // final-ac4: estado límite sin dato -una fila completada antes de esta
@@ -151,6 +163,10 @@ test("un trabajo completado sin plan_id no produce un enlace roto, y explica qu�
   );
 
   await page.goto("/trabajos/abc");
+
+  // Regresión del mismo fallo que final-ac3(c): el <h1> ya no puede decir
+  // "generando" cuando el trabajo terminó, con o sin plan_id.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tu viaje ha terminado");
 
   const enlacesRotos = page.locator('a[href*="null"], a[href*="undefined"]');
   await expect(enlacesRotos).toHaveCount(0);

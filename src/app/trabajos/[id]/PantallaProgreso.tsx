@@ -74,24 +74,42 @@ export function PantallaProgreso({ id }: { id: string }) {
 
   if (sesionCaducada) {
     return (
-      <div className="pila" role="alert">
-        <p>Tu sesión ha caducado.</p>
-        <p>
-          Puedes volver a entrar desde <a href="/criterios">/criterios</a>; el trabajo sigue su curso y esta misma
-          dirección te lo mostrará cuando vuelvas.
-        </p>
-      </div>
+      <>
+        <h1>Tu sesión ha caducado</h1>
+        <div className="pila" role="alert">
+          <p>Tu sesión ha caducado.</p>
+          <p>
+            Puedes volver a entrar desde <a href="/criterios">/criterios</a>; el trabajo sigue su curso y esta misma
+            dirección te lo mostrará cuando vuelvas.
+          </p>
+        </div>
+      </>
     );
   }
-  if (error) return <p role="alert">{error}</p>;
-  if (!trabajo) return <p>Consultando el estado del trabajo…</p>;
+  if (error)
+    return (
+      <>
+        <h1>No se ha podido consultar tu viaje</h1>
+        <p role="alert">{error}</p>
+      </>
+    );
+  if (!trabajo)
+    return (
+      <>
+        <h1>Tu viaje</h1>
+        <p>Consultando el estado del trabajo…</p>
+      </>
+    );
 
   if (trabajo.estado === "caducado") {
     return (
-      <div className="pila">
-        <p>El trabajo ha caducado.</p>
-        <p>{trabajo.motivo}</p>
-      </div>
+      <>
+        <h1>El trabajo ha caducado</h1>
+        <div className="pila">
+          <p>El trabajo ha caducado.</p>
+          <p>{trabajo.motivo}</p>
+        </div>
+      </>
     );
   }
 
@@ -107,71 +125,99 @@ export function PantallaProgreso({ id }: { id: string }) {
 
   if (trabajo.estado === "encolado") {
     return (
-      <div className="pila">
-        <p>Tu viaje está en la cola: un agente lo va a generar en cuanto le llegue el turno, y puede tardar varios minutos.</p>
-        {avisoDireccion}
-      </div>
+      <>
+        <h1>Tu viaje se está generando</h1>
+        <div className="pila">
+          <p>Tu viaje está en la cola: un agente lo va a generar en cuanto le llegue el turno, y puede tardar varios minutos.</p>
+          {avisoDireccion}
+        </div>
+      </>
     );
   }
 
   if (trabajo.estado === "pausado-por-cuota") {
     return (
-      <div className="pila">
-        <p>El viaje está pausado, no roto: la suscripción ha llegado a su límite de uso y se retomará sola.</p>
-        <p>{trabajo.motivo}</p>
-        {trabajo.reintento_no_antes_de && <p>Se retomará a partir de {formatearFecha(trabajo.reintento_no_antes_de)}.</p>}
-        {avisoDireccion}
-      </div>
+      <>
+        <h1>Tu viaje se está generando</h1>
+        <div className="pila">
+          <p>El viaje está pausado, no roto: la suscripción ha llegado a su límite de uso y se retomará sola.</p>
+          <p>{trabajo.motivo}</p>
+          {trabajo.reintento_no_antes_de && <p>Se retomará a partir de {formatearFecha(trabajo.reintento_no_antes_de)}.</p>}
+          {avisoDireccion}
+        </div>
+      </>
     );
   }
 
   if (trabajo.estado === "fallido") {
     return (
-      <div className="pila">
-        <p>No se ha podido generar el viaje.</p>
-        <p>{trabajo.motivo}</p>
-      </div>
+      <>
+        <h1>No se ha podido generar tu viaje</h1>
+        <div className="pila">
+          <p>No se ha podido generar el viaje.</p>
+          <p>{trabajo.motivo}</p>
+        </div>
+      </>
     );
   }
 
   // final-ac3: un trabajo completado es el final del recorrido, no otro
   // estado de espera -antes caía en la rama por defecto de más abajo y
-  // seguía enseñando la barra de progreso indefinidamente. final-ac4: si el
-  // trabajador terminó sin dejar plan_id (escritura a medias, o un trabajo
-  // completado antes de esta tanda), no se fabrica un enlace roto.
+  // seguía enseñando la barra de progreso indefinidamente, con el <h1>
+  // fijo de page.tsx ("se está generando") contradiciendo el propio cuerpo
+  // ("está listo"). El <h1> vive aquí, no en page.tsx, precisamente para
+  // poder depender del estado: page.tsx es un Server Component y el estado
+  // solo se conoce tras la consulta cliente. final-ac4: si el trabajador
+  // terminó sin dejar plan_id (escritura a medias, o un trabajo completado
+  // antes de esta tanda), no se fabrica un enlace roto.
   if (trabajo.estado === "completado") {
     if (!trabajo.plan_id) {
       return (
-        <div className="pila">
-          <p>Tu viaje ha terminado, pero el itinerario no está disponible desde aquí ahora mismo.</p>
-          <p>
-            Vuelve a intentarlo recargando esta misma página en un momento; si sigue sin aparecer, genera el viaje
-            de nuevo desde <a href="/criterios">/criterios</a>.
-          </p>
-        </div>
+        <>
+          <h1>Tu viaje ha terminado</h1>
+          <div className="pila">
+            <p>Tu viaje ha terminado, pero el itinerario no está disponible desde aquí ahora mismo.</p>
+            <p>
+              Vuelve a intentarlo recargando esta misma página en un momento; si sigue sin aparecer, genera el viaje
+              de nuevo desde <a href="/criterios">/criterios</a>.
+            </p>
+          </div>
+        </>
       );
     }
     return (
-      <div className="pila">
-        <p>Tu viaje está listo.</p>
-        <p>
-          <a href={`/plan/${trabajo.plan_id}`}>Ver el itinerario</a>
-        </p>
-        <div className="aviso">
+      <>
+        <h1>Tu viaje está listo</h1>
+        <div className="pila">
+          {/* final-ac3(c): el enlace es la ACCIÓN PRINCIPAL de esta pantalla
+              -mismo estilo que el CTA de la portada-, no texto corrido que
+              compita en peso visual con el aviso secundario de abajo. */}
           <p>
+            <a href={`/plan/${trabajo.plan_id}`} className="boton boton-principal">
+              Ver el itinerario
+            </a>
+          </p>
+          {/* El aviso deja de llevar la caja con borde destacado (`.aviso`)
+              que antes se comía la atención por encima del enlace: ahora es
+              una nota secundaria, con el mismo estilo de ayuda que el resto
+              del producto usa para texto que no es la acción a tomar. */}
+          <p className="ayuda">
             A partir de ahora la dirección que conviene guardar es la del plan, no la de esta pantalla: es la única
             forma de volver a encontrar el itinerario.
           </p>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="pila">
-      <p>{trabajo.etapa ?? "preparando la petición"}</p>
-      <progress value={trabajo.porcentaje} max={100} aria-label="Progreso de la generación" />
-      {avisoDireccion}
-    </div>
+    <>
+      <h1>Tu viaje se está generando</h1>
+      <div className="pila">
+        <p>{trabajo.etapa ?? "preparando la petición"}</p>
+        <progress value={trabajo.porcentaje} max={100} aria-label="Progreso de la generación" />
+        {avisoDireccion}
+      </div>
+    </>
   );
 }
