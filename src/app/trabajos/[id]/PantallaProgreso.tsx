@@ -8,6 +8,10 @@ interface EstadoTrabajo {
   porcentaje: number;
   motivo: string | null;
   reintento_no_antes_de: string | null;
+  // final-ac1: solo trae valor con estado "completado" (y no siempre, si el
+  // trabajo se completó antes de esta tanda); en cualquier otro estado es
+  // null.
+  plan_id: string | null;
 }
 
 const INTERVALO_MS = 3000;
@@ -126,6 +130,39 @@ export function PantallaProgreso({ id }: { id: string }) {
       <div className="pila">
         <p>No se ha podido generar el viaje.</p>
         <p>{trabajo.motivo}</p>
+      </div>
+    );
+  }
+
+  // final-ac3: un trabajo completado es el final del recorrido, no otro
+  // estado de espera -antes caía en la rama por defecto de más abajo y
+  // seguía enseñando la barra de progreso indefinidamente. final-ac4: si el
+  // trabajador terminó sin dejar plan_id (escritura a medias, o un trabajo
+  // completado antes de esta tanda), no se fabrica un enlace roto.
+  if (trabajo.estado === "completado") {
+    if (!trabajo.plan_id) {
+      return (
+        <div className="pila">
+          <p>Tu viaje ha terminado, pero el itinerario no está disponible desde aquí ahora mismo.</p>
+          <p>
+            Vuelve a intentarlo recargando esta misma página en un momento; si sigue sin aparecer, genera el viaje
+            de nuevo desde <a href="/criterios">/criterios</a>.
+          </p>
+        </div>
+      );
+    }
+    return (
+      <div className="pila">
+        <p>Tu viaje está listo.</p>
+        <p>
+          <a href={`/plan/${trabajo.plan_id}`}>Ver el itinerario</a>
+        </p>
+        <div className="aviso">
+          <p>
+            A partir de ahora la dirección que conviene guardar es la del plan, no la de esta pantalla: es la única
+            forma de volver a encontrar el itinerario.
+          </p>
+        </div>
       </div>
     );
   }

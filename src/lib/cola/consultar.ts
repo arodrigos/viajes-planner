@@ -13,6 +13,11 @@ export interface EstadoTrabajo {
   // vista-ac1: un trabajo pausado por cuota necesita su hora de reanudación
   // para explicarse, no solo el motivo.
   reintento_no_antes_de: string | null;
+  // final-ac1: el trabajador ya escribe esta columna al completar
+  // (procesarTrabajo.ts); faltaba pedirla aquí para que la pantalla de
+  // progreso pudiera enlazar al plan. Nulo en cualquier estado que no sea
+  // "completado", y también en un "completado" escrito antes de esta tanda.
+  plan_id: string | null;
 }
 
 const MOTIVO_CADUCADO = "el trabajador no ha recogido el trabajo a tiempo";
@@ -28,7 +33,7 @@ export async function obtenerTrabajo(
 ): Promise<EstadoTrabajo | null> {
   const { data, error } = await supabase
     .from("trabajos")
-    .select("id, estado, etapa, motivo, creado_en, reintento_no_antes_de")
+    .select("id, estado, etapa, motivo, creado_en, reintento_no_antes_de, plan_id")
     .eq("id", id)
     .eq("usuario_id", usuarioId)
     .maybeSingle();
@@ -47,6 +52,7 @@ export async function obtenerTrabajo(
         motivo: MOTIVO_CADUCADO,
         creado_en: data.creado_en,
         reintento_no_antes_de: null,
+        plan_id: null,
       };
     }
   }
@@ -59,5 +65,6 @@ export async function obtenerTrabajo(
     motivo: data.motivo,
     creado_en: data.creado_en,
     reintento_no_antes_de: data.reintento_no_antes_de,
+    plan_id: data.plan_id,
   };
 }

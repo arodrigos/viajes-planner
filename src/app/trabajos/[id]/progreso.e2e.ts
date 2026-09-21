@@ -92,3 +92,72 @@ test("un 401 a mitad de espera explica que la sesión ha caducado, no un error g
   await expect(page.getByText("Tu sesión ha caducado.")).toBeVisible();
   await expect(page.getByRole("link", { name: "/criterios" })).toBeVisible();
 });
+
+// final-ac3: un trabajo completado es el final del recorrido, no otro
+// estado de espera. La API real (que la consulta lee y publica plan_id
+// respetando la propiedad) ya está probada contra Postgres real en
+// consultar.integration.test.ts y contra HTTP real en final-ac2.e2e.ts;
+// aquí, como en el resto de este fichero, se aísla la capa de presentación
+// con la red doblada.
+test("un trabajo completado deja de girar y enlaza al plan, no a la barra de progreso", async ({ page }) => {
+  await page.route("**/api/trabajos/*", (route) =>
+    route.fulfill({
+      json: {
+        id: "abc",
+        estado: "completado",
+        etapa: "guardando",
+        porcentaje: 100,
+        motivo: null,
+        reintento_no_antes_de: null,
+        plan_id: "plan-progreso-e2e",
+      },
+    }),
+  );
+
+  await page.goto("/trabajos/abc");
+
+  // (a) contra el código de antes de este bloque esto falla: un completado
+  // caía en la rama por defecto y seguía enseñando la barra con el nombre
+  // de la etapa indefinidamente.
+  await expect(page.locator("progress")).toHaveCount(0);
+  await expect(page.getByText("guardando")).toHaveCount(0);
+
+  const enlace = page.getByRole("link", { name: "Ver el itinerario" });
+  await expect(enlace).toBeVisible();
+  await expect(enlace).toHaveAttribute("href", "/plan/plan-progreso-e2e");
+
+  // (b) el aviso se mueve, no desaparece: ahora señala la dirección del
+  // PLAN como la que hay que guardar, no la de esta pantalla.
+  const aviso = page.getByText(/dirección que conviene guardar es la del plan/);
+  await expect(aviso).toBeVisible();
+  expect((await aviso.innerText()).length).toBeGreaterThanOrEqual(60);
+});
+
+// final-ac4: estado límite sin dato -una fila completada antes de esta
+// tanda, o una escritura a medias, puede no tener plan_id.
+test("un trabajo completado sin plan_id no produce un enlace roto, y explica qué hacer", async ({ page }) => {
+  await page.route("**/api/trabajos/*", (route) =>
+    route.fulfill({
+      json: {
+        id: "abc",
+        estado: "completado",
+        etapa: "guardando",
+        porcentaje: 100,
+        motivo: null,
+        reintento_no_antes_de: null,
+        plan_id: null,
+      },
+    }),
+  );
+
+  await page.goto("/trabajos/abc");
+
+  const enlacesRotos = page.locator('a[href*="null"], a[href*="undefined"]');
+  await expect(enlacesRotos).toHaveCount(0);
+
+  const mensaje = page.getByText(/itinerario no está disponible/);
+  await expect(mensaje).toBeVisible();
+  expect((await mensaje.innerText()).length).toBeGreaterThanOrEqual(60);
+  const textoCompleto = (await page.locator("main, body").first().innerText()).trim();
+  expect(textoCompleto).not.toMatch(/\b[45]\d\d\b|undefined|null|\[object|Error:/);
+});
