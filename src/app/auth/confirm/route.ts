@@ -36,7 +36,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // relativas del propio origen y, si no lo es, cae al destino por defecto.
   // La sesión se crea igual: el token es del usuario, un `next` hostil no
   // es motivo para negarle el acceso, solo para no llevarle donde pide.
-  const destinoExito = new URL(destinoSeguro(next, origen), origen);
+  //
+  // `destinoSeguro` devuelve el `URL` YA RESUELTO y validado: no se vuelve
+  // a envolver en `new URL(..., origen)` aquí. Esa segunda resolución era
+  // el fallo real (ver el comentario de `destinoSeguro`) -- un `pathname`
+  // como `//sitio-ajeno.example`, que dentro del objeto ya resuelto es
+  // inofensivo, se reinterpreta como protocol-relative si se vuelve a
+  // parsear como cadena suelta.
+  const destinoExito = destinoSeguro(next, origen);
   destinoExito.searchParams.set("acceso", "confirmado");
   const respuestaExito = NextResponse.redirect(destinoExito);
 
