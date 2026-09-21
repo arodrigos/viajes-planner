@@ -17,7 +17,7 @@ on:
 # (fullyParallel: true) -- sin esto, sembrar filas para acceso-ac6c haría
 # caer a los demás tests por interferencia, no por regresión.
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-seg-ac2-hostil@example.com,ci-test-seg-ac2-relativo@example.com,ci-test-acceso-ac6a-agotado@example.com,ci-test-acceso-ac6a-manipulado@example.com,ci-test-acceso-ac6b@example.com,ci-test-acceso-ac6c@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-seg-ac2-hostil@example.com,ci-test-seg-ac2-relativo@example.com,ci-test-acceso-ac6a-agotado@example.com,ci-test-acceso-ac6a-manipulado@example.com,ci-test-acceso-ac6b@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com"
 
 jobs:
   lint-typecheck-test:

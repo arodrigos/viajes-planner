@@ -79,6 +79,12 @@ export function VistaPlan({ id }: { id: string }) {
       {error && <p role="alert">{error}</p>}
       {!error && !plan && <p>Cargando el plan…</p>}
 
+      {/* final-ac2: PlanPublico ya traía `destino` (aPlanPublico lo sirve
+          desde el bloque generacion) pero nadie lo pintaba -el enlace nuevo
+          desde la pantalla de progreso es el primer sitio que necesita que
+          esta página se reconozca por su contenido, no solo por la URL. */}
+      {plan && <h2>{plan.destino}</h2>}
+
       {plan?.avisos.map((aviso) => (
         <p key={aviso}>{aviso}</p>
       ))}

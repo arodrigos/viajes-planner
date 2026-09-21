@@ -76,4 +76,55 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("obtenerTrabajo (acceso-ac3, expo
     const resultado = await obtenerTrabajo(supabase, trabajo.id, "00000000-0000-0000-0000-000000000000");
     expect(resultado).toBeNull();
   });
+
+  // final-ac1: dos capas porque el tipo puede estar bien y el `select` mal
+  // -este fichero prueba la capa de datos; la capa HTTP se cubre en
+  // route.integration.test.ts (acceso-ac1) y en final-ac2 (e2e, JSON real).
+  describe("plan_id (final-ac1)", () => {
+    it("un trabajo completado que apunta a un plan devuelve ese plan_id exacto", async () => {
+      const planId = `plan-final-ac1-${Date.now()}`;
+      const { error: errorPlan } = await supabase.from("planes").insert({ id: planId, destino: "Lisboa" });
+      if (errorPlan) throw new Error(`No se pudo crear el plan de prueba: ${errorPlan.message}`);
+
+      const { data: trabajo, error } = await supabase
+        .from("trabajos")
+        .insert({ usuario_id: usuarioId, tipo: "generacion", criterios: {}, estado: "completado", plan_id: planId })
+        .select("id")
+        .single();
+      if (error || !trabajo) throw new Error(`No se pudo crear el trabajo de prueba: ${error?.message}`);
+
+      const resultado = await obtenerTrabajo(supabase, trabajo.id, usuarioId);
+      expect(resultado?.plan_id).toBe(planId);
+    });
+
+    // Caso hermano: sin él, un `select("plan_id, '<constante>' as plan_id")`
+    // fabricado a mano también pasaría el caso anterior.
+    it("un trabajo encolado (sin plan todavía) devuelve plan_id: null", async () => {
+      const { data: trabajo, error } = await supabase
+        .from("trabajos")
+        .insert({ usuario_id: usuarioId, tipo: "generacion", criterios: {} })
+        .select("id")
+        .single();
+      if (error || !trabajo) throw new Error(`No se pudo crear el trabajo de prueba: ${error?.message}`);
+
+      const resultado = await obtenerTrabajo(supabase, trabajo.id, usuarioId);
+      expect(resultado?.plan_id).toBeNull();
+    });
+
+    it("un trabajo completado de OTRO usuario sigue sin ser visible: no filtra su plan_id", async () => {
+      const planId = `plan-final-ac1-ajeno-${Date.now()}`;
+      const { error: errorPlan } = await supabase.from("planes").insert({ id: planId, destino: "Oporto" });
+      if (errorPlan) throw new Error(`No se pudo crear el plan de prueba: ${errorPlan.message}`);
+
+      const { data: trabajo, error } = await supabase
+        .from("trabajos")
+        .insert({ usuario_id: usuarioId, tipo: "generacion", criterios: {}, estado: "completado", plan_id: planId })
+        .select("id")
+        .single();
+      if (error || !trabajo) throw new Error(`No se pudo crear el trabajo de prueba: ${error?.message}`);
+
+      const resultado = await obtenerTrabajo(supabase, trabajo.id, "00000000-0000-0000-0000-000000000000");
+      expect(resultado).toBeNull();
+    });
+  });
 });
