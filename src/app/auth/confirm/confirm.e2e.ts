@@ -53,6 +53,49 @@ test.describe("seg-ac2: la ruta viva usa destinoSeguro", () => {
   });
 });
 
+// seg-ac2, regresión: `destinoSeguro` validaba bien con
+// `new URL(next, origen).origin`, pero devolvía `pathname+search+hash` como
+// CADENA y `route.ts` volvía a resolver esa cadena contra el origen. Con un
+// `next` que empieza por `/..` el pathname que queda tras la primera
+// normalización arranca por doble barra (`//sitio-ajeno.example`), que es
+// protocol-relative: la SEGUNDA resolución lo reinterpreta como otro host,
+// aunque la primera lo hubiera validado bien. La aserción es sobre el
+// ORIGEN DEL `Location` FINAL que compone `route.ts` contra la pila real,
+// no sobre lo que devuelve `destinoSeguro` -- un test sobre la función sola
+// ya existía (seg-ac1) y no pudo detectar este fallo porque el fallo está
+// en la composición, no en la validación. No se amplía la tabla de
+// payloads hostiles de seg-ac1 con un caso más: se cierra la clase entera
+// de fallo en la composición (ver destinoSeguro.ts) y se prueba aquí,
+// contra el Location real, con los siete payloads que encontró el
+// gatekeeper.
+const PAYLOADS_TRAVESIA = [
+  "/..//sitio-ajeno.example",
+  "/..//sitio-ajeno.example/robo",
+  "/../..//sitio-ajeno.example",
+  "/a/../..//sitio-ajeno.example",
+  "/%2e%2e//sitio-ajeno.example",
+  "/..///sitio-ajeno.example",
+  "/..//sitio-ajeno.example#x",
+];
+
+test.describe("seg-ac2, regresión de composición: la travesía de rutas no escapa del origen", () => {
+  for (const [indice, payload] of PAYLOADS_TRAVESIA.entries()) {
+    test(`next=${payload}`, async ({ request, baseURL }) => {
+      const email = `ci-test-seg-ac2-travesia-${indice}@example.com`;
+      const enlace = await pedirEnlace(request, email);
+      const enlaceConTravesia = `${enlace}&next=${encodeURIComponent(payload)}`;
+
+      const respuesta = await request.get(enlaceConTravesia, { maxRedirects: 0 });
+      expect(respuesta.status()).toBeGreaterThanOrEqual(300);
+      expect(respuesta.status()).toBeLessThan(400);
+
+      const origenPropio = new URL(baseURL!).origin;
+      const destino = new URL(respuesta.headers()["location"]!, baseURL!);
+      expect(destino.origin).toBe(origenPropio);
+    });
+  }
+});
+
 // seg-ac3: los tres casos comparten que no hace falta un token válido -por
 // eso no piden ningún correo ni leen Mailpit- y por eso son la comprobación
 // de regresión más barata que hay contra este fallo.
