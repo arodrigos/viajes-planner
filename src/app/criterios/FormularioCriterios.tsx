@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { guardarBorrador, leerBorrador } from "@/lib/criterios/borrador";
 import { validarCriterios } from "@/lib/criterios/validar";
-import { hayEnvioPendiente, limpiarEnvioPendiente, marcarEnvioPendiente } from "@/lib/criterios/envioPendiente";
 import { PanelAcceso } from "./PanelAcceso";
 import type { CriteriosViaje, Perfil } from "@/lib/criterios/tipos";
 
@@ -18,11 +17,11 @@ const CRITERIOS_INICIALES: CriteriosViaje = {
   alojamiento: undefined,
 };
 
-// acceso-ac4/ac6: qué pantalla se muestra dentro de /criterios además del
-// propio formulario. "pidiendo-acceso" cubre tanto el 401 al enviar como
-// `?acceso=error` (enlace caducado/inválido); "sin-borrador" es el aviso
-// explícito de acceso-ac6(b), nunca un formulario vacío en silencio.
-type Vista = "formulario" | "pidiendo-acceso" | "sin-borrador";
+// pantalla-ac5: qué pantalla se muestra dentro de /criterios además del
+// propio formulario. "pidiendo-acceso" es el único caso: se entra en cuanto
+// `POST /api/plan` responde 401 y se sale al verificar el código, SIN
+// navegar ni salir nunca de esta página.
+type Vista = "formulario" | "pidiendo-acceso";
 
 export function FormularioCriterios() {
   const router = useRouter();
@@ -31,7 +30,6 @@ export function FormularioCriterios() {
   const [errores, setErrores] = useState<string[]>([]);
   const [cargado, setCargado] = useState(false);
   const [vista, setVista] = useState<Vista>("formulario");
-  const [mensajeAcceso, setMensajeAcceso] = useState<string | null>(null);
   const [mensajeEnvio, setMensajeEnvio] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -39,6 +37,9 @@ export function FormularioCriterios() {
     // localStorage no existe en el servidor: hidratar el borrador tiene que
     // esperar a este efecto aunque dispare un segundo render, no hay forma
     // de leerlo durante el render inicial sin desincronizar SSR e hidratación.
+    // Sigue siendo una red de seguridad contra cerrar la pestaña, ya no una
+    // pieza del flujo de acceso (pantalla-ac5/ac7): el acceso ya no sale
+    // nunca de esta página, así que no hay salto de contexto que sobrevivir.
     const borrador = leerBorrador();
     if (borrador) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratación desde localStorage, no sincronización derivada de props/estado
@@ -46,31 +47,6 @@ export function FormularioCriterios() {
       setConAlojamiento(Boolean(borrador.alojamiento));
     }
     setCargado(true);
-
-    // window.location, no useSearchParams: este componente no tiene un
-    // límite <Suspense> por encima (page.tsx no lo pone) y no hace falta
-    // añadir uno solo para leer un parámetro que solo importa en el cliente.
-    const parametros = new URLSearchParams(window.location.search);
-    if (parametros.get("acceso") === "error") {
-      setMensajeAcceso("El enlace no es válido o ha caducado.");
-      setVista("pidiendo-acceso");
-      return;
-    }
-    if (parametros.get("acceso") === "confirmado") {
-      if (!borrador) {
-        // acceso-ac6(b): el enlace se abrió en un contexto de navegador
-        // distinto (p. ej. la vista web aislada del cliente de correo) y
-        // este localStorage nunca tuvo el borrador. Hay sesión pero no hay
-        // nada que reenviar: decirlo, no mostrar el formulario en blanco.
-        setVista("sin-borrador");
-        return;
-      }
-      if (hayEnvioPendiente()) {
-        limpiarEnvioPendiente();
-        void enviarPlan(borrador);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe ejecutarse una vez, al montar
   }, []);
 
   useEffect(() => {
@@ -93,7 +69,10 @@ export function FormularioCriterios() {
         return;
       }
       if (respuesta.status === 401) {
-        marcarEnvioPendiente();
+        // pantalla-ac5/ac7: sin bandera de "envío pendiente" -no hace falta,
+        // porque no se sale de esta página. `criterios` sigue en memoria tal
+        // cual, y PanelAcceso llama a onVerificado() en cuanto el código se
+        // canjea con éxito.
         setVista("pidiendo-acceso");
         return;
       }
@@ -134,17 +113,8 @@ export function FormularioCriterios() {
     if (resultado.valido) void enviarPlan(criterios);
   }
 
-  if (vista === "sin-borrador") {
-    return (
-      <div className="pila" role="alert">
-        <p>Tu sesión ya está iniciada, pero los criterios que escribiste se quedaron en otro navegador.</p>
-        <p>Vuelve a la pestaña o app donde los escribiste: ahí se enviarán solos.</p>
-      </div>
-    );
-  }
-
   if (vista === "pidiendo-acceso") {
-    return <PanelAcceso mensaje={mensajeAcceso} />;
+    return <PanelAcceso onVerificado={() => void enviarPlan(criterios)} />;
   }
 
   return (
@@ -154,7 +124,7 @@ export function FormularioCriterios() {
           falla con 401 -convierte la sorpresa de "pulsé Continuar y no pasó
           nada" en una expectativa desde el principio. */}
       <div className="aviso">
-        <p>Para pedir el plan te pediremos que confirmes tu correo con un enlace. No perderás lo que escribas mientras tanto.</p>
+        <p>Para pedir el plan te pediremos que confirmes tu correo con un código. No perderás lo que escribas mientras tanto.</p>
       </div>
       {enviando && <p role="status">Enviando…</p>}
       {mensajeEnvio && (

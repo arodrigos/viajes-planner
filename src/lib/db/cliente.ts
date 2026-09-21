@@ -37,8 +37,8 @@ export function clienteServicio(): SupabaseClient {
   return createClient(url, clave, { auth: { persistSession: false }, db: { schema: esquema() } }) as SupabaseClient;
 }
 
-// Cliente anónimo del enlace mágico: hasta ahora se construía suelto en
-// src/app/api/acceso/solicitar-enlace/route.ts, fuera de esta fábrica.
+// Cliente anónimo del código de acceso: hasta ahora se construía suelto en
+// src/app/api/acceso/solicitar-codigo/route.ts, fuera de esta fábrica.
 export function clienteAnonimo(): SupabaseClient {
   const url = process.env.SUPABASE_URL;
   const clave = process.env.SUPABASE_ANON_KEY;

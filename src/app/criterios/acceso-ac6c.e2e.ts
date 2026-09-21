@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { leerEnlaceMagico } from "@/lib/auth/__tests__/mailpit";
+import { expect, test, type BrowserContext } from "@playwright/test";
+import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { LIMITE_TRABAJOS_POR_HORA } from "@/lib/cola/config";
 
@@ -17,6 +17,19 @@ const EDAD = 45;
 
 const PATRON_MENSAJE_DE_SISTEMA = /\b[45]\d\d\b|undefined|null|\[object|Error:/;
 
+// Sesión real vía las dos peticiones del canje de código (bloque
+// codigo-en-la-misma-pantalla): `contexto.request` comparte el almacén de
+// cookies con `contexto.newPage()`, así que las que deposite
+// verificar-codigo quedan disponibles para la navegación de verdad que
+// sigue -sin pasar por ningún enlace, porque ya no existe ninguno.
+async function obtenerSesionReal(contexto: BrowserContext, email: string): Promise<void> {
+  const respuestaSolicitud = await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } });
+  expect(respuestaSolicitud.ok()).toBe(true);
+  const codigo = await leerCodigo(email);
+  const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } });
+  expect(respuestaVerificar.ok()).toBe(true);
+}
+
 // acceso-ac6c-prueba: el 429 se provoca sembrando trabajos reales en vez
 // de esperar a que el usuario agote el límite por su cuenta, para que sea
 // determinista y no dependa de ninguna variable de entorno del servidor ni
@@ -30,16 +43,11 @@ test("el envío que choca con el límite por hora conserva lo escrito tras recar
   const contexto = await browser.newContext();
   const pagina = await contexto.newPage();
 
-  // Sesión real: se pide el enlace, se lee de Mailpit y se confirma. Se
-  // navega después a /criterios SIN el parámetro `acceso` de la URL para
-  // volver a la vista normal del formulario -el objetivo de este test es
-  // el límite por hora, no la vista de "sin borrador" ya cubierta por
-  // acceso-ac6b-prueba.
-  const respuestaSolicitud = await contexto.request.post("/api/acceso/solicitar-enlace", { data: { email: EMAIL } });
-  expect(respuestaSolicitud.ok()).toBe(true);
-  const enlace = await leerEnlaceMagico(EMAIL);
-  await pagina.goto(enlace);
-  await expect(pagina).toHaveURL(/\/criterios\?acceso=confirmado/);
+  // Sesión real: se pide el código, se lee de Mailpit y se canjea. El
+  // objetivo de este test es el límite por hora, no el recorrido de acceso
+  // en sí (ya cubierto por pantalla-ac5), así que se navega directo a
+  // /criterios con la sesión ya puesta.
+  await obtenerSesionReal(contexto, EMAIL);
   await pagina.goto("/criterios");
 
   // El 429 es determinista: se siembra exactamente el límite antes de

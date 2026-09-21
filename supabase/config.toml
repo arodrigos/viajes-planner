@@ -159,7 +159,14 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# Bloque codigo-en-la-misma-pantalla: apunta a un origen donde no corre
+# ninguna aplicación a propósito. El código de acceso no construye ninguna
+# URL con este ajuste (las plantillas de abajo imprimen `{{ .Token }}`, no
+# `{{ .SiteURL }}`), así que esto es la prueba viva de que el producto ya no
+# depende del «Site URL» -el ajuste único por proyecto que, mientras el
+# acceso dependía de él, solo podía apuntar a un producto de la flota a la
+# vez. playwright.config.ts ya no ata su `baseURL` a este valor.
+site_url = "http://127.0.0.1:9999"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
@@ -251,17 +258,24 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
-# Plantilla local del enlace mágico, réplica de la que hay que configurar a
-# mano en el panel del proyecto Supabase compartido (Authentication ->
-# Emails -> "Magic Link", ver manifiesto): usa `{{ .RedirectTo }}` -no
-# `{{ .SiteURL }}`, que es un ajuste único del proyecto compartido- y añade
-# `token_hash`/`type` en la URL para que el enlace apunte directo a
-# `/auth/confirm` en vez de al `/auth/v1/verify` por defecto de Supabase.
-# Sin esto, el correo que lee acceso-ac4 en la pila local no tiene el
-# enlace que la aplicación sabe procesar.
+# Plantillas locales del código de acceso, réplica exacta de las que hay que
+# configurar a mano en el panel del proyecto Supabase compartido
+# (Authentication -> Emails, ver manifiesto): imprimen `{{ .Token }}` -el
+# código de seis dígitos que emite Supabase Auth- y NINGÚN enlace. Hacen
+# falta LAS DOS: "Magic Link" sirve el acceso normal, pero si el proyecto
+# tiene «Confirm email» activado (el valor por defecto en Supabase Cloud, que
+# NO es el de esta pila local, ver [auth.email] enable_confirmations más
+# abajo) el primer acceso de un correo que aún no existe en auth.users se
+# sirve con "Confirm signup" en su lugar -si esa plantilla se queda con su
+# enlace por defecto, el primer acceso de cualquier familiar nuevo seguiría
+# rompiendo el problema que este cambio vino a resolver.
 [auth.email.template.magic_link]
-subject = "Tu enlace de acceso a Viajes"
+subject = "Tu código de acceso a Viajes"
 content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.confirmation]
+subject = "Tu código de acceso a Viajes"
+content_path = "./supabase/templates/confirmation.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
