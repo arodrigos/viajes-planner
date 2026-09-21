@@ -1,86 +1,156 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-type Estado = "formulario" | "enviando" | "enviado" | "error";
+type Paso = "email" | "codigo";
 
-// acceso-ac4/ac6: la pantalla que pide el correo cuando `POST /api/plan`
-// responde 401. `mensaje` es el aviso de contexto que trae quien la muestra
-// (por ejemplo, "el enlace anterior ha caducado"), no un error propio de
-// este panel.
-export function PanelAcceso({ mensaje }: { mensaje?: string | null }) {
+const SEGUNDOS_REENVIO = 60;
+const CODIGO_VALIDO = /^\d{6}$/;
+
+// pantalla-ac5/ac6: la pantalla que pide el correo cuando `POST /api/plan`
+// responde 401, ahora en dos pasos DENTRO DE LA MISMA PÁGINA -correo y
+// código-, sin ningún enlace ni redirección de por medio. `onVerificado` lo
+// llama quien nos monta (FormularioCriterios) en cuanto el canje del código
+// responde 200, para reenviar los criterios que tiene en memoria.
+export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
+  const [paso, setPaso] = useState<Paso>("email");
   const [email, setEmail] = useState("");
-  const [estado, setEstado] = useState<Estado>("formulario");
-  const [error, setError] = useState<string | null>(null);
+  const [codigo, setCodigo] = useState("");
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const [enviandoCodigo, setEnviandoCodigo] = useState(false);
+  const [errorEmail, setErrorEmail] = useState<string | null>(null);
+  const [errorCodigo, setErrorCodigo] = useState<string | null>(null);
+  const [segundosParaReenvio, setSegundosParaReenvio] = useState(0);
+  const campoCodigoRef = useRef<HTMLInputElement>(null);
 
-  async function alSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setEstado("enviando");
-    setError(null);
+  useEffect(() => {
+    if (segundosParaReenvio <= 0) return;
+    const id = setInterval(() => setSegundosParaReenvio((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [segundosParaReenvio]);
+
+  // pantalla-ac8(d): la respuesta de solicitar-codigo es UNIFORME para un
+  // correo autorizado y uno que no lo está (mismo estado, mismo cuerpo), así
+  // que esta función nunca ramifica por ese motivo: si la petición responde
+  // bien, siempre se pasa al paso del código, esté o no el correo permitido.
+  async function pedirCodigo() {
+    setEnviandoEmail(true);
+    setErrorEmail(null);
     try {
-      const respuesta = await fetch("/api/acceso/solicitar-enlace", {
+      const respuesta = await fetch("/api/acceso/solicitar-codigo", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      if (respuesta.ok) {
-        setEstado("enviado");
+      if (!respuesta.ok) {
+        setErrorEmail("No se ha podido enviar el código. Inténtalo de nuevo en un momento.");
         return;
       }
-      if (respuesta.status === 403) {
-        // usabilidad-ac8(c): dice qué ha pasado y cómo salir, SIN confirmar
-        // ni negar qué otras direcciones están autorizadas (modelo de
-        // amenazas: la composición de la lista blanca es dato personal).
-        setError("Ese correo no tiene acceso a esta aplicación. Si crees que deberías tenerlo, pídeselo a Adrián.");
-      } else {
-        setError("No se ha podido enviar el enlace. Inténtalo de nuevo en un momento.");
-      }
-      setEstado("error");
+      setPaso("codigo");
+      setSegundosParaReenvio(SEGUNDOS_REENVIO);
     } catch {
-      setError("No se ha podido enviar el enlace. Comprueba tu conexión.");
-      setEstado("error");
+      setErrorEmail("No se ha podido enviar el código. Comprueba tu conexión.");
+    } finally {
+      setEnviandoEmail(false);
     }
   }
 
-  if (estado === "enviado") {
+  async function alSubmitEmail(e: React.FormEvent) {
+    e.preventDefault();
+    await pedirCodigo();
+  }
+
+  async function alSubmitCodigo(e: React.FormEvent) {
+    e.preventDefault();
+    setEnviandoCodigo(true);
+    setErrorCodigo(null);
+    try {
+      const respuesta = await fetch("/api/acceso/verificar-codigo", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, codigo }),
+      });
+      if (respuesta.ok) {
+        onVerificado();
+        return;
+      }
+      // pantalla-ac8(a,b): cod-ac2 responde el mismo 401 tanto si el código
+      // es incorrecto, como si ha caducado, como si ya se ha usado -así que
+      // el mensaje tampoco distingue, pero cubre las dos acciones válidas:
+      // reintentar (puede ser un error al teclear) o pedir uno nuevo (puede
+      // estar caducado o consumido). El campo se limpia y recupera el foco
+      // sin perder ni el correo ni los criterios, que viven fuera de aquí.
+      setErrorCodigo("Ese código no es correcto, ha caducado o ya se ha usado. Puedes volver a intentarlo o pedir uno nuevo.");
+      setCodigo("");
+      campoCodigoRef.current?.focus();
+    } catch {
+      setErrorCodigo("No se ha podido comprobar el código. Comprueba tu conexión.");
+    } finally {
+      setEnviandoCodigo(false);
+    }
+  }
+
+  if (paso === "email") {
     return (
-      <div className="pila" role="status">
-        <p>Te hemos enviado un enlace a {email}. Ábrelo desde este mismo dispositivo para continuar.</p>
-        <p>Lo que habías escrito sigue guardado: al volver, se envía solo.</p>
-        <p>El enlace es de un solo uso, caduca en una hora y solo puedes pedir uno nuevo cada 60 segundos.</p>
-      </div>
+      <form onSubmit={alSubmitEmail} aria-label="Pedir acceso" className="formulario">
+        <p>Para pedir el plan hace falta confirmar tu correo. Lo que has escrito no se pierde mientras tanto.</p>
+        <div className="campo">
+          <label htmlFor="email-acceso">Tu correo</label>
+          <input
+            id="email-acceso"
+            type="email"
+            required
+            aria-describedby="ayuda-email-acceso"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <p id="ayuda-email-acceso" className="ayuda">
+            Solo funcionan los correos autorizados de la familia. Te enviaremos un código de seis dígitos por correo.
+          </p>
+        </div>
+        <button type="submit" disabled={enviandoEmail}>
+          {enviandoEmail ? "Enviando…" : "Pedir código de acceso"}
+        </button>
+        {errorEmail && (
+          <p role="alert" className="pila">
+            {errorEmail}
+          </p>
+        )}
+      </form>
     );
   }
 
   return (
-    <form onSubmit={alSubmit} aria-label="Pedir acceso" className="formulario">
-      {mensaje && (
-        <p role="alert">
-          {mensaje} Puedes pedir un enlace nuevo.
-        </p>
-      )}
-      <p>Para pedir el plan hace falta confirmar tu correo. Lo que has escrito no se pierde mientras tanto.</p>
+    <form onSubmit={alSubmitCodigo} aria-label="Introducir código" className="formulario">
+      <p role="status">Te hemos enviado un código a {email}. Escríbelo aquí sin salir de esta pantalla.</p>
       <div className="campo">
-        <label htmlFor="email-acceso">Tu correo</label>
+        <label htmlFor="codigo-acceso">Código de seis dígitos</label>
         <input
-          id="email-acceso"
-          type="email"
+          id="codigo-acceso"
+          ref={campoCodigoRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
           required
-          aria-describedby="ayuda-email-acceso"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          aria-describedby="ayuda-codigo-acceso"
+          value={codigo}
+          onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
         />
-        <p id="ayuda-email-acceso" className="ayuda">
-          Solo funcionan los correos autorizados de la familia. El enlace caduca en una hora, es de un solo uso, y
-          solo puedes pedir uno nuevo cada 60 segundos.
+        <p id="ayuda-codigo-acceso" className="ayuda">
+          El código llega por correo desde Viajes: seis dígitos, sin ningún enlace que abrir. Caduca en una hora y es
+          de un solo uso.
         </p>
       </div>
-      <button type="submit" disabled={estado === "enviando"}>
-        {estado === "enviando" ? "Enviando…" : "Enviar enlace de acceso"}
+      <button type="submit" disabled={enviandoCodigo || !CODIGO_VALIDO.test(codigo)}>
+        {enviandoCodigo ? "Comprobando…" : "Confirmar código"}
       </button>
-      {error && (
+      <button type="button" onClick={() => void pedirCodigo()} disabled={segundosParaReenvio > 0 || enviandoEmail}>
+        {segundosParaReenvio > 0 ? `Pedir otro código (${segundosParaReenvio} s)` : "Pedir otro código"}
+      </button>
+      {errorCodigo && (
         <p role="alert" className="pila">
-          {error}
+          {errorCodigo}
         </p>
       )}
     </form>

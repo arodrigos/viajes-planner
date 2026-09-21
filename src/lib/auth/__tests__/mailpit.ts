@@ -17,12 +17,12 @@ async function buscarMensaje(email: string): Promise<MensajeResumen | undefined>
   return messages.find((mensaje) => mensaje.To?.some((destinatario) => destinatario.Address === email));
 }
 
-// acceso-ac4/ac6 pide probar la entrega real del enlace mágico, no
-// interceptar la llamada a Supabase Auth: este helper lee el correo tal
-// como lo recibiría el usuario, desde la API real de Mailpit que expone
+// pantalla-ac5/ac6 piden probar la entrega real del correo, no interceptar
+// la llamada a Supabase Auth: este helper lee el correo tal como lo
+// recibiría el usuario, desde la API real de Mailpit que expone
 // `supabase start` en local. El envío es asíncrono, así que se sondea en
 // vez de asumir que ya ha llegado tras la petición HTTP que lo dispara.
-export async function leerEnlaceMagico(email: string): Promise<string> {
+export async function leerCorreo(email: string): Promise<{ html: string }> {
   let mensaje: MensajeResumen | undefined;
   await expect
     .poll(
@@ -37,10 +37,15 @@ export async function leerEnlaceMagico(email: string): Promise<string> {
   const respuesta = await fetch(`${URL_MAILPIT}/api/v1/message/${mensaje!.ID}`);
   if (!respuesta.ok) throw new Error(`Mailpit respondió ${respuesta.status} al leer el mensaje`);
   const { HTML } = (await respuesta.json()) as { HTML: string };
+  return { html: HTML };
+}
 
-  const enlace = HTML.match(/href="([^"]+)"/)?.[1];
-  if (!enlace) throw new Error("El correo no contiene ningún enlace");
-  // html/template escapa `&` como entidad al renderizar magic_link.html;
-  // deshacerlo aquí es más simple que decodificar el HTML entero.
-  return enlace.replace(/&amp;/g, "&");
+// Sustituye a `leerEnlaceMagico` (retirado con el bloque
+// codigo-en-la-misma-pantalla): ya no hay ningún enlace que leer, solo un
+// código de seis dígitos que la plantilla imprime con `{{ .Token }}`.
+export async function leerCodigo(email: string): Promise<string> {
+  const { html } = await leerCorreo(email);
+  const codigo = html.match(/\b(\d{6})\b/)?.[1];
+  if (!codigo) throw new Error("El correo no contiene ningún código de seis dígitos");
+  return codigo;
 }

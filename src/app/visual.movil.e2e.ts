@@ -57,6 +57,32 @@ const PAGINAS: Pagina[] = [
     preparar: (page) => page.route("**/api/trabajos/*", (route) => route.fulfill({ json: TRABAJO_FIXTURE })),
     esperar: (page) => page.getByText("verificando sitios").waitFor(),
   },
+  // pantalla-ac9: los dos pasos de PanelAcceso, contra el backend real (sin
+  // doblar la red) -el correo no hace falta que esté en la lista blanca,
+  // porque la respuesta es uniforme (pantalla-ac8d) y aquí solo importa la
+  // pantalla a la que se llega.
+  {
+    nombre: "acceso-paso-correo",
+    ruta: "/criterios",
+    esperar: async (page) => {
+      await page.getByLabel("Destino o tipo de viaje").fill("Braga");
+      await page.getByLabel("Época del año", { exact: true }).fill("verano");
+      await page.getByRole("button", { name: "Continuar" }).click();
+      await page.getByRole("form", { name: "Pedir acceso" }).waitFor();
+    },
+  },
+  {
+    nombre: "acceso-paso-codigo",
+    ruta: "/criterios",
+    esperar: async (page) => {
+      await page.getByLabel("Destino o tipo de viaje").fill("Braga");
+      await page.getByLabel("Época del año", { exact: true }).fill("verano");
+      await page.getByRole("button", { name: "Continuar" }).click();
+      await page.getByLabel("Tu correo").fill(`ci-test-visual-ac9-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`);
+      await page.getByRole("button", { name: "Pedir código de acceso" }).click();
+      await page.getByRole("form", { name: "Introducir código" }).waitFor();
+    },
+  },
 ];
 
 // visual-ac2(a): salvo excepción explícita, todo elemento interactivo mide

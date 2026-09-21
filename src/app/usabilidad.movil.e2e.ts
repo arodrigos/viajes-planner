@@ -108,26 +108,14 @@ test("sin sesión (401) al enviar los criterios lleva a pedir acceso, no a un er
   await page.getByLabel("Época del año", { exact: true }).fill("verano");
   await page.getByRole("button", { name: "Continuar" }).click();
 
-  await expect(page.getByRole("button", { name: "Enviar enlace de acceso" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pedir código de acceso" })).toBeVisible();
 });
 
-test("un correo no autorizado (403) explica el rechazo sin revelar qué otros correos están permitidos", async ({ page }) => {
-  await page.route("**/api/plan", (route) => route.fulfill({ status: 401, json: { error: "no autenticado" } }));
-  await page.route("**/api/acceso/solicitar-enlace", (route) => route.fulfill({ status: 403, json: { error: "no autorizado" } }));
-  await page.goto("/criterios");
-  await page.getByLabel("Destino o tipo de viaje").fill("Sevilla");
-  await page.getByLabel("Época del año", { exact: true }).fill("verano");
-  await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByLabel("Tu correo").fill("nadie@example.com");
-  await page.getByRole("button", { name: "Enviar enlace de acceso" }).click();
-
-  const mensaje = page.getByRole("alert").filter({ hasText: /acceso/ });
-  await expect(mensaje).toBeVisible();
-  await expect(mensaje).not.toHaveText(REGEX_PROHIBIDA);
-  await expect(mensaje).toHaveText(/pídeselo a Adrián/);
-  const textoCompleto = await mensaje.innerText();
-  expect(textoCompleto).not.toMatch(/@/);
-});
+// pantalla-ac8(d): la respuesta de solicitar-codigo es uniforme para un
+// correo autorizado y uno que no lo está -ya no hay un 403 diferenciado que
+// probar aquí; esa no-diferenciación se comprueba contra el servidor real en
+// solicitarCodigo.integration.test.ts, comparando las dos respuestas byte a
+// byte.
 
 test("el límite de envíos (429) explica que lo escrito no se pierde", async ({ page }) => {
   await page.route("**/api/plan", (route) => route.fulfill({ status: 429, json: { error: "límite" } }));
@@ -150,14 +138,6 @@ test("un fallo de red al consultar el trabajo ofrece una salida, no un error cr�
   await expect(mensaje).toBeVisible();
   await expect(mensaje).not.toHaveText(REGEX_PROHIBIDA);
   await expect(mensaje).toHaveText(/revisa tu conexión|vuelve a intentarlo/);
-});
-
-test("un enlace caducado se explica en /criterios y ofrece pedir uno nuevo", async ({ page }) => {
-  await page.goto("/criterios?acceso=error");
-  const mensaje = page.getByRole("alert").filter({ hasText: /enlace/ });
-  await expect(mensaje).toBeVisible();
-  await expect(mensaje).not.toHaveText(REGEX_PROHIBIDA);
-  await expect(mensaje).toHaveText(/pedir un enlace nuevo/);
 });
 
 test("una sesión caducada a mitad de espera ofrece volver a entrar", async ({ page }) => {

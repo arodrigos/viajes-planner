@@ -19,11 +19,11 @@ const CRITERIOS_VALIDOS = {
 
 // Emite una sesión real de Supabase Auth para `email` sin pasar por el
 // correo (no hace falta: lo que se prueba aquí es requireSesion, no la
-// entrega del enlace, que ya cubre acceso.e2e.ts) y la devuelve como
-// cabecera `Cookie` lista para una NextRequest. Reutiliza el códec de
-// cookies real de @supabase/ssr en vez de fabricar el formato a mano, para
-// que la sesión sea indistinguible de una emitida por el flujo de
-// /auth/confirm real.
+// entrega del código, que ya cubren pantalla-ac5.e2e.ts y
+// verificarCodigo.integration.test.ts) y la devuelve como cabecera `Cookie`
+// lista para una NextRequest. Reutiliza el códec de cookies real de
+// @supabase/ssr en vez de fabricar el formato a mano, para que la sesión sea
+// indistinguible de una emitida por el canje de código real.
 async function cookieDeSesion(email: string): Promise<string> {
   const servicio = clienteDePrueba("servicio");
   const generado = await servicio.auth.admin.generateLink({ type: "magiclink", email });

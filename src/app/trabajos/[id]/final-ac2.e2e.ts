@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { leerEnlaceMagico } from "@/lib/auth/__tests__/mailpit";
+import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
 
@@ -77,12 +77,15 @@ test("desde la pantalla de progreso de un trabajo terminado, un toque lleva al i
   const contexto = await browser.newContext();
   const pagina = await contexto.newPage();
 
-  // Sesión real: se pide el enlace, se lee de Mailpit y se confirma.
-  const respuestaSolicitud = await contexto.request.post("/api/acceso/solicitar-enlace", { data: { email: EMAIL } });
+  // Sesión real: se pide el código, se lee de Mailpit y se canjea.
+  // `contexto.request` comparte el almacén de cookies con `contexto.newPage()`,
+  // así que la que deposite verificar-codigo queda disponible para la
+  // navegación real que sigue.
+  const respuestaSolicitud = await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email: EMAIL } });
   expect(respuestaSolicitud.ok()).toBe(true);
-  const enlace = await leerEnlaceMagico(EMAIL);
-  await pagina.goto(enlace);
-  await expect(pagina).toHaveURL(/\/criterios\?acceso=confirmado/);
+  const codigo = await leerCodigo(EMAIL);
+  const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
+  expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/trabajos/${trabajo.id}`);
 

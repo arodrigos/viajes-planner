@@ -9,22 +9,24 @@ on:
 # CORREOS_PERMITIDOS no es un secreto de producto (lo es la lista real de
 # Adrián, que vive solo en Vercel); es el valor de prueba que necesita
 # cualquier `npm run build` en CI desde que el prebuild lo exige (acceso-ac2).
-# seg-ac2 suma sus dos correos propios y acceso-ac6a/b/c los suyos: cada uno
-# pide su propio enlace mágico, así que su buzón de Mailpit nunca tiene más
-# de un mensaje (no hay que suponer en qué orden Mailpit devolvería dos
+# Cada test pide su propio código, así que su buzón de Mailpit nunca tiene
+# más de un mensaje (no hay que suponer en qué orden Mailpit devolvería dos
 # mensajes de la misma dirección) y el límite de trabajos por hora, que se
 # cuenta por usuario, queda aislado entre pruebas que corren en paralelo
-# (fullyParallel: true) -- sin esto, sembrar filas para acceso-ac6c haría
-# caer a los demás tests por interferencia, no por regresión. Suma nueva de
-# esta tanda: siete correos ci-test-seg-ac2-travesia-N, uno por payload de
-# la regresión de composición de seg-ac2 (cada payload consume su propio
-# enlace de un solo uso).
+# (fullyParallel: true).
 # Suma del bloque canje-de-codigo-en-servidor: ci-test-cod-ac1/ac2/ac3, uno
 # por test de verificarCodigo.integration.test.ts -- el correo ajeno de
 # cod-ac3 se crea dinámicamente en el propio test y NO se añade aquí, porque
 # el criterio es justo que esté fuera de esta lista.
+# Suma del bloque codigo-en-la-misma-pantalla: ci-test-pantalla-ac5/ac6-*/
+# ac8a/ac8b/ac8c/ac8d-*, uno o dos por criterio pantalla-ac5..ac8 -- retirados
+# los correos de seg-ac2 y acceso-ac6a/b, que solo usaban las pruebas del
+# enlace mágico que este bloque retira (confirm.e2e.ts, acceso-ac6a.e2e.ts,
+# acceso-ac6b.e2e.ts, destinoSeguro.test.ts). Los correos "-no-autorizado"
+# de pantalla-ac6/ac8d se generan dinámicamente y NO se añaden aquí, porque
+# el criterio es justo que estén fuera de esta lista.
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-seg-ac2-hostil@example.com,ci-test-seg-ac2-relativo@example.com,ci-test-acceso-ac6a-agotado@example.com,ci-test-acceso-ac6a-manipulado@example.com,ci-test-acceso-ac6b@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-seg-ac2-travesia-0@example.com,ci-test-seg-ac2-travesia-1@example.com,ci-test-seg-ac2-travesia-2@example.com,ci-test-seg-ac2-travesia-3@example.com,ci-test-seg-ac2-travesia-4@example.com,ci-test-seg-ac2-travesia-5@example.com,ci-test-seg-ac2-travesia-6@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com"
 
 jobs:
   lint-typecheck-test:
@@ -197,9 +199,9 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
           echo "SUPABASE_SCHEMA=viajes_planner" >> "$GITHUB_ENV"
       - run: npm run test:e2e
-      # visual-ac1: el gatekeeper juzga estas ocho capturas (issue #141),
-      # no un veredicto mecánico -por eso se publican como artefacto en vez
-      # de solo comprobarse en el propio job.
+      # visual-ac1/pantalla-ac9: el gatekeeper juzga estas capturas (issue
+      # #141), no un veredicto mecánico -por eso se publican como artefacto
+      # en vez de solo comprobarse en el propio job.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
