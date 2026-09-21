@@ -138,8 +138,8 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
           onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
         />
         <p id="ayuda-codigo-acceso" className="ayuda">
-          El código llega por correo desde Viajes: seis dígitos, sin ningún enlace que abrir. Caduca en una hora y es
-          de un solo uso.
+          El código llega por correo desde Viajes: seis dígitos, sin ningún enlace que abrir. Caduca en una hora, es
+          de un solo uso, y si no te llega puedes pedir otro cada 60 segundos.
         </p>
       </div>
       <button type="submit" disabled={enviandoCodigo || !CODIGO_VALIDO.test(codigo)}>
