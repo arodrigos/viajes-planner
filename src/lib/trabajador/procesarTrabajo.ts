@@ -24,13 +24,29 @@ interface DependenciasProcesarTrabajo {
 
 type IntentoEnsamblado = { valido: true; plan: Plan } | { valido: false; errores: ErrorValidacion[] };
 
+// trabajador-ac1 (real, 2026-09-21): el prompt (prompt.ts) ya pide
+// "ÚNICAMENTE un objeto JSON, sin texto fuera del JSON" -- eso es una
+// PREFERENCIA, no una garantía. La primera vez que este código invocó al
+// modelo de verdad, envolvió la respuesta en una valla de markdown
+// (```json ... ```) pese a la instrucción explícita, dos veces seguidas
+// (intento y reintento). La red real contra ese comportamiento conocido de
+// los modelos es esta extracción, no el texto del prompt.
+function extraerJson(texto: string): string {
+  const conValla = texto.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (conValla) return conValla[1];
+  const inicio = texto.indexOf("{");
+  const fin = texto.lastIndexOf("}");
+  if (inicio !== -1 && fin > inicio) return texto.slice(inicio, fin + 1);
+  return texto;
+}
+
 // trabajador-ac2: el modelo solo aporta "dias" (y lo que contengan); id,
 // version, destino y personas los fija el proceso, nunca el modelo — el
 // modelo nunca decide la identidad del plan, solo su contenido.
 function ensamblarYValidar(criterios: CriteriosViaje, planId: string, texto: string): IntentoEnsamblado {
   let datos: unknown;
   try {
-    datos = JSON.parse(texto);
+    datos = JSON.parse(extraerJson(texto));
   } catch {
     return { valido: false, errores: [{ ruta: "(raíz)", mensaje: "la respuesta del modelo no es JSON válido" }] };
   }

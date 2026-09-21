@@ -4,6 +4,7 @@ import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecu
 import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
+import { RESPUESTA_MODELO_CON_VALLA_MARKDOWN } from "./__fixtures__/respuesta-modelo-con-valla-markdown";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -101,6 +102,31 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     expect(resultado.estado).toBe("fallido");
     const { data: trabajo } = await supabase.from("trabajos").select("motivo").eq("id", trabajoId).single();
     expect(trabajo?.motivo).toMatch(/prioridad/);
+  });
+
+  it("respuesta real envuelta en valla de markdown: se extrae en vez de morir en '(raíz)'", async () => {
+    // Captura literal de la primera invocación real de este código
+    // (2026-09-21): el modelo envolvió el JSON en ```json ... ``` pese a
+    // que el prompt pedía explícitamente que no lo hiciera. Antes del fix,
+    // esto moría con motivo "(raíz): la respuesta del modelo no es JSON
+    // válido" en las dos invocaciones (intento y reintento) -- este test
+    // falla con el código de antes y pasa con extraerJson().
+    const trabajoId = await crearTrabajo();
+    const doble = dobleFijo([RESPUESTA_MODELO_CON_VALLA_MARKDOWN]);
+
+    await procesarTrabajo(
+      supabase,
+      { id: trabajoId, plan_id: null, criterios: CRITERIOS },
+      { ejecutor: doble, directorio: "/tmp" },
+    );
+
+    const { data: trabajo } = await supabase.from("trabajos").select("motivo").eq("id", trabajoId).single();
+    // La respuesta real no encaja del todo con el esquema estricto del plan
+    // (nombres de campo distintos a los de tipos.ts) -- eso es un problema
+    // aparte, de completitud del prompt, no del parseo. Lo que este test
+    // demuestra es que ya NO muere en el parseo: si el motivo nombrara
+    // "(raíz)" seguiríamos sin extraer el JSON de la valla.
+    expect(trabajo?.motivo).not.toMatch(/\(raíz\)/);
   });
 
   it("el reintento devuelve un plan válido: 'completado' y guardado", async () => {
