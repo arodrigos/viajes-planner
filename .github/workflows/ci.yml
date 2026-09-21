@@ -25,8 +25,14 @@ on:
 # acceso-ac6b.e2e.ts, destinoSeguro.test.ts). Los correos "-no-autorizado"
 # de pantalla-ac6/ac8d se generan dinámicamente y NO se añaden aquí, porque
 # el criterio es justo que estén fuera de esta lista.
+# Suma del bloque guia-y-textos-sin-enlace: ci-test-guia-ac11, el único de
+# los tres criterios que necesita canjear un código de verdad (recorrido
+# completo hasta el trabajo encolado) -guia-ac10 no toca el flujo de acceso
+# y guia-ac12(b) pide el código con un correo generado dinámicamente, porque
+# la respuesta es uniforme y no necesita estar en la lista para llegar al
+# paso del código.
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com"
 
 jobs:
   lint-typecheck-test:
