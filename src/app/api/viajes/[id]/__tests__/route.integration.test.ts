@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { recuperarPlan } from "@/lib/plan/repositorio";
 import { GET as getPlan } from "@/app/api/plan/[id]/route";
@@ -8,6 +8,14 @@ import { DELETE as deleteViaje } from "@/app/api/viajes/[id]/route";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+// Correo fijo en CORREOS_PERMITIDOS (mismo motivo que ci-test-viajes-ac2 en
+// route.integration.test.ts de /api/viajes): quien realmente autentica y
+// llama al DELETE necesita pasar la lista blanca, así que no puede ser un
+// correo generado con Date.now(). El "otro usuario" de cada caso sí puede
+// serlo, porque nunca autentica -su fila la siembra directamente el cliente
+// de servicio.
+const EMAIL_PROPIETARIO = "ci-test-eliminar@example.com";
 
 // Mismo patrón que cookieDeSesion en requireSesion.integration.test.ts.
 async function cookieDeSesion(email: string): Promise<string> {
@@ -34,6 +42,19 @@ function contexto(id: string) {
 }
 
 describe.skipIf(!SUPABASE_URL || !ANON_KEY)("DELETE /api/viajes/[id] (borrar-ac2/ac3)", () => {
+  let idPropietario: string;
+  let cookiePropietario: string;
+
+  // Se crea una sola vez: el usuario y su sesión son los mismos en los dos
+  // tests que autentican, solo cambian los trabajos que siembra cada uno.
+  beforeAll(async () => {
+    const servicio = clienteDePrueba("servicio");
+    const { data, error } = await servicio.auth.admin.createUser({ email: EMAIL_PROPIETARIO, email_confirm: true });
+    if (error || !data.user) throw new Error(`No se pudo crear el usuario propietario: ${error?.message}`);
+    idPropietario = data.user.id;
+    cookiePropietario = await cookieDeSesion(EMAIL_PROPIETARIO);
+  });
+
   it("sin sesión responde 401", async () => {
     const id = "00000000-0000-0000-0000-000000000000";
     const respuesta = await deleteViaje(new NextRequest(`http://localhost/api/viajes/${id}`, { method: "DELETE" }), contexto(id));
@@ -42,10 +63,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("DELETE /api/viajes/[id] (borrar-ac2
 
   it("borrar-ac3: el trabajo de otro usuario responde 404 y no marca nada", async () => {
     const servicio = clienteDePrueba("servicio");
-    const emailA = `borrar-ac3-a-${Date.now()}@ej.com`;
     const emailB = `borrar-ac3-b-${Date.now()}@ej.com`;
-    const { data: usuarioA, error: errorA } = await servicio.auth.admin.createUser({ email: emailA, email_confirm: true });
-    if (errorA || !usuarioA.user) throw new Error(`No se pudo crear el usuario A: ${errorA?.message}`);
     const { data: usuarioB, error: errorB } = await servicio.auth.admin.createUser({ email: emailB, email_confirm: true });
     if (errorB || !usuarioB.user) throw new Error(`No se pudo crear el usuario B: ${errorB?.message}`);
 
@@ -56,9 +74,8 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("DELETE /api/viajes/[id] (borrar-ac2
       .single();
     if (errorTrabajoB || !trabajoB) throw new Error(`No se pudo sembrar el trabajo de B: ${errorTrabajoB?.message}`);
 
-    const cookieA = await cookieDeSesion(emailA);
     const respuesta = await deleteViaje(
-      new NextRequest(`http://localhost/api/viajes/${trabajoB.id}`, { method: "DELETE", headers: { cookie: cookieA } }),
+      new NextRequest(`http://localhost/api/viajes/${trabajoB.id}`, { method: "DELETE", headers: { cookie: cookiePropietario } }),
       contexto(trabajoB.id),
     );
     expect(respuesta.status).toBe(404);
@@ -69,9 +86,6 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("DELETE /api/viajes/[id] (borrar-ac2
 
   it("borrar-ac1/ac2: marca eliminado_en (no borra), y el plan del propio dueño pasa a responder 404 aunque siga recuperable en la base", async () => {
     const servicio = clienteDePrueba("servicio");
-    const email = `borrar-ac2-${Date.now()}@ej.com`;
-    const { data: usuario, error: errorUsuario } = await servicio.auth.admin.createUser({ email, email_confirm: true });
-    if (errorUsuario || !usuario.user) throw new Error(`No se pudo crear el usuario: ${errorUsuario?.message}`);
 
     const planId = `plan-borrar-ac2-${Date.now()}`;
     const { error: errorPlan } = await servicio.from("planes").insert({ id: planId, destino: "Sevilla" });
@@ -83,15 +97,13 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("DELETE /api/viajes/[id] (borrar-ac2
 
     const { data: trabajo, error: errorTrabajo } = await servicio
       .from("trabajos")
-      .insert({ usuario_id: usuario.user.id, tipo: "generacion", criterios: { destino_o_tipo: "Sevilla" }, estado: "completado", plan_id: planId })
+      .insert({ usuario_id: idPropietario, tipo: "generacion", criterios: { destino_o_tipo: "Sevilla" }, estado: "completado", plan_id: planId })
       .select("id")
       .single();
     if (errorTrabajo || !trabajo) throw new Error(`No se pudo sembrar el trabajo: ${errorTrabajo?.message}`);
 
-    const cookie = await cookieDeSesion(email);
-
     const respuestaBorrado = await deleteViaje(
-      new NextRequest(`http://localhost/api/viajes/${trabajo.id}`, { method: "DELETE", headers: { cookie } }),
+      new NextRequest(`http://localhost/api/viajes/${trabajo.id}`, { method: "DELETE", headers: { cookie: cookiePropietario } }),
       contexto(trabajo.id),
     );
     expect(respuestaBorrado.status).toBe(200);
@@ -109,13 +121,16 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("DELETE /api/viajes/[id] (borrar-ac2
 
     // borrar-ac1: pero ya no responde a su propio dueño (planPerteneceAUsuario
     // deja de acreditar la propiedad de un trabajo marcado como eliminado).
-    const respuestaPlan = await getPlan(new NextRequest(`http://localhost/api/plan/${planId}`, { headers: { cookie } }), contexto(planId));
+    const respuestaPlan = await getPlan(
+      new NextRequest(`http://localhost/api/plan/${planId}`, { headers: { cookie: cookiePropietario } }),
+      contexto(planId),
+    );
     expect(respuestaPlan.status).toBe(404);
 
     // Repetir el borrado (idempotencia): sigue sin encontrar fila que marcar,
     // así que responde igual que un ajeno, sin distinguir los dos casos.
     const respuestaSegundoBorrado = await deleteViaje(
-      new NextRequest(`http://localhost/api/viajes/${trabajo.id}`, { method: "DELETE", headers: { cookie } }),
+      new NextRequest(`http://localhost/api/viajes/${trabajo.id}`, { method: "DELETE", headers: { cookie: cookiePropietario } }),
       contexto(trabajo.id),
     );
     expect(respuestaSegundoBorrado.status).toBe(404);
