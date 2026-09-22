@@ -70,8 +70,10 @@ export function VistaPlan({ id }: { id: string }) {
     <div className="pila">
       <p role="note">{AVISO_FIJO}</p>
       {/* usabilidad-ac8(b): el mismo aviso de "guarda esta dirección" que en
-          /trabajos/[id], para que quien llega hasta aquí sepa que no hay
-          cuenta ni lista de viajes -esta URL es todo lo que hay. */}
+          /trabajos/[id]. txt-ac1: la cuenta sí existe -la crea el código de
+          acceso-, pero todavía no hay ninguna lista de viajes que recuerde
+          esta dirección por el usuario, así que sigue siendo la única forma
+          de volver aquí. */}
       <div className="aviso">
         <p>Esta dirección es la única forma de volver a este plan: consérvala.</p>
       </div>

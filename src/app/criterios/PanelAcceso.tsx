@@ -124,6 +124,10 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
   return (
     <form onSubmit={alSubmitCodigo} aria-label="Introducir código" className="formulario">
       <p role="status">Te hemos enviado un código a {email}. Escríbelo aquí sin salir de esta pantalla.</p>
+      {/* txt-ac1: el código no es un simple candado de la pantalla, es un inicio
+          de sesión -con cuenta propia detrás- y hoy nadie se lo dice al usuario
+          antes de pedírselo. */}
+      <p>Este código inicia sesión en la aplicación: crea tu cuenta la primera vez y la reconoce las siguientes.</p>
       <div className="campo">
         <label htmlFor="codigo-acceso">Código de acceso</label>
         <input
@@ -144,9 +148,12 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
             Auth entero-, y el aviso del enlace cubre el estado real de hoy en
             producción sin distinguir si el correo está en la lista blanca. El
             texto ya no dice un número de dígitos fijo (issue #181, tercer caso
-            real del día): Supabase Auth decide cuántos son, no el producto. */}
+            real del día): Supabase Auth decide cuántos son, no el producto.
+            txt-ac4: "con el asunto «...»" era una promesa que este repo no
+            controla -el asunto lo fija el panel de Supabase, no la plantilla-,
+            así que se describe por el texto que sí imprime la plantilla. */}
         <p id="ayuda-codigo-acceso" className="ayuda">
-          El código llega en un correo con el asunto «Tu código de acceso», sin ningún enlace que abrir. Si lo que
+          El código llega en un correo que empieza por «Tu código de acceso», sin ningún enlace que abrir. Si lo que
           te llega es un enlace en vez de un código, falta un ajuste del correo: avisa a Adrián. Caduca en una hora,
           es de un solo uso, y si no te llega puedes pedir otro cada 60 segundos.
         </p>

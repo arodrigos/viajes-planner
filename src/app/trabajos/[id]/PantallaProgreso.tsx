@@ -120,6 +120,11 @@ export function PantallaProgreso({ id }: { id: string }) {
   const avisoDireccion = (
     <div className="aviso">
       <p>Puedes cerrar esta pantalla y volver cuando quieras: esta dirección es la única forma de encontrar este trabajo, así que conviene guardarla.</p>
+      {/* txt-ac2: aquí es donde el usuario podría preguntarse por qué no le
+          hemos vuelto a pedir el código al volver -la respuesta es que sigue
+          con la sesión que abrió al escribirlo, no que la pantalla no lo
+          necesite. */}
+      <p>Sigues con la sesión que iniciaste con tu código: por eso no hace falta que vuelvas a pedirlo en este navegador.</p>
     </div>
   );
 

@@ -124,7 +124,13 @@ export function FormularioCriterios() {
           falla con 401 -convierte la sorpresa de "pulsé Continuar y no pasó
           nada" en una expectativa desde el principio. */}
       <div className="aviso">
-        <p>Para pedir el plan te pediremos que confirmes tu correo con un código. No perderás lo que escribas mientras tanto.</p>
+        {/* txt-ac1: el aviso previo también fija que el código no es una
+            comprobación suelta, es un inicio de sesión -con cuenta propia
+            detrás, aunque hoy nadie la vea ni la gestione desde aquí. */}
+        <p>
+          Para pedir el plan te pediremos que confirmes tu correo con un código: es un inicio de sesión, y la
+          primera vez crea tu cuenta. No perderás lo que escribas mientras tanto.
+        </p>
       </div>
       {enviando && <p role="status">Enviando…</p>}
       {mensajeEnvio && (
