@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { IconoFranja } from "./iconosFranja";
 
 interface FranjaPublica {
   id: string;
@@ -91,28 +92,54 @@ export function VistaPlan({ id }: { id: string }) {
         <p key={aviso}>{aviso}</p>
       ))}
 
-      {plan?.dias.map((dia) => (
-        <section key={dia.fecha} aria-label={`Día ${dia.fecha}`} className="seccion-dia">
-          <h2>{dia.fecha}</h2>
-          {dia.franjas.map((franja) => {
-            const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
-            if (paradasDeLaFranja.length === 0) return null;
-            return (
-              <div key={franja.id} className="seccion-franja">
-                <h3>{franja.etiqueta}</h3>
-                <ul className="pila">
-                  {paradasDeLaFranja.map((parada) => (
-                    <li key={parada.id}>
-                      <strong>{parada.nombre}</strong>
-                      <p>{parada.descripcion}</p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </section>
-      ))}
+      {plan?.dias.map((dia) => {
+        // maq-ac5: un día sin ninguna parada en ninguna franja no se queda
+        // mudo -el hueco se explica, en vez de una sección vacía que parece
+        // un error de carga.
+        const tieneAlgunaParada = dia.paradas.length > 0;
+        return (
+          <section key={dia.fecha} aria-label={`Día ${dia.fecha}`} className="seccion-dia">
+            <h2>{dia.fecha}</h2>
+            {!tieneAlgunaParada && (
+              <p className="dia-sin-paradas">Todavía no hay paradas planificadas para este día.</p>
+            )}
+            <div className="tramo-dia">
+              {dia.franjas.map((franja) => {
+                const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
+                if (paradasDeLaFranja.length === 0) return null;
+                return (
+                  <div key={franja.id} className="seccion-franja">
+                    <div
+                      className="cabecera-franja"
+                      style={{
+                        background: `var(--franja-${franja.id}-fondo, var(--superficie))`,
+                        color: `var(--franja-${franja.id}-texto, var(--foreground))`,
+                      }}
+                    >
+                      <IconoFranja franjaId={franja.id} />
+                      {/* maq-ac2: la etiqueta va SIEMPRE en texto -el icono y
+                          el color de fondo son un refuerzo visual, nunca el
+                          único portador de la información. */}
+                      <h3>{franja.etiqueta}</h3>
+                    </div>
+                    <ul className="pila">
+                      {paradasDeLaFranja.map((parada) => (
+                        <li key={parada.id} className="tarjeta-parada">
+                          <IconoFranja franjaId={franja.id} />
+                          <div>
+                            <strong>{parada.nombre}</strong>
+                            <p>{parada.descripcion}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
