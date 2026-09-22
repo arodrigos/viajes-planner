@@ -24,6 +24,25 @@
      Apple: 44px es el objetivo táctil mínimo cómodo, no un valor a ojo. */
   --objetivo-tactil: 44px;
   --ancho-contenido: 40rem;
+
+  /* maq-ac2: un par (fondo, texto) por franja, cada uno con ratio de
+     contraste >= 4.5:1 calculado contra la fórmula WCAG real (ver
+     contraste-franjas.test.ts, que lee estos valores literales del propio
+     fichero, no de una constante compartida). El color nunca es el único
+     portador de información -la etiqueta de la franja siempre va en texto
+     junto al icono, que es decorativo (aria-hidden). */
+  --franja-manana-temprano-fondo: #f4e3d7;
+  --franja-manana-temprano-texto: #824417;
+  --franja-manana-fondo: #f4edd7;
+  --franja-manana-texto: #826717;
+  --franja-comida-fondo: #d7f4e1;
+  --franja-comida-texto: #157937;
+  --franja-tarde-fondo: #d7eaf4;
+  --franja-tarde-texto: #175e82;
+  --franja-cena-fondo: #ead7f4;
+  --franja-cena-texto: #5e1782;
+  --franja-noche-fondo: #d7daf4;
+  --franja-noche-texto: #172082;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,6 +52,22 @@
     --borde: #3f3f3f;
     --superficie: #171717;
     --foco: #60a5fa;
+
+    /* Mismo criterio que arriba, par (fondo, texto) propio para modo
+       oscuro -no basta con reutilizar el de modo claro, porque el ratio de
+       contraste se rompe sobre un fondo de página oscuro. */
+    --franja-manana-temprano-fondo: #4f3422;
+    --franja-manana-temprano-texto: #f0d5c2;
+    --franja-manana-fondo: #4f4322;
+    --franja-manana-texto: #f0e4c2;
+    --franja-comida-fondo: #224f31;
+    --franja-comida-texto: #c2f0d1;
+    --franja-tarde-fondo: #22404f;
+    --franja-tarde-texto: #c2e0f0;
+    --franja-cena-fondo: #40224f;
+    --franja-cena-texto: #e0c2f0;
+    --franja-noche-fondo: #22254f;
+    --franja-noche-texto: #c2c6f0;
   }
 
   html {
@@ -152,6 +187,51 @@ h3 {
   flex-direction: column;
   gap: var(--espacio-2);
   margin-top: var(--espacio-3);
+}
+
+/* Línea de tiempo (bloque maquetacion-del-plan): un tramo por día, marcador
+   vertical continuo que conecta sus franjas -el "timeline" que pide el
+   brief-, sin depender de ninguna librería nueva. */
+.tramo-dia {
+  border-left: 3px solid var(--borde);
+  padding-left: var(--espacio-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-3);
+}
+
+.cabecera-franja {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  padding: var(--espacio-1) var(--espacio-3);
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.cabecera-franja h3 {
+  font-size: var(--texto-pequeno);
+}
+
+.tarjeta-parada {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: flex-start;
+  padding: var(--espacio-3);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+  background: var(--superficie);
+}
+
+.tarjeta-parada svg {
+  flex-shrink: 0;
+  margin-top: var(--espacio-1);
+}
+
+.dia-sin-paradas {
+  font-size: var(--texto-pequeno);
+  opacity: 0.8;
+  font-style: italic;
 }
 
 label {
