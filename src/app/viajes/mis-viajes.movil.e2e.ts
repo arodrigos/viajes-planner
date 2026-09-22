@@ -86,9 +86,11 @@ test("mis-viajes: el listado muestra exactamente los viajes propios, enlaza al p
   expect(respuestaVerificar.ok()).toBe(true);
 
   // viajes-ac1: llega desde un acceso visible del pie, sin teclear ninguna
-  // dirección.
+  // dirección. La portada también enlaza a «Mis viajes» (viajes-ac1), así
+  // que hay que acotar al pie -presente en todas las páginas- para no
+  // chocar con el modo estricto de Playwright.
   await pagina.goto("/");
-  await pagina.getByRole("link", { name: "Mis viajes" }).click();
+  await pagina.locator("footer").getByRole("link", { name: "Mis viajes" }).click();
   await expect(pagina).toHaveURL("/viajes");
 
   await expect(pagina.getByText(planFixture.destino)).toBeVisible();
@@ -135,7 +137,10 @@ test("mis-viajes: un fallo de /api/viajes muestra un mensaje de error, no una li
   await page.route("**/api/viajes", (route) => route.fulfill({ status: 500, json: { error: "fallo forzado" } }));
   await page.goto("/viajes");
 
-  await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page.getByRole("alert")).toContainText(/no se ha podido cargar/i);
+  // El filtro por texto descarta el otro role="alert" que Next.js inyecta
+  // siempre (el route announcer), que si no haría fallar en modo estricto
+  // -mismo patrón que acceso-ac6c.e2e.ts y pantalla-ac8.movil.e2e.ts.
+  const aviso = page.getByRole("alert").filter({ hasText: /no se ha podido cargar/i });
+  await expect(aviso).toBeVisible();
   await expect(page.getByText(/todavía no has pedido ningún viaje/i)).toHaveCount(0);
 });

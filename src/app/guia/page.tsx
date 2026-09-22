@@ -39,7 +39,7 @@ export default function GuiaPage() {
         <li>Cuando termina, el plan vive en su propia dirección: guardarla sigue siendo la forma más directa de volver a verlo.</li>
         <li>
           También puedes encontrarlo sin guardar nada: pulsa «Mis viajes» en el pie de cualquier página y verás la
-          lista completa de los viajes pedidos con tu cuenta, con enlace directo a cada uno.
+          lista completa de los viajes pedidos con tu cuenta, cada uno con acceso directo a su plan.
         </li>
       </ol>
     </main>
