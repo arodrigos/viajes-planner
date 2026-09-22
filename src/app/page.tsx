@@ -14,6 +14,11 @@ export default function Home() {
         </Link>
       </p>
       <p>
+        <Link href="/viajes" className="enlace-discreto">
+          Mis viajes
+        </Link>
+      </p>
+      <p>
         <Link href="/guia" className="enlace-discreto">
           ¿Cómo funciona esta aplicación?
         </Link>
