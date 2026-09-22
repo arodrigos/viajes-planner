@@ -43,6 +43,20 @@ const PLAN_FIXTURE = {
   personas: 2,
   dias: [0, 1, 2, 3, 4].map((indice) => diaFixture(`2026-10-0${indice + 5}`, indice)),
   avisos: [],
+  // reco-ac5: nombre y motivo son texto libre igual que nombre/descripcion
+  // de una parada -mismo peor caso a propósito, ahora en la sección de
+  // recomendaciones. El dominio publicitario va en "motivo" (texto plano,
+  // nunca dentro de un href) y no en "nombre": "nombre" SÍ acaba dentro del
+  // href de la búsqueda (codificado por urlBusquedaSitio), y un dominio de
+  // verdad ahí dispararía un falso positivo de contieneScriptPublicitario
+  // -mismo motivo ya documentado en sin-afiliacion.ts para descripcion.
+  recomendaciones: [
+    {
+      tipo: "comida",
+      nombre: "Reserva en https://booking.com/mesa?aid=888",
+      motivo: "Un sitio tranquilo, patrocinado por doubleclick.net, sin verificar contra ninguna ficha todavía.",
+    },
+  ],
 };
 
 test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni duraciones, y con el aviso fijo", async ({
@@ -73,6 +87,11 @@ test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni d
   }
   const textoVisible = await page.locator("body").innerText();
   expect(textoVisible).not.toMatch(/\d{1,2}[:h]\d{2}|\b\d+\s*(min|minutos|horas?)\b/);
+
+  // reco-ac5: el enlace de la recomendación envenenada apunta a la
+  // búsqueda determinista, nunca al booking.com falso del nombre.
+  const enlaceRecomendacion = page.getByRole("link", { name: /Reserva en https:\/\/booking\.com/ });
+  await expect(enlaceRecomendacion).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/);
 
   // (c) el aviso es visible al abrir, sigue visible tras recargar y no
   // tiene ningún control de cierre en el DOM.

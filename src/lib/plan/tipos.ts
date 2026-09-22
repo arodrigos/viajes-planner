@@ -51,6 +51,19 @@ export interface Dia {
   paradas: Parada[];
 }
 
+// bloque recomendaciones-de-sitios: lo único que el modelo puede originar
+// de verdad sobre un sitio de comida o un recinto -tipo, nombre y motivo-,
+// nunca una dirección (ver urlBusquedaSitio.ts, que la construye aparte y
+// de forma determinista). El propio tipo no admite un campo "url": es la
+// misma defensa que ya usa Procedencia, ahora aplicada aquí.
+export type TipoRecomendacion = "comida" | "recinto";
+
+export interface Recomendacion {
+  tipo: TipoRecomendacion;
+  nombre: string;
+  motivo: string;
+}
+
 export interface Plan {
   id: string;
   version: number;
@@ -61,4 +74,7 @@ export interface Plan {
   // paradas por categoría de riesgo. Vacío o ausente cuando no hubo nada
   // que excluir.
   avisos?: string[];
+  // bloque recomendaciones-de-sitios: vacío o ausente cuando el modelo no
+  // propuso ninguna -el plan se guarda igual, nunca a medias por esto.
+  recomendaciones?: Recomendacion[];
 }

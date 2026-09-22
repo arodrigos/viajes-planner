@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AnclaAlojamiento, Dia, Franja, Parada, Plan } from "./tipos";
+import type { AnclaAlojamiento, Dia, Franja, Parada, Plan, Recomendacion } from "./tipos";
 
 // Forma en la que se guardan los días dentro de plan_versiones.dias: todo
 // menos las paradas, que tienen su propia tabla porque procedencias y
@@ -40,6 +40,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
       personas: plan.personas,
       dias: diasAlmacenados,
       avisos: plan.avisos ?? [],
+      recomendaciones: plan.recomendaciones ?? [],
     })
     .select("id")
     .single();
@@ -94,7 +95,7 @@ export async function recuperarPlan(
 
   let consultaVersion = supabase
     .from("plan_versiones")
-    .select("id, version, personas, dias, avisos")
+    .select("id, version, personas, dias, avisos, recomendaciones")
     .eq("plan_id", planId);
   consultaVersion =
     version === undefined
@@ -146,5 +147,6 @@ export async function recuperarPlan(
     personas: versionRow.personas as number,
     dias,
     avisos: (versionRow.avisos as string[] | null) ?? [],
+    recomendaciones: (versionRow.recomendaciones as Recomendacion[] | null) ?? [],
   };
 }

@@ -18,6 +18,9 @@ export const esquemaPlan = {
     // procesarTrabajo); la añade el post-proceso determinista después de
     // validar contra este mismo esquema.
     avisos: { type: "array", items: { type: "string" } },
+    // bloque recomendaciones-de-sitios: opcional -un plan sin recomendaciones
+    // sigue siendo un plan válido (reco-ac7).
+    recomendaciones: { type: "array", items: { $ref: "#/$defs/recomendacion" } },
   },
   $defs: {
     dia: {
@@ -83,6 +86,21 @@ export const esquemaPlan = {
         // admite "url" todavía, que es la propia comprobación de que
         // ninguna URL generada por el modelo llega al plan guardado.
         fuente: { const: "propuesto-sin-verificar" },
+      },
+    },
+    // bloque recomendaciones-de-sitios: SIN ninguna propiedad de URL a
+    // propósito -es la comprobación estructural de que una dirección
+    // inventada por el modelo no puede colarse, la misma técnica que ya usa
+    // "procedencia" arriba. La dirección la construye urlBusquedaSitio.ts,
+    // fuera del alcance del modelo, en el render.
+    recomendacion: {
+      type: "object",
+      additionalProperties: false,
+      required: ["tipo", "nombre", "motivo"],
+      properties: {
+        tipo: { enum: ["comida", "recinto"] },
+        nombre: { type: "string", minLength: 1 },
+        motivo: { type: "string", minLength: 1 },
       },
     },
     parada: {
