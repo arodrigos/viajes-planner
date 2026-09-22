@@ -2,7 +2,10 @@ import { expect, test } from "@playwright/test";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
-const EMAIL = `ci-test-textos-ac1-${Date.now()}@example.com`;
+// correo fijo, no timestamp: necesita recibir el correo REAL en Mailpit, y
+// solo los correos de la lista blanca de CI (ver ci.yml) llegan a disparar
+// `signInWithOtp` -igual que pantalla-ac5.movil.e2e.ts.
+const EMAIL = "ci-test-textos-ac1@example.com";
 const DESTINO_1 = "Cracovia";
 const DESTINO_2 = "Split";
 
