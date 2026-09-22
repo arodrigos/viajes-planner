@@ -20,12 +20,17 @@ export const viewport: Viewport = {
 // -por eso vive en el layout raíz y no en cada page.tsx- y alcanza además
 // al usuario que ya está atascado a mitad de camino, que es el caso real
 // que motivó este bloque.
+//
+// viajes-ac1: «Mis viajes» va en el mismo pie, presente en todas las
+// páginas -es el «acceso visible, sin teclear ninguna dirección» que pide
+// el criterio, y /viajes resuelve sin sesión con su propio panel de acceso.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
       <body>
         {children}
         <footer>
+          <Link href="/viajes">Mis viajes</Link>
           <Link href="/guia">Guía: cómo funciona esta aplicación</Link>
         </footer>
       </body>

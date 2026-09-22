@@ -380,7 +380,10 @@ details summary {
 
 footer {
   padding: var(--espacio-4);
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--espacio-4);
   font-size: var(--texto-pequeno);
 }
 

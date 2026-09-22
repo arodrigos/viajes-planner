@@ -39,8 +39,14 @@ on:
 # Suma del bloque maquetacion-del-plan: ci-test-plan-timeline, el correo del
 # usuario de prueba de plan-timeline.movil.e2e.ts (maq-ac1/maq-ac2b/maq-ac3),
 # que necesita canjear un código real -mismo motivo que ci-test-final-ac2-.
+# Suma del bloque mis-viajes: ci-test-viajes-ac2, la sesión "válida" de
+# route.integration.test.ts (viajes-ac2, el correo ajeno y el de B se
+# generan dinámicamente y NO se añaden aquí, porque el criterio es justo que
+# estén fuera de esta lista); ci-test-mis-viajes, el usuario A real de
+# mis-viajes.movil.e2e.ts (viajes-ac1/ac5, el usuario B se crea
+# dinámicamente porque nunca inicia sesión).
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com"
 
 jobs:
   lint-typecheck-test:
@@ -184,6 +190,12 @@ jobs:
       # esquema-ac4(a,b) (RLS contra el esquema propio, con el caso hermano
       # sin cabecera) y persistencia-ac3 (round-trip del fixture).
       - run: npm run test:integration
+      # viajes-ac2(b): un build de producción real de /api/viajes sin
+      # sesión responde 401 sin Set-Cookie. Vive aquí, no en
+      # verificar-esqueleto.sh -esa comprobación NECESITA una pila de
+      # Supabase real, que ese script omite a propósito para otro criterio
+      # (ver la cabecera de scripts/verificar-viajes.sh).
+      - run: bash scripts/verificar-viajes.sh
 
   e2e:
     runs-on: ubuntu-latest
