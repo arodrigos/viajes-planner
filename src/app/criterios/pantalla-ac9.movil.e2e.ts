@@ -13,10 +13,14 @@ test("el campo del código declara inputmode, autocomplete y maxlength, con etiq
   await page.getByLabel("Tu correo").fill(`ci-test-pantalla-ac9-${Date.now()}@example.com`);
   await page.getByRole("button", { name: "Pedir código de acceso" }).click();
 
-  const campo = page.getByLabel("Código de seis dígitos");
+  const campo = page.getByLabel("Código de acceso");
   await expect(campo).toHaveAttribute("inputmode", "numeric");
   await expect(campo).toHaveAttribute("autocomplete", "one-time-code");
-  await expect(campo).toHaveAttribute("maxlength", "6");
+  // Declara un límite (no deja el campo sin tope), pero no un valor fijo de
+  // "6" -- issue #181, tercer caso real: quién decide cuántos dígitos trae
+  // el código es Supabase Auth, no este campo.
+  const maxlength = Number(await campo.getAttribute("maxlength"));
+  expect(maxlength).toBeGreaterThanOrEqual(6);
 
   const idAyuda = await campo.getAttribute("aria-describedby");
   expect(idAyuda, "el campo del código no tiene aria-describedby").toBeTruthy();

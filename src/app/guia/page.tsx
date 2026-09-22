@@ -23,7 +23,7 @@ export default function GuiaPage() {
       <ol>
         <li>Empieza en la portada y pulsa «Cuéntanos tu viaje».</li>
         <li>Rellena el formulario: destino o tipo de viaje, fechas, personas y presupuesto.</li>
-        <li>Al enviarlo, te pedirá tu correo y te mandará un código de seis dígitos. Solo funcionan los correos ya autorizados para la familia.</li>
+        <li>Al enviarlo, te pedirá tu correo y te mandará un código de acceso. Solo funcionan los correos ya autorizados para la familia.</li>
         <li>Escribe el código en esa misma pantalla, sin salir de ella: lo que habías escrito sigue ahí, no hace falta repetirlo.</li>
         <li>El plan no aparece al instante: verás una pantalla de progreso mientras un agente lo genera, y puede tardar varios minutos.</li>
         <li>

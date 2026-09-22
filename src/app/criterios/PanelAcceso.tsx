@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CODIGO_VALIDO } from "@/lib/auth/codigoValido";
 
 type Paso = "email" | "codigo";
 
 const SEGUNDOS_REENVIO = 60;
-const CODIGO_VALIDO = /^\d{6}$/;
+const LONGITUD_MAXIMA_CODIGO = 10;
 
 // pantalla-ac5/ac6: la pantalla que pide el correo cuando `POST /api/plan`
 // responde 401, ahora en dos pasos DENTRO DE LA MISMA PÁGINA -correo y
@@ -105,7 +106,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
             onChange={(e) => setEmail(e.target.value)}
           />
           <p id="ayuda-email-acceso" className="ayuda">
-            Solo funcionan los correos autorizados de la familia. Te enviaremos un código de seis dígitos por correo.
+            Solo funcionan los correos autorizados de la familia. Te enviaremos un código de acceso por correo.
           </p>
         </div>
         <button type="submit" disabled={enviandoEmail}>
@@ -124,28 +125,30 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
     <form onSubmit={alSubmitCodigo} aria-label="Introducir código" className="formulario">
       <p role="status">Te hemos enviado un código a {email}. Escríbelo aquí sin salir de esta pantalla.</p>
       <div className="campo">
-        <label htmlFor="codigo-acceso">Código de seis dígitos</label>
+        <label htmlFor="codigo-acceso">Código de acceso</label>
         <input
           id="codigo-acceso"
           ref={campoCodigoRef}
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          maxLength={6}
+          maxLength={LONGITUD_MAXIMA_CODIGO}
           required
           aria-describedby="ayuda-codigo-acceso"
           value={codigo}
-          onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, LONGITUD_MAXIMA_CODIGO))}
         />
         {/* aud-ac4/aud-ac5: el título citado tiene que ser el mismo que imprime
             supabase/templates/magic_link.html y confirmation.html -no el nombre
             del producto, que esas plantillas ya no llevan por ser comunes a
             Auth entero-, y el aviso del enlace cubre el estado real de hoy en
-            producción sin distinguir si el correo está en la lista blanca. */}
+            producción sin distinguir si el correo está en la lista blanca. El
+            texto ya no dice un número de dígitos fijo (issue #181, tercer caso
+            real del día): Supabase Auth decide cuántos son, no el producto. */}
         <p id="ayuda-codigo-acceso" className="ayuda">
-          El código llega en un correo con el asunto «Tu código de acceso»: seis dígitos, sin ningún enlace que
-          abrir. Si lo que te llega es un enlace en vez de un código, falta un ajuste del correo: avisa a Adrián.
-          Caduca en una hora, es de un solo uso, y si no te llega puedes pedir otro cada 60 segundos.
+          El código llega en un correo con el asunto «Tu código de acceso», sin ningún enlace que abrir. Si lo que
+          te llega es un enlace en vez de un código, falta un ajuste del correo: avisa a Adrián. Caduca en una hora,
+          es de un solo uso, y si no te llega puedes pedir otro cada 60 segundos.
         </p>
       </div>
       <button type="submit" disabled={enviandoCodigo || !CODIGO_VALIDO.test(codigo)}>
