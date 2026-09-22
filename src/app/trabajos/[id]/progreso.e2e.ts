@@ -82,6 +82,22 @@ test("un trabajo fallido explica el motivo", async ({ page }) => {
   await expect(page.getByText("la respuesta del modelo no es JSON válido")).toBeVisible();
 });
 
+// txt-ac2: mientras el trabajo espera, la pantalla explica por qué no
+// vuelve a pedir el código -sigue con la sesión que se abrió al teclearlo-,
+// en vez de dejar la ausencia de ese paso sin explicar.
+test("mientras el trabajo está encolado, explica que sigue con la sesión iniciada", async ({ page }) => {
+  await page.route("**/api/trabajos/*", (route) =>
+    route.fulfill({
+      json: { id: "abc", estado: "encolado", etapa: null, porcentaje: 0, motivo: null, reintento_no_antes_de: null },
+    }),
+  );
+
+  await page.goto("/trabajos/abc");
+  const aviso = page.getByText(/sesión que iniciaste/i);
+  await expect(aviso).toBeVisible();
+  await expect(aviso).toHaveText(/no hace falta que vuelvas a pedirlo/);
+});
+
 // acceso-ac6(d): un 401 a mitad de espera (el JWT de una hora caducó antes
 // que el trabajo) explica que hay que volver a entrar, en vez de repetir el
 // genérico "no se ha podido consultar" que no dice qué ha pasado.

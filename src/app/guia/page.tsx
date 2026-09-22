@@ -15,7 +15,7 @@ export default function GuiaPage() {
       <h2>Qué hace</h2>
       <ul>
         <li>Genera un plan día a día a partir de los criterios que escribes.</li>
-        <li>Guarda cada plan en una dirección propia, sin necesidad de crear una cuenta.</li>
+        <li>Guarda cada plan en una dirección propia: hoy es lo único que hace falta guardar para volver a verlo.</li>
         <li>Avisa cuando algo se retrasa o se pausa, en vez de fallar en silencio.</li>
       </ul>
 
@@ -23,12 +23,19 @@ export default function GuiaPage() {
       <ol>
         <li>Empieza en la portada y pulsa «Cuéntanos tu viaje».</li>
         <li>Rellena el formulario: destino o tipo de viaje, fechas, personas y presupuesto.</li>
-        <li>Al enviarlo, te pedirá tu correo y te mandará un código de acceso. Solo funcionan los correos ya autorizados para la familia.</li>
-        <li>Escribe el código en esa misma pantalla, sin salir de ella: lo que habías escrito sigue ahí, no hace falta repetirlo.</li>
+        <li>
+          Al enviarlo, te pedirá tu correo y te mandará un código de acceso. Solo funcionan los correos ya
+          autorizados para la familia.
+        </li>
+        <li>
+          Escribe el código en esa misma pantalla, sin salir de ella: lo que habías escrito sigue ahí, no hace falta
+          repetirlo. Ese código es un inicio de sesión -la primera vez crea tu cuenta- para que la aplicación te
+          reconozca la próxima vez que vuelvas, sin pedírtelo de nuevo.
+        </li>
         <li>El plan no aparece al instante: verás una pantalla de progreso mientras un agente lo genera, y puede tardar varios minutos.</li>
         <li>
-          Cuando termina, el plan vive en su propia dirección. Guárdala: es la única forma de volver a verlo, no hay
-          lista de viajes ni cuenta que lo recuerde por ti.
+          Cuando termina, el plan vive en su propia dirección. Guárdala: hoy sigue siendo la única forma de volver a
+          verlo, porque todavía no hay ninguna lista de viajes que lo recuerde por ti.
         </li>
       </ol>
     </main>
