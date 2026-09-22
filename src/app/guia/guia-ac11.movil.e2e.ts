@@ -41,7 +41,7 @@ test("alguien que sigue la guía al pie de la letra, sin escribir ninguna direcc
   await expect(page.getByRole("form", { name: "Introducir código" })).toBeVisible();
 
   const codigo = await leerCodigo(EMAIL);
-  await page.getByLabel("Código de seis dígitos").fill(codigo);
+  await page.getByLabel("Código de acceso").fill(codigo);
   await page.getByRole("button", { name: "Confirmar código" }).click();
 
   // (d) el recorrido termina en /trabajos/<id> con una fila real encolada.

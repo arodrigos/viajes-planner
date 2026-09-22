@@ -42,10 +42,12 @@ export async function leerCorreo(email: string): Promise<{ html: string }> {
 
 // Sustituye a `leerEnlaceMagico` (retirado con el bloque
 // codigo-en-la-misma-pantalla): ya no hay ningún enlace que leer, solo un
-// código de seis dígitos que la plantilla imprime con `{{ .Token }}`.
+// código que la plantilla imprime con `{{ .Token }}` -su longitud la decide
+// el ajuste de Supabase Auth del proyecto (issue #181: 6 en esta pila
+// local, 8 en el proyecto DEV real), nunca un número fijo en este helper.
 export async function leerCodigo(email: string): Promise<string> {
   const { html } = await leerCorreo(email);
-  const codigo = html.match(/\b(\d{6})\b/)?.[1];
-  if (!codigo) throw new Error("El correo no contiene ningún código de seis dígitos");
+  const codigo = html.match(/\b(\d{6,10})\b/)?.[1];
+  if (!codigo) throw new Error("El correo no contiene ningún código de acceso");
   return codigo;
 }

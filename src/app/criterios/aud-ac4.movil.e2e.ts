@@ -15,7 +15,7 @@ async function llegarAlAvisoDelCodigo(page: Page, email: string): Promise<string
 
   // aud-ac4(a): se localiza por rol y por la asociación aria-describedby con
   // el campo, nunca por una clase CSS.
-  const campo = page.getByLabel("Código de seis dígitos");
+  const campo = page.getByLabel("Código de acceso");
   const idAyuda = await campo.getAttribute("aria-describedby");
   expect(idAyuda, "el campo del código no tiene aria-describedby").toBeTruthy();
   const ayuda = page.locator(`#${idAyuda}`);
@@ -58,7 +58,7 @@ test("leer el aviso no pierde el correo introducido ni deja el campo del código
   await llegarAlAvisoDelCodigo(page, email);
 
   await expect(page.getByText(email)).toBeVisible();
-  const campoCodigo = page.getByLabel("Código de seis dígitos");
+  const campoCodigo = page.getByLabel("Código de acceso");
   await expect(campoCodigo).toBeEditable();
   await campoCodigo.fill("123456");
   await expect(campoCodigo).toHaveValue("123456");

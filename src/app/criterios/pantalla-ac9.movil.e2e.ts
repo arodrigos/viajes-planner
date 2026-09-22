@@ -13,7 +13,7 @@ test("el campo del código declara inputmode, autocomplete y maxlength, con etiq
   await page.getByLabel("Tu correo").fill(`ci-test-pantalla-ac9-${Date.now()}@example.com`);
   await page.getByRole("button", { name: "Pedir código de acceso" }).click();
 
-  const campo = page.getByLabel("Código de seis dígitos");
+  const campo = page.getByLabel("Código de acceso");
   await expect(campo).toHaveAttribute("inputmode", "numeric");
   await expect(campo).toHaveAttribute("autocomplete", "one-time-code");
   await expect(campo).toHaveAttribute("maxlength", "6");

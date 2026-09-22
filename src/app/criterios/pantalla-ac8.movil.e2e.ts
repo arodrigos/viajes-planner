@@ -29,7 +29,7 @@ test("un código incorrecto se explica junto al campo y no pierde ni el correo n
 
   await pedirCodigoDesdeCero(page, email);
 
-  const campoCodigo = page.getByLabel("Código de seis dígitos");
+  const campoCodigo = page.getByLabel("Código de acceso");
   await campoCodigo.fill("000000");
   await page.getByRole("button", { name: "Confirmar código" }).click();
 
@@ -77,7 +77,7 @@ test("un código ya consumido en otro contexto se explica y ofrece pedir uno nue
   const respuestaAjena = await request.post("/api/acceso/verificar-codigo", { data: { email, codigo } });
   expect(respuestaAjena.ok()).toBe(true);
 
-  const campoCodigo = page.getByLabel("Código de seis dígitos");
+  const campoCodigo = page.getByLabel("Código de acceso");
   await campoCodigo.fill(codigo);
   await page.getByRole("button", { name: "Confirmar código" }).click();
 

@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { procesarVerificacionCodigo } from "@/lib/auth/verificarCodigo";
-
-const CODIGO_VALIDO = /^\d{6}$/;
+import { CODIGO_VALIDO } from "@/lib/auth/codigoValido";
 
 // cod-ac1/cod-ac2: 200 con cookies de sesión si el código es correcto; 401
 // sin cookies si es incorrecto, caducado o ya consumido; 400 sin llamar a

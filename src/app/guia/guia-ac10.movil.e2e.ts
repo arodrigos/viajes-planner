@@ -1,19 +1,21 @@
 import { expect, test } from "@playwright/test";
 
 // guia-ac10: la guía tiene que describir el recorrido que el producto hace
-// AHORA (código de seis dígitos, tecleado sin salir de la página) y no debe
+// AHORA (código de acceso, tecleado sin salir de la página) y no debe
 // quedar ni rastro del recorrido anterior (enlace, mismo navegador/dispositivo).
 // La mitad (b) es la que de verdad detecta una guía desactualizada: si el
 // bloque `codigo-en-la-misma-pantalla` se construye y nadie toca la guía,
-// este test se pone rojo.
+// este test se pone rojo. No se exige un número de dígitos concreto (issue
+// #181, tercer caso real): quién decide la longitud es Supabase Auth, no
+// este texto -- exigirla aquí habría vuelto a fijarla en un tercer sitio.
 const PALABRAS_DEL_ENLACE_RETIRADO = /\benlace\b|\blink\b|\bábrelo\b|\babrelo\b|mismo navegador|mismo dispositivo/i;
 
-test("la guía menciona el código de seis dígitos y que se teclea sin salir de la página", async ({ page }) => {
+test("la guía menciona el código de acceso y que se teclea sin salir de la página", async ({ page }) => {
   await page.goto("/guia");
   const texto = await page.evaluate(() => document.body.innerText);
 
   // (a) presencia.
-  expect(texto).toMatch(/código de seis dígitos/i);
+  expect(texto).toMatch(/código de acceso/i);
   expect(texto).toMatch(/sin salir de (ella|la página|esta pantalla)/i);
 
   // (b) ausencia: nada del recorrido del enlace mágico sobrevive en el texto.

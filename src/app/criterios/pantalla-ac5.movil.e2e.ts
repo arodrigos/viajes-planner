@@ -56,7 +56,7 @@ test("sin sesión previa, pedir y teclear el código en la misma pestaña encola
   const codigo = await leerCodigo(EMAIL);
 
   // (f) teclearlo en el campo de la MISMA página y enviar.
-  await page.getByLabel("Código de seis dígitos").fill(codigo);
+  await page.getByLabel("Código de acceso").fill(codigo);
   await page.getByRole("button", { name: "Confirmar código" }).click();
 
   // (g) el navegador acaba en /trabajos/<id>.
