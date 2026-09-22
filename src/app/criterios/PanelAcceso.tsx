@@ -137,9 +137,15 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
           value={codigo}
           onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
         />
+        {/* aud-ac4/aud-ac5: el título citado tiene que ser el mismo que imprime
+            supabase/templates/magic_link.html y confirmation.html -no el nombre
+            del producto, que esas plantillas ya no llevan por ser comunes a
+            Auth entero-, y el aviso del enlace cubre el estado real de hoy en
+            producción sin distinguir si el correo está en la lista blanca. */}
         <p id="ayuda-codigo-acceso" className="ayuda">
-          El código llega por correo desde Viajes: seis dígitos, sin ningún enlace que abrir. Caduca en una hora, es
-          de un solo uso, y si no te llega puedes pedir otro cada 60 segundos.
+          El código llega en un correo con el asunto «Tu código de acceso»: seis dígitos, sin ningún enlace que
+          abrir. Si lo que te llega es un enlace en vez de un código, falta un ajuste del correo: avisa a Adrián.
+          Caduca en una hora, es de un solo uso, y si no te llega puedes pedir otro cada 60 segundos.
         </p>
       </div>
       <button type="submit" disabled={enviandoCodigo || !CODIGO_VALIDO.test(codigo)}>
