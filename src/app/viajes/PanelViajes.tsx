@@ -14,6 +14,11 @@ interface ViajeListado {
 const ERROR_CARGA =
   "No se ha podido cargar tu lista de viajes. Vuelve a intentarlo en un momento; esta misma dirección seguirá funcionando.";
 
+// borrar-ac4: dice la verdad y solo la verdad -no promete papelera ni
+// recuperación, porque no las hay (el borrado es marcado en la base, no
+// algo que la aplicación ofrezca deshacer).
+const ERROR_ELIMINAR = "No se ha podido eliminar el viaje. Vuelve a intentarlo en un momento.";
+
 export function PanelViajes() {
   const [viajes, setViajes] = useState<ViajeListado[] | null>(null);
   const [correo, setCorreo] = useState("");
@@ -21,6 +26,9 @@ export function PanelViajes() {
   const [necesitaAcceso, setNecesitaAcceso] = useState(false);
   const [recargaId, setRecargaId] = useState(0);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+  const [errorEliminarId, setErrorEliminarId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -66,6 +74,28 @@ export function PanelViajes() {
       setCerrandoSesion(false);
       setViajes(null);
       setNecesitaAcceso(true);
+    }
+  }
+
+  // borrar-ac1: sin confirmar no desaparece nada -- este handler solo se
+  // invoca desde el botón del segundo paso, nunca del primer "Eliminar".
+  // borrar-ac2/ac3: el borrado real lo hace el servidor (marcado, filtrado
+  // por sesión); aquí solo se refleja el resultado en la lista local.
+  async function eliminarViaje(id: string) {
+    setEliminandoId(id);
+    setErrorEliminarId(null);
+    try {
+      const respuesta = await fetch(`/api/viajes/${id}`, { method: "DELETE" });
+      if (!respuesta.ok) {
+        setErrorEliminarId(id);
+        return;
+      }
+      setViajes((actuales) => (actuales ?? []).filter((v) => v.id !== id));
+      setConfirmandoId(null);
+    } catch {
+      setErrorEliminarId(id);
+    } finally {
+      setEliminandoId(null);
     }
   }
 
@@ -118,13 +148,44 @@ export function PanelViajes() {
                 ? { href: `/plan/${viaje.plan_id}`, texto: "Ver el itinerario" }
                 : { href: `/trabajos/${viaje.id}`, texto: "Ver el progreso" };
             return (
-              <li key={viaje.id} className="tarjeta-parada">
+              <li key={viaje.id} className="tarjeta-parada pila">
                 <div>
                   <strong>{viaje.destino}</strong>
                   <p>{viaje.fecha}</p>
                   <p className="ayuda">{viaje.estado}</p>
                 </div>
-                <a href={enlace.href}>{enlace.texto}</a>
+
+                {confirmandoId === viaje.id ? (
+                  // borrar-ac4: nombra el viaje, dice lo que va a pasar y no
+                  // promete papelera ni recuperación; cancelar (autoFocus) es
+                  // la salida por defecto.
+                  <div className="aviso" role="alertdialog" aria-label={`Eliminar viaje a ${viaje.destino}`}>
+                    <p>
+                      Vas a eliminar el viaje a <strong>{viaje.destino}</strong>. Dejarás de verlo y de poder
+                      abrirlo, y no se puede deshacer desde la aplicación.
+                    </p>
+                    <div className="fila">
+                      <button type="button" autoFocus onClick={() => setConfirmandoId(null)}>
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void eliminarViaje(viaje.id)}
+                        disabled={eliminandoId === viaje.id}
+                      >
+                        {eliminandoId === viaje.id ? "Eliminando…" : "Eliminar de verdad"}
+                      </button>
+                    </div>
+                    {errorEliminarId === viaje.id && <p role="alert">{ERROR_ELIMINAR}</p>}
+                  </div>
+                ) : (
+                  <div className="fila">
+                    <a href={enlace.href}>{enlace.texto}</a>
+                    <button type="button" onClick={() => setConfirmandoId(viaje.id)}>
+                      Eliminar
+                    </button>
+                  </div>
+                )}
               </li>
             );
           })}
