@@ -1,4 +1,4 @@
-import type { AnclaAlojamiento, Parada, Plan } from "./tipos";
+import type { AnclaAlojamiento, Parada, Plan, Recomendacion } from "./tipos";
 
 // Serialización hacia el cliente. hora_inicio/hora_fin son internas (costura
 // con VROOM en fase 2) y no se envían nunca: que no se envíen es lo que
@@ -22,6 +22,7 @@ export interface PlanPublico {
   personas: number;
   dias: DiaPublico[];
   avisos: string[];
+  recomendaciones: Recomendacion[];
 }
 
 export function aPlanPublico(plan: Plan): PlanPublico {
@@ -37,5 +38,6 @@ export function aPlanPublico(plan: Plan): PlanPublico {
       paradas: dia.paradas,
     })),
     avisos: plan.avisos ?? [],
+    recomendaciones: plan.recomendaciones ?? [],
   };
 }

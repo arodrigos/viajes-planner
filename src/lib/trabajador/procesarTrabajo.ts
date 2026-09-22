@@ -5,7 +5,7 @@ import { postProcesarPlan } from "@/lib/generacion/postProcesar";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { validarPlan, type ErrorValidacion } from "@/lib/plan/validar";
 import { guardarPlan } from "@/lib/plan/repositorio";
-import type { Dia, Franja, Parada, Plan } from "@/lib/plan/tipos";
+import type { Dia, Franja, Parada, Plan, Recomendacion, TipoRecomendacion } from "@/lib/plan/tipos";
 import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
@@ -55,7 +55,7 @@ function extraerJson(texto: string): string {
 //   mismo que no puede saber de verdad.
 // - ancla_alojamiento: fase 1 no resuelve ubicaciones reales (F2-06); se
 //   omite siempre, nunca a medias con datos que el modelo se inventaría.
-function ensamblarYValidar(criterios: CriteriosViaje, planId: string, texto: string): IntentoEnsamblado {
+export function ensamblarYValidar(criterios: CriteriosViaje, planId: string, texto: string): IntentoEnsamblado {
   let datos: unknown;
   try {
     datos = JSON.parse(extraerJson(texto));
@@ -69,12 +69,20 @@ function ensamblarYValidar(criterios: CriteriosViaje, planId: string, texto: str
     ? diasCrudos.map((diaCrudo) => ensamblarDia(diaCrudo as Record<string, unknown> | null, franjas))
     : [];
 
+  const recomendacionesCrudas = (datos as { recomendaciones?: unknown }).recomendaciones;
+  const recomendaciones: Recomendacion[] = Array.isArray(recomendacionesCrudas)
+    ? recomendacionesCrudas.map((recomendacionCruda) =>
+        ensamblarRecomendacion(recomendacionCruda as Record<string, unknown> | null),
+      )
+    : [];
+
   const candidato: Plan = {
     id: planId,
     version: 1,
     destino: criterios.destino_o_tipo,
     personas: criterios.personas.length,
     dias,
+    recomendaciones,
   };
 
   const resultado = validarPlan(candidato);
@@ -101,6 +109,18 @@ function ensamblarParada(paradaCruda: Record<string, unknown> | null): Parada {
     duracion_min: paradaCruda?.duracion_min as number,
     prioridad: paradaCruda?.prioridad as number,
     procedencia: { fuente: "propuesto-sin-verificar" },
+  };
+}
+
+// reco-ac3: el modelo solo aporta tipo/nombre/motivo -- cualquier "url" u
+// otro campo que devuelva se descarta aquí, nunca llega al plan guardado.
+// Igual que ensamblarParada con procedencia: la defensa real no es pedirlo
+// bien en el prompt, es que este ensamblador no copia campos que no pidió.
+function ensamblarRecomendacion(recomendacionCruda: Record<string, unknown> | null): Recomendacion {
+  return {
+    tipo: recomendacionCruda?.tipo as TipoRecomendacion,
+    nombre: recomendacionCruda?.nombre as string,
+    motivo: recomendacionCruda?.motivo as string,
   };
 }
 

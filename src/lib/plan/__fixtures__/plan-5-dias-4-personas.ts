@@ -55,4 +55,7 @@ export const planFixture: Plan = {
   // Explícito, no ausente: recuperarPlan siempre devuelve avisos (bloque
   // generacion), y este fixture se compara con toEqual contra lo recuperado.
   avisos: [],
+  // Mismo motivo que avisos: recuperarPlan siempre devuelve recomendaciones
+  // (bloque recomendaciones-de-sitios), nunca undefined.
+  recomendaciones: [],
 };

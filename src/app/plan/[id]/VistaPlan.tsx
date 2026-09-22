@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
 import { IconoFranja } from "./iconosFranja";
+import { IconoRecomendacion } from "./iconosRecomendacion";
 
 interface FranjaPublica {
   id: string;
@@ -21,11 +23,18 @@ interface DiaPublico {
   paradas: ParadaPublica[];
 }
 
+interface RecomendacionPublica {
+  tipo: string;
+  nombre: string;
+  motivo: string;
+}
+
 interface PlanPublico {
   id: string;
   destino: string;
   dias: DiaPublico[];
   avisos: string[];
+  recomendaciones: RecomendacionPublica[];
 }
 
 // vista-ac2: aviso fijo y no descartable -sin ningún control de cierre en
@@ -35,6 +44,13 @@ interface PlanPublico {
 // mentir por omisión.
 const AVISO_FIJO =
   "Ninguna parada está comprobada contra ninguna fuente. Esta herramienta no es una fuente de navegación ni de seguridad.";
+
+// reco-ac7(c): mismo criterio que AVISO_FIJO -fijo, sin control de cierre-,
+// porque cada enlace de esta sección abre una búsqueda (urlBusquedaSitio.ts)
+// y no una reserva ni un listado verificado; ocultarlo detrás de un botón
+// sugeriría una garantía que la herramienta no da.
+const AVISO_RECOMENDACIONES =
+  "Cada enlace abre una búsqueda en un mapa, no una reserva ni un listado verificado.";
 
 export function VistaPlan({ id }: { id: string }) {
   const [plan, setPlan] = useState<PlanPublico | null>(null);
@@ -140,6 +156,37 @@ export function VistaPlan({ id }: { id: string }) {
           </section>
         );
       })}
+
+      {plan && (
+        <section aria-label="Recomendaciones" className="seccion-recomendaciones">
+          <h2>Recomendaciones</h2>
+          {(plan.recomendaciones ?? []).length === 0 ? (
+            // reco-ac7(b): un plan sin recomendaciones sigue siendo un plan
+            // completo -el hueco se explica, no se calla ni se esconde.
+            <p>No hay recomendaciones de sitios para este plan todavía.</p>
+          ) : (
+            <>
+              <p role="note">{AVISO_RECOMENDACIONES}</p>
+              <ul className="pila">
+                {(plan.recomendaciones ?? []).map((reco, indice) => (
+                  <li key={`${reco.tipo}-${indice}-${reco.nombre}`} className="tarjeta-recomendacion">
+                    <IconoRecomendacion tipo={reco.tipo} />
+                    <div>
+                      {/* reco-ac4: el nombre del sitio es el nombre accesible
+                          del enlace; abre en pestaña nueva porque saca al
+                          usuario de la herramienta hacia un mapa externo. */}
+                      <a href={urlBusquedaSitio(reco.nombre, plan.destino)} target="_blank" rel="noopener noreferrer">
+                        {reco.nombre}
+                      </a>
+                      <p>{reco.motivo}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 }

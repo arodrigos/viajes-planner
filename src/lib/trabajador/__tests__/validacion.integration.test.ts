@@ -210,4 +210,71 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
       .eq("plan_id", trabajo?.plan_id);
     expect(count).toBe(1);
   });
+
+  it("reco-ac6: una recomendación válida no cuesta una invocación de más", async () => {
+    const trabajoId = await crearTrabajo();
+    const conRecomendaciones = JSON.stringify({
+      dias: planFixture.dias,
+      recomendaciones: [{ tipo: "comida", nombre: "Bar de la Alameda", motivo: "Tapas locales, poco turístico." }],
+    });
+    const doble = dobleFijo([conRecomendaciones]);
+
+    const resultado = await procesarTrabajo(
+      supabase,
+      { id: trabajoId, plan_id: null, criterios: CRITERIOS },
+      { ejecutor: doble, directorio: "/tmp" },
+    );
+
+    expect(resultado.estado).toBe("completado");
+    expect(doble.invocaciones).toBe(1);
+    const { data: trabajo } = await supabase.from("trabajos").select("plan_id").eq("id", trabajoId).single();
+    const { data: version } = await supabase
+      .from("plan_versiones")
+      .select("recomendaciones")
+      .eq("plan_id", trabajo?.plan_id)
+      .single();
+    expect(version?.recomendaciones).toEqual([
+      { tipo: "comida", nombre: "Bar de la Alameda", motivo: "Tapas locales, poco turístico." },
+    ]);
+  });
+
+  it("reco-ac6: una recomendación con tipo inválido sigue costando solo el reintento que ya existía", async () => {
+    const trabajoId = await crearTrabajo();
+    const tipoInvalido = JSON.stringify({
+      dias: planFixture.dias,
+      recomendaciones: [{ tipo: "hotel", nombre: "Sitio cualquiera", motivo: "Motivo cualquiera." }],
+    });
+    const doble = dobleFijo([tipoInvalido, DIAS_VALIDOS]);
+
+    const resultado = await procesarTrabajo(
+      supabase,
+      { id: trabajoId, plan_id: null, criterios: CRITERIOS },
+      { ejecutor: doble, directorio: "/tmp" },
+    );
+
+    expect(resultado.estado).toBe("completado");
+    expect(doble.invocaciones).toBe(2);
+  });
+
+  it("reco-ac7(a): sin recomendaciones, el trabajo llega igual a 'completado' y el plan se guarda", async () => {
+    const trabajoId = await crearTrabajo();
+    const doble = dobleFijo([DIAS_VALIDOS]);
+
+    const resultado = await procesarTrabajo(
+      supabase,
+      { id: trabajoId, plan_id: null, criterios: CRITERIOS },
+      { ejecutor: doble, directorio: "/tmp" },
+    );
+
+    expect(resultado.estado).toBe("completado");
+    expect(doble.invocaciones).toBe(1);
+    const { data: trabajo } = await supabase.from("trabajos").select("plan_id").eq("id", trabajoId).single();
+    expect(trabajo?.plan_id).toBeTruthy();
+    const { data: version } = await supabase
+      .from("plan_versiones")
+      .select("recomendaciones")
+      .eq("plan_id", trabajo?.plan_id)
+      .single();
+    expect(version?.recomendaciones).toEqual([]);
+  });
 });
