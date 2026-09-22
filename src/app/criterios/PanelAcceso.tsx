@@ -127,7 +127,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
       {/* txt-ac1: el código no es un simple candado de la pantalla, es un inicio
           de sesión -con cuenta propia detrás- y hoy nadie se lo dice al usuario
           antes de pedírselo. */}
-      <p>Este código inicia sesión en la aplicación: crea tu cuenta la primera vez y la reconoce las siguientes.</p>
+      <p>Este código es un inicio de sesión: crea tu cuenta la primera vez y la reconoce las siguientes.</p>
       <div className="campo">
         <label htmlFor="codigo-acceso">Código de acceso</label>
         <input
