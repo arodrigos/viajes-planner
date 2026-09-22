@@ -26,6 +26,9 @@ const MOTIVO_CADUCADO = "el trabajador no ha recogido el trabajo a tiempo";
 // indefinidamente. Se comprueba en el momento de leer (no hay un cron
 // aparte para esto): si sigue "encolado" pasada CADUCIDAD_HORAS desde su
 // creación, se marca "caducado" aquí mismo antes de responder.
+// borrar-ac1: un trabajo eliminado (marcado) deja de poder consultarse aquí
+// -uno de los tres sitios que el borrado marcado obliga a filtrar, junto a
+// listarViajes y planPerteneceAUsuario.
 export async function obtenerTrabajo(
   supabase: SupabaseClient,
   id: string,
@@ -36,6 +39,7 @@ export async function obtenerTrabajo(
     .select("id, estado, etapa, motivo, creado_en, reintento_no_antes_de, plan_id")
     .eq("id", id)
     .eq("usuario_id", usuarioId)
+    .is("eliminado_en", null)
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer el trabajo: ${error.message}`);
   if (!data) return null;

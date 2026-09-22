@@ -18,11 +18,16 @@ function textoFecha(fechas: Fechas | undefined): string {
 // viajes-ac1: el filtro por usuario_id aquí, con la clave de servicio, es la
 // defensa real -la política RLS de la migración 7 es una segunda capa que
 // esta misma llamada no atraviesa (ver rls.integration.test.ts).
+//
+// borrar-ac1: un viaje eliminado (marcado, no borrado) deja de listarse aquí
+// -uno de los tres sitios que el borrado marcado obliga a filtrar, junto a
+// planPerteneceAUsuario y obtenerTrabajo.
 export async function listarViajes(supabase: SupabaseClient, usuarioId: string): Promise<ViajeListado[]> {
   const { data, error } = await supabase
     .from("trabajos")
     .select("id, criterios, estado, plan_id")
     .eq("usuario_id", usuarioId)
+    .is("eliminado_en", null)
     .order("creado_en", { ascending: false });
   if (error) throw new Error(`No se pudo listar los viajes: ${error.message}`);
 
