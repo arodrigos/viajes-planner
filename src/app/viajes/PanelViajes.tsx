@@ -159,6 +159,11 @@ export function PanelViajes() {
                   // borrar-ac4: nombra el viaje, dice lo que va a pasar y no
                   // promete papelera ni recuperación; cancelar (autoFocus) es
                   // la salida por defecto.
+                  // peso-ac2: «Cancelar» conserva el estilo neutro por
+                  // defecto -es la salida segura, no lleva marca de peligro-
+                  // y «Eliminar de verdad» pasa a `.boton-peligro` (relleno),
+                  // para que los dos dejen de compartir exactamente el mismo
+                  // estilo computado.
                   <div className="aviso" role="alertdialog" aria-label={`Eliminar viaje a ${viaje.destino}`}>
                     <p>
                       Vas a eliminar el viaje a <strong>{viaje.destino}</strong>. Dejarás de verlo y de poder
@@ -170,6 +175,7 @@ export function PanelViajes() {
                       </button>
                       <button
                         type="button"
+                        className="boton-peligro"
                         onClick={() => void eliminarViaje(viaje.id)}
                         disabled={eliminandoId === viaje.id}
                       >
@@ -179,9 +185,16 @@ export function PanelViajes() {
                     {errorEliminarId === viaje.id && <p role="alert">{ERROR_ELIMINAR}</p>}
                   </div>
                 ) : (
+                  // peso-ac1: el enlace principal pasa a `.boton-principal`
+                  // (el mismo énfasis que ya usa `button[type="submit"]`) y
+                  // «Eliminar» pasa a `.accion-peligro` -color y borde de
+                  // peligro, sin relleno, para no competir en peso visual
+                  // con la acción principal de la misma fila-.
                   <div className="fila">
-                    <a href={enlace.href}>{enlace.texto}</a>
-                    <button type="button" onClick={() => setConfirmandoId(viaje.id)}>
+                    <a href={enlace.href} className="boton boton-principal">
+                      {enlace.texto}
+                    </a>
+                    <button type="button" className="accion-peligro" onClick={() => setConfirmandoId(viaje.id)}>
                       Eliminar
                     </button>
                   </div>
