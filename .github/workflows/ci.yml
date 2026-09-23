@@ -105,11 +105,16 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      # ghcr.io devuelve toomanyrequests de forma intermitente (visto en los
-      # runs de d9cdc094 y su PR): no es un fallo del código, es el registro
-      # compartido de GitHub Actions. Reintentar con espera es la mitigación
-      # estándar, no un cambio de comportamiento del producto.
-      - name: iniciar Supabase local (con reintentos por límite de ghcr.io)
+      # ghcr.io aplica un límite de tasa mucho más bajo a las descargas
+      # anónimas que a las autenticadas (visto en los runs de d9cdc094 y su
+      # PR: toomanyrequests en TODAS las imágenes de supabase, no en el
+      # código). Autenticar con el GITHUB_TOKEN de la propia Action -de
+      # solo lectura, sin secreto nuevo que gestionar- mueve las descargas
+      # a la cuota por cuenta en vez de la cuota compartida por IP del
+      # runner, que es la que se agota.
+      - name: autenticar en ghcr.io (evita el límite anónimo por IP)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: iniciar Supabase local (con reintentos por si el límite persiste)
         run: |
           for intento in 1 2 3; do
             if supabase start; then exit 0; fi
@@ -251,9 +256,12 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      # Misma mitigación que en el job `persistencia`: ghcr.io puede devolver
-      # toomanyrequests de forma intermitente, ajeno al código del producto.
-      - name: iniciar Supabase local (con reintentos por límite de ghcr.io)
+      # Misma mitigación que en el job `persistencia`: autenticar en ghcr.io
+      # con el GITHUB_TOKEN mueve la descarga de imágenes a la cuota por
+      # cuenta, que es mucho más alta que la anónima por IP del runner.
+      - name: autenticar en ghcr.io (evita el límite anónimo por IP)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: iniciar Supabase local (con reintentos por si el límite persiste)
         run: |
           for intento in 1 2 3; do
             if supabase start; then exit 0; fi
