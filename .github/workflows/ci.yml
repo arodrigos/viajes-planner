@@ -105,7 +105,44 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase start
+      # setup-cli fuerza SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io para
+      # cualquier versión >= 1.28.0 o 'latest' (su propio dist/index.js:
+      # "Use GHCR mirror by default"), y esa variable DESACTIVA el
+      # fallback multi-registro que la CLI trae de serie -sin ella,
+      # `supabase start` prueba public.ecr.aws, luego ghcr.io, luego
+      # docker.io (supabase/cli, internal/utils/docker.go)-. Con el
+      # registro fijado a uno solo, el toomanyrequests de ghcr.io no
+      # tiene a dónde caer: es la causa real de que los tres intentos
+      # anteriores (reintento con backoff, login autenticado, menos
+      # imágenes) fallaran siempre con la misma firma, los tres seguían
+      # atados a ghcr.io en solitario. Vaciar la variable aquí restaura
+      # el fallback de la propia CLI sin tocar su versión.
+      - name: restaurar el fallback multi-registro de la CLI (setup-cli lo fuerza a solo ghcr.io)
+        run: echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=" >> "$GITHUB_ENV"
+      # ghcr.io aplica un límite de tasa mucho más bajo a las descargas
+      # anónimas que a las autenticadas (visto en los runs de d9cdc094 y su
+      # PR: toomanyrequests en TODAS las imágenes de supabase, no en el
+      # código). Autenticar con el GITHUB_TOKEN de la propia Action -de
+      # solo lectura, sin secreto nuevo que gestionar- mueve las descargas
+      # a la cuota por cuenta en vez de la cuota compartida por IP del
+      # runner, que es la que se agota.
+      - name: autenticar en ghcr.io (evita el límite anónimo por IP)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      # El producto no usa Storage, Realtime, Edge Functions, Studio ni el
+      # stack de analíticas (logflare/vector) -confirmado con grep sobre
+      # src/: sin `.channel(`, `supabase.storage`, `supabase.functions`-.
+      # Arrancarlos igualmente casi dobla el número de imágenes a
+      # descargar en el mismo instante, lo que agrava el toomanyrequests.
+      - name: iniciar Supabase local (con reintentos por si el límite persiste)
+        run: |
+          for intento in 1 2 3; do
+            if supabase start --exclude realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor; then exit 0; fi
+            echo "intento $intento de 'supabase start' falló, reintentando en 30s..."
+            supabase stop --no-backup || true
+            sleep 30
+          done
+          echo "'supabase start' falló tras 3 intentos"
+          exit 1
       # esquema-ac3(a,b): las migraciones aplican en limpio dentro de
       # `viajes_planner` y el esquema resultante coincide con el commiteado.
       - name: supabase db reset && supabase db diff (esquema viajes_planner limpio)
@@ -238,7 +275,27 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase start
+      # Misma causa real que en el job `persistencia`: setup-cli fuerza
+      # SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io y eso desactiva el
+      # fallback multi-registro (ECR público -> ghcr.io -> Docker Hub) que
+      # la propia CLI trae de serie. Vaciarla restaura ese fallback.
+      - name: restaurar el fallback multi-registro de la CLI (setup-cli lo fuerza a solo ghcr.io)
+        run: echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=" >> "$GITHUB_ENV"
+      # Misma mitigación que en el job `persistencia`: autenticar en ghcr.io
+      # con el GITHUB_TOKEN mueve la descarga de imágenes a la cuota por
+      # cuenta, que es mucho más alta que la anónima por IP del runner.
+      - name: autenticar en ghcr.io (evita el límite anónimo por IP)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: iniciar Supabase local (con reintentos por si el límite persiste)
+        run: |
+          for intento in 1 2 3; do
+            if supabase start --exclude realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor; then exit 0; fi
+            echo "intento $intento de 'supabase start' falló, reintentando en 30s..."
+            supabase stop --no-backup || true
+            sleep 30
+          done
+          echo "'supabase start' falló tras 3 intentos"
+          exit 1
       - name: exportar credenciales de la pila local
         run: |
           supabase status -o env > /tmp/supabase-status.env
