@@ -105,6 +105,20 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      # setup-cli fuerza SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io para
+      # cualquier versión >= 1.28.0 o 'latest' (su propio dist/index.js:
+      # "Use GHCR mirror by default"), y esa variable DESACTIVA el
+      # fallback multi-registro que la CLI trae de serie -sin ella,
+      # `supabase start` prueba public.ecr.aws, luego ghcr.io, luego
+      # docker.io (supabase/cli, internal/utils/docker.go)-. Con el
+      # registro fijado a uno solo, el toomanyrequests de ghcr.io no
+      # tiene a dónde caer: es la causa real de que los tres intentos
+      # anteriores (reintento con backoff, login autenticado, menos
+      # imágenes) fallaran siempre con la misma firma, los tres seguían
+      # atados a ghcr.io en solitario. Vaciar la variable aquí restaura
+      # el fallback de la propia CLI sin tocar su versión.
+      - name: restaurar el fallback multi-registro de la CLI (setup-cli lo fuerza a solo ghcr.io)
+        run: echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=" >> "$GITHUB_ENV"
       # ghcr.io aplica un límite de tasa mucho más bajo a las descargas
       # anónimas que a las autenticadas (visto en los runs de d9cdc094 y su
       # PR: toomanyrequests en TODAS las imágenes de supabase, no en el
@@ -261,6 +275,12 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      # Misma causa real que en el job `persistencia`: setup-cli fuerza
+      # SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io y eso desactiva el
+      # fallback multi-registro (ECR público -> ghcr.io -> Docker Hub) que
+      # la propia CLI trae de serie. Vaciarla restaura ese fallback.
+      - name: restaurar el fallback multi-registro de la CLI (setup-cli lo fuerza a solo ghcr.io)
+        run: echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=" >> "$GITHUB_ENV"
       # Misma mitigación que en el job `persistencia`: autenticar en ghcr.io
       # con el GITHUB_TOKEN mueve la descarga de imágenes a la cuota por
       # cuenta, que es mucho más alta que la anónima por IP del runner.
