@@ -14,7 +14,9 @@ export default function GuiaPage() {
 
       <h2>Qué hace</h2>
       <ul>
-        <li>Genera un plan día a día a partir de los criterios que escribes.</li>
+        <li>
+          Genera un plan día a día a partir de los criterios que escribes, con recomendaciones de sitios cercanos.
+        </li>
         <li>
           Guarda cada plan en una dirección propia y, además, lo reúne en «Mis viajes»: una lista de todos tus
           viajes con destino, fecha y estado, accesible desde el pie de cualquier página.
@@ -32,14 +34,28 @@ export default function GuiaPage() {
         </li>
         <li>
           Escribe el código en esa misma pantalla, sin salir de ella: lo que habías escrito sigue ahí, no hace falta
-          repetirlo. Ese código es un inicio de sesión -la primera vez crea tu cuenta- para que la aplicación te
-          reconozca la próxima vez que vuelvas, sin pedírtelo de nuevo.
+          repetirlo. Ese código es un inicio de sesión ligado a tu correo -la primera vez crea tu cuenta- para que la
+          aplicación te reconozca la próxima vez que vuelvas, sin pedírtelo de nuevo.
         </li>
-        <li>El plan no aparece al instante: verás una pantalla de progreso mientras un agente lo genera, y puede tardar varios minutos.</li>
-        <li>Cuando termina, el plan vive en su propia dirección: guardarla sigue siendo la forma más directa de volver a verlo.</li>
         <li>
-          También puedes encontrarlo sin guardar nada: pulsa «Mis viajes» en el pie de cualquier página y verás la
-          lista completa de los viajes pedidos con tu cuenta, cada uno con acceso directo a su plan.
+          El plan no aparece al instante: verás una pantalla de progreso mientras un agente lo genera, y puede
+          tardar varios minutos.
+        </li>
+        <li>
+          Cuando termina, el itinerario se ve como una línea de tiempo: cada día tiene sus franjas horarias
+          -mañana, comida, tarde, noche- con las paradas agrupadas dentro de cada franja.
+        </li>
+        <li>
+          Junto al itinerario hay recomendaciones de sitios de comida y de recintos cercanos: cada una abre una
+          búsqueda de ese sitio en el mapa, nunca una reserva ni un listado verificado.
+        </li>
+        <li>
+          Encuentra cualquier plan sin guardar ninguna dirección: pulsa «Mis viajes» en el pie de cualquier página
+          y verás la lista completa de los viajes pedidos con tu cuenta, cada uno con acceso directo a su plan.
+        </li>
+        <li>
+          Desde «Mis viajes» puedes eliminar un viaje que ya no necesites: confirmas una vez, desaparece de la
+          lista y su plan deja de poder abrirse. No se puede deshacer: no hay papelera ni forma de recuperarlo.
         </li>
       </ol>
     </main>
