@@ -5,8 +5,11 @@ import { CODIGO_VALIDO } from "@/lib/auth/codigoValido";
 
 // cod-ac1/cod-ac2: 200 con cookies de sesión si el código es correcto; 401
 // sin cookies si es incorrecto, caducado o ya consumido; 400 sin llamar a
-// Supabase Auth si la petición está mal formada. cod-ac3: 403 sin hablar
-// con Supabase Auth si el correo no está en la lista blanca.
+// Supabase Auth si la petición está mal formada. unif-ac1/unif-ac2 (issue
+// #39): un correo fuera de la lista blanca NO llega a hablar con Supabase
+// Auth (esa comprobación sigue en verificarCodigo.ts, sin tocar), pero hacia
+// fuera se cuenta como el MISMO 401 que un código incorrecto -antes era un
+// 403 propio que delataba la pertenencia a la lista sin necesitar sesión.
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const { email, codigo } = (await request.json()) as { email?: string; codigo?: string };
   if (!email || !codigo || !CODIGO_VALIDO.test(codigo)) {
@@ -38,10 +41,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     case "verificado":
       return respuestaExito;
     case "codigo-incorrecto":
-      return NextResponse.json({ error: "código incorrecto o caducado" }, { status: 401 });
     case "correo-no-permitido":
-      return NextResponse.json({ error: "correo no autorizado" }, { status: 403 });
+      // unif-ac1/unif-ac2: un solo `return` para los dos estados -no dos
+      // llamadas separadas con el mismo texto, que dejarían escapar una
+      // diferencia de cuerpo el día que alguien tocara una sin la otra-. El
+      // dominio (verificarCodigo.ts) sigue distinguiendo los dos casos para
+      // el orden de sus comprobaciones; lo que deja de distinguirse es solo
+      // lo que se cuenta hacia fuera.
+      return NextResponse.json({ error: "código incorrecto o caducado" }, { status: 401 });
     case "configuracion-invalida":
-      return NextResponse.json({ error: resultado.motivo }, { status: 500 });
+      // issue #40: el motivo real (nombra la variable de entorno) queda en
+      // el registro del servidor, donde mantenimiento lo necesita; hacia
+      // fuera solo un 500 genérico, igual que el resto de 500 de esta ruta.
+      console.error(`verificar-codigo: configuración inválida: ${resultado.motivo}`);
+      return NextResponse.json({ error: "error de configuración del servidor" }, { status: 500 });
   }
 }

@@ -58,8 +58,13 @@ on:
 # código real de punta a punta) -- el segundo usuario del test de aislamiento
 # se crea dinámicamente porque nunca inicia sesión, mismo motivo que
 # ci-test-mis-viajes de arriba.
+# Suma del bloque respuesta-uniforme-verificar-codigo: ci-test-unif-ac1, el
+# correo autorizado de unif-ac1 (el ajeno de ese mismo test se crea
+# dinámicamente, porque el criterio es justo que esté fuera de esta lista).
+# CORREO_DE_PRUEBA para scripts/verificar-acceso-uniforme.sh (unif-ac5)
+# reutiliza ci-test@example.com, que ya está en esta lista para otros pasos.
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com"
 
 jobs:
   lint-typecheck-test:
@@ -209,6 +214,11 @@ jobs:
       # Supabase real, que ese script omite a propósito para otro criterio
       # (ver la cabecera de scripts/verificar-viajes.sh).
       - run: bash scripts/verificar-viajes.sh
+      # unif-ac5: smoke_test del manifiesto contra un build de producción
+      # real -no solo el manejador en memoria de test:integration de arriba-,
+      # en el job que ya tiene la pila local de Supabase levantada.
+      - name: verificar respuesta uniforme de verificar-codigo (unif-ac5)
+        run: CORREO_DE_PRUEBA=ci-test@example.com bash scripts/verificar-acceso-uniforme.sh
 
   e2e:
     runs-on: ubuntu-latest
