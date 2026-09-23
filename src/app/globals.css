@@ -43,6 +43,15 @@
   --franja-cena-texto: #5e1782;
   --franja-noche-fondo: #d7daf4;
   --franja-noche-texto: #172082;
+
+  /* tok-ac1/tok-ac2: par (fondo, texto) y color de borde para la única
+     acción irreversible del producto -eliminar un viaje, sin papelera-.
+     Mismo método que las franjas: ratio de contraste real por modo, nunca
+     el mismo par reciclado entre claro y oscuro, y suficientemente
+     cromático para no acabar siendo un gris con otro nombre. */
+  --peligro-fondo: #fecaca;
+  --peligro-texto: #7f1d1d;
+  --peligro-borde: #dc2626;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -68,6 +77,13 @@
     --franja-cena-texto: #e0c2f0;
     --franja-noche-fondo: #22254f;
     --franja-noche-texto: #c2c6f0;
+
+    /* Mismo criterio que arriba: par propio para modo oscuro, no el de
+       modo claro reciclado -sobre el fondo de página oscuro el ratio de
+       ese par se rompe. */
+    --peligro-fondo: #450a0a;
+    --peligro-texto: #fecaca;
+    --peligro-borde: #f87171;
   }
 
   html {
@@ -298,6 +314,25 @@ button[type="submit"],
 .boton-principal {
   border-color: var(--foco);
   font-weight: 600;
+}
+
+/* tok-ac3: acción destructiva con relleno -«Eliminar de verdad» del diálogo
+   de borrado-. Aditivo: no toca `button, .boton` ni `button[type="submit"],
+   .boton-principal`, así que ningún control existente cambia de aspecto
+   por el solo hecho de que esta clase exista. */
+.boton-peligro {
+  border-color: var(--peligro-borde);
+  background: var(--peligro-fondo);
+  color: var(--peligro-texto);
+  font-weight: 600;
+}
+
+/* Acción destructiva discreta -«Eliminar» en la fila de «Mis viajes»-: solo
+   color de texto y de borde, sin relleno, para no competir en peso visual
+   con la acción principal de la misma fila. */
+.accion-peligro {
+  color: var(--peligro-borde);
+  border-color: var(--peligro-borde);
 }
 
 fieldset {
