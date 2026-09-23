@@ -114,10 +114,15 @@ jobs:
       # runner, que es la que se agota.
       - name: autenticar en ghcr.io (evita el límite anónimo por IP)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      # El producto no usa Storage, Realtime, Edge Functions, Studio ni el
+      # stack de analíticas (logflare/vector) -confirmado con grep sobre
+      # src/: sin `.channel(`, `supabase.storage`, `supabase.functions`-.
+      # Arrancarlos igualmente casi dobla el número de imágenes a
+      # descargar en el mismo instante, lo que agrava el toomanyrequests.
       - name: iniciar Supabase local (con reintentos por si el límite persiste)
         run: |
           for intento in 1 2 3; do
-            if supabase start; then exit 0; fi
+            if supabase start --exclude realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor; then exit 0; fi
             echo "intento $intento de 'supabase start' falló, reintentando en 30s..."
             supabase stop --no-backup || true
             sleep 30
@@ -264,7 +269,7 @@ jobs:
       - name: iniciar Supabase local (con reintentos por si el límite persiste)
         run: |
           for intento in 1 2 3; do
-            if supabase start; then exit 0; fi
+            if supabase start --exclude realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor; then exit 0; fi
             echo "intento $intento de 'supabase start' falló, reintentando en 30s..."
             supabase stop --no-backup || true
             sleep 30
