@@ -105,7 +105,20 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase start
+      # ghcr.io devuelve toomanyrequests de forma intermitente (visto en los
+      # runs de d9cdc094 y su PR): no es un fallo del código, es el registro
+      # compartido de GitHub Actions. Reintentar con espera es la mitigación
+      # estándar, no un cambio de comportamiento del producto.
+      - name: iniciar Supabase local (con reintentos por límite de ghcr.io)
+        run: |
+          for intento in 1 2 3; do
+            if supabase start; then exit 0; fi
+            echo "intento $intento de 'supabase start' falló, reintentando en 30s..."
+            supabase stop --no-backup || true
+            sleep 30
+          done
+          echo "'supabase start' falló tras 3 intentos"
+          exit 1
       # esquema-ac3(a,b): las migraciones aplican en limpio dentro de
       # `viajes_planner` y el esquema resultante coincide con el commiteado.
       - name: supabase db reset && supabase db diff (esquema viajes_planner limpio)
@@ -238,7 +251,18 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase start
+      # Misma mitigación que en el job `persistencia`: ghcr.io puede devolver
+      # toomanyrequests de forma intermitente, ajeno al código del producto.
+      - name: iniciar Supabase local (con reintentos por límite de ghcr.io)
+        run: |
+          for intento in 1 2 3; do
+            if supabase start; then exit 0; fi
+            echo "intento $intento de 'supabase start' falló, reintentando en 30s..."
+            supabase stop --no-backup || true
+            sleep 30
+          done
+          echo "'supabase start' falló tras 3 intentos"
+          exit 1
       - name: exportar credenciales de la pila local
         run: |
           supabase status -o env > /tmp/supabase-status.env
