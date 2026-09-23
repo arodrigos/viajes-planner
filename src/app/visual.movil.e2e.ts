@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { franjasParaDestino } from "@/lib/plan/config-franjas";
+import { medirObjetivosTactiles } from "@/lib/testing/medirObjetivosTactiles";
 
 // visual-ac1/ac2: sustituyen a acceso-ac2 y vista-ac2 -que pasaban en verde
 // sin una sola línea de CSS- porque miden geometría REALMENTE RENDERIZADA en
@@ -84,30 +85,6 @@ const PAGINAS: Pagina[] = [
     },
   },
 ];
-
-// visual-ac2(a): salvo excepción explícita, todo elemento interactivo mide
-// >=44px en alto Y ancho -el propio boundingBox(), nunca el del label que lo
-// envuelve-, que es lo que hace imposible el falso verde de un <button> sin
-// estilos (~21px de alto).
-async function medirObjetivosTactiles(page: Page) {
-  return page.evaluate(() => {
-    const elementos = Array.from(document.querySelectorAll<HTMLElement>('button, a, input:not([type="hidden"]), select, textarea'));
-    return elementos
-      .filter((el) => el.getClientRects().length > 0)
-      .map((el) => {
-        const rect = el.getBoundingClientRect();
-        const esCampoDeTexto = el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !["checkbox", "radio"].includes((el as HTMLInputElement).type));
-        const esEnlaceEnParrafo = el.tagName === "A" && el.closest("p") !== null;
-        const etiqueta = el.textContent?.trim().slice(0, 30) || el.getAttribute("aria-label") || el.id || el.tagName;
-        return {
-          descripcion: `${el.tagName.toLowerCase()} "${etiqueta}"`,
-          alto: rect.height,
-          ancho: rect.width,
-          exigirAncho: !(esCampoDeTexto || esEnlaceEnParrafo),
-        };
-      });
-  });
-}
 
 // visual-ac2(b): 16px es el umbral por debajo del cual Safari en iOS amplía
 // la página entera al enfocar un campo.

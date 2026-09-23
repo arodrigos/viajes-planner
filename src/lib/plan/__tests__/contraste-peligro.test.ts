@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { extraerBloque, leerToken } from "@/lib/css/leerTokenCss";
 
 // tok-ac1/tok-ac2: lee los valores literales REALES de globals.css -nunca
 // una constante duplicada en este fichero- y comprueba (a) que el par
@@ -8,34 +9,12 @@ import { describe, expect, it } from "vitest";
 // sobre luminancia relativa, y (b) que el color de peligro es de verdad
 // cromático y distinto de los tokens neutros que ya existen, para que no
 // se convierta en un gris renombrado sin que nadie lo note.
+// extraerBloque/leerToken viven en src/lib/css/leerTokenCss.ts, compartidos
+// con peso-visual.movil.e2e.ts (peso-ac1/ac2): mismo método, nunca un tercer
+// literal copiado a mano.
 const RUTA_CSS = join(import.meta.dirname, "..", "..", "..", "app", "globals.css");
 
 const NEUTROS = ["foreground", "borde", "superficie", "background", "foco"];
-
-function extraerBloque(css: string, inicioMarca: RegExp): string {
-  const inicio = css.search(inicioMarca);
-  if (inicio === -1) throw new Error(`No se encontró el bloque que empieza por ${inicioMarca}`);
-  let profundidad = 0;
-  let fin = inicio;
-  for (let i = inicio; i < css.length; i++) {
-    if (css[i] === "{") profundidad++;
-    if (css[i] === "}") {
-      profundidad--;
-      if (profundidad === 0) {
-        fin = i;
-        break;
-      }
-    }
-  }
-  return css.slice(inicio, fin + 1);
-}
-
-function leerToken(bloqueCss: string, nombre: string): string {
-  const patron = new RegExp(`--${nombre}:\\s*(#[0-9a-fA-F]{6})`);
-  const coincidencia = bloqueCss.match(patron);
-  if (!coincidencia) throw new Error(`Token --${nombre} no encontrado en el bloque CSS leído`);
-  return coincidencia[1];
-}
 
 function srgbALineal(canal: number): number {
   const c = canal / 255;
