@@ -207,8 +207,12 @@ test("peso-visual: la acción principal pesa más que «Eliminar», y en el diá
   await contexto.close();
 });
 
-// peso-ac7: el estado vacío se sigue viendo con una cuenta sin viajes.
-test("peso-visual: el estado vacío se sigue mostrando con una cuenta sin viajes (peso-ac7)", async ({ browser }) => {
+// peso-ac7/otro-ac3: el estado vacío se sigue viendo con una cuenta sin
+// viajes, y sigue sin duplicar el camino a /criterios: solo el enlace de
+// siempre («Cuéntanos tu viaje»), nunca también «Pedir otro viaje».
+test("peso-visual: el estado vacío se sigue mostrando con una cuenta sin viajes, con un solo camino a /criterios (peso-ac7, otro-ac3)", async ({
+  browser,
+}) => {
   const contexto = await browser.newContext({ viewport: { width: 393, height: 851 } });
   const pagina = await contexto.newPage();
 
@@ -220,6 +224,9 @@ test("peso-visual: el estado vacío se sigue mostrando con una cuenta sin viajes
 
   await pagina.goto("/viajes");
   await expect(pagina.getByText("Todavía no has pedido ningún viaje.")).toBeVisible();
+
+  const enlacesACriterios = await pagina.locator('a[href="/criterios"]').count();
+  expect(enlacesACriterios, "otro-ac3: exactamente un enlace a /criterios en el estado vacío").toBe(1);
 
   await contexto.close();
 });
