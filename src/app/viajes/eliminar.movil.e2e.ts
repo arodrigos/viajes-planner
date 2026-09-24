@@ -22,7 +22,7 @@ async function sembrarPlanMinimo(supabase: SupabaseClient, planId: string, desti
   if (errorVersion) throw new Error(`No se pudo sembrar la versión del plan: ${errorVersion.message}`);
 }
 
-test("eliminar: cancelar no borra nada; confirmar elimina de la lista y el plan pasa a 404 para su dueño (borrar-ac1)", async ({
+test("eliminar: cancelar no borra nada; confirmar elimina de la lista, el plan pasa a 404 para su dueño, y el borrado sobrevive a una recarga (borrar-ac1, contraste-ac3)", async ({
   browser,
 }) => {
   const supabase = clienteDePrueba("servicio");
@@ -72,6 +72,12 @@ test("eliminar: cancelar no borra nada; confirmar elimina de la lista y el plan 
 
   const respuestaPlan = await contexto.request.get(`/api/plan/${planId}`);
   expect(respuestaPlan.status()).toBe(404);
+
+  // contraste-ac3: recargar la página -no solo el estado del componente- y
+  // comprobar que el viaje sigue sin aparecer, para demostrar que el
+  // borrado se persistió de verdad en la base y no solo en memoria.
+  await pagina.reload();
+  await expect(pagina.getByText(DESTINO)).toHaveCount(0);
 
   await contexto.close();
 });

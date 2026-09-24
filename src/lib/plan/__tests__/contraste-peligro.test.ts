@@ -82,5 +82,16 @@ describe("tokens de peligro (tok-ac1, tok-ac2)", () => {
         expect(texto.toLowerCase()).not.toBe(valorNeutro);
       }
     });
+
+    // contraste-ac4: `.accion-peligro` («Eliminar» en «Mis viajes») pinta su
+    // texto con `--peligro-texto` sobre `--superficie` -no sobre
+    // `--peligro-fondo`, que es el par que ya auditaba tok-ac1-. Es un
+    // emparejamiento nuevo desde este bloque: se audita aquí para que no
+    // pueda romperse en silencio más adelante.
+    it(`${modo}: --peligro-texto sobre --superficie cumple 4.5:1 (contraste-ac4)`, () => {
+      const superficie = leerToken(bloque, "superficie");
+      const texto = leerToken(bloque, "peligro-texto");
+      expect(ratioDeContraste(superficie, texto)).toBeGreaterThanOrEqual(4.5);
+    });
   }
 });

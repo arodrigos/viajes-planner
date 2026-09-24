@@ -329,9 +329,12 @@ button[type="submit"],
 
 /* Acción destructiva discreta -«Eliminar» en la fila de «Mis viajes»-: solo
    color de texto y de borde, sin relleno, para no competir en peso visual
-   con la acción principal de la misma fila. */
+   con la acción principal de la misma fila. El texto usa `--peligro-texto`
+   -no `--peligro-borde`- porque este último no llega a 4.5:1 sobre
+   `--superficie` en modo claro (contraste-ac1); el borde sigue en
+   `--peligro-borde`, que es lo que sostiene la marca roja. */
 .accion-peligro {
-  color: var(--peligro-borde);
+  color: var(--peligro-texto);
   border-color: var(--peligro-borde);
 }
 
