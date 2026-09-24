@@ -103,6 +103,10 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: bash scripts/verificar-esqueleto.sh
+      # rls-ac2: las migraciones pendientes tienen que pasar el filtro
+      # aditivo real del job aplicar-migraciones ANTES de mergear, no
+      # cuando main ya está en rojo.
+      - run: bash scripts/verificar-migracion-aditiva.sh
 
   persistencia:
     runs-on: ubuntu-latest
@@ -196,6 +200,18 @@ jobs:
           [ "$tablas_public" -eq 0 ]
           [ "$rutinas_vp" -eq 3 ]
           [ "$rutinas_public" -eq 0 ]
+      # rls-ac1: la política de SELECT sobre trabajos evalúa auth.uid() una
+      # sola vez por consulta (subconsulta, no llamada desnuda por fila), y
+      # sigue habiendo una única política sobre esa tabla.
+      - name: política de trabajos evalúa auth.uid() una sola vez por consulta (rls-ac1)
+        run: |
+          set -euo pipefail
+          numero=$(psql "$SUPABASE_DB_URL" -tAc "select count(*) from pg_policies where schemaname='viajes_planner' and tablename='trabajos'" | tr -d '[:space:]')
+          echo "políticas de SELECT sobre trabajos: $numero"
+          [ "$numero" = "1" ]
+          qual=$(psql "$SUPABASE_DB_URL" -tAc "select qual from pg_policies where schemaname='viajes_planner' and tablename='trabajos'")
+          echo "qual: $qual"
+          echo "$qual" | grep -iq 'select auth.uid()'
       # esquema-ac5: service_role conserva EXECUTE sobre las tres funciones y
       # DML sobre las tablas del esquema nuevo pese a los `revoke ... from
       # public`, y la clave anónima sigue sin poder ejecutar ninguna. Va
