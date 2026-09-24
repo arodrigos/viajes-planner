@@ -126,6 +126,21 @@ export function PanelViajes() {
         </button>
       </div>
 
+      {/* otro-ac1: solo en la rama con viajes -el estado vacío ya tiene su
+          propio enlace a /criterios ("Cuéntanos tu viaje") y duplicarlo
+          sería un segundo camino, justo lo que el diseño prohíbe (otro-ac3).
+          Va ANTES del <ul>, para que se vea sin scroll aunque haya muchos
+          viajes -era la queja de Adrián: no encontrarlo mirando la pantalla
+          entera. Mismo destino y mismo estilo que el enlace principal de la
+          portada, sin formulario ni ruta nueva. */}
+      {viajes.length > 0 && (
+        <p>
+          <a href="/criterios" className="boton boton-principal">
+            Pedir otro viaje
+          </a>
+        </p>
+      )}
+
       {viajes.length === 0 && (
         <div className="aviso">
           <p>Todavía no has pedido ningún viaje.</p>

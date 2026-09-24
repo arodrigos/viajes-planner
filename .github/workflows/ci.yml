@@ -70,8 +70,13 @@ on:
 # Suma del bloque contraste-eliminar: ci-test-contraste-eliminar, el usuario
 # real de contraste-eliminar.movil.e2e.ts (contraste-ac1, único usuario del
 # test, necesita canjear un código real para ver «Mis viajes» con un viaje).
+# Suma del bloque pedir-otro-viaje: ci-test-otro-viaje, el usuario real de
+# pedir-otro-viaje.movil.e2e.ts (otro-ac1/ac2/ac4/ac5, canjea un código real,
+# pulsa «Pedir otro viaje» desde «Mis viajes» y envía el formulario para que
+# quede una fila nueva en trabajos). ci-test-peso-visual-vacio ya cubre
+# otro-ac3, no hace falta un correo nuevo para ese criterio.
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com,ci-test-peso-visual@example.com,ci-test-peso-visual-vacio@example.com,ci-test-contraste-eliminar@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com,ci-test-peso-visual@example.com,ci-test-peso-visual-vacio@example.com,ci-test-contraste-eliminar@example.com,ci-test-otro-viaje@example.com"
 
 jobs:
   lint-typecheck-test:
