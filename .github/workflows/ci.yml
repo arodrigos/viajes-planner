@@ -261,6 +261,26 @@ jobs:
       - name: verificar respuesta uniforme de verificar-codigo (unif-ac5)
         run: CORREO_DE_PRUEBA=ci-test@example.com bash scripts/verificar-acceso-uniforme.sh
 
+  # Issue #181 (claude-fleet-infra): el pipeline horizontal mergea migraciones
+  # a `main` pero ningún paso las aplica de verdad contra el proyecto
+  # Supabase real -- el run a89b lo demostró rompiendo "Mis viajes" en
+  # producción (3 migraciones aprobadas por el gatekeeper, nunca aplicadas).
+  # `needs` en TODOS los demás jobs a propósito: solo se dispara cuando el
+  # resto ya está verde, para que el oráculo `comprobar_migraciones_aplicadas`
+  # del runner (que espera a que el commit de merge esté "completed" del
+  # todo) vea este job como parte del mismo conjunto de checks.
+  aplicar-migraciones:
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck-test, verificar-esqueleto, persistencia, e2e]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      SUPABASE_PROJECT_REF: ihgounrvbggdowbdtzrr
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/aplicar-migraciones-reales.sh
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
   e2e:
     runs-on: ubuntu-latest
     needs: lint-typecheck-test
