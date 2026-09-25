@@ -28,6 +28,29 @@ set -euo pipefail
 : "${SUPABASE_PROJECT_REF:?falta SUPABASE_PROJECT_REF}"
 : "${SUPABASE_ACCESS_TOKEN:?falta SUPABASE_ACCESS_TOKEN}"
 
+# Paso barato del issue #181 (claude-fleet-infra): la API de logs de Actions
+# no está disponible para el runner (issue #140) -- este JSON es lo que sí
+# puede descargar como artefacto y pasarle ya estructurado. Se escribe
+# SIEMPRE, en cualquier punto de salida (éxito, rechazo, fallo a mitad), con
+# lo que se sepa hasta ese momento -- parcial es mejor que ausente.
+RUTA_RESULTADO="resultado-migraciones.json"
+ya_estaban=()
+aplicadas_ok=()
+rechazadas_detalle=()
+
+escribir_json_resultado() {
+  # `printf '%s\n'` sin argumentos igualmente emite UNA línea vacía (no cero
+  # líneas): `select(length>0)` descarta esa línea fantasma para que un
+  # array bash vacío dé `[]`, no `[null]`/`[{"fichero":null,...}]`.
+  jq -n \
+    --argjson aplicadas "$(printf '%s\n' "${aplicadas_ok[@]+"${aplicadas_ok[@]}"}" | jq -R 'select(length>0)' | jq -s .)" \
+    --argjson ya_estaban "$(printf '%s\n' "${ya_estaban[@]+"${ya_estaban[@]}"}" | jq -R 'select(length>0)' | jq -s .)" \
+    --argjson rechazadas "$(printf '%s\n' "${rechazadas_detalle[@]+"${rechazadas_detalle[@]}"}" | jq -R 'select(length>0) | split("\u001f") | {fichero: .[0], motivo: .[1]}' | jq -s .)" \
+    '{aplicadas: $aplicadas, rechazadas: $rechazadas, ya_estaban: $ya_estaban}' \
+    > "$RUTA_RESULTADO"
+}
+trap escribir_json_resultado EXIT
+
 API="https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/migrations"
 AUTH=(-H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}")
 
@@ -54,7 +77,11 @@ for fichero in supabase/migrations/*.sql; do
   for a in "${aplicadas[@]+"${aplicadas[@]}"}"; do
     [ "$a" = "$nombre" ] && ya_aplicada=1 && break
   done
-  [ "$ya_aplicada" -eq 0 ] && pendientes+=("$fichero")
+  if [ "$ya_aplicada" -eq 1 ]; then
+    ya_estaban+=("$fichero")
+  else
+    pendientes+=("$fichero")
+  fi
 done
 
 if [ "${#pendientes[@]}" -eq 0 ]; then
@@ -66,9 +93,10 @@ echo "Pendientes de aplicar: ${pendientes[*]}"
 
 rechazadas=0
 for fichero in "${pendientes[@]}"; do
-  if grep -iqE "$PATRON_NO_ADITIVO" "$fichero"; then
+  if linea=$(grep -inE "$PATRON_NO_ADITIVO" "$fichero" | head -1); then
     echo "RECHAZADA (DDL no aditivo, requiere aplicación manual fuera de este job): $fichero"
-    grep -inE "$PATRON_NO_ADITIVO" "$fichero" || true
+    echo "$linea"
+    rechazadas_detalle+=("$fichero"$'\x1f'"$linea")
     rechazadas=1
   fi
 done
@@ -88,6 +116,7 @@ for fichero in "${pendientes[@]}"; do
     exit 1
   fi
   echo "OK: $respuesta"
+  aplicadas_ok+=("$fichero")
 done
 
 echo "Todas las migraciones pendientes se aplicaron correctamente."
