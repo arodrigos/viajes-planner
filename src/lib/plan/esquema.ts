@@ -115,6 +115,28 @@ export const esquemaPlan = {
         duracion_min: { type: "number", exclusiveMinimum: 0 },
         prioridad: { type: "number", minimum: 0, maximum: 100 },
         procedencia: { $ref: "#/$defs/procedencia" },
+        // lug-ac4: opcional a propósito -un plan sin categoria sigue siendo
+        // válido- y enum cerrado: el ensamblador descarta cualquier valor
+        // fuera de esta lista antes de que llegue aquí, pero el esquema es
+        // la segunda red, no la única.
+        categoria: {
+          enum: [
+            "monumento",
+            "museo",
+            "parque",
+            "mirador",
+            "barrio",
+            "plaza",
+            "mercado",
+            "playa",
+            "naturaleza",
+            "ocio-infantil",
+            "espectaculo",
+            "comida",
+            "compras",
+            "otro",
+          ],
+        },
         coordenadas: {
           type: "object",
           additionalProperties: false,

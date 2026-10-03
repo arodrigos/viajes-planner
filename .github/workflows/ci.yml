@@ -75,8 +75,11 @@ on:
 # pulsa «Pedir otro viaje» desde «Mis viajes» y envía el formulario para que
 # quede una fila nueva en trabajos). ci-test-peso-visual-vacio ya cubre
 # otro-ac3, no hace falta un correo nuevo para ese criterio.
+# Suma del bloque lugares-resolucion: ci-test-procedencia, el usuario real de
+# procedencia.movil.e2e.ts (lug-ac7, canjea un código real para ver las
+# marcas de "comprobada"/"sin comprobar" por parada).
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com,ci-test-peso-visual@example.com,ci-test-peso-visual-vacio@example.com,ci-test-contraste-eliminar@example.com,ci-test-otro-viaje@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com,ci-test-peso-visual@example.com,ci-test-peso-visual-vacio@example.com,ci-test-contraste-eliminar@example.com,ci-test-otro-viaje@example.com,ci-test-procedencia@example.com"
 
 jobs:
   lint-typecheck-test:
@@ -299,7 +302,12 @@ jobs:
   aplicar-migraciones:
     runs-on: ubuntu-latest
     needs: [lint-typecheck-test, verificar-esqueleto, persistencia, e2e]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # lug-ac5: desde el 2026-10-03 `dev` es la rama de trabajo y el
+    # trabajador de VPS1 corre sobre ella, contra el MISMO proyecto
+    # Supabase (DEV) que `main` -- sin aplicar también en `dev`, el primer
+    # guardarPlan tras mergear la 011 falla con "column paradas.lugar does
+    # not exist" (el fallo real del run a89b, ahora en la rama nueva).
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
     env:
       SUPABASE_PROJECT_REF: ihgounrvbggdowbdtzrr
     steps:

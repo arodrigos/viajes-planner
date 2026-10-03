@@ -10,11 +10,17 @@ interface FranjaPublica {
   etiqueta: string;
 }
 
+interface ProcedenciaPublica {
+  fuente: "propuesto-sin-verificar" | "osm" | "wikipedia";
+  url?: string;
+}
+
 interface ParadaPublica {
   id: string;
   franja_id: string;
   nombre: string;
   descripcion: string;
+  procedencia: ProcedenciaPublica;
 }
 
 interface DiaPublico {
@@ -37,13 +43,12 @@ interface PlanPublico {
   recomendaciones: RecomendacionPublica[];
 }
 
-// vista-ac2: aviso fijo y no descartable -sin ningún control de cierre en
-// el DOM-, porque en fase 1 ninguna parada está verificada contra ninguna
-// ficha (ver src/lib/plan/tipos.ts): la herramienta no es fuente de
-// navegación ni de seguridad, y esconder eso detrás de un botón sería
-// mentir por omisión.
+// lug-ac7: reescrito -ya no dice "ninguna parada"- porque desde este
+// bloque una parada SÍ puede estar comprobada contra OpenStreetMap o
+// Wikipedia; el aviso sigue fijo y sin control de cierre, pero ahora
+// explica qué significa cada marca en vez de negarlas todas por igual.
 const AVISO_FIJO =
-  "Ninguna parada está comprobada contra ninguna fuente. Esta herramienta no es una fuente de navegación ni de seguridad.";
+  "Las paradas marcadas como comprobadas se han localizado en OpenStreetMap o Wikipedia; las demás no. Esta herramienta no es una fuente de navegación ni de seguridad.";
 
 // reco-ac7(c): mismo criterio que AVISO_FIJO -fijo, sin control de cierre-,
 // porque cada enlace de esta sección abre una búsqueda (urlBusquedaSitio.ts)
@@ -145,6 +150,19 @@ export function VistaPlan({ id }: { id: string }) {
                           <div>
                             <strong>{parada.nombre}</strong>
                             <p>{parada.descripcion}</p>
+                            {parada.procedencia.fuente === "propuesto-sin-verificar" ? (
+                              <p className="procedencia-parada">
+                                Sin comprobar. No hemos podido localizar este sitio en los mapas abiertos: comprueba el
+                                nombre y la dirección antes de ir.
+                              </p>
+                            ) : (
+                              <p className="procedencia-parada">
+                                Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}{" "}
+                                <a href={parada.procedencia.url} target="_blank" rel="noopener noreferrer">
+                                  ↗
+                                </a>
+                              </p>
+                            )}
                           </div>
                         </li>
                       ))}

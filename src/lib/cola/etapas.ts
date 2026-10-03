@@ -5,6 +5,9 @@
 export const ETAPAS_GENERACION = [
   "preparando la petición",
   "generando el plan",
+  // lug-ac6: resolución real contra Nominatim/Wikipedia (resolverPlan en
+  // procesarTrabajo.ts), entre generar el plan y guardarlo.
+  "ubicando las paradas",
   "verificando sitios",
   "comprobando horarios",
   "eligiendo zona de alojamiento",

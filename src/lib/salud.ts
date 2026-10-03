@@ -12,6 +12,14 @@ export interface EstadoTrabajador {
   visto_hace_seg: number | null;
 }
 
+// lug-ac6: expone qué pila resuelve lugares y pinta el mapa -- lo lee el
+// smoke_test del manifiesto para confirmar que el código desplegado es el
+// de este bloque, no solo que está mergeado.
+export interface Fuentes {
+  lugares: string;
+  mapa: string;
+}
+
 export interface RespuestaSalud {
   ok: boolean;
   version: string;
@@ -25,6 +33,7 @@ export interface RespuestaSalud {
   trabajador?: EstadoTrabajador;
   secretos_faltantes?: string[];
   credenciales_modelo_en_web?: boolean;
+  fuentes?: Fuentes;
 }
 
 // Se incrementa a mano cuando una migración cambia una forma que este
@@ -48,6 +57,7 @@ export interface OpcionesSalud {
   trabajadorVistoHaceSeg?: number | null;
   secretosFaltantes?: string[];
   credencialesModeloEnWeb?: boolean;
+  fuentes?: Fuentes;
 }
 
 // `ok` es deliberadamente estrecho (commit bien formado + las dependencias
@@ -75,5 +85,6 @@ export function construirSalud(opciones: OpcionesSalud = {}): RespuestaSalud {
     ...(opciones.credencialesModeloEnWeb === undefined
       ? {}
       : { credenciales_modelo_en_web: opciones.credencialesModeloEnWeb }),
+    ...(opciones.fuentes === undefined ? {} : { fuentes: opciones.fuentes }),
   };
 }

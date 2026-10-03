@@ -59,4 +59,14 @@ describe("construirSalud", () => {
     const salud = construirSalud({ trabajadorVistoHaceSeg: null });
     expect(salud.trabajador).toEqual({ visto_hace_seg: null });
   });
+
+  // lug-ac6: el smoke_test del manifiesto exige exactamente este objeto.
+  it("expone fuentes.lugares y fuentes.mapa cuando se pasan", () => {
+    const salud = construirSalud({ fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap" } });
+    expect(salud.fuentes).toEqual({ lugares: "osm+wikipedia", mapa: "openfreemap" });
+  });
+
+  it("no incluye fuentes cuando no se pasa", () => {
+    expect(construirSalud()).not.toHaveProperty("fuentes");
+  });
 });

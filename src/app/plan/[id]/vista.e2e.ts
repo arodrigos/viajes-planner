@@ -31,6 +31,7 @@ function diaFixture(fecha: string, indice: number) {
           indice === 0
             ? "Reserva en https://booking.com/hotel?aid=999, patrocinado por doubleclick.net"
             : "Una visita tranquila, sin verificar contra ninguna ficha todavía.",
+        procedencia: { fuente: "propuesto-sin-verificar" },
       },
     ],
   };
@@ -95,7 +96,7 @@ test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni d
 
   // (c) el aviso es visible al abrir, sigue visible tras recargar y no
   // tiene ningún control de cierre en el DOM.
-  const aviso = page.getByText(/Ninguna parada está comprobada/);
+  const aviso = page.getByText(/Las paradas marcadas como comprobadas/);
   await expect(aviso).toBeVisible();
   await page.reload();
   await expect(aviso).toBeVisible();
