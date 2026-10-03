@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
 import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecutorModelo";
 import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
@@ -40,6 +40,17 @@ function dobleFijo(respuesta: string): EjecutorModelo & { invocaciones: number }
 
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("aislamiento frente a criterios envenenados (trabajador-ac3)", () => {
   const supabase = clienteDePrueba();
+  // El plan que genera procesarTrabajo queda con paradas sin resolver
+  // (no hay fixtures en FUENTE_LUGARES_SIN_RED) y, sin limpieza, el
+  // barrido de relleno (rel-ac1/rel-ac2) las recoge en ejecuciones
+  // posteriores del CI como si fueran de un viaje real: `planes` en
+  // cascada se lleva `trabajos`, `plan_versiones` y `paradas`.
+  let planIdCreado: string | null = null;
+
+  afterEach(async () => {
+    if (planIdCreado) await supabase.from("planes").delete().eq("id", planIdCreado);
+    planIdCreado = null;
+  });
 
   it("(a) el trabajo se completa igual, y el texto inducido no aparece en el plan guardado", async () => {
     const { data: trabajo, error } = await supabase
@@ -60,8 +71,10 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("aislamiento frente a criterios e
       { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
-    expect(resultado.estado).toBe("completado");
     const { data: trabajoActualizado } = await supabase.from("trabajos").select("plan_id").eq("id", trabajo.id).single();
+    planIdCreado = trabajoActualizado?.plan_id ?? null;
+
+    expect(resultado.estado).toBe("completado");
     const { data: version } = await supabase
       .from("plan_versiones")
       .select("dias")

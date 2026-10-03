@@ -117,6 +117,17 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
     // quedado no terminal de un fichero anterior es seguro: sus propias
     // aserciones ya corrieron.
     await supabase.from("trabajos").update({ estado: "completado" }).in("estado", ["encolado", "en-curso", "pausado-por-cuota"]);
+    // Vitest no garantiza orden alfabético entre ficheros con
+    // fileParallelism:false (depende de su propio scheduler); varios
+    // ficheros de trabajador (cuota, validacion, aislamiento-criterios)
+    // ejecutan procesarTrabajo de verdad contra el doble del fixture de 5
+    // días y dejan un plan real, con paradas sin resolver, enlazado por un
+    // `trabajos.plan_id` -- exactamente lo que este barrido recoge como
+    // "plan vivo". Esos ficheros ya completaron sus propias aserciones
+    // cuando este se ejecuta (antes o después), así que barrer aquí
+    // cualquier plan que no sea de este fichero es seguro y es lo único
+    // que da un recuento determinista de "cuántas paradas pendientes hay".
+    await supabase.from("planes").delete().not("id", "like", "plan-barrido-%");
   });
 
   it("con la cola vacía, resuelve las paradas pendientes de planes vivos, ignora las del plan eliminado, y no invoca al modelo", async () => {
