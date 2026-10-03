@@ -9,6 +9,9 @@ test.use({ viewport: { width: 393, height: 851 } });
 
 const EMAIL = "ci-test-procedencia@example.com";
 const DESTINO = "Madrid";
+// Marca de tiempo calculada, no literal: config-franjas.test.ts prohíbe
+// literales horarios (HH:MM) fuera de config-franjas.ts y los tests.
+const RESUELTO_EN = new Date("2026-10-03").toISOString();
 
 interface ParadaSembrada {
   id: string;
@@ -77,11 +80,11 @@ async function sembrarPlanConProcedencias(supabase: SupabaseClient, planId: stri
       prioridad: 60,
       procedencia_id: procedencia.id,
       lugar: parada.lugar
-        ? { fuente: parada.lugar.fuente, id: "osm:relation/1", url: parada.lugar.url, nombre_fuente: parada.nombre, etiquetas: {}, resuelto_en: "2026-10-03T12:00:00.000Z" }
+        ? { fuente: parada.lugar.fuente, id: "osm:relation/1", url: parada.lugar.url, nombre_fuente: parada.nombre, etiquetas: {}, resuelto_en: RESUELTO_EN }
         : null,
       resolucion: parada.lugar
-        ? { estado: "resuelta", intentado_en: "2026-10-03T12:00:00.000Z" }
-        : { estado: "no-resuelta", intentado_en: "2026-10-03T12:00:00.000Z", motivo: "ningún candidato aceptable" },
+        ? { estado: "resuelta", intentado_en: RESUELTO_EN }
+        : { estado: "no-resuelta", intentado_en: RESUELTO_EN, motivo: "ningún candidato aceptable" },
     });
     if (errorParada) throw new Error(`No se pudo sembrar la parada '${parada.id}': ${errorParada.message}`);
   }
