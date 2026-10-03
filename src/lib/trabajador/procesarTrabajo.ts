@@ -5,12 +5,18 @@ import { postProcesarPlan } from "@/lib/generacion/postProcesar";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { validarPlan, type ErrorValidacion } from "@/lib/plan/validar";
 import { guardarPlan } from "@/lib/plan/repositorio";
-import type { Dia, Franja, Parada, Plan, Recomendacion, TipoRecomendacion } from "@/lib/plan/tipos";
+import { CATEGORIAS_PARADA, type Dia, type Franja, type Parada, type Plan, type Recomendacion, type TipoRecomendacion } from "@/lib/plan/tipos";
+import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
+import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
+import { resolverPlan } from "@/lib/lugares/resolverPlan";
+import type { FuenteLugares } from "@/lib/lugares/tipos";
 import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
 import { generarIdParada, generarIdPlan } from "./id";
 import { MODELO_GENERACION } from "./config";
+
+const CATEGORIAS_VALIDAS = new Set<string>(CATEGORIAS_PARADA);
 
 export interface TrabajoAProcesar {
   id: string;
@@ -21,6 +27,12 @@ export interface TrabajoAProcesar {
 interface DependenciasProcesarTrabajo {
   ejecutor: EjecutorModelo;
   directorio: string;
+  // lug-ac3: inyectable para que los tests del trabajador que no son de
+  // lugares-resolucion (trabajador-ac2, trabajador-ac3, cuota) no disparen
+  // peticiones reales a Nominatim/Wikipedia -- sin esto, cada test que
+  // llega a "completado" colgaba el job de CI contra la red real. Por
+  // defecto, la fuente abierta de verdad.
+  fuenteLugares?: FuenteLugares;
 }
 
 type IntentoEnsamblado = { valido: true; plan: Plan } | { valido: false; errores: ErrorValidacion[] };
@@ -100,7 +112,14 @@ function ensamblarDia(diaCrudo: Record<string, unknown> | null, franjas: Franja[
   };
 }
 
+// lug-ac4: `categoria` es lo único nuevo que el ensamblador copia del
+// modelo en este bloque, y solo si es uno de los valores del enum cerrado
+// -- un valor inventado se descarta sin invalidar el plan, igual que
+// cualquier otro campo (coordenadas, lugar, url) que el modelo devuelva
+// sin que se le haya pedido.
 function ensamblarParada(paradaCruda: Record<string, unknown> | null): Parada {
+  const categoriaCruda = paradaCruda?.categoria;
+  const categoria = typeof categoriaCruda === "string" && CATEGORIAS_VALIDAS.has(categoriaCruda) ? categoriaCruda : undefined;
   return {
     id: generarIdParada(),
     franja_id: paradaCruda?.franja_id as string,
@@ -109,6 +128,7 @@ function ensamblarParada(paradaCruda: Record<string, unknown> | null): Parada {
     duracion_min: paradaCruda?.duracion_min as number,
     prioridad: paradaCruda?.prioridad as number,
     procedencia: { fuente: "propuesto-sin-verificar" },
+    ...(categoria ? { categoria: categoria as Parada["categoria"] } : {}),
   };
 }
 
@@ -181,7 +201,7 @@ async function invocarOPausar(
 export async function procesarTrabajo(
   supabase: SupabaseClient,
   trabajo: TrabajoAProcesar,
-  { ejecutor, directorio }: DependenciasProcesarTrabajo,
+  { ejecutor, directorio, fuenteLugares }: DependenciasProcesarTrabajo,
 ): Promise<{ estado: "completado" | "fallido" | "pausado-por-cuota" }> {
   const familia = familiaDeModelo(MODELO_GENERACION);
 
@@ -210,11 +230,20 @@ export async function procesarTrabajo(
     return { estado: "fallido" };
   }
 
-  await publicarEtapa(supabase, trabajo.id, "guardando");
   // generacion-ac1/ac2: red de seguridad determinista sobre el plan ya
   // validado estructuralmente, no una confianza ciega en que el modelo
   // obedeció el tope y la exclusión de categorías pedidos en el prompt.
-  const { plan: planFinal } = postProcesarPlan(intento.plan, trabajo.criterios);
+  const { plan: planPostProcesado } = postProcesarPlan(intento.plan, trabajo.criterios);
+
+  await publicarEtapa(supabase, trabajo.id, "ubicando las paradas");
+  // lug-ac1: resolución real contra las fuentes abiertas (Nominatim +
+  // respaldo Wikipedia), con caché y límite de ritmo en cacheSitios.ts y
+  // limitador.ts. Una parada que no resuelve nunca hace fallar el trabajo
+  // -resolverPlan la deja con resolucion.estado y el plan se guarda igual.
+  const fuente = fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
+  const planFinal = await resolverPlan(fuente, planPostProcesado);
+
+  await publicarEtapa(supabase, trabajo.id, "guardando");
   await guardarPlan(supabase, planFinal);
   await supabase
     .from("trabajos")

@@ -23,7 +23,13 @@ const PLAN_CON_HUECOS = {
         { id: "comida", etiqueta: "Comida" },
       ],
       paradas: [
-        { id: "p1", franja_id: "manana", nombre: "Mercado do Bolhão", descripcion: "Paseo por el mercado." },
+        {
+          id: "p1",
+          franja_id: "manana",
+          nombre: "Mercado do Bolhão",
+          descripcion: "Paseo por el mercado.",
+          procedencia: { fuente: "propuesto-sin-verificar" },
+        },
       ],
     },
     {

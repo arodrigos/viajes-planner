@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AnclaAlojamiento, Dia, Franja, Parada, Plan, Recomendacion } from "./tipos";
+import type { AnclaAlojamiento, Dia, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 
 // Forma en la que se guardan los días dentro de plan_versiones.dias: todo
 // menos las paradas, que tienen su propia tabla porque procedencias y
@@ -72,6 +72,11 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
         duracion_min: parada.duracion_min,
         prioridad: parada.prioridad,
         procedencia_id: procedenciaInsertada.id,
+        categoria: parada.categoria ?? null,
+        lugar: parada.lugar ?? null,
+        foto: parada.foto ?? null,
+        resolucion: parada.resolucion ?? null,
+        foto_intentada_en: parada.foto ? new Date().toISOString() : null,
       });
       if (errorParada) throw new Error(`No se pudo guardar la parada '${parada.id}': ${errorParada.message}`);
     }
@@ -108,7 +113,9 @@ export async function recuperarPlan(
 
   const { data: paradaRows, error: errorParadas } = await supabase
     .from("paradas")
-    .select("id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, procedencias(fuente)")
+    .select(
+      "id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, procedencias(fuente)",
+    )
     .eq("plan_version_id", versionRow.id)
     .order("dia_index", { ascending: true });
   if (errorParadas) throw new Error(`No se pudieron leer las paradas: ${errorParadas.message}`);
@@ -118,9 +125,13 @@ export async function recuperarPlan(
     const paradasDelDia: Parada[] = (paradaRows ?? [])
       .filter((fila) => fila.dia_index === indice)
       .map((fila) => {
-        const procedencia = Array.isArray(fila.procedencias) ? fila.procedencias[0] : fila.procedencias;
         const lat = fila.lat as number | null;
         const lon = fila.lon as number | null;
+        const lugar = fila.lugar as Lugar | null;
+        // lug-ac1: la procedencia PÚBLICA se deriva aquí a partir de
+        // `lugar`, nunca de la tabla `procedencias` (su CHECK solo admite
+        // 'propuesto-sin-verificar': ver el porqué en tipos.ts).
+        const procedencia: Procedencia = lugar ? { fuente: lugar.fuente, url: lugar.url } : { fuente: "propuesto-sin-verificar" };
         return {
           id: fila.id_externo as string,
           franja_id: fila.franja_id as string,
@@ -128,8 +139,12 @@ export async function recuperarPlan(
           descripcion: fila.descripcion as string,
           duracion_min: fila.duracion_min as number,
           prioridad: fila.prioridad as number,
-          procedencia: { fuente: procedencia.fuente },
+          procedencia,
           ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
+          ...(fila.categoria ? { categoria: fila.categoria as Parada["categoria"] } : {}),
+          ...(lugar ? { lugar } : {}),
+          ...(fila.foto ? { foto: fila.foto as Parada["foto"] } : {}),
+          ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
         };
       });
     return {

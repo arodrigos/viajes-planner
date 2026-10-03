@@ -4,6 +4,12 @@ import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecu
 import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
+import { crearFuenteLugaresGrabada } from "@/lib/lugares/fuenteGrabada";
+
+// lug-ac3: este test no es de lugares-resolucion -- sin fixtures no hay
+// ningún candidato que aceptar, así que resolverPlan deja todo
+// "no-resuelta" sin disparar una sola petición real a Nominatim/Wikipedia.
+const FUENTE_LUGARES_SIN_RED = crearFuenteLugaresGrabada({ destinos: {}, nominatim: {} });
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -51,7 +57,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("aislamiento frente a criterios e
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajo.id, plan_id: null, criterios: CRITERIOS_ENVENENADOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("completado");

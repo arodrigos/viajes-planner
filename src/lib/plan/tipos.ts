@@ -3,14 +3,79 @@
 // tipos-publicos.ts): son la traducción directa a ventana temporal de VROOM
 // (costura con la fase 2) y no deben llegar nunca al cliente.
 
-// En fase 1 la parada es "propuesto-sin-verificar" siempre: no hay ficha
-// contra la que resolverla todavía. F2-08 añadirá los orígenes reales
-// (ficha con fecha, ficha sin fecha, estimado); hasta entonces este es el
-// único valor posible, no una enumeración a medio llenar.
-export type FuenteProcedencia = "propuesto-sin-verificar";
+// Hasta el bloque lugares-resolucion, "propuesto-sin-verificar" era el
+// único valor posible (no había ficha contra la que resolver). Ahora una
+// parada resuelta contra las fuentes abiertas (Nominatim/OSM o Wikipedia)
+// tiene procedencia "osm" o "wikipedia" con `url` hacia la fuente; la
+// pública se DERIVA en repositorio.ts a partir de `lugar`, nunca se
+// guarda en la tabla `procedencias` (su CHECK solo admite
+// 'propuesto-sin-verificar': ver migración 005 y el diseño de este
+// bloque sobre por qué no se amplía).
+export type FuenteProcedencia = "propuesto-sin-verificar" | "osm" | "wikipedia";
 
 export interface Procedencia {
   fuente: FuenteProcedencia;
+  url?: string;
+}
+
+// Enum cerrado que el modelo puede proponer por parada (bloque
+// lugares-resolucion): condiciona la regla de aceptación (aceptacion.ts)
+// y, más adelante, el filtro de equivalencia de alternativas.
+export const CATEGORIAS_PARADA = [
+  "monumento",
+  "museo",
+  "parque",
+  "mirador",
+  "barrio",
+  "plaza",
+  "mercado",
+  "playa",
+  "naturaleza",
+  "ocio-infantil",
+  "espectaculo",
+  "comida",
+  "compras",
+  "otro",
+] as const;
+
+export type CategoriaParada = (typeof CATEGORIAS_PARADA)[number];
+
+export interface EtiquetasLugar {
+  opening_hours?: string;
+  wikipedia?: string;
+  wikidata?: string;
+  website?: string;
+}
+
+// Resultado de resolver una parada contra una fuente abierta real: de
+// dónde sale el pin, con qué identificador estable y cuándo se resolvió.
+export interface Lugar {
+  fuente: "osm" | "wikipedia";
+  id: string;
+  url: string;
+  nombre_fuente: string;
+  etiquetas: EtiquetasLugar;
+  resuelto_en: string;
+}
+
+export type EstadoResolucion = "resuelta" | "no-resuelta" | "error";
+
+export interface InfoResolucion {
+  estado: EstadoResolucion;
+  intentado_en: string;
+  motivo?: string;
+}
+
+// Foto de la parada (bloque fotos-paradas, se deja el tipo preparado aquí
+// porque Parada ya referencia el campo opcional).
+export interface Foto {
+  url: string;
+  fichero: string;
+  autor: string;
+  licencia: string;
+  licencia_url: string;
+  pagina_url: string;
+  fuente: "commons";
 }
 
 // Las seis franjas de un día. Los límites horarios son configuración por
@@ -37,6 +102,12 @@ export interface Parada {
   prioridad: number; // 0-100
   procedencia: Procedencia;
   coordenadas?: { lat: number; lon: number };
+  // Lo único nuevo que el modelo aporta en este bloque (tipos.ts, lug-ac4):
+  // todo lo demás de aquí abajo lo rellena resolverPlan, nunca el modelo.
+  categoria?: CategoriaParada;
+  lugar?: Lugar;
+  resolucion?: InfoResolucion;
+  foto?: Foto;
 }
 
 export type AnclaAlojamiento =

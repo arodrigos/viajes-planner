@@ -19,8 +19,8 @@ const PLAN_FIXTURE = {
       fecha: `2026-10-0${indice + 5}`,
       franjas,
       paradas: [
-        { id: `parada-${indice}-a`, franja_id: "manana", nombre: `Sitio del día ${indice + 1}`, descripcion: "Una visita tranquila por el centro histórico." },
-        { id: `parada-${indice}-b`, franja_id: "cena", nombre: `Cena del día ${indice + 1}`, descripcion: "Sitio recomendado por la zona, sin verificar contra ninguna ficha todavía." },
+        { id: `parada-${indice}-a`, franja_id: "manana", nombre: `Sitio del día ${indice + 1}`, descripcion: "Una visita tranquila por el centro histórico.", procedencia: { fuente: "propuesto-sin-verificar" } },
+        { id: `parada-${indice}-b`, franja_id: "cena", nombre: `Cena del día ${indice + 1}`, descripcion: "Sitio recomendado por la zona, sin verificar contra ninguna ficha todavía.", procedencia: { fuente: "propuesto-sin-verificar" } },
       ],
     };
   }),
@@ -50,7 +50,7 @@ const PAGINAS: Pagina[] = [
     nombre: "plan",
     ruta: "/plan/plan-movil-e2e",
     preparar: (page) => page.route("**/api/plan/*", (route) => route.fulfill({ json: PLAN_FIXTURE })),
-    esperar: (page) => page.getByText(/Ninguna parada está comprobada/).waitFor(),
+    esperar: (page) => page.getByText(/Las paradas marcadas como comprobadas/).waitFor(),
   },
   {
     nombre: "trabajos",

@@ -4,7 +4,13 @@ import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecu
 import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
+import { crearFuenteLugaresGrabada } from "@/lib/lugares/fuenteGrabada";
 import { RESPUESTA_MODELO_FORMA_NUEVA } from "./__fixtures__/respuesta-modelo-forma-nueva";
+
+// lug-ac3: este test no es de lugares-resolucion -- sin fixtures no hay
+// ningún candidato que aceptar, así que resolverPlan deja todo
+// "no-resuelta" sin disparar una sola petición real a Nominatim/Wikipedia.
+const FUENTE_LUGARES_SIN_RED = crearFuenteLugaresGrabada({ destinos: {}, nominatim: {} });
 
 // Los criterios reales con los que se capturó RESPUESTA_MODELO_FORMA_NUEVA
 // -- necesarios para que franjasComoArray(destino) calce con los franja_id
@@ -66,7 +72,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("fallido");
@@ -90,7 +96,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("fallido");
@@ -108,7 +114,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("fallido");
@@ -128,7 +134,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS_DE_LA_CAPTURA },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("completado");
@@ -158,7 +164,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS_DE_LA_CAPTURA },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("fallido");
@@ -182,7 +188,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS_DE_LA_CAPTURA },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("completado");
@@ -196,7 +202,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("completado");
@@ -222,7 +228,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("completado");
@@ -249,7 +255,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("completado");
@@ -263,7 +269,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("procesarTrabajo (trabajador-ac2)
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("completado");

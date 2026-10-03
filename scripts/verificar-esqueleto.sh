@@ -91,4 +91,10 @@ if ! echo "$SALIDA_TRABAJADOR" | grep -q "Faltan SUPABASE_URL"; then
   exit 1
 fi
 
+echo "== lug-ac3: la mitad web nunca llama a las fuentes abiertas de lugares =="
+if grep -rlE 'nominatim\.openstreetmap\.org|overpass-api\.de|wikipedia\.org/w/api\.php|api/rest_v1' src/app; then
+  echo "FALLO: src/app llama directamente a una fuente de lugares -- eso solo puede hacerlo el trabajador" >&2
+  exit 1
+fi
+
 echo "OK: verificación de esqueleto completa"

@@ -1,0 +1,176 @@
+import "server-only";
+import { crearLimitador, relojReal, type Reloj } from "./limitador";
+import { cacheSitiosMemoria, claveNominatim, esFalloDeCache, normalizarClaveNombre, slugDestino, type CacheSitios } from "./cacheSitios";
+import { normalizarNombre } from "./normalizar";
+import type { CajaDelimitadora, CandidatoLugar, FuenteLugares } from "./tipos";
+
+// lug-ac3: identifica la APLICACIÓN y el repo, nunca a Adrián ni a la
+// familia. La versión viene del propio package.json en build; en local o
+// en un entorno sin esa variable cae a "0.0.0", que sigue siendo un UA
+// válido y honesto (no inventa un número).
+function userAgent(): string {
+  const version = process.env.npm_package_version ?? "0.0.0";
+  return `viajes-planner/${version} (+https://github.com/arodrigos/viajes-planner)`;
+}
+
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const WIKIPEDIA_SEARCH_URL = "https://es.wikipedia.org/w/api.php";
+
+export interface OpcionesFuenteAbierta {
+  fetch?: typeof fetch;
+  reloj?: Reloj;
+  cache?: CacheSitios;
+  intervaloMinMs?: number;
+}
+
+interface ResultadoNominatim {
+  osm_type: string;
+  osm_id: number;
+  lat: string;
+  lon: string;
+  category?: string;
+  class?: string;
+  type: string;
+  name?: string;
+  display_name: string;
+  namedetails?: Record<string, string>;
+  extratags?: Record<string, string>;
+  boundingbox: [string, string, string, string];
+}
+
+function aCandidatoNominatim(r: ResultadoNominatim): CandidatoLugar {
+  const nombresAlternativos = Object.entries(r.namedetails ?? {})
+    .filter(([clave]) => clave.startsWith("name") || clave === "alt_name" || clave === "official_name")
+    .map(([, valor]) => valor);
+  return {
+    fuente: "osm",
+    id: `osm:${r.osm_type}/${r.osm_id}`,
+    url: `https://www.openstreetmap.org/${r.osm_type}/${r.osm_id}`,
+    nombreFuente: r.namedetails?.name ?? r.name ?? r.display_name,
+    nombresAlternativos,
+    lat: Number(r.lat),
+    lon: Number(r.lon),
+    // Nominatim llamaba a este campo "class"; las respuestas recientes lo
+    // devuelven como "category" -- se acepta cualquiera de los dos.
+    categoriaOsm: r.category ?? r.class,
+    tipoOsm: r.type,
+    etiquetas: {
+      opening_hours: r.extratags?.opening_hours,
+      wikipedia: r.extratags?.wikipedia,
+      wikidata: r.extratags?.wikidata,
+      website: r.extratags?.website,
+    },
+  };
+}
+
+interface ResultadoBusquedaWikipedia {
+  query?: {
+    search?: Array<{ title: string; pageid: number }>;
+  };
+}
+
+interface ResultadoCoordenadasWikipedia {
+  query?: {
+    pages?: Record<string, { coordinates?: Array<{ lat: number; lon: number }> }>;
+  };
+}
+
+export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): FuenteLugares {
+  const fetchImpl = opciones.fetch ?? fetch;
+  const reloj = opciones.reloj ?? relojReal;
+  const cache = opciones.cache ?? cacheSitiosMemoria();
+  // El límite de ritmo cubre Nominatim; Wikipedia no tiene la misma
+  // política estricta de 1 req/s, pero comparte el mismo User-Agent
+  // honesto y el mismo único reintento ante 429/5xx (lug-ac3).
+  const limitarNominatim = crearLimitador(opciones.intervaloMinMs ?? 1100, reloj);
+
+  async function peticionConReintento(url: string): Promise<Response | null> {
+    const hacer = () => fetchImpl(url, { headers: { "User-Agent": userAgent() } });
+    try {
+      let respuesta = await hacer();
+      if (respuesta.status === 429 || respuesta.status >= 500) {
+        await reloj.dormir(30_000);
+        respuesta = await hacer();
+      }
+      return respuesta.ok ? respuesta : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function geocodificarDestino(destino: string): Promise<CajaDelimitadora | null> {
+    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(destino)}&format=jsonv2&limit=1`;
+    const respuesta = await limitarNominatim(() => peticionConReintento(url));
+    if (!respuesta) return null;
+    const datos = (await respuesta.json()) as ResultadoNominatim[];
+    const primero = datos[0];
+    if (!primero) return null;
+    const [minLat, maxLat, minLon, maxLon] = primero.boundingbox.map(Number);
+    return { minLat, maxLat, minLon, maxLon };
+  }
+
+  async function buscarNominatim(nombre: string, destino: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]> {
+    const clave = claveNominatim(slugDestino(destino), normalizarClaveNombre(nombre));
+    const enCache = await cache.obtener(clave);
+    if (!esFalloDeCache(enCache)) return enCache as CandidatoLugar[];
+
+    // viewbox = izquierda,arriba,derecha,abajo (lon_min,lat_max,lon_max,lat_min).
+    const viewbox = `${bbox.minLon},${bbox.maxLat},${bbox.maxLon},${bbox.minLat}`;
+    const url =
+      `${NOMINATIM_URL}?q=${encodeURIComponent(`${nombre}, ${destino}`)}&format=jsonv2&limit=5` +
+      `&viewbox=${viewbox}&bounded=1&extratags=1&namedetails=1&addressdetails=1&accept-language=es`;
+    const respuesta = await limitarNominatim(() => peticionConReintento(url));
+    const candidatos = respuesta ? ((await respuesta.json()) as ResultadoNominatim[]).map(aCandidatoNominatim) : [];
+    await cache.guardar(clave, candidatos);
+    return candidatos;
+  }
+
+  // bbox no acota la búsqueda en Wikipedia (su API de búsqueda de texto no
+  // acepta una caja): el filtrado por destino lo hace evaluarCandidato
+  // después, con las coordenadas que sí trae cada resultado.
+  async function buscarWikipedia(nombre: string, destino: string): Promise<CandidatoLugar[]> {
+    const clave = `wikipedia:${slugDestino(destino)}:${normalizarClaveNombre(nombre)}`;
+    const enCache = await cache.obtener(clave);
+    if (!esFalloDeCache(enCache)) return enCache as CandidatoLugar[];
+
+    const urlBusqueda =
+      `${WIKIPEDIA_SEARCH_URL}?action=query&list=search&format=json&srsearch=${encodeURIComponent(`${nombre} ${destino}`)}&srlimit=3`;
+    const respuestaBusqueda = await peticionConReintento(urlBusqueda);
+    const resultadosBusqueda = respuestaBusqueda ? ((await respuestaBusqueda.json()) as ResultadoBusquedaWikipedia) : null;
+    const titulos = resultadosBusqueda?.query?.search?.map((r) => r.title) ?? [];
+    if (titulos.length === 0) {
+      await cache.guardar(clave, []);
+      return [];
+    }
+
+    const urlCoordenadas =
+      `${WIKIPEDIA_SEARCH_URL}?action=query&prop=coordinates&format=json&titles=${encodeURIComponent(titulos.join("|"))}`;
+    const respuestaCoordenadas = await peticionConReintento(urlCoordenadas);
+    const datosCoordenadas = respuestaCoordenadas ? ((await respuestaCoordenadas.json()) as ResultadoCoordenadasWikipedia) : null;
+    const paginas = Object.values(datosCoordenadas?.query?.pages ?? {});
+
+    const candidatos: CandidatoLugar[] = [];
+    titulos.forEach((titulo, indice) => {
+      const coordenadas = paginas[indice]?.coordinates?.[0];
+      if (!coordenadas) return;
+      candidatos.push({
+        fuente: "wikipedia",
+        id: `wikipedia:es:${titulo}`,
+        url: `https://es.wikipedia.org/wiki/${encodeURIComponent(titulo.replace(/ /g, "_"))}`,
+        nombreFuente: titulo,
+        nombresAlternativos: [],
+        lat: coordenadas.lat,
+        lon: coordenadas.lon,
+        etiquetas: {},
+      });
+    });
+    await cache.guardar(clave, candidatos);
+    return candidatos;
+  }
+
+  return { geocodificarDestino, buscarNominatim, buscarWikipedia };
+}
+
+// Expuesto para que resolverPlan y los tests puedan derivar la clave de
+// caché exactamente como aquí (un solo sitio que normaliza).
+export { normalizarNombre };

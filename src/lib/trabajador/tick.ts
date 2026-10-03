@@ -6,6 +6,7 @@ import { adquirirCerrojo, liberarCerrojo } from "./cerrojo";
 import { ESPERA_OCIOSA_MS, INTERVALO_REINTENTO_OCIOSO_MS } from "./config";
 import type { EjecutorModelo } from "./ejecutorModelo";
 import { procesarTrabajo } from "./procesarTrabajo";
+import type { FuenteLugares } from "@/lib/lugares/tipos";
 
 export interface ResultadoTick {
   cerrojoAdquirido: boolean;
@@ -18,6 +19,7 @@ export interface OpcionesTick {
   tomadoPor?: string;
   esperaOciosaMs?: number;
   intervaloOciosoMs?: number;
+  fuenteLugares?: FuenteLugares;
 }
 
 function esperar(ms: number): Promise<void> {
@@ -55,7 +57,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         await procesarTrabajo(
           supabase,
           { id: trabajo.id, plan_id: trabajo.plan_id, criterios: trabajo.criterios as CriteriosViaje },
-          { ejecutor: opciones.ejecutor, directorio: opciones.directorio },
+          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares: opciones.fuenteLugares },
         );
         trabajosProcesados += 1;
         continue;

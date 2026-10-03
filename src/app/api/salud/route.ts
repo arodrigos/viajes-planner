@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
     trabajadorVistoHaceSeg: vistoHaceSeg,
     secretosFaltantes: SECRETOS_REQUERIDOS.filter((nombre) => !process.env[nombre]),
     credencialesModeloEnWeb: VARIABLES_CREDENCIAL_MODELO.some((nombre) => Boolean(process.env[nombre])),
+    fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap" },
   });
   return NextResponse.json(salud, { status: salud.ok ? 200 : 503 });
 }

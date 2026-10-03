@@ -5,6 +5,12 @@ import { procesarTrabajo } from "@/lib/trabajador/procesarTrabajo";
 import { tick } from "@/lib/trabajador/tick";
 import { planFixture } from "@/lib/plan/__fixtures__/plan-5-dias-4-personas";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
+import { crearFuenteLugaresGrabada } from "@/lib/lugares/fuenteGrabada";
+
+// lug-ac3: este test no es de lugares-resolucion -- sin fixtures no hay
+// ningún candidato que aceptar, así que resolverPlan deja todo
+// "no-resuelta" sin disparar una sola petición real a Nominatim/Wikipedia.
+const FUENTE_LUGARES_SIN_RED = crearFuenteLugaresGrabada({ destinos: {}, nominatim: {} });
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -140,7 +146,13 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     await crearTrabajo();
 
     const doble = dobleFijo([DIAS_VALIDOS]);
-    const resultado = await tick(supabase, { ejecutor: doble, directorio: "/tmp", esperaOciosaMs: 0, intervaloOciosoMs: 10 });
+    const resultado = await tick(supabase, {
+      ejecutor: doble,
+      directorio: "/tmp",
+      fuenteLugares: FUENTE_LUGARES_SIN_RED,
+      esperaOciosaMs: 0,
+      intervaloOciosoMs: 10,
+    });
 
     // Si el pre-chequeo siguiera vivo, tick() habría pausado el trabajo sin
     // invocar el doble ni una vez: invocaciones se habría quedado en 0 y el
@@ -158,7 +170,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     const resultado = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: doble, directorio: "/tmp" },
+      { ejecutor: doble, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
 
     expect(resultado.estado).toBe("pausado-por-cuota");
@@ -193,7 +205,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     const resultado1 = await procesarTrabajo(
       supabase,
       { id: trabajoId, plan_id: null, criterios: CRITERIOS },
-      { ejecutor: dobleLimite1, directorio: "/tmp" },
+      { ejecutor: dobleLimite1, directorio: "/tmp", fuenteLugares: FUENTE_LUGARES_SIN_RED },
     );
     expect(resultado1.estado).toBe("pausado-por-cuota");
     let trabajo = await leerTrabajo(trabajoId);
@@ -209,6 +221,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     const tickInmediato = await tick(supabase, {
       ejecutor: dobleNoDeberiaLlamarse,
       directorio: "/tmp",
+      fuenteLugares: FUENTE_LUGARES_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -230,6 +243,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     const tickRecuperacion = await tick(supabase, {
       ejecutor: dobleLimite2,
       directorio: "/tmp",
+      fuenteLugares: FUENTE_LUGARES_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -254,6 +268,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("cuota de suscripción (trabajado
     const tickFinal = await tick(supabase, {
       ejecutor: dobleFinal,
       directorio: "/tmp",
+      fuenteLugares: FUENTE_LUGARES_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
