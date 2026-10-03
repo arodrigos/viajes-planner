@@ -108,6 +108,15 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
   beforeEach(async () => {
     await supabase.from("planes").delete().like("id", "plan-barrido-%");
     await supabase.from("cerrojo_trabajador").update({ tomado_por: null, tomado_hasta: null }).eq("id", 1);
+    // Estos tests exigen cola vacía para que el barrido sea lo único que
+    // el tick hace; otros ficheros de integración (cola/crear, por
+    // ejemplo) encolan trabajos reales sin plan de prueba y sin
+    // limpiarlos después, porque esa no es su preocupación. Como todos
+    // los ficheros de integración golpean la misma Postgres en serie
+    // (fileParallelism: false), cerrar aquí cualquier trabajo que haya
+    // quedado no terminal de un fichero anterior es seguro: sus propias
+    // aserciones ya corrieron.
+    await supabase.from("trabajos").update({ estado: "completado" }).in("estado", ["encolado", "en-curso", "pausado-por-cuota"]);
   });
 
   it("con la cola vacía, resuelve las paradas pendientes de planes vivos, ignora las del plan eliminado, y no invoca al modelo", async () => {
