@@ -9,6 +9,7 @@ import { CATEGORIAS_PARADA, type Dia, type Franja, type Parada, type Plan, type 
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
 import { resolverPlan } from "@/lib/lugares/resolverPlan";
+import type { FuenteLugares } from "@/lib/lugares/tipos";
 import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
@@ -26,6 +27,12 @@ export interface TrabajoAProcesar {
 interface DependenciasProcesarTrabajo {
   ejecutor: EjecutorModelo;
   directorio: string;
+  // lug-ac3: inyectable para que los tests del trabajador que no son de
+  // lugares-resolucion (trabajador-ac2, trabajador-ac3, cuota) no disparen
+  // peticiones reales a Nominatim/Wikipedia -- sin esto, cada test que
+  // llega a "completado" colgaba el job de CI contra la red real. Por
+  // defecto, la fuente abierta de verdad.
+  fuenteLugares?: FuenteLugares;
 }
 
 type IntentoEnsamblado = { valido: true; plan: Plan } | { valido: false; errores: ErrorValidacion[] };
@@ -194,7 +201,7 @@ async function invocarOPausar(
 export async function procesarTrabajo(
   supabase: SupabaseClient,
   trabajo: TrabajoAProcesar,
-  { ejecutor, directorio }: DependenciasProcesarTrabajo,
+  { ejecutor, directorio, fuenteLugares }: DependenciasProcesarTrabajo,
 ): Promise<{ estado: "completado" | "fallido" | "pausado-por-cuota" }> {
   const familia = familiaDeModelo(MODELO_GENERACION);
 
@@ -233,7 +240,7 @@ export async function procesarTrabajo(
   // respaldo Wikipedia), con caché y límite de ritmo en cacheSitios.ts y
   // limitador.ts. Una parada que no resuelve nunca hace fallar el trabajo
   // -resolverPlan la deja con resolucion.estado y el plan se guarda igual.
-  const fuente = crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
+  const fuente = fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
   const planFinal = await resolverPlan(fuente, planPostProcesado);
 
   await publicarEtapa(supabase, trabajo.id, "guardando");
