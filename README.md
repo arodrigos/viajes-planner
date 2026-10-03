@@ -7,6 +7,12 @@ mapa y sitios marcados como visitados.
 Producto personal, sin monetización. Ver `CLAUDE.md` para las condiciones
 que esa decisión impone al repo.
 
+## Ramas
+
+- **`dev`** es la rama de trabajo y la rama por defecto del repo: los PRs van contra `dev`. Un push a `dev` despliega una preview en Vercel y pasa el CI.
+- **`main` es producción.** El paso de `dev` a `main` solo lo decide Adrián, de forma explícita y para cada caso. Nadie, ni personas ni agentes, mergea a `main` por su cuenta, aunque el cambio sea solo de CI o de documentación.
+- El trabajador (cron cada 5 min) corre sobre la cabeza de `dev` y se actualiza solo antes de cada tick.
+
 ## Desarrollo local
 
 ```bash
