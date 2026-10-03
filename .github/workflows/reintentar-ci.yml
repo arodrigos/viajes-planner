@@ -1,0 +1,26 @@
+name: Reintentar CI una vez
+
+# Issue #169: el CI se ha puesto rojo por causas ajenas al código (rate limit
+# de una acción, runner caído) y el arreglo era siempre el mismo, relanzar a
+# mano. Un solo reintento de los jobs fallidos: un fallo real sale rojo otra
+# vez y se queda rojo; tapar más de uno escondería tests inestables, que se
+# arreglan en el test, no aquí.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  actions: write
+
+jobs:
+  reintentar:
+    if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1
+    runs-on: ubuntu-latest
+    steps:
+      # Sin checkout: workflow_run corre con token de escritura, así que no
+      # ejecuta nada del código que disparó el fallo.
+      - run: gh run rerun "$RUN_ID" --failed --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
