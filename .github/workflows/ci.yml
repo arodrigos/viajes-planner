@@ -82,8 +82,8 @@ jobs:
   lint-typecheck-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: "npm"
@@ -96,8 +96,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-typecheck-test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: "npm"
@@ -112,15 +112,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-typecheck-test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: "npm"
       - run: npm ci
-      - uses: supabase/setup-cli@v1
+      # Versión fija del CLI: con "latest" setup-cli consulta la API de GitHub
+      # en cada job y ese rate limit puso el CI en rojo sin tocar el código.
+      # 2.117.0 es la que resolvía "latest" en los últimos runs verdes.
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
-          version: latest
+          version: 2.117.0
       # setup-cli fuerza SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io para
       # cualquier versión >= 1.28.0 o 'latest' (su propio dist/index.js:
       # "Use GHCR mirror by default"), y esa variable DESACTIVA el
@@ -300,7 +303,7 @@ jobs:
     env:
       SUPABASE_PROJECT_REF: ihgounrvbggdowbdtzrr
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: bash scripts/aplicar-migraciones-reales.sh
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -309,7 +312,7 @@ jobs:
       # artefacto es lo que el gatekeeper sí puede descargar y leer ya
       # estructurado. `if: always()` porque el script escribe el JSON
       # también cuando rechaza una migración o falla a mitad (trap EXIT).
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: resultado-migraciones
@@ -321,8 +324,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-typecheck-test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: "npm"
@@ -332,9 +335,9 @@ jobs:
       # leer el correo real del servidor de correo local y confirmarlo)
       # necesita la pila real de Supabase, no solo el doblado de red que
       # bastaba para el resto de las pantallas.
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
-          version: latest
+          version: 2.117.0
       # Misma causa real que en el job `persistencia`: setup-cli fuerza
       # SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io y eso desactiva el
       # fallback multi-registro (ECR público -> ghcr.io -> Docker Hub) que
@@ -368,7 +371,7 @@ jobs:
       # visual-ac1/pantalla-ac9: el gatekeeper juzga estas capturas (issue
       # #141), no un veredicto mecánico -por eso se publican como artefacto
       # en vez de solo comprobarse en el propio job.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: capturas-movil
