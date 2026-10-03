@@ -2,10 +2,13 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tomarSiguienteTrabajo } from "@/lib/cola/tomar";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
+import { completarParadasPendientes, LIMITE_BARRIDO_DEFECTO } from "./barrido";
 import { adquirirCerrojo, liberarCerrojo } from "./cerrojo";
 import { ESPERA_OCIOSA_MS, INTERVALO_REINTENTO_OCIOSO_MS } from "./config";
 import type { EjecutorModelo } from "./ejecutorModelo";
 import { procesarTrabajo } from "./procesarTrabajo";
+import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
+import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
 import type { FuenteLugares } from "@/lib/lugares/tipos";
 
 export interface ResultadoTick {
@@ -31,6 +34,10 @@ function esperar(ms: number): Promise<void> {
 // espera "un rato antes de morir" (arquitectura) si YA ha procesado algo,
 // para que una pregunta de la guía que llegue justo después se atienda en
 // caliente.
+// rel-ac1: con la cola vacía ya no sale de inmediato -- ejecuta UN barrido
+// de relleno (completarParadasPendientes) antes de salir. Con trabajos,
+// el barrido corre tras drenar la cola y antes de la espera ociosa; nunca
+// dos veces en el mismo tick.
 export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Promise<ResultadoTick> {
   const tomadoPor = opciones.tomadoPor ?? `trabajador-${process.pid}-${Date.now()}`;
   const esperaOciosaMs = opciones.esperaOciosaMs ?? ESPERA_OCIOSA_MS;
@@ -47,9 +54,11 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   // que un tick con la cola vacía cuente igual que uno que sí trabaja.
   await supabase.from("salud").insert({ origen: "trabajador-vps1" });
 
+  const fuenteLugares = opciones.fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
   let trabajosProcesados = 0;
   try {
     let ociosoDesde: number | null = null;
+    let barridoHecho = false;
     for (;;) {
       const trabajo = await tomarSiguienteTrabajo(supabase, tomadoPor);
       if (trabajo) {
@@ -57,10 +66,15 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         await procesarTrabajo(
           supabase,
           { id: trabajo.id, plan_id: trabajo.plan_id, criterios: trabajo.criterios as CriteriosViaje },
-          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares: opciones.fuenteLugares },
+          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares },
         );
         trabajosProcesados += 1;
         continue;
+      }
+
+      if (!barridoHecho) {
+        barridoHecho = true;
+        await completarParadasPendientes(supabase, fuenteLugares, LIMITE_BARRIDO_DEFECTO);
       }
 
       if (trabajosProcesados === 0) break;

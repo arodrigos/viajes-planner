@@ -1,7 +1,7 @@
 import "server-only";
-import type { Parada, Plan } from "@/lib/plan/tipos";
+import type { CategoriaParada, InfoResolucion, Lugar, Parada, Plan } from "@/lib/plan/tipos";
 import { elegirMejorCandidato } from "./aceptacion";
-import type { CajaDelimitadora, FuenteLugares } from "./tipos";
+import type { CajaDelimitadora, CandidatoLugar, FuenteLugares } from "./tipos";
 
 // lug-ac1: resuelve cada parada del plan contra la fuente de lugares.
 // Nunca hace fallar el plan -- una parada que no resuelve se queda sin
@@ -22,35 +22,49 @@ export async function resolverPlan(fuente: FuenteLugares, plan: Plan): Promise<P
 }
 
 async function resolverParada(fuente: FuenteLugares, parada: Parada, destino: string, bbox: CajaDelimitadora | null): Promise<Parada> {
+  const resultado = await resolverNombre(fuente, parada.nombre, parada.categoria, destino, bbox);
+  return { ...parada, ...resultado };
+}
+
+export interface ResolucionLugar {
+  coordenadas?: { lat: number; lon: number };
+  lugar?: Lugar;
+  resolucion: InfoResolucion;
+}
+
+// Núcleo de la resolución, sin nada de Parada/Plan: lo reutiliza
+// resolverParada (una parada recién generada por el modelo) y el barrido
+// del bloque relleno-planes-existentes (una parada ya guardada que se
+// resuelve en segundo plano, sin un objeto Parada completo a mano).
+export async function resolverNombre(
+  fuente: FuenteLugares,
+  nombre: string,
+  categoria: CategoriaParada | undefined,
+  destino: string,
+  bbox: CajaDelimitadora | null,
+): Promise<ResolucionLugar> {
   const ahora = new Date().toISOString();
 
   if (!bbox) {
-    return {
-      ...parada,
-      resolucion: { estado: "error", intentado_en: ahora, motivo: "no se pudo geocodificar el destino" },
-    };
+    return { resolucion: { estado: "error", intentado_en: ahora, motivo: "no se pudo geocodificar el destino" } };
   }
 
   try {
-    const candidatosNominatim = await fuente.buscarNominatim(parada.nombre, destino, bbox);
-    const elegidoNominatim = elegirMejorCandidato(parada.nombre, candidatosNominatim, bbox, parada.categoria);
+    const candidatosNominatim = await fuente.buscarNominatim(nombre, destino, bbox);
+    const elegidoNominatim = elegirMejorCandidato(nombre, candidatosNominatim, bbox, categoria);
     if (elegidoNominatim.candidato) {
-      return paradaResuelta(parada, elegidoNominatim.candidato, ahora);
+      return lugarResuelto(elegidoNominatim.candidato, ahora);
     }
 
-    const candidatosWikipedia = await fuente.buscarWikipedia(parada.nombre, destino, bbox);
-    const elegidoWikipedia = elegirMejorCandidato(parada.nombre, candidatosWikipedia, bbox, parada.categoria);
+    const candidatosWikipedia = await fuente.buscarWikipedia(nombre, destino, bbox);
+    const elegidoWikipedia = elegirMejorCandidato(nombre, candidatosWikipedia, bbox, categoria);
     if (elegidoWikipedia.candidato) {
-      return paradaResuelta(parada, elegidoWikipedia.candidato, ahora);
+      return lugarResuelto(elegidoWikipedia.candidato, ahora);
     }
 
-    return {
-      ...parada,
-      resolucion: { estado: "no-resuelta", intentado_en: ahora, motivo: elegidoWikipedia.motivo },
-    };
+    return { resolucion: { estado: "no-resuelta", intentado_en: ahora, motivo: elegidoWikipedia.motivo } };
   } catch (error) {
     return {
-      ...parada,
       resolucion: {
         estado: "error",
         intentado_en: ahora,
@@ -60,9 +74,8 @@ async function resolverParada(fuente: FuenteLugares, parada: Parada, destino: st
   }
 }
 
-function paradaResuelta(parada: Parada, candidato: Awaited<ReturnType<FuenteLugares["buscarNominatim"]>>[number], ahora: string): Parada {
+function lugarResuelto(candidato: CandidatoLugar, ahora: string): ResolucionLugar {
   return {
-    ...parada,
     coordenadas: { lat: candidato.lat, lon: candidato.lon },
     lugar: {
       fuente: candidato.fuente,
