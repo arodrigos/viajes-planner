@@ -94,6 +94,27 @@ describe("resolverCiudadEfectiva -- destino (ciu-ac1)", () => {
     expect(resultado?.motivo_destino_descartado).toBe("la caja del destino no resolvió ninguna parada (0 de 5)");
   });
 
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): medido contra
+  // Nominatim real, geocodificarDestino("Ciudad con niños") devuelve una
+  // caja degenerada de 0x0 grados -- antes `spanValido` la aceptaba porque
+  // 0 <= SPAN_MAXIMO_GRADOS, y solo no hacía daño porque ninguna parada
+  // real cae en un punto exacto. Esto comprueba que se rechaza de forma
+  // explícita, igual que una caja demasiado grande.
+  it("descarta la caja del destino cuando es degenerada (0x0 grados), aunque resuelva paradas", async () => {
+    const fuente = crearFuenteLugaresGrabada({
+      destinos: { "Ciudad con niños": { minLat: 10, maxLat: 10, minLon: 10, maxLon: 10 } },
+      nominatim: {
+        "Parque infantil::Ciudad con niños": [candidato({ nombreFuente: "Parque infantil", lat: 10, lon: 10 })],
+        "Zoo::Ciudad con niños": [candidato({ nombreFuente: "Zoo", lat: 10, lon: 10 })],
+      },
+      libres: {},
+    });
+    const paradas = ["Parque infantil", "Zoo", "Museo de los niños", "Acuario", "Plaza mayor"];
+    const resultado = await resolverCiudadEfectiva(fuente, "Ciudad con niños", paradas);
+    expect(resultado?.metodo).not.toBe("destino");
+    expect(resultado?.motivo_destino_descartado).toBe('la caja del destino «Ciudad con niños» abarca una zona demasiado grande');
+  });
+
   // cp-ciu-03
   it("si el destino no geocodifica, salta la muestra y va directa a deducción", async () => {
     const c = contador();
@@ -181,7 +202,12 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     expect(caja.maxLon - caja.minLon).toBeLessThanOrEqual(2);
     const conteos = c.conteos();
     expect(conteos.libres).toBeLessThanOrEqual(8);
-    expect(conteos.ciudades).toBe(1);
+    // bar-ac4 (ronda 7): 2 de las 3 llamadas son el escalón nuevo
+    // `intentarCandidatosDesdeTexto` probando "Londres" y "Londres en"
+    // (ninguno está en esta fixture, que solo define "Gran Londres" --
+    // a propósito, para seguir ejerciendo la deducción por paradas); la
+    // tercera es la de `elegirGanador` verificando "Gran Londres".
+    expect(conteos.ciudades).toBe(3);
   });
 
   it("no consulta una octava parada aunque el plan tenga 24", async () => {
@@ -229,11 +255,15 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     expect(resultado?.motivo).toContain("España");
     expect(resultado?.motivo).toContain("no se pudo verificar geográficamente");
     const conteos = c.conteos();
-    // Una llamada a geocodificarCiudad por nivel con ganador: "Madrid" en
+    // bar-ac4 (ronda 7): 2 de las 4 llamadas son el escalón nuevo
+    // `intentarCandidatosDesdeTexto` probando "Ciudad" y "Ciudad con"
+    // (ninguno está en la fixture, que no define `ciudades`, así que
+    // ambas fallan y cae a la deducción de siempre). Las otras dos son
+    // una llamada a geocodificarCiudad por nivel con ganador: "Madrid" en
     // el nivel "ciudad" (rechazado por falta de ventaja) y "España" en el
     // nivel "región" (rechazado por falta de caja) -- "distrito" no tiene
     // ningún ganador porque ninguna parada trae ese campo.
-    expect(conteos.ciudades).toBe(2);
+    expect(conteos.ciudades).toBe(4);
   });
 
   // cp-ciu-05
@@ -250,7 +280,12 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     expect(resultado?.estado).toBe("sin-ciudad-identificable");
     expect(resultado?.motivo).toContain("no hay una ciudad clara");
     expect(resultado?.candidatos?.length).toBe(3);
-    expect(c.conteos().ciudades).toBe(0);
+    // bar-ac4 (ronda 7): las 2 llamadas son el escalón nuevo
+    // `intentarCandidatosDesdeTexto` probando "Ciudad" y "Ciudad con"
+    // (la fixture no define `ciudades`, así que ambas fallan); el apoyo
+    // nunca llega a APOYO_MINIMO en la deducción, así que `elegirGanador`
+    // no llega a pedir ninguna caja.
+    expect(c.conteos().ciudades).toBe(2);
   });
 
   // bar-ac4: igual que arriba, el rechazo de "Sevilla" en el nivel
@@ -280,6 +315,63 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     const resultado = await resolverCiudadEfectiva(fuente, "Andalucía con niños", nombres);
     expect(resultado?.estado).toBe("sin-ciudad-identificable");
     expect(resultado?.motivo).toContain("abarca una zona demasiado grande");
+  });
+
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): caso real medido contra
+  // Nominatim -- geocodificarDestino("Londres en familia con niños") y
+  // geocodificarCiudad("Londres en familia con niños") no devuelven caja,
+  // pero geocodificarCiudad("Londres") sí, con la misma caja de "Gran
+  // Londres" ya grabada arriba. Antes de este escalón, 3 planes así quedaban
+  // sellados en sin-candidato-claro sin que el código probara nunca el
+  // nombre de ciudad solo.
+  it("resuelve por el nombre de ciudad extraído del destino cuando el destino completo no geocodifica", async () => {
+    // Fixtures para las 7, no solo 2: `ordenDeterminista` reordena las
+    // paradas antes de tomar la muestra de 5, así que no se puede asumir
+    // cuáles de las 7 caen en ella.
+    const nominatim: Record<string, CandidatoLugar[]> = {};
+    for (const p of PARADAS_LONDRES_REALES) {
+      nominatim[`${p.nombre}::Londres`] = [candidato({ nombreFuente: p.nombre, lat: p.lat, lon: p.lon, direccion: p.direccion })];
+    }
+    const c = contador();
+    const fuente = c.envolver(
+      crearFuenteLugaresGrabada({
+        destinos: {},
+        nominatim,
+        libres: {},
+        ciudades: { Londres: CAJA_GRAN_LONDRES },
+      }),
+    );
+    const resultado = await resolverCiudadEfectiva(fuente, "Londres en familia con niños", PARADAS_LONDRES);
+    expect(resultado?.estado).toBe("resuelta");
+    expect(resultado?.metodo).toBe("destino");
+    expect(resultado?.nombre).toBe("Londres");
+    expect(resultado?.apoyo).toBeUndefined();
+    const conteos = c.conteos();
+    // "Londres" es el primer candidato probado (la cola "en familia con
+    // niños" se recorta entera) y ya valida con 2 de las 5 paradas de la
+    // muestra, así que ni siquiera llega a probar "Londres en".
+    expect(conteos.ciudades).toBe(1);
+    expect(conteos.nominatim).toBe(5);
+    expect(conteos.libres).toBe(0);
+  });
+
+  // La validación no es opcional: geocodificarCiudad("Ciudad") también
+  // devuelve una caja real para un lugar que de verdad se llama así, pero
+  // sin ninguna parada que la confirme no hay que aceptarla -- sería peor
+  // que sellar, porque mentiría sobre dónde está el plan.
+  it("no acepta un candidato de texto cuya caja no verifica ninguna parada de la muestra", async () => {
+    const c = contador();
+    const fuente = c.envolver(
+      crearFuenteLugaresGrabada({
+        destinos: {},
+        nominatim: {},
+        libres: {},
+        ciudades: { Ciudad: { minLat: 10, maxLat: 10.5, minLon: 10, maxLon: 10.5 } },
+      }),
+    );
+    const resultado = await resolverCiudadEfectiva(fuente, "Ciudad con niños", ["Parque infantil", "Zoo", "Museo de los niños"]);
+    expect(resultado?.metodo).not.toBe("destino");
+    expect(c.conteos().ciudades).toBeGreaterThanOrEqual(1);
   });
 });
 
