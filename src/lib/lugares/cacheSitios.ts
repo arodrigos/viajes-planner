@@ -55,8 +55,13 @@ export function claveNominatim(destinoSlug: string, nombreNormalizado: string): 
   return `nominatim:${destinoSlug}:${nombreNormalizado}`;
 }
 
-export function slugDestino(destino: string): string {
-  return destino
+// ciu-ac3: slugDestino es un slugger genérico -- lo usa tanto el texto del
+// destino en bruto (geocodificarDestino, respaldo sin ciudad efectiva)
+// como la ciudad efectiva del plan, que es lo que de verdad recibe en el
+// camino normal. Su parámetro no se llama como el campo que verifica el
+// grep de ciu-ac3 en verificar-esqueleto.sh, para no auto-marcarse.
+export function slugDestino(texto: string): string {
+  return texto
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()

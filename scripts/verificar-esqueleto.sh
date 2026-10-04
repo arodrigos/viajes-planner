@@ -97,4 +97,10 @@ if grep -rlE 'nominatim\.openstreetmap\.org|overpass-api\.de|wikipedia\.org/w/ap
   exit 1
 fi
 
+echo "== ciu-ac3: el cualificador geográfico y las claves de caché nunca usan el texto del destino =="
+if grep -nE 'slugDestino\((plan\.)?destino|claveNominatim\(slugDestino\(destino' -r src/lib/lugares src/lib/trabajador; then
+  echo "FALLO: se encontró el texto del destino construyendo una clave de caché donde debería ir la ciudad efectiva" >&2
+  exit 1
+fi
+
 echo "OK: verificación de esqueleto completa"

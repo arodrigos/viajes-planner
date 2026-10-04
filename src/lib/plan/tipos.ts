@@ -2,6 +2,7 @@
 // alojamiento por día. hora_inicio/hora_fin son INTERNAS a propósito (ver
 // tipos-publicos.ts): son la traducción directa a ventana temporal de VROOM
 // (costura con la fase 2) y no deben llegar nunca al cliente.
+import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 
 // Hasta el bloque lugares-resolucion, "propuesto-sin-verificar" era el
 // único valor posible (no había ficha contra la que resolver). Ahora una
@@ -197,4 +198,9 @@ export interface Plan {
   // bloque recomendaciones-de-sitios: vacío o ausente cuando el modelo no
   // propuso ninguna -el plan se guarda igual, nunca a medias por esto.
   recomendaciones?: Recomendacion[];
+  // ciu-ac1: la ciudad efectiva del plan (destino -> paradas ->
+  // sin-ciudad-identificable), persistida en planes.ciudad. Ausente en un
+  // plan que todavía no pasó por resolverCiudadEfectiva ni por la
+  // resolución manual.
+  ciudad?: CiudadEfectiva;
 }

@@ -22,6 +22,20 @@ export interface EtiquetasLugar {
 
 export type FuenteCandidato = "osm" | "wikipedia";
 
+// ciu-ac2: desglose de dirección de Nominatim (addressdetails=1), solo los
+// niveles que la votación por niveles de ciudad.ts necesita -- nunca se usa
+// para mostrar nada, solo para deducir la ciudad efectiva.
+export interface DireccionLugar {
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  state_district?: string;
+  county?: string;
+  state?: string;
+  region?: string;
+}
+
 export interface CandidatoLugar {
   fuente: FuenteCandidato;
   id: string;
@@ -33,6 +47,23 @@ export interface CandidatoLugar {
   categoriaOsm?: string;
   tipoOsm?: string;
   etiquetas: EtiquetasLugar;
+  direccion?: DireccionLugar;
+}
+
+// ciu-ac1/ciu-ac7: distingue un fallo de red genuino (reintentado y agotado)
+// de una respuesta negativa bien formada -- resolverCiudadEfectiva necesita
+// la diferencia para no confundir "Nominatim no contestó" con "no hay
+// ciudad", que son conclusiones completamente distintas sobre el plan.
+export class FalloRedCiudad extends Error {}
+
+// ciu-ac1/ciu-ac2/ciu-ac7: las dos operaciones nuevas que resolverCiudadEfectiva
+// necesita. Deliberadamente separada de FuenteLugares -- añadir estos dos
+// métodos a esa interfaz obligaría a todos los dobles de test existentes
+// (object literals en resolverAlternativas.test.ts, barrido.integration.test.ts)
+// a implementarlos aunque no tengan nada que ver con la ciudad del plan.
+export interface FuenteCiudad {
+  buscarLibre(nombre: string): Promise<CandidatoLugar[]>;
+  geocodificarCiudad(nombre: string): Promise<CajaDelimitadora | null>;
 }
 
 // La única forma en que resolverPlan habla con un proveedor de lugares.
@@ -41,8 +72,11 @@ export interface CandidatoLugar {
 // aplicados dentro de la implementación real).
 export interface FuenteLugares {
   geocodificarDestino(destino: string): Promise<CajaDelimitadora | null>;
-  buscarNominatim(nombre: string, destino: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]>;
-  buscarWikipedia(nombre: string, destino: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]>;
+  // ciu-ac3: "cualificador", nunca "destino" -- es el texto que acompaña al
+  // nombre de la parada en la búsqueda y en la clave de caché, y desde este
+  // bloque es la ciudad efectiva del plan, no el destino en bruto.
+  buscarNominatim(nombre: string, cualificador: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]>;
+  buscarWikipedia(nombre: string, cualificador: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]>;
 }
 
 // bloque fotos-paradas: el resumen de una página de Wikipedia, reducido a

@@ -9,9 +9,10 @@ import { CATEGORIAS_PARADA, type Alternativa, type Dia, type Franja, type Parada
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
 import { resolverPlan } from "@/lib/lugares/resolverPlan";
+import { resolverCiudadEfectiva } from "@/lib/lugares/ciudad";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
 import { resolverFotosPlan } from "@/lib/lugares/resolverFotos";
-import type { FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
+import type { FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import { crearFuenteCercanosAbierta, type FuenteCercanos } from "@/lib/alternativas/cercanos";
 import { resolverAlternativasPlan } from "@/lib/alternativas/resolverAlternativas";
 import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
@@ -185,6 +186,17 @@ function ensamblarRecomendacion(recomendacionCruda: Record<string, unknown> | nu
   };
 }
 
+// ciu-ac1/ciu-ac7: duck-typing deliberado -- la fuente inyectable
+// (fuenteLugares) sigue siendo FuenteLugares para no obligar a los dobles
+// ad-hoc de otros bloques (p. ej. barrido.integration.test.ts) a
+// implementar buscarLibre/geocodificarCiudad. Un doble que no los tiene
+// simplemente no pasa por la resolución de ciudad -- comportamiento
+// idéntico al de antes de este bloque.
+function tieneFuenteCiudad(fuente: FuenteLugares): fuente is FuenteLugares & FuenteCiudad {
+  const candidata = fuente as Partial<FuenteCiudad>;
+  return typeof candidata.buscarLibre === "function" && typeof candidata.geocodificarCiudad === "function";
+}
+
 async function publicarEtapa(supabase: SupabaseClient, trabajoId: string, etapa: string): Promise<void> {
   await supabase.from("trabajos").update({ etapa, actualizado_en: new Date().toISOString() }).eq("id", trabajoId);
 }
@@ -276,13 +288,30 @@ export async function procesarTrabajo(
   // obedeció el tope y la exclusión de categorías pedidos en el prompt.
   const { plan: planPostProcesado } = postProcesarPlan(intento.plan, trabajo.criterios);
 
-  await publicarEtapa(supabase, trabajo.id, "ubicando las paradas");
   // lug-ac1: resolución real contra las fuentes abiertas (Nominatim +
   // respaldo Wikipedia), con caché y límite de ritmo en cacheSitios.ts y
   // limitador.ts. Una parada que no resuelve nunca hace fallar el trabajo
   // -resolverPlan la deja con resolucion.estado y el plan se guarda igual.
   const fuente = fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
-  const planConLugares = await resolverPlan(fuente, planPostProcesado);
+
+  // ciu-ac1/ciu-ac5: la ciudad efectiva se resuelve ANTES de las paradas --
+  // un destino descriptivo ("Londres en familia con niños") nunca
+  // geocodifica por sí mismo, así que sin esto resolverPlan no tenía
+  // ninguna caja contra la que buscar y ninguna parada resolvía nunca.
+  // resolverCiudadEfectiva devuelve null solo ante un fallo de RED (no una
+  // conclusión negativa): en ese caso el plan se guarda sin ciudad, para
+  // reintentarlo más tarde, en vez de marcarlo "sin ciudad identificable".
+  let ciudad: Awaited<ReturnType<typeof resolverCiudadEfectiva>> | undefined;
+  if (tieneFuenteCiudad(fuente)) {
+    await publicarEtapa(supabase, trabajo.id, "identificando la ciudad");
+    const nombresParadas = planPostProcesado.dias.flatMap((dia) => dia.paradas.map((parada) => parada.nombre));
+    ciudad = (await resolverCiudadEfectiva(fuente, planPostProcesado.destino, nombresParadas)) ?? undefined;
+  }
+  const planConCiudad: Plan = ciudad ? { ...planPostProcesado, ciudad } : planPostProcesado;
+  const cualificadorCiudad = ciudad?.estado === "resuelta" && ciudad.nombre && ciudad.caja ? { nombre: ciudad.nombre, caja: ciudad.caja } : undefined;
+
+  await publicarEtapa(supabase, trabajo.id, "ubicando las paradas");
+  const planConLugares = await resolverPlan(fuente, planConCiudad, cualificadorCiudad);
 
   // fot-ac1: fotos de las paradas ya resueltas, en el mismo paso visible
   // "ubicando las paradas" -- no se anuncia una etapa nueva para no
@@ -297,7 +326,7 @@ export async function procesarTrabajo(
   // en memoria se evaporaba en cada tick del trabajador (un proceso nuevo
   // por tick), así que nunca evitaba una segunda petición real a Overpass.
   const cercanos = fuenteCercanos ?? crearFuenteCercanosAbierta({ cache: cacheSitiosSupabase(supabase) });
-  const planFinal = await resolverAlternativasPlan(fuente, cercanos, planConFotos, trabajo.criterios.perfil);
+  const planFinal = await resolverAlternativasPlan(fuente, cercanos, planConFotos, trabajo.criterios.perfil, cualificadorCiudad);
 
   await publicarEtapa(supabase, trabajo.id, "guardando");
   await guardarPlan(supabase, planFinal);

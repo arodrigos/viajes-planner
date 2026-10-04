@@ -4,18 +4,29 @@ import { elegirMejorCandidato } from "./aceptacion";
 import { limpiarNombreBusqueda } from "./normalizar";
 import type { CajaDelimitadora, CandidatoLugar, FuenteLugares } from "./tipos";
 
+// ciu-ac3: la ciudad efectiva del plan, cuando ya se resolvió -- sustituye
+// a plan.destino como cualificador geográfico Y como fuente de la caja.
+// Un destino descriptivo ("Londres en familia con niños") nunca geocodifica
+// por sí mismo; usar su propia caja aquí era justo el motivo por el que
+// las paradas de esos planes nunca resolvían nada.
+export interface CualificadorCiudad {
+  nombre: string;
+  caja: CajaDelimitadora;
+}
+
 // lug-ac1: resuelve cada parada del plan contra la fuente de lugares.
 // Nunca hace fallar el plan -- una parada que no resuelve se queda sin
 // coordenadas, con resolucion.estado y un motivo, y el plan se guarda
 // igual. El orden de intento es Nominatim primero, Wikipedia como
 // respaldo solo si Nominatim no dio ningún candidato aceptable.
-export async function resolverPlan(fuente: FuenteLugares, plan: Plan): Promise<Plan> {
-  const bbox = await fuente.geocodificarDestino(plan.destino);
+export async function resolverPlan(fuente: FuenteLugares, plan: Plan, ciudad?: CualificadorCiudad): Promise<Plan> {
+  const bbox = ciudad?.caja ?? (await fuente.geocodificarDestino(plan.destino));
+  const cualificador = ciudad?.nombre ?? plan.destino;
 
   const dias = await Promise.all(
     plan.dias.map(async (dia) => ({
       ...dia,
-      paradas: await Promise.all(dia.paradas.map((parada) => resolverParada(fuente, parada, plan.destino, bbox))),
+      paradas: await Promise.all(dia.paradas.map((parada) => resolverParada(fuente, parada, cualificador, bbox))),
     })),
   );
 
