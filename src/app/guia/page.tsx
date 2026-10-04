@@ -46,6 +46,15 @@ export default function GuiaPage() {
           -mañana, comida, tarde, noche- con las paradas agrupadas dentro de cada franja.
         </li>
         <li>
+          Cada parada localizada en OpenStreetMap o Wikipedia aparece como «comprobada», con acceso directo a esa
+          fuente; si no se ha podido localizar, dice «Sin comprobar».
+        </li>
+        <li>
+          Con alguna parada comprobada, aparece un mapa con un marcador numerado por parada y el recorrido entre
+          ellas (teselas de OpenStreetMap vía OpenFreeMap); si no carga, la lista sigue intacta y «Abrir el
+          recorrido en Google Maps» sigue funcionando.
+        </li>
+        <li>
           Junto al itinerario hay recomendaciones de sitios de comida y de recintos cercanos: cada una abre una
           búsqueda de ese sitio en el mapa, nunca una reserva ni un listado verificado.
         </li>

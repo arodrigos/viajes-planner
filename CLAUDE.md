@@ -4,7 +4,7 @@
 
 Planificador/optimizador de viajes turísticos. Producto **personal y
 familiar, sin monetización** — es la condición de la que dependen a la vez
-Vercel Hobby, MapTiler Free y la reutilización de contenido con licencia
+Vercel Hobby, OpenFreeMap y la reutilización de contenido con licencia
 compartir igual. No se rompe nunca sin decisión explícita de Adrián.
 
 ## Arquitectura (resumen; el diseño completo vive en el pipeline horizontal)
@@ -32,3 +32,8 @@ facturada por token.
 - El campo `commit` de `/api/salud` sale de `VERCEL_GIT_COMMIT_SHA` (o
   `COMMIT_SHA` como equivalente fuera de Vercel), nunca de invocar `git` en
   tiempo de ejecución: en producción no hay `.git` disponible.
+- Mapa, resolución de lugares y fotos usan EXCLUSIVAMENTE los cuatro
+  servicios abiertos sin cuenta aprobados por Adrián (OpenFreeMap,
+  Nominatim, Wikipedia/Wikimedia Commons, Overpass API): nunca Google Maps
+  Platform ni ningún otro proveedor de mapas o lugares. Detalle en
+  `docs/fuentes-de-datos.md`.

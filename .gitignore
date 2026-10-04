@@ -43,3 +43,11 @@ next-env.d.ts
 test-results/
 playwright-report/
 artefactos/
+
+# map-ac1: el worker de maplibre-gl se copia aquí en cada `npm install`
+# (scripts/copiar-worker-maplibre.mjs) porque Turbopack no emite su fichero
+# hermano maplibre-gl-shared.mjs junto al worker con `new URL(...)` -el
+# propio documento de MapLibre lo marca como excepción de Next.js. Generado,
+# no se versiona: viaja con la versión instalada de maplibre-gl, nunca
+# suelto en el repo para no quedarse desincronizado tras un bump.
+/public/maplibre/
