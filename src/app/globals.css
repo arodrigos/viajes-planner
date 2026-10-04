@@ -440,3 +440,50 @@ footer a,
     padding: var(--espacio-6) var(--espacio-8);
   }
 }
+
+/* map-ac1/ac2: contenedor del mapa del día (bloque mapa-del-dia). El ancho
+   100% evita el desbordamiento horizontal a 393/320px que vigilan los e2e
+   de visual.movil.e2e.ts sobre toda la página del plan. */
+.contenedor-mapa-dia {
+  width: 100%;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--borde);
+}
+
+.seccion-mapa-dia {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-2);
+  margin-bottom: var(--espacio-3);
+}
+
+.mapa-no-disponible,
+.mapa-sin-paradas {
+  font-size: var(--texto-pequeno);
+  opacity: 0.8;
+  font-style: italic;
+}
+
+/* map-ac2: 44px de diámetro -mismo objetivo táctil que el resto de
+   controles, pese a estar dentro de un mapa WebGL ajeno al flujo normal
+   del documento-, con el número siempre legible sobre el color de fondo. */
+.marcador-parada {
+  min-height: var(--objetivo-tactil);
+  min-width: var(--objetivo-tactil);
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  background: var(--foco);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.marcador-parada[aria-pressed="true"] {
+  background: var(--foreground);
+}
+
+.enlaces-recorrido a {
+  font-size: var(--texto-pequeno);
+}

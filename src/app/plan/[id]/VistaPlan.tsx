@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
 import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
+import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
+import type { PuntoMapaDia } from "./MapaDia";
 import { IconoFranja } from "./iconosFranja";
 import { IconoRecomendacion } from "./iconosRecomendacion";
+
+// map-ac1: carga dinámica sin SSR -maplibre-gl exige `window` y no se
+// puede renderizar en el servidor (guía SSR de @vis.gl/react-maplibre).
+const MapaDia = dynamic(() => import("./MapaDia").then((m) => m.MapaDia), { ssr: false });
 
 interface FranjaPublica {
   id: string;
@@ -21,6 +28,7 @@ interface ParadaPublica {
   nombre: string;
   descripcion: string;
   procedencia: ProcedenciaPublica;
+  coordenadas?: { lat: number; lon: number };
 }
 
 interface DiaPublico {
@@ -56,6 +64,127 @@ const AVISO_FIJO =
 // sugeriría una garantía que la herramienta no da.
 const AVISO_RECOMENDACIONES =
   "Cada enlace abre una búsqueda en un mapa, no una reserva ni un listado verificado.";
+
+// map-ac1: numera en el orden real de las franjas del día (mañana antes
+// que comida antes que tarde...), no en el orden en que llegaron del
+// servidor; solo las paradas resueltas (con coordenadas) entran en el
+// mapa y en el enlace de recorrido.
+function puntosDelDia(dia: DiaPublico): PuntoMapaDia[] {
+  const puntos: PuntoMapaDia[] = [];
+  let orden = 0;
+  for (const franja of dia.franjas) {
+    for (const parada of dia.paradas.filter((p) => p.franja_id === franja.id)) {
+      if (!parada.coordenadas) continue;
+      orden += 1;
+      puntos.push({ id: parada.id, orden, nombre: parada.nombre, lat: parada.coordenadas.lat, lon: parada.coordenadas.lon });
+    }
+  }
+  return puntos;
+}
+
+// map-ac1..ac5: un día entero (cabecera, mapa y lista de franjas/paradas)
+// vive en su propio componente para que el estado de "qué marcador está
+// activo" y las referencias a las tarjetas sean propios de ESTE día, sin
+// mezclarse con los de otro día del mismo plan.
+function SeccionDia({ dia }: { dia: DiaPublico }) {
+  const tieneAlgunaParada = dia.paradas.length > 0;
+  const puntos = puntosDelDia(dia);
+  const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
+  const refsTarjetas = useRef(new Map<string, HTMLLIElement>());
+
+  function seleccionarParada(paradaId: string) {
+    setParadaActivaId(paradaId);
+    refsTarjetas.current.get(paradaId)?.scrollIntoView({ block: "nearest" });
+  }
+
+  const tramos = puntos.length > 0 ? urlRecorridoDia(puntos.map((p) => ({ lat: p.lat, lon: p.lon }))) : [];
+
+  return (
+    <section aria-label={`Día ${dia.fecha}`} className="seccion-dia">
+      <h2>{dia.fecha}</h2>
+      {!tieneAlgunaParada && <p className="dia-sin-paradas">Todavía no hay paradas planificadas para este día.</p>}
+
+      {tieneAlgunaParada &&
+        (puntos.length === 0 ? (
+          // map-ac5: un día sin ninguna parada resuelta no tiene mapa, y se
+          // explica por qué en vez de dejar un hueco mudo.
+          <p className="mapa-sin-paradas">Sin mapa: ninguna parada de este día se ha podido ubicar todavía.</p>
+        ) : (
+          <div className="seccion-mapa-dia">
+            <MapaDia puntos={puntos} paradaActivaId={paradaActivaId} onSeleccionarParada={seleccionarParada} />
+            <ul className="pila enlaces-recorrido">
+              {tramos.map((tramo) => (
+                <li key={tramo.href}>
+                  <a href={tramo.href} target="_blank" rel="noopener noreferrer">
+                    {tramo.etiqueta}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
+      <div className="tramo-dia">
+        {dia.franjas.map((franja) => {
+          const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
+          if (paradasDeLaFranja.length === 0) return null;
+          return (
+            <div key={franja.id} className="seccion-franja">
+              <div
+                className="cabecera-franja"
+                style={{
+                  background: `var(--franja-${franja.id}-fondo, var(--superficie))`,
+                  color: `var(--franja-${franja.id}-texto, var(--foreground))`,
+                }}
+              >
+                <IconoFranja franjaId={franja.id} />
+                {/* maq-ac2: la etiqueta va SIEMPRE en texto -el icono y
+                    el color de fondo son un refuerzo visual, nunca el
+                    único portador de la información. */}
+                <h3>{franja.etiqueta}</h3>
+              </div>
+              <ul className="pila">
+                {paradasDeLaFranja.map((parada) => (
+                  <li
+                    key={parada.id}
+                    ref={(elemento) => {
+                      if (elemento) refsTarjetas.current.set(parada.id, elemento);
+                      else refsTarjetas.current.delete(parada.id);
+                    }}
+                    className="tarjeta-parada"
+                    // map-ac2: tocar el marcador correspondiente en el mapa
+                    // marca esta tarjeta con aria-current (la anterior lo
+                    // pierde) y la desplaza a la vista.
+                    aria-current={parada.id === paradaActivaId ? "true" : undefined}
+                  >
+                    <IconoFranja franjaId={franja.id} />
+                    <div>
+                      <strong>{parada.nombre}</strong>
+                      <p>{parada.descripcion}</p>
+                      {parada.procedencia.fuente === "propuesto-sin-verificar" ? (
+                        <p className="procedencia-parada">
+                          Sin comprobar. No hemos podido localizar este sitio en los mapas abiertos: comprueba el
+                          nombre y la dirección antes de ir.
+                        </p>
+                      ) : (
+                        <p className="procedencia-parada">
+                          Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}{" "}
+                          <a href={parada.procedencia.url} target="_blank" rel="noopener noreferrer">
+                            ↗
+                          </a>
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 export function VistaPlan({ id }: { id: string }) {
   const [plan, setPlan] = useState<PlanPublico | null>(null);
@@ -113,67 +242,9 @@ export function VistaPlan({ id }: { id: string }) {
         <p key={aviso}>{aviso}</p>
       ))}
 
-      {plan?.dias.map((dia) => {
-        // maq-ac5: un día sin ninguna parada en ninguna franja no se queda
-        // mudo -el hueco se explica, en vez de una sección vacía que parece
-        // un error de carga.
-        const tieneAlgunaParada = dia.paradas.length > 0;
-        return (
-          <section key={dia.fecha} aria-label={`Día ${dia.fecha}`} className="seccion-dia">
-            <h2>{dia.fecha}</h2>
-            {!tieneAlgunaParada && (
-              <p className="dia-sin-paradas">Todavía no hay paradas planificadas para este día.</p>
-            )}
-            <div className="tramo-dia">
-              {dia.franjas.map((franja) => {
-                const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
-                if (paradasDeLaFranja.length === 0) return null;
-                return (
-                  <div key={franja.id} className="seccion-franja">
-                    <div
-                      className="cabecera-franja"
-                      style={{
-                        background: `var(--franja-${franja.id}-fondo, var(--superficie))`,
-                        color: `var(--franja-${franja.id}-texto, var(--foreground))`,
-                      }}
-                    >
-                      <IconoFranja franjaId={franja.id} />
-                      {/* maq-ac2: la etiqueta va SIEMPRE en texto -el icono y
-                          el color de fondo son un refuerzo visual, nunca el
-                          único portador de la información. */}
-                      <h3>{franja.etiqueta}</h3>
-                    </div>
-                    <ul className="pila">
-                      {paradasDeLaFranja.map((parada) => (
-                        <li key={parada.id} className="tarjeta-parada">
-                          <IconoFranja franjaId={franja.id} />
-                          <div>
-                            <strong>{parada.nombre}</strong>
-                            <p>{parada.descripcion}</p>
-                            {parada.procedencia.fuente === "propuesto-sin-verificar" ? (
-                              <p className="procedencia-parada">
-                                Sin comprobar. No hemos podido localizar este sitio en los mapas abiertos: comprueba el
-                                nombre y la dirección antes de ir.
-                              </p>
-                            ) : (
-                              <p className="procedencia-parada">
-                                Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}{" "}
-                                <a href={parada.procedencia.url} target="_blank" rel="noopener noreferrer">
-                                  ↗
-                                </a>
-                              </p>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
+      {plan?.dias.map((dia) => (
+        <SeccionDia key={dia.fecha} dia={dia} />
+      ))}
 
       {plan && (
         <section aria-label="Recomendaciones" className="seccion-recomendaciones">

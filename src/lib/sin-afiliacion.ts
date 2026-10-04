@@ -1,7 +1,7 @@
 // Regla de encuadre (manifiesto: uso personal y familiar, sin monetización):
 // ninguna URL de salida lleva parámetros de afiliación y no se sirve ningún
 // script de red publicitaria. Es la única condición de la que dependen a la
-// vez Vercel Hobby, MapTiler Free y la reutilización del contenido con
+// vez Vercel Hobby, OpenFreeMap y la reutilización del contenido con
 // licencia compartir igual, así que se comprueba en cada push desde este
 // bloque y sobre el HTML ya renderizado, no solo sobre el código fuente.
 const PARAMETROS_AFILIACION = /[?&](tag|aid|ref|affiliate|partner_?id)=/i;
