@@ -2,10 +2,15 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
 import { resolverFoto } from "@/lib/lugares/resolverFotos";
-import type { CajaDelimitadora, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
+import { resolverCiudadEfectiva, type CiudadEfectiva } from "@/lib/lugares/ciudad";
+import { relojReal, type Reloj } from "@/lib/lugares/limitador";
+import type { CajaDelimitadora, FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
 
-export const LIMITE_BARRIDO_DEFECTO = 40;
+// bar-ac3: 120 paradas o 180 s de reloj (lo que ocurra primero), para vaciar
+// las 467 pendientes en ~4 ticks sin solaparse con el cron de 5 min.
+export const LIMITE_BARRIDO_DEFECTO = 120;
+export const PRESUPUESTO_BARRIDO_MS_DEFECTO = 180_000;
 const DIAS_CADUCIDAD_NO_RESUELTA = 30;
 
 export interface CandidatoPendiente {
@@ -17,6 +22,9 @@ export interface CandidatoPendiente {
 // -- así "hoy" o "en curso" gana siempre, y un viaje lejano en el futuro
 // pierde contra uno ya pasado exactamente igual que contra uno próximo,
 // que es lo que pide el criterio ("lejanos O pasados" al mismo nivel).
+// bar-ac1: ahora compara paradas de planes DISTINTOS, no solo de un mismo
+// plan -- el criterio "por cercanía... ahora también entre planes" es
+// automático porque el array de entrada ya mezcla todos los planes.
 export function seleccionarPendientes<T extends CandidatoPendiente>(
   candidatos: T[],
   limite: number,
@@ -28,6 +36,25 @@ export function seleccionarPendientes<T extends CandidatoPendiente>(
     .slice(0, limite);
 }
 
+// bar-ac3: separado de la obtención de datos para que el tope y el
+// presupuesto se puedan probar con `npm test` (reloj falso, sin tocar
+// Supabase) en vez de depender de la pila de integración.
+export async function procesarDentroDePresupuesto<T>(
+  seleccionados: T[],
+  presupuestoMs: number,
+  reloj: Reloj,
+  ejecutar: (candidato: T) => Promise<void>,
+): Promise<number> {
+  const inicio = reloj.ahora();
+  let procesados = 0;
+  for (const candidato of seleccionados) {
+    if (reloj.ahora() - inicio >= presupuestoMs) break;
+    await ejecutar(candidato);
+    procesados++;
+  }
+  return procesados;
+}
+
 interface FilaParada {
   id: string;
   nombre: string;
@@ -37,9 +64,17 @@ interface FilaParada {
   resolucion: { estado: "resuelta" | "no-resuelta" | "error"; intentado_en: string } | null;
 }
 
-interface VersionConDestino {
+interface FilaPlanRelacionado {
   id: string;
   destino: string;
+  ciudad: CiudadEfectiva | null;
+}
+
+interface VersionDePlan {
+  id: string;
+  planId: string;
+  destino: string;
+  ciudad: CiudadEfectiva | null;
   dias: Array<{ fecha: string }>;
 }
 
@@ -50,51 +85,94 @@ function estaPendiente(resolucion: FilaParada["resolucion"], cutoffIso: string):
   return false;
 }
 
-// rel-ac1/rel-ac2: cumple la decisión de Adrián sobre los viajes ya
-// guardados -- coordenadas (y, cuando exista fotos-paradas, fotos) sin
-// invocar al modelo y sin regenerar el plan. Reutiliza el mismo módulo de
-// resolución y el mismo ritmo que la generación (la caché y el limitador
-// viven dentro de `fuente`); un fallo en una parada concreta queda en
-// `resolucion.estado='error'` y nunca interrumpe el barrido ni el tick.
+interface CandidatoBarrido extends CandidatoPendiente {
+  nombre: string;
+  categoria: CategoriaParada | undefined;
+  cualificador: string;
+  bbox: CajaDelimitadora;
+}
+
+// bar-ac1: la puerta de la ciudad para un plan concreto -- devuelve el
+// cualificador/caja a usar para sus paradas pendientes, o null si el plan
+// se tiene que saltar este tick (sin ciudad identificable, o un fallo de
+// red al intentar resolverla/geocodificarla, que se reintenta en el
+// siguiente tick en vez de abortar el barrido entero).
+export async function resolverPuertaDeCiudad(
+  supabase: SupabaseClient,
+  fuente: FuenteLugares & FuenteCiudad,
+  version: VersionDePlan,
+  nombresTodasLasParadas: string[],
+): Promise<{ nombre: string; caja: CajaDelimitadora } | null> {
+  let ciudad = version.ciudad;
+
+  if (ciudad === null) {
+    const resultado = await resolverCiudadEfectiva(fuente, version.destino, nombresTodasLasParadas);
+    if (resultado === null) return null; // fallo de red: se reintenta en el siguiente tick
+    ciudad = resultado;
+    await supabase.from("planes").update({ ciudad }).eq("id", version.planId);
+  } else if (ciudad.estado === "pendiente-manual") {
+    const nombrePedido = ciudad.nombre_pedido ?? "";
+    const caja = nombrePedido ? await fuente.geocodificarCiudad(nombrePedido) : null;
+    const ahora = new Date().toISOString();
+    ciudad = caja
+      ? { estado: "resuelta", metodo: "manual", nombre: nombrePedido, caja, intentado_en: ahora }
+      : {
+          estado: "sin-ciudad-identificable",
+          motivo: `No hemos encontrado «${nombrePedido}» en el mapa: comprueba el nombre`,
+          intentado_en: ahora,
+        };
+    await supabase.from("planes").update({ ciudad }).eq("id", version.planId);
+  }
+
+  if (ciudad.estado === "resuelta" && ciudad.nombre && ciudad.caja) {
+    return { nombre: ciudad.nombre, caja: ciudad.caja };
+  }
+  // bar-ac2: "sin-ciudad-identificable" (o un "resuelta" sin caja, que no
+  // debería darse) no produce ninguna petición para sus paradas.
+  return null;
+}
+
+// rel-ac1/rel-ac2/bar-ac1: cumple la decisión de Adrián -- coordenadas (y
+// fotos) de TODOS los planes con al menos una versión, tengan o no trabajo
+// vivo, sin invocar al modelo y sin regenerar el plan. ciu-ac1/ciu-ac3: el
+// cualificador geográfico y la caja de cada parada vienen de la ciudad
+// efectiva del plan, nunca del texto crudo de `destino`.
 export async function completarParadasPendientes(
   supabase: SupabaseClient,
-  fuente: FuenteLugares,
+  fuente: FuenteLugares & FuenteCiudad,
   limite: number = LIMITE_BARRIDO_DEFECTO,
   fuenteFotos?: FuenteFotos,
+  reloj: Reloj = relojReal,
+  presupuestoMs: number = PRESUPUESTO_BARRIDO_MS_DEFECTO,
 ): Promise<number> {
-  const { data: trabajosVivos, error: errorTrabajos } = await supabase
-    .from("trabajos")
-    .select("plan_id")
-    .is("eliminado_en", null)
-    .not("plan_id", "is", null);
-  if (errorTrabajos) throw new Error(`No se pudo leer los planes vivos: ${errorTrabajos.message}`);
-  const planIdsVivos = [...new Set((trabajosVivos ?? []).map((fila) => fila.plan_id as string))];
-  if (planIdsVivos.length === 0) return 0;
-
+  // bar-ac1: el alcance ya no parte de `trabajos` -- parte de TODO plan con
+  // al menos una versión, viva o no. Un plan sin ninguna fila en
+  // `plan_versiones` (el caso "Oporto") simplemente no aparece aquí.
   const { data: versiones, error: errorVersiones } = await supabase
     .from("plan_versiones")
-    .select("id, plan_id, dias, planes(destino)")
-    .in("plan_id", planIdsVivos)
+    .select("id, plan_id, version, dias, planes(id, destino, ciudad)")
     .order("version", { ascending: false });
   if (errorVersiones) throw new Error(`No se pudieron leer las versiones: ${errorVersiones.message}`);
 
   // Solo la ÚLTIMA versión de cada plan (la primera que aparece tras
   // ordenar por version descendente): las versiones anteriores quedan
   // congeladas en el historial y no necesitan barrido.
-  const ultimaVersionPorPlan = new Map<string, VersionConDestino>();
+  const ultimaVersionPorPlan = new Map<string, VersionDePlan>();
   for (const fila of versiones ?? []) {
     const planId = fila.plan_id as string;
     if (ultimaVersionPorPlan.has(planId)) continue;
-    const planesRelacionados = fila.planes as { destino: string } | { destino: string }[] | null;
-    const destino = Array.isArray(planesRelacionados) ? planesRelacionados[0]?.destino : planesRelacionados?.destino;
-    if (!destino) continue;
+    const planesRelacionados = fila.planes as FilaPlanRelacionado | FilaPlanRelacionado[] | null;
+    const plan = Array.isArray(planesRelacionados) ? planesRelacionados[0] : planesRelacionados;
+    if (!plan?.destino) continue;
     ultimaVersionPorPlan.set(planId, {
       id: fila.id as string,
-      destino,
+      planId,
+      destino: plan.destino,
+      ciudad: plan.ciudad ?? null,
       dias: fila.dias as Array<{ fecha: string }>,
     });
   }
-  const versionPorId = new Map<string, VersionConDestino>();
+  const versionPorId = new Map<string, VersionDePlan>();
   for (const version of ultimaVersionPorPlan.values()) versionPorId.set(version.id, version);
   const versionIds = [...versionPorId.keys()];
   if (versionIds.length === 0) return 0;
@@ -107,33 +185,48 @@ export async function completarParadasPendientes(
 
   const cutoffIso = new Date(Date.now() - DIAS_CADUCIDAD_NO_RESUELTA * 24 * 60 * 60 * 1000).toISOString();
 
-  const candidatos = (paradas as FilaParada[] | null ?? [])
-    .filter((fila) => estaPendiente(fila.resolucion, cutoffIso))
-    .map((fila) => {
-      const version = versionPorId.get(fila.plan_version_id);
-      return {
-        paradaId: fila.id,
-        nombre: fila.nombre,
-        categoria: fila.categoria ?? undefined,
-        destino: version?.destino ?? "",
-        // Sin día reconocible (no debería pasar: dia_index siempre viene de
-        // un plan guardado con tantos días como el jsonb de su versión),
-        // una fecha muy lejana la manda al final en vez de reventar.
-        fecha: version?.dias[fila.dia_index]?.fecha ?? "9999-12-31",
-      };
-    })
-    .filter((candidato) => candidato.destino !== "");
+  const nombresPorVersion = new Map<string, string[]>();
+  const pendientesPorVersion = new Map<string, FilaParada[]>();
+  for (const fila of (paradas as FilaParada[] | null) ?? []) {
+    const nombres = nombresPorVersion.get(fila.plan_version_id) ?? [];
+    nombres.push(fila.nombre);
+    nombresPorVersion.set(fila.plan_version_id, nombres);
+
+    if (!estaPendiente(fila.resolucion, cutoffIso)) continue;
+    const pendientes = pendientesPorVersion.get(fila.plan_version_id) ?? [];
+    pendientes.push(fila);
+    pendientesPorVersion.set(fila.plan_version_id, pendientes);
+  }
+
+  // bar-ac1/ciu-ac1: la puerta de la ciudad solo se cruza para los planes
+  // que de verdad tienen algo pendiente -- un plan ya resuelto del todo no
+  // gasta ni una petición de ciudad, la tenga o no ya persistida.
+  const candidatos: CandidatoBarrido[] = [];
+  for (const [versionId, pendientes] of pendientesPorVersion) {
+    if (pendientes.length === 0) continue;
+    const version = versionPorId.get(versionId);
+    if (!version) continue;
+
+    const cualificador = await resolverPuertaDeCiudad(supabase, fuente, version, nombresPorVersion.get(versionId) ?? []);
+    if (!cualificador) continue;
+
+    for (const parada of pendientes) {
+      candidatos.push({
+        paradaId: parada.id,
+        nombre: parada.nombre,
+        categoria: parada.categoria ?? undefined,
+        cualificador: cualificador.nombre,
+        bbox: cualificador.caja,
+        fecha: version.dias[parada.dia_index]?.fecha ?? "9999-12-31",
+      });
+    }
+  }
 
   const seleccionados = seleccionarPendientes(candidatos, limite);
-  const bboxPorDestino = new Map<string, CajaDelimitadora | null>();
 
-  for (const candidato of seleccionados) {
+  const procesados = await procesarDentroDePresupuesto(seleccionados, presupuestoMs, reloj, async (candidato) => {
     try {
-      if (!bboxPorDestino.has(candidato.destino)) {
-        bboxPorDestino.set(candidato.destino, await fuente.geocodificarDestino(candidato.destino));
-      }
-      const bbox = bboxPorDestino.get(candidato.destino) ?? null;
-      const resultado = await resolverNombre(fuente, candidato.nombre, candidato.categoria, candidato.destino, bbox);
+      const resultado = await resolverNombre(fuente, candidato.nombre, candidato.categoria, candidato.cualificador, candidato.bbox);
       const { error: errorUpdate } = await supabase
         .from("paradas")
         .update({
@@ -156,13 +249,14 @@ export async function completarParadasPendientes(
         })
         .eq("id", candidato.paradaId);
     }
-  }
+  });
 
   // fot-ac4: segundo barrido, después del de ubicación y dentro del mismo
   // tope -- paradas YA resueltas (de este barrido o de uno anterior, o de
   // una generación reciente) que todavía no tienen foto ni se han
   // intentado. Un fallo en una foto concreta nunca tumba el tick: deja
   // constancia del intento (foto_intentada_en) y sigue con la siguiente.
+  // bar-ac1: `versionIds` ya cubre TODOS los planes con versión, vivos o no.
   if (fuenteFotos) {
     const { data: paradasSinFoto, error: errorFotos } = await supabase
       .from("paradas")
@@ -191,5 +285,5 @@ export async function completarParadasPendientes(
     }
   }
 
-  return seleccionados.length;
+  return procesados;
 }

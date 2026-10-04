@@ -28,6 +28,12 @@ export interface CiudadEfectiva {
   motivo_destino_descartado?: string;
   candidatos?: CandidatoCiudad[];
   intentado_en: string;
+  // bar-ac2/ciudad-a-mano: lo que Adrián escribió a mano cuando el estado es
+  // "pendiente-manual" -- el barrido lo geocodifica en el siguiente tick
+  // (bloque barrido-todos-los-planes); el endpoint que lo escribe es de un
+  // bloque posterior, pero el campo tiene que existir ya para que el
+  // barrido sepa qué texto pedirle a Nominatim.
+  nombre_pedido?: string;
 }
 
 const TAMANO_MUESTRA_DESTINO = 5;

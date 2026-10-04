@@ -10,7 +10,7 @@ import { procesarTrabajo } from "./procesarTrabajo";
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
-import type { FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
+import type { FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 
 export interface ResultadoTick {
   cerrojoAdquirido: boolean;
@@ -23,7 +23,10 @@ export interface OpcionesTick {
   tomadoPor?: string;
   esperaOciosaMs?: number;
   intervaloOciosoMs?: number;
-  fuenteLugares?: FuenteLugares;
+  // bar-ac1: completarParadasPendientes exige FuenteCiudad (la puerta de la
+  // ciudad es obligatoria, no opcional) -- crearFuenteAbierta ya la
+  // implementa, así que esto solo endurece el tipo de lo que ya se pasaba.
+  fuenteLugares?: FuenteLugares & FuenteCiudad;
   fuenteFotos?: FuenteFotos;
 }
 
