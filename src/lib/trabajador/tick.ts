@@ -2,7 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tomarSiguienteTrabajo } from "@/lib/cola/tomar";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
-import { completarParadasPendientes, LIMITE_BARRIDO_DEFECTO } from "./barrido";
+import { completarParadasPendientes, LIMITE_BARRIDO_DEFECTO, PRESUPUESTO_BARRIDO_MS_DEFECTO } from "./barrido";
+import { relojReal } from "@/lib/lugares/limitador";
 import { adquirirCerrojo, liberarCerrojo } from "./cerrojo";
 import { ESPERA_OCIOSA_MS, INTERVALO_REINTENTO_OCIOSO_MS } from "./config";
 import type { EjecutorModelo } from "./ejecutorModelo";
@@ -10,6 +11,7 @@ import { procesarTrabajo } from "./procesarTrabajo";
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
+import { crearFuenteCercanosAbierta, type FuenteCercanos } from "@/lib/alternativas/cercanos";
 import type { FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 
 export interface ResultadoTick {
@@ -28,6 +30,7 @@ export interface OpcionesTick {
   // implementa, así que esto solo endurece el tipo de lo que ya se pasaba.
   fuenteLugares?: FuenteLugares & FuenteCiudad;
   fuenteFotos?: FuenteFotos;
+  fuenteCercanos?: FuenteCercanos;
 }
 
 function esperar(ms: number): Promise<void> {
@@ -61,6 +64,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
 
   const fuenteLugares = opciones.fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
   const fuenteFotos = opciones.fuenteFotos ?? crearFuenteFotosAbierta();
+  const fuenteCercanos = opciones.fuenteCercanos ?? crearFuenteCercanosAbierta({ cache: cacheSitiosSupabase(supabase) });
   let trabajosProcesados = 0;
   try {
     let ociosoDesde: number | null = null;
@@ -80,7 +84,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
 
       if (!barridoHecho) {
         barridoHecho = true;
-        await completarParadasPendientes(supabase, fuenteLugares, LIMITE_BARRIDO_DEFECTO, fuenteFotos);
+        await completarParadasPendientes(supabase, fuenteLugares, LIMITE_BARRIDO_DEFECTO, fuenteFotos, relojReal, PRESUPUESTO_BARRIDO_MS_DEFECTO, fuenteCercanos);
       }
 
       if (trabajosProcesados === 0) break;
