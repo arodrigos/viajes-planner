@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
 import { resolverFoto } from "@/lib/lugares/resolverFotos";
-import { resolverCiudadEfectiva, type CiudadEfectiva } from "@/lib/lugares/ciudad";
+import { resolverCiudadEfectiva, VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { relojReal, type Reloj } from "@/lib/lugares/limitador";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
 import type { CajaDelimitadora, FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
@@ -120,7 +120,18 @@ export async function resolverPuertaDeCiudad(
 ): Promise<{ nombre: string; caja: CajaDelimitadora } | null> {
   let ciudad = version.ciudad;
 
-  if (ciudad === null) {
+  // bar-ac2/bar-ac4 (feedback del gatekeeper, 2026-10-04): un
+  // "sin-ciudad-identificable" sellado por una versión del resolutor
+  // ANTERIOR a la vigente es un veredicto de lógica ya corregida, no una
+  // conclusión sobre el plan -- se reintenta una vez, igual que un plan
+  // nuevo. El propio resolverCiudadEfectiva sella el resultado con la
+  // versión vigente, así que si vuelve a salir "sin-ciudad-identificable"
+  // ya no se reintenta más (ausencia de sello se trata como "anterior a
+  // cualquier versión", nunca como si ya estuviera al día).
+  const marcadoPorVersionAnterior =
+    ciudad?.estado === "sin-ciudad-identificable" && (ciudad.version_resolutor ?? 0) < VERSION_RESOLUTOR_ACTUAL;
+
+  if (ciudad === null || marcadoPorVersionAnterior) {
     const resultado = await resolverCiudadEfectiva(fuente, version.destino, nombresTodasLasParadas);
     if (resultado === null) return null; // fallo de red: se reintenta en el siguiente tick
     ciudad = resultado;
@@ -135,6 +146,7 @@ export async function resolverPuertaDeCiudad(
           estado: "sin-ciudad-identificable",
           motivo: `No hemos encontrado «${nombrePedido}» en el mapa: comprueba el nombre`,
           intentado_en: ahora,
+          version_resolutor: VERSION_RESOLUTOR_ACTUAL,
         };
     await supabase.from("planes").update({ ciudad }).eq("id", version.planId);
   }
