@@ -5,7 +5,7 @@
 // modelo desde aquí.
 import "server-only";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
-import { resolverNombre } from "@/lib/lugares/resolverPlan";
+import { resolverNombre, type CualificadorCiudad } from "@/lib/lugares/resolverPlan";
 import type { FuenteLugares } from "@/lib/lugares/tipos";
 import type { Alternativa, Parada, Plan } from "@/lib/plan/tipos";
 import { ETIQUETA_OSM_POR_CATEGORIA, type FuenteCercanos } from "./cercanos";
@@ -41,8 +41,10 @@ export async function resolverAlternativasPlan(
   fuenteCercanos: FuenteCercanos,
   plan: Plan,
   perfil: string,
+  ciudad?: CualificadorCiudad,
 ): Promise<Plan> {
-  const bbox = await fuenteLugares.geocodificarDestino(plan.destino);
+  const bbox = ciudad?.caja ?? (await fuenteLugares.geocodificarDestino(plan.destino));
+  const cualificador = ciudad?.nombre ?? plan.destino;
   const identidades = identidadesDelPlan(plan);
 
   const dias = await Promise.all(
@@ -50,7 +52,7 @@ export async function resolverAlternativasPlan(
       ...dia,
       paradas: await Promise.all(
         dia.paradas.map((parada) =>
-          resolverAlternativasParada(fuenteLugares, fuenteCercanos, parada, plan.destino, bbox, perfil, identidades),
+          resolverAlternativasParada(fuenteLugares, fuenteCercanos, parada, cualificador, bbox, perfil, identidades),
         ),
       ),
     })),

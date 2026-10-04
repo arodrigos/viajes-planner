@@ -70,8 +70,9 @@ describe("construirSalud", () => {
     expect(construirSalud()).not.toHaveProperty("fuentes");
   });
 
-  // sal-ac1/sal-ac3: la lista cerrada de claves de `relleno`, todas numéricas.
-  it("expone relleno con las diez claves cerradas cuando se pasa", () => {
+  // sal-ac1/sal-ac3/ciu-ac6: la lista cerrada de claves de `relleno`, todas
+  // numéricas -- doce desde que ciu-ac6 suma los dos contadores de ciudad.
+  it("expone relleno con las doce claves cerradas cuando se pasa", () => {
     const relleno = {
       paradas_total: 467,
       paradas_resueltas: 0,
@@ -83,6 +84,8 @@ describe("construirSalud", () => {
       planes_total: 6,
       planes_sin_version: 1,
       planes_sin_trabajo_vivo: 3,
+      planes_con_ciudad: 2,
+      planes_sin_ciudad_identificable: 1,
     };
     const salud = construirSalud({ relleno });
     expect(salud.relleno).toEqual(relleno);

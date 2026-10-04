@@ -22,6 +22,20 @@ export interface EtiquetasLugar {
 
 export type FuenteCandidato = "osm" | "wikipedia";
 
+// ciu-ac2: desglose de dirección de Nominatim (addressdetails=1), solo los
+// niveles que la votación por niveles de ciudad.ts necesita -- nunca se usa
+// para mostrar nada, solo para deducir la ciudad efectiva.
+export interface DireccionLugar {
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  state_district?: string;
+  county?: string;
+  state?: string;
+  region?: string;
+}
+
 export interface CandidatoLugar {
   fuente: FuenteCandidato;
   id: string;
@@ -33,6 +47,23 @@ export interface CandidatoLugar {
   categoriaOsm?: string;
   tipoOsm?: string;
   etiquetas: EtiquetasLugar;
+  direccion?: DireccionLugar;
+}
+
+// ciu-ac1/ciu-ac7: distingue un fallo de red genuino (reintentado y agotado)
+// de una respuesta negativa bien formada -- resolverCiudadEfectiva necesita
+// la diferencia para no confundir "Nominatim no contestó" con "no hay
+// ciudad", que son conclusiones completamente distintas sobre el plan.
+export class FalloRedCiudad extends Error {}
+
+// ciu-ac1/ciu-ac2/ciu-ac7: las dos operaciones nuevas que resolverCiudadEfectiva
+// necesita. Deliberadamente separada de FuenteLugares -- añadir estos dos
+// métodos a esa interfaz obligaría a todos los dobles de test existentes
+// (object literals en resolverAlternativas.test.ts, barrido.integration.test.ts)
+// a implementarlos aunque no tengan nada que ver con la ciudad del plan.
+export interface FuenteCiudad {
+  buscarLibre(nombre: string): Promise<CandidatoLugar[]>;
+  geocodificarCiudad(nombre: string): Promise<CajaDelimitadora | null>;
 }
 
 // La única forma en que resolverPlan habla con un proveedor de lugares.

@@ -34,6 +34,12 @@ export interface EstadoRelleno {
   planes_total: number;
   planes_sin_version: number;
   planes_sin_trabajo_vivo: number;
+  // ciu-ac6: cuántos planes ya tienen ciudad efectiva resuelta y cuántos
+  // se dieron por "sin ciudad identificable" -- la suma de los dos nunca
+  // supera planes_total (quedan planes.ciudad null por resolver o con
+  // fallo de red persistente).
+  planes_con_ciudad: number;
+  planes_sin_ciudad_identificable: number;
 }
 
 export interface RespuestaSalud {

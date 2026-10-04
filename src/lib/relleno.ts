@@ -37,6 +37,8 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     planesTotal,
     planesConVersion,
     planesConTrabajoVivo,
+    planesConCiudad,
+    planesSinCiudadIdentificable,
   ] = await Promise.all([
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true })),
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true }).eq("resolucion->>estado", "resuelta")),
@@ -57,6 +59,10 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
         .select("id, trabajos!inner(id)", { count: "exact", head: true })
         .is("trabajos.eliminado_en", null),
     ),
+    contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>estado", "resuelta")),
+    contar(() =>
+      supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>estado", "sin-ciudad-identificable"),
+    ),
   ]);
 
   return {
@@ -70,6 +76,8 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     planes_total: planesTotal,
     planes_sin_version: planesTotal - planesConVersion,
     planes_sin_trabajo_vivo: planesTotal - planesConTrabajoVivo,
+    planes_con_ciudad: planesConCiudad,
+    planes_sin_ciudad_identificable: planesSinCiudadIdentificable,
   };
 }
 

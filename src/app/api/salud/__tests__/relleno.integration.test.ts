@@ -70,25 +70,42 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     await supabase.from("planes").delete().like("id", `${PREFIJO}%`);
   });
 
-  it("cuadra el total, usa solo las diez claves numéricas, y no publica ningún dato personal", async () => {
-    // Plan 1: destino descriptivo real de Adrián, trabajo vivo, parada sin intentar.
+  it("cuadra el total, usa solo las doce claves numéricas, y no publica ningún dato personal", async () => {
+    // Plan 1: destino descriptivo real de Adrián, trabajo vivo, parada sin
+    // intentar, ciudad efectiva ya resuelta (ciu-ac6).
     const plan1: Plan = {
       id: `${PREFIJO}londres`,
       version: 1,
       destino: "Londres en familia con niños",
       personas: 4,
       dias: [diaConParadas(["British Museum"])],
+      ciudad: {
+        estado: "resuelta",
+        metodo: "paradas",
+        nombre: "Greater London",
+        nivel: "distrito",
+        apoyo: 8,
+        caja: { minLat: 51.28, maxLat: 51.69, minLon: -0.51, maxLon: 0.33 },
+        intentado_en: new Date().toISOString(),
+      },
     };
     await guardarPlan(supabase, plan1);
     await sembrarTrabajo(supabase, plan1.id, plan1.destino);
 
-    // Plan 2: destino sin ciudad, trabajo vivo, parada no-resuelta.
+    // Plan 2: destino sin ciudad, trabajo vivo, parada no-resuelta, ciudad
+    // efectiva "sin-ciudad-identificable" (ciu-ac6).
     const plan2: Plan = {
       id: `${PREFIJO}ciudad-con-ninos`,
       version: 1,
       destino: "Ciudad con niños",
       personas: 2,
       dias: [diaConParadas(["Parque infantil"])],
+      ciudad: {
+        estado: "sin-ciudad-identificable",
+        motivo: "no hay una ciudad clara (Madrid 2, Valencia 2, Barcelona 1)",
+        candidatos: [{ nombre: "Madrid", apoyo: 2 }, { nombre: "Valencia", apoyo: 2 }, { nombre: "Barcelona", apoyo: 1 }],
+        intentado_en: new Date().toISOString(),
+      },
     };
     await guardarPlan(supabase, plan2);
     await sembrarTrabajo(supabase, plan2.id, plan2.destino);
@@ -145,6 +162,8 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
         "planes_total",
         "planes_sin_version",
         "planes_sin_trabajo_vivo",
+        "planes_con_ciudad",
+        "planes_sin_ciudad_identificable",
       ].sort(),
     );
     expect(new Set(Object.values(relleno).map((v) => typeof v))).toEqual(new Set(["number"]));
@@ -163,6 +182,9 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     expect(relleno.planes_total).toBe(4);
     expect(relleno.planes_sin_version).toBe(1);
     expect(relleno.planes_sin_trabajo_vivo).toBe(2); // Sevilla y Oporto
+    expect(relleno.planes_con_ciudad).toBe(1); // Londres
+    expect(relleno.planes_sin_ciudad_identificable).toBe(1); // Ciudad con niños
+    expect(relleno.planes_con_ciudad + relleno.planes_sin_ciudad_identificable).toBeLessThan(relleno.planes_total);
 
     // Modelo de amenazas: `relleno` no puede contener ni un destino, ni un
     // nombre de parada, ni un correo, ni un identificador de usuario.

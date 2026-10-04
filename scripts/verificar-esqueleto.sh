@@ -97,4 +97,21 @@ if grep -rlE 'nominatim\.openstreetmap\.org|overpass-api\.de|wikipedia\.org/w/ap
   exit 1
 fi
 
+echo "== ciu-ac3: el cualificador geográfico y las claves de caché nunca usan plan.destino en bruto =="
+# Fuera de los sitios sancionados -- el `??` de respaldo en resolverPlan.ts
+# y resolverAlternativas.ts para planes sin ciudad efectiva aún, y
+# barrido.ts, que resuelve paradas de planes YA EXISTENTES y que el bloque
+# "barrido-todos-los-planes" (pendiente, no este) conecta a la ciudad
+# efectiva -- ningún código de src/lib/lugares o src/lib/trabajador puede
+# pasar plan.destino (o una variable llamada igual) directamente a una
+# búsqueda o a una clave de caché: tiene que pasar por
+# `cualificador`/`ciudad.nombre`.
+if grep -rnE '\.destino[^?]' src/lib/lugares src/lib/trabajador \
+    --exclude=resolverPlan.ts --exclude=barrido.ts \
+    | grep -vE '^\S+:[0-9]+:\s*//' \
+    | grep -E 'buscarNominatim|buscarWikipedia|buscarLibre|geocodificarDestino|geocodificarCiudad|clave|cache\.(obtener|guardar)'; then
+  echo "FALLO: se encontró plan.destino en bruto donde debería ir la ciudad efectiva" >&2
+  exit 1
+fi
+
 echo "OK: verificación de esqueleto completa"

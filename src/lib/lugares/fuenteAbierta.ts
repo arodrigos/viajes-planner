@@ -2,7 +2,7 @@ import "server-only";
 import { crearLimitador, relojReal, type Reloj } from "./limitador";
 import { cacheSitiosMemoria, claveNominatim, esFalloDeCache, normalizarClaveNombre, slugDestino, type CacheSitios } from "./cacheSitios";
 import { normalizarNombre } from "./normalizar";
-import type { CajaDelimitadora, CandidatoLugar, FuenteLugares } from "./tipos";
+import { FalloRedCiudad, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares } from "./tipos";
 
 // lug-ac3: identifica la APLICACIÓN y el repo, nunca a Adrián ni a la
 // familia. La versión viene del propio package.json en build; en local o
@@ -37,6 +37,16 @@ interface ResultadoNominatim {
   display_name: string;
   namedetails?: Record<string, string>;
   extratags?: Record<string, string>;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    state_district?: string;
+    county?: string;
+    state?: string;
+    region?: string;
+  };
   boundingbox: [string, string, string, string];
 }
 
@@ -62,6 +72,7 @@ function aCandidatoNominatim(r: ResultadoNominatim): CandidatoLugar {
       wikidata: r.extratags?.wikidata,
       website: r.extratags?.website,
     },
+    ...(r.address ? { direccion: { ...r.address } } : {}),
   };
 }
 
@@ -77,7 +88,7 @@ interface ResultadoCoordenadasWikipedia {
   };
 }
 
-export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): FuenteLugares {
+export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): FuenteLugares & FuenteCiudad {
   const fetchImpl = opciones.fetch ?? fetch;
   const reloj = opciones.reloj ?? relojReal;
   const cache = opciones.cache ?? cacheSitiosMemoria();
@@ -170,7 +181,48 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
     return candidatos;
   }
 
-  return { geocodificarDestino, buscarNominatim, buscarWikipedia };
+  // ciu-ac1/ciu-ac2: búsqueda libre, sin viewbox -- se usa para deducir la
+  // ciudad por las paradas cuando la del destino no resolvió nada.
+  // ciu-ac7: un fallo de red (reintentado y agotado) lanza FalloRedCiudad
+  // en vez de devolver [] -- [] es una respuesta negativa legítima
+  // (Nominatim contestó "no hay nada"), que es una conclusión muy distinta
+  // de "no se pudo preguntar".
+  async function buscarLibre(nombre: string): Promise<CandidatoLugar[]> {
+    const clave = `libre:${normalizarClaveNombre(nombre)}`;
+    const enCache = await cache.obtener(clave);
+    if (!esFalloDeCache(enCache)) return enCache as CandidatoLugar[];
+
+    const url =
+      `${NOMINATIM_URL}?q=${encodeURIComponent(nombre)}&format=jsonv2&limit=3` +
+      `&addressdetails=1&accept-language=es`;
+    const respuesta = await limitarNominatim(() => peticionConReintento(url));
+    if (!respuesta) throw new FalloRedCiudad(`no se pudo buscar libremente «${nombre}»`);
+    const candidatos = ((await respuesta.json()) as ResultadoNominatim[]).map(aCandidatoNominatim);
+    await cache.guardar(clave, candidatos);
+    return candidatos;
+  }
+
+  // ciu-ac2: la caja de un candidato a ciudad, para la verificación
+  // geográfica del nivel que gana la votación (span y contención de las
+  // paradas votantes). Mismo trato de fallo de red que buscarLibre.
+  async function geocodificarCiudad(nombre: string): Promise<CajaDelimitadora | null> {
+    const clave = `ciudad:${normalizarClaveNombre(nombre)}`;
+    const enCache = await cache.obtener(clave);
+    if (!esFalloDeCache(enCache)) return enCache as CajaDelimitadora | null;
+
+    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(nombre)}&format=jsonv2&limit=1&featureType=settlement`;
+    const respuesta = await limitarNominatim(() => peticionConReintento(url));
+    if (!respuesta) throw new FalloRedCiudad(`no se pudo geocodificar la ciudad candidata «${nombre}»`);
+    const datos = (await respuesta.json()) as ResultadoNominatim[];
+    const primero = datos[0];
+    const resultado = primero
+      ? { minLat: Number(primero.boundingbox[0]), maxLat: Number(primero.boundingbox[1]), minLon: Number(primero.boundingbox[2]), maxLon: Number(primero.boundingbox[3]) }
+      : null;
+    await cache.guardar(clave, resultado);
+    return resultado;
+  }
+
+  return { geocodificarDestino, buscarNominatim, buscarWikipedia, buscarLibre, geocodificarCiudad };
 }
 
 // Expuesto para que resolverPlan y los tests puedan derivar la clave de

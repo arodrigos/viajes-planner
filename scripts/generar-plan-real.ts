@@ -20,6 +20,7 @@ import type { Plan } from "../src/lib/plan/tipos";
 import { aPlanPublico, type PlanPublico } from "../src/lib/plan/publico";
 import { crearFuenteAbierta } from "../src/lib/lugares/fuenteAbierta";
 import { resolverPlan } from "../src/lib/lugares/resolverPlan";
+import { resolverCiudadEfectiva } from "../src/lib/lugares/ciudad";
 import { crearFuenteFotosAbierta } from "../src/lib/lugares/fuenteFotosAbierta";
 import { resolverFotosPlan } from "../src/lib/lugares/resolverFotos";
 import { crearFuenteCercanosAbierta } from "../src/lib/alternativas/cercanos";
@@ -107,9 +108,16 @@ async function main() {
     let planParaSalida: Plan | PlanPublico = resultado.plan;
     if (usaResolver(argv)) {
       const fuenteLugares = crearFuenteAbierta();
-      const conLugares = await resolverPlan(fuenteLugares, resultado.plan);
+      // ciu-ac5: EXACTAMENTE el mismo orden que procesarTrabajo.ts --
+      // la ciudad efectiva se resuelve antes de las paradas, con el mismo
+      // camino real (nunca un doble) que el trabajador de producción.
+      const nombresParadas = resultado.plan.dias.flatMap((dia) => dia.paradas.map((parada) => parada.nombre));
+      const ciudad = (await resolverCiudadEfectiva(fuenteLugares, resultado.plan.destino, nombresParadas)) ?? undefined;
+      const planConCiudad: Plan = ciudad ? { ...resultado.plan, ciudad } : resultado.plan;
+      const cualificadorCiudad = ciudad?.estado === "resuelta" && ciudad.nombre && ciudad.caja ? { nombre: ciudad.nombre, caja: ciudad.caja } : undefined;
+      const conLugares = await resolverPlan(fuenteLugares, planConCiudad, cualificadorCiudad);
       const conFotos = await resolverFotosPlan(crearFuenteFotosAbierta(), conLugares);
-      const conAlternativas = await resolverAlternativasPlan(fuenteLugares, crearFuenteCercanosAbierta(), conFotos, criterios.perfil);
+      const conAlternativas = await resolverAlternativasPlan(fuenteLugares, crearFuenteCercanosAbierta(), conFotos, criterios.perfil, cualificadorCiudad);
       planParaSalida = aPlanPublico(conAlternativas);
     }
 

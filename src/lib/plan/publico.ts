@@ -2,6 +2,7 @@ import { calcularEtiquetasEncaje, formatearEtiquetasEncaje, vecinosResueltos } f
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
 import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./paseo";
 import type { AnclaAlojamiento, Dia, Foto, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
+import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 
 // Serialización hacia el cliente. hora_inicio/hora_fin son internas (costura
 // con VROOM en fase 2) y no se envían nunca: que no se envíen es lo que
@@ -54,6 +55,10 @@ export interface PlanPublico {
   dias: DiaPublico[];
   avisos: string[];
   recomendaciones: Recomendacion[];
+  // ciu-ac5: la ciudad efectiva, para que el mapa pueda centrarse en ella y
+  // para que el script de verificación del modelo real pueda comprobarla
+  // sin depender de un acceso directo a la base de datos.
+  ciudad?: CiudadEfectiva;
 }
 
 function aAlternativaPublica(
@@ -138,5 +143,6 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null): PlanPubl
     })),
     avisos: plan.avisos ?? [],
     recomendaciones: plan.recomendaciones ?? [],
+    ...(plan.ciudad ? { ciudad: plan.ciudad } : {}),
   };
 }

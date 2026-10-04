@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { idsExternosVisitados } from "./visitas";
 import type { Alternativa, AnclaAlojamiento, Dia, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
+import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 
 // Forma en la que se guardan los días dentro de plan_versiones.dias: todo
 // menos las paradas, que tienen su propia tabla porque procedencias y
@@ -13,9 +14,12 @@ interface DiaAlmacenado {
 }
 
 export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise<{ version: number }> {
+  // ciu-ac1: `ciudad` solo se incluye en el upsert cuando el plan la trae
+  // -- omitir la clave (en vez de escribir null) deja intacta la ciudad ya
+  // guardada de una versión anterior cuando este guardado no la recalculó.
   const { error: errorPlan } = await supabase
     .from("planes")
-    .upsert({ id: plan.id, destino: plan.destino }, { onConflict: "id" });
+    .upsert({ id: plan.id, destino: plan.destino, ...(plan.ciudad !== undefined ? { ciudad: plan.ciudad } : {}) }, { onConflict: "id" });
   if (errorPlan) throw new Error(`No se pudo guardar el plan: ${errorPlan.message}`);
 
   const { data: versionesPrevias, error: errorVersiones } = await supabase
@@ -129,7 +133,7 @@ export async function recuperarPlan(
 ): Promise<Plan | null> {
   const { data: planRow, error: errorPlan } = await supabase
     .from("planes")
-    .select("id, destino")
+    .select("id, destino, ciudad")
     .eq("id", planId)
     .maybeSingle();
   if (errorPlan) throw new Error(`No se pudo leer el plan: ${errorPlan.message}`);
@@ -256,5 +260,6 @@ export async function recuperarPlan(
     dias,
     avisos: (versionRow.avisos as string[] | null) ?? [],
     recomendaciones: (versionRow.recomendaciones as Recomendacion[] | null) ?? [],
+    ...(planRow.ciudad ? { ciudad: planRow.ciudad as CiudadEfectiva } : {}),
   };
 }
