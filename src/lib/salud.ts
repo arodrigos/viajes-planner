@@ -8,8 +8,24 @@ export interface EstadoDependencia {
   detalle?: string;
 }
 
+// bar-ac4 (feedback del gatekeeper, 2026-10-04): el resultado del ÚLTIMO
+// tick ejecutado, para distinguir desde fuera "código viejo en VPS1" (sha
+// desfasado), "excepción que aborta el barrido" (error presente) y
+// "reintento que de verdad se hizo y salió negativo" (ok con contadores en
+// cero) -- hoy las tres son indistinguibles porque el heartbeat se escribe
+// antes de hacer nada.
+export interface ResultadoTickTrabajador {
+  ok: boolean;
+  trabajos_procesados: number;
+  planes_mirados: number;
+  paradas_intentadas: number;
+  error?: string;
+}
+
 export interface EstadoTrabajador {
   visto_hace_seg: number | null;
+  commit_sha?: string | null;
+  ultimo_resultado?: ResultadoTickTrabajador | null;
 }
 
 // lug-ac6: expone qué pila resuelve lugares y pinta el mapa -- lo lee el
@@ -78,6 +94,8 @@ export interface OpcionesSalud {
   esquemaVersion?: number;
   modeloAcceso?: string;
   trabajadorVistoHaceSeg?: number | null;
+  trabajadorCommitSha?: string | null;
+  trabajadorUltimoResultado?: ResultadoTickTrabajador | null;
   secretosFaltantes?: string[];
   credencialesModeloEnWeb?: boolean;
   fuentes?: Fuentes;
@@ -104,7 +122,15 @@ export function construirSalud(opciones: OpcionesSalud = {}): RespuestaSalud {
     ...(opciones.modeloAcceso === undefined ? {} : { modelo_acceso: opciones.modeloAcceso }),
     ...(opciones.trabajadorVistoHaceSeg === undefined
       ? {}
-      : { trabajador: { visto_hace_seg: opciones.trabajadorVistoHaceSeg } }),
+      : {
+          trabajador: {
+            visto_hace_seg: opciones.trabajadorVistoHaceSeg,
+            ...(opciones.trabajadorCommitSha === undefined ? {} : { commit_sha: opciones.trabajadorCommitSha }),
+            ...(opciones.trabajadorUltimoResultado === undefined
+              ? {}
+              : { ultimo_resultado: opciones.trabajadorUltimoResultado }),
+          },
+        }),
     ...(opciones.secretosFaltantes === undefined ? {} : { secretos_faltantes: opciones.secretosFaltantes }),
     ...(opciones.credencialesModeloEnWeb === undefined
       ? {}

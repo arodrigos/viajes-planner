@@ -42,6 +42,20 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud (esqueleto-ac1)",
     expect(cuerpo.credenciales_modelo_en_web).toBe(false);
   });
 
+  // bar-ac4: sin esto, "código viejo en VPS1" y "excepción que aborta el
+  // barrido" eran indistinguibles desde fuera -- /api/salud solo informaba
+  // del commit de Vercel, nunca del que de verdad ejecuta el trabajador.
+  it("expone trabajador.commit_sha y trabajador.ultimo_resultado del último tick", async () => {
+    const resultado = { ok: true, trabajos_procesados: 0, planes_mirados: 5, paradas_intentadas: 12 };
+    await supabase.from("salud").insert({ origen: "trabajador-vps1", commit_sha: "c66ade5", resultado });
+
+    const respuesta = await GET(new NextRequest("http://localhost/api/salud"));
+    const cuerpo = await respuesta.json();
+
+    expect(cuerpo.trabajador.commit_sha).toBe("c66ade5");
+    expect(cuerpo.trabajador.ultimo_resultado).toEqual(resultado);
+  });
+
   // cliente-ac3(a): al borrar SUPABASE_SCHEMA del entorno, la respuesta lo
   // delata en secretos_faltantes y no revela ningún valor.
   it("sin SUPABASE_SCHEMA en el entorno, lo delata en secretos_faltantes", async () => {

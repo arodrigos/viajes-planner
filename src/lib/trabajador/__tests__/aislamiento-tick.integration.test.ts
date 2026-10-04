@@ -71,6 +71,24 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
     expect(data?.registrado_en >= antes).toBe(true);
   });
 
+  // bar-ac4: el SHA y el resultado quedan en la MISMA fila de salud que el
+  // heartbeat -- sin esto, una excepción en el barrido deja el heartbeat
+  // latiendo igual sin ningún rastro de qué pasó.
+  it("deja el SHA y el resultado del tick en la misma fila de `salud`", async () => {
+    await tick(supabase, { ejecutor: dobleContador(), directorio: "/tmp", commitSha: "deadbeef" });
+
+    const { data } = await supabase
+      .from("salud")
+      .select("commit_sha, resultado")
+      .eq("origen", "trabajador-vps1")
+      .order("registrado_en", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    expect(data?.commit_sha).toBe("deadbeef");
+    expect(data?.resultado).toMatchObject({ ok: true, trabajos_procesados: 0 });
+  });
+
   // Reescrito (issue #151): la versión anterior lanzaba dos tick() con
   // Promise.all y esperaba que "exactamente uno" ganase la carrera contra
   // Postgres real. La exclusión que da el UPDATE ... WHERE atómico de

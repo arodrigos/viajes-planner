@@ -125,6 +125,13 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
     return { minLat, maxLat, minLon, maxLon };
   }
 
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): un fallo de red (429/5xx
+  // persistente o excepción) NO es una respuesta negativa legítima y no se
+  // cachea -- lanzar FalloRedCiudad hace que resolverNombre deje la parada
+  // en `error` (se reintenta en el siguiente tick) en vez de en
+  // `no-resuelta` (congelada 30 días). Mismo trato que ya tenían
+  // buscarLibre y geocodificarCiudad; reutiliza la misma clase porque el
+  // significado es idéntico: "no se pudo preguntar", no "ciudad".
   async function buscarNominatim(nombre: string, cualificador: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]> {
     const clave = claveNominatim(slugDestino(cualificador), normalizarClaveNombre(nombre));
     const enCache = await cache.obtener(clave);
@@ -136,7 +143,8 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
       `${NOMINATIM_URL}?q=${encodeURIComponent(`${nombre}, ${cualificador}`)}&format=jsonv2&limit=5` +
       `&viewbox=${viewbox}&bounded=1&extratags=1&namedetails=1&addressdetails=1&accept-language=es`;
     const respuesta = await limitarNominatim(() => peticionConReintento(url));
-    const candidatos = respuesta ? ((await respuesta.json()) as ResultadoNominatim[]).map(aCandidatoNominatim) : [];
+    if (!respuesta) throw new FalloRedCiudad(`no se pudo buscar «${nombre}, ${cualificador}»`);
+    const candidatos = ((await respuesta.json()) as ResultadoNominatim[]).map(aCandidatoNominatim);
     await cache.guardar(clave, candidatos);
     return candidatos;
   }
