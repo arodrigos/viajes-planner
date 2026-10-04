@@ -1,10 +1,9 @@
 import { expect, test } from "@playwright/test";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
-import { guardarPlan } from "@/lib/plan/repositorio";
 import { medirObjetivosTactiles } from "@/lib/testing/medirObjetivosTactiles";
-import type { Plan } from "@/lib/plan/tipos";
 
 // ics-ac2: viewport móvil real, mismo patrón que destino.movil.e2e.ts.
 test.use({ viewport: { width: 393, height: 851 } });
@@ -12,32 +11,43 @@ test.use({ viewport: { width: 393, height: 851 } });
 const EMAIL = "ci-test-calendario@example.com";
 const DESTINO = "Córdoba";
 
-function planDeUnaParada(id: string): Plan {
+// Siembra directa con la clave de servicio, sin pasar por guardarPlan
+// (server-only, repositorio.ts): fuera del build de Next.js "server-only"
+// lanza siempre, y Playwright no tiene ese alias -mismo motivo ya
+// documentado en plan-timeline.movil.e2e.ts y fotos.movil.e2e.ts.
+async function sembrarPlanDeUnaParada(supabase: SupabaseClient, planId: string) {
+  const { error: errorPlan } = await supabase.from("planes").insert({ id: planId, destino: DESTINO });
+  if (errorPlan) throw new Error(`No se pudo sembrar el plan: ${errorPlan.message}`);
+
   const franjas = franjasComoArray(DESTINO);
-  return {
-    id,
-    version: 1,
-    destino: DESTINO,
-    personas: 2,
-    dias: [
-      {
-        fecha: "2026-11-10",
-        franjas,
-        paradas: [
-          {
-            id: "p-calendario-a",
-            franja_id: franjas[0].id,
-            nombre: "Mezquita-Catedral",
-            descripcion: "Visita guiada",
-            duracion_min: 90,
-            prioridad: 80,
-            procedencia: { fuente: "osm", url: "https://www.openstreetmap.org/way/1" },
-            coordenadas: { lat: 37.8789, lon: -4.7794 },
-          },
-        ],
-      },
-    ],
-  };
+  const { data: version, error: errorVersion } = await supabase
+    .from("plan_versiones")
+    .insert({ plan_id: planId, version: 1, personas: 2, dias: [{ fecha: "2026-11-10", franjas }], avisos: [] })
+    .select("id")
+    .single();
+  if (errorVersion || !version) throw new Error(`No se pudo sembrar la versión del plan: ${errorVersion?.message}`);
+
+  const { data: procedencia, error: errorProcedencia } = await supabase
+    .from("procedencias")
+    .insert({ fuente: "osm", url: "https://www.openstreetmap.org/way/1" })
+    .select("id")
+    .single();
+  if (errorProcedencia || !procedencia) throw new Error(`No se pudo sembrar la procedencia: ${errorProcedencia?.message}`);
+
+  const { error: errorParada } = await supabase.from("paradas").insert({
+    id_externo: "p-calendario-a",
+    plan_version_id: version.id,
+    dia_index: 0,
+    franja_id: franjas[0].id,
+    nombre: "Mezquita-Catedral",
+    descripcion: "Visita guiada",
+    lat: 37.8789,
+    lon: -4.7794,
+    duracion_min: 90,
+    prioridad: 80,
+    procedencia_id: procedencia.id,
+  });
+  if (errorParada) throw new Error(`No se pudo sembrar la parada 'p-calendario-a': ${errorParada.message}`);
 }
 
 async function iniciarSesion(contexto: import("@playwright/test").BrowserContext, email: string) {
@@ -56,7 +66,7 @@ test("«Añadir al calendario» descarga un fichero .ics (ics-ac2)", async ({ br
   if (error || !usuario.user) throw new Error(`No se pudo crear el usuario de prueba: ${error?.message}`);
 
   const planId = `plan-calendario-e2e-${Date.now()}`;
-  await guardarPlan(supabase, planDeUnaParada(planId));
+  await sembrarPlanDeUnaParada(supabase, planId);
   const { error: errorTrabajo } = await supabase
     .from("trabajos")
     .insert({ usuario_id: usuario.user.id, tipo: "generacion", criterios: {}, estado: "completado", plan_id: planId });

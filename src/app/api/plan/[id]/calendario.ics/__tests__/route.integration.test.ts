@@ -150,14 +150,29 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("GET /api/plan/[id]/calendario.ics (
   });
 
   it("plan ajeno responde 404", async () => {
+    // Mismo patrón que visitas/__tests__/route.integration.test.ts: se usa la
+    // sesión YA autenticada del propietario (en CORREOS_PERMITIDOS) contra un
+    // plan de OTRO usuario, en vez de autenticar un correo nuevo que no está
+    // en la allowlist del CI y haría fallar requireSesion con 403 antes de
+    // llegar a la comprobación de propiedad.
     const idAjeno = `usuario-ajeno-calendario-${Date.now()}`;
-    const cookieAjena = await (async () => {
-      const { error } = await servicio.auth.admin.createUser({ email: `${idAjeno}@example.com`, email_confirm: true });
-      if (error) throw new Error(`No se pudo crear el usuario ajeno: ${error.message}`);
-      return cookieDeSesion(`${idAjeno}@example.com`);
-    })();
-    const respuesta = await GET(peticion(planId, cookieAjena), contexto(planId));
+    const planIdAjeno = `plan-calendario-ajeno-${Date.now()}`;
+    const { data: usuarioAjeno, error: errorAjeno } = await servicio.auth.admin.createUser({
+      email: `${idAjeno}@ej.com`,
+      email_confirm: true,
+    });
+    if (errorAjeno || !usuarioAjeno.user) throw new Error(`No se pudo crear el usuario ajeno: ${errorAjeno?.message}`);
+    await guardarPlan(servicio, planDeCincoParadas(planIdAjeno));
+    const { error: errorTrabajoAjeno } = await servicio
+      .from("trabajos")
+      .insert({ usuario_id: usuarioAjeno.user.id, tipo: "generacion", criterios: { destino_o_tipo: DESTINO }, estado: "completado", plan_id: planIdAjeno });
+    if (errorTrabajoAjeno) throw new Error(`No se pudo sembrar el trabajo ajeno: ${errorTrabajoAjeno.message}`);
+
+    const respuesta = await GET(peticion(planIdAjeno, cookiePropietario), contexto(planIdAjeno));
     expect(respuesta.status).toBe(404);
+
+    await servicio.from("trabajos").delete().eq("plan_id", planIdAjeno);
+    await servicio.from("planes").delete().eq("id", planIdAjeno);
   });
 
   it("descarga un calendario válido: un VEVENT por parada, GEO solo en las resueltas, cabeceras correctas", async () => {
