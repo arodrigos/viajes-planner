@@ -122,21 +122,38 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("POST /api/plan/[id]/paradas/[parada
   });
 
   it("sesión de OTRO usuario responde 404 y no crea ninguna versión nueva", async () => {
-    const emailB = `sustituir-ajeno-${Date.now()}@ej.com`;
-    const { error: errorB } = await servicio.auth.admin.createUser({ email: emailB, email_confirm: true });
-    if (errorB) throw new Error(`No se pudo crear el usuario B: ${errorB.message}`);
-    const cookieB = await cookieDeSesion(emailB);
+    // Mismo patrón que borrar-ac3 (viajes/[id]/route.integration.test.ts):
+    // quien autentica de verdad es siempre un correo de CORREOS_PERMITIDOS
+    // (aquí, el propio propietario); el plan "ajeno" lo siembra el cliente
+    // de servicio sin que su dueño llegue a iniciar sesión. Un correo
+    // generado con Date.now() nunca pasa la lista blanca (403 antes de
+    // llegar a la comprobación de propiedad), así que no sirve para
+    // probar el 404 de "plan ajeno".
+    const idAjeno = `usuario-ajeno-sustituir-${Date.now()}`;
+    const planIdAjeno = `plan-sustituir-ajeno-${Date.now()}`;
+    const { data: usuarioAjeno, error: errorAjeno } = await servicio.auth.admin.createUser({
+      email: `${idAjeno}@ej.com`,
+      email_confirm: true,
+    });
+    if (errorAjeno || !usuarioAjeno.user) throw new Error(`No se pudo crear el usuario ajeno: ${errorAjeno?.message}`);
+    await guardarPlan(servicio, planConAlternativa(planIdAjeno));
+    const { error: errorTrabajoAjeno } = await servicio
+      .from("trabajos")
+      .insert({ usuario_id: usuarioAjeno.user.id, tipo: "generacion", criterios: { destino_o_tipo: "Sevilla" }, estado: "completado", plan_id: planIdAjeno });
+    if (errorTrabajoAjeno) throw new Error(`No se pudo sembrar el trabajo ajeno: ${errorTrabajoAjeno.message}`);
+    const planAjeno = await recuperarPlan(servicio, planIdAjeno);
+    const alternativaIdAjena = planAjeno?.dias[0].paradas[0].alternativas?.[0].id as string;
 
-    const { count: versionesAntes } = await servicio.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planId);
+    const { count: versionesAntes } = await servicio.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planIdAjeno);
 
     const respuesta = await sustituir(
-      peticion(planId, "parada-sustituir-ruta-1", { alternativa_id: alternativaId }, cookieB),
-      contexto(planId, "parada-sustituir-ruta-1"),
+      peticion(planIdAjeno, "parada-sustituir-ruta-1", { alternativa_id: alternativaIdAjena }, cookiePropietario),
+      contexto(planIdAjeno, "parada-sustituir-ruta-1"),
     );
     expect(respuesta.status).toBe(404);
     expect(await respuesta.json()).toEqual({ error: "no encontrado" });
 
-    const { count: versionesDespues } = await servicio.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planId);
+    const { count: versionesDespues } = await servicio.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planIdAjeno);
     expect(versionesDespues).toBe(versionesAntes);
   });
 
@@ -150,8 +167,20 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("POST /api/plan/[id]/paradas/[parada
   });
 
   it("nunca llama a ningún host externo: un fetch espiado que fallaría si se invocara", async () => {
-    const espia = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
-      throw new Error("sustituirParada no debe llamar a fetch: no hay modelo ni fuente externa en este camino");
+    // Un espía que bloquee TODO fetch también rompe el propio camino de la
+    // petición: requireSesion valida la cookie contra el servidor de Auth
+    // de Supabase (GoTrue) y sustituirParada lee/escribe en Postgrest, los
+    // dos por fetch. El criterio es que no se llame a un host de TERCEROS
+    // (Nominatim, Overpass, Wikipedia/Commons): el tráfico hacia Supabase
+    // sigue su curso real.
+    const HOSTS_TERCEROS = /nominatim\.openstreetmap\.org|overpass-api\.de|wikipedia\.org|wikimedia\.org/;
+    const fetchReal = globalThis.fetch.bind(globalThis);
+    const espia = vi.spyOn(globalThis, "fetch").mockImplementation((entrada, init) => {
+      const url = typeof entrada === "string" ? entrada : entrada instanceof URL ? entrada.toString() : entrada.url;
+      if (HOSTS_TERCEROS.test(url)) {
+        throw new Error(`sustituirParada no debe llamar a una fuente externa (${url}): no hay modelo ni fuente externa en este camino`);
+      }
+      return fetchReal(entrada, init);
     });
 
     const respuesta = await sustituir(
@@ -160,6 +189,10 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("POST /api/plan/[id]/paradas/[parada
     );
 
     expect(respuesta.status).toBe(200);
-    expect(espia).not.toHaveBeenCalled();
+    const llamadasATerceros = espia.mock.calls.filter(([entrada]) => {
+      const url = typeof entrada === "string" ? entrada : entrada instanceof URL ? entrada.toString() : (entrada as Request).url;
+      return HOSTS_TERCEROS.test(url);
+    });
+    expect(llamadasATerceros).toHaveLength(0);
   });
 });
