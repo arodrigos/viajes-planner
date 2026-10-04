@@ -8,7 +8,9 @@ import { formatearKm } from "@/lib/plan/paseo";
 import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
 import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
+import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { AccionesVisita } from "./AccionesVisita";
+import { AvisoCiudad } from "./AvisoCiudad";
 import type { PuntoMapaDia } from "./MapaDia";
 import { IconoFranja } from "./iconosFranja";
 import { IconoRecomendacion } from "./iconosRecomendacion";
@@ -101,6 +103,10 @@ interface PlanPublico {
   // enlazar -- route.ts los añade por encima de aPlanPublico.
   regenerando: boolean;
   trabajoId: string;
+  // ciudad-a-mano (man-ac1): ausente cuando el relleno todavía no la ha
+  // intentado -- mismo patrón que el resto de campos opcionales de este
+  // tipo (ver aPlanPublico en publico.ts).
+  ciudad?: CiudadEfectiva;
 }
 
 const TEXTO_CONFIRMACION_REGENERAR =
@@ -556,6 +562,19 @@ export function VistaPlan({ id }: { id: string }) {
             <a href={`/trabajos/${plan.trabajoId}`}>Ver el progreso</a>
           </p>
         </div>
+      )}
+
+      {/* man-ac1: el contador se muestra siempre que hay plan, resuelto o
+          no -- durante los primeros minutos del barrido es el único
+          indicio de que algo sigue trabajando. */}
+      {plan && (
+        <AvisoCiudad
+          planId={id}
+          ciudad={plan.ciudad}
+          totalParadas={plan.dias.reduce((total, dia) => total + dia.paradas.length, 0)}
+          paradasUbicadas={plan.dias.reduce((total, dia) => total + dia.paradas.filter((parada) => !!parada.coordenadas).length, 0)}
+          onGuardada={() => setRecargarContador((n) => n + 1)}
+        />
       )}
 
       {dialogoRegenerarAbierto && (
