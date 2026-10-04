@@ -113,6 +113,38 @@ export interface Parada {
   // distinguir "todavía no se ha intentado" ('foto' y esto ambos null) de
   // "se intentó y no había foto aceptable" ('foto' null, esto con fecha).
   foto_intentada_en?: string;
+  // bloque alternativas-equivalentes: solo en planes generados a partir de
+  // este bloque (decisión de Adrián) -- ausente o vacío en los anteriores,
+  // nunca un array a medias.
+  alternativas?: Alternativa[];
+}
+
+// bloque alternativas-equivalentes: de dónde sale una alternativa -- el
+// modelo la propuso en la misma invocación (origen "modelo") o la
+// completó Overpass sin modelo porque faltaban (origen "cercano"). El
+// motivo de "cercano" es siempre determinista (distancia + categoría);
+// el de "modelo" es el que el propio modelo escribió.
+export type OrigenAlternativa = "modelo" | "cercano";
+
+// Alternativa equivalente a una parada (bloque alternativas-equivalentes).
+// nombre/descripcion/motivo/duracion_min los origina el modelo (el
+// ensamblador los copia tal cual, sin más campos: alt-ac2). categoria y
+// origen los pone resolverAlternativasPlan (categoria = la de la parada,
+// nunca la propone el modelo por alternativa; origen distingue "modelo"
+// de "cercano") y por eso son opcionales en el tipo -- ausentes en la
+// propuesta cruda recién ensamblada, siempre presentes en una alternativa
+// ya resuelta y guardada. coordenadas/lugar/foto, igual que en Parada, los
+// rellena la resolución, nunca el modelo.
+export interface Alternativa {
+  nombre: string;
+  descripcion: string;
+  motivo: string;
+  duracion_min: number;
+  categoria?: CategoriaParada;
+  origen?: OrigenAlternativa;
+  coordenadas?: { lat: number; lon: number };
+  lugar?: Lugar;
+  foto?: Foto;
 }
 
 export type AnclaAlojamiento =

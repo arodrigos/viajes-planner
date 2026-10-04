@@ -40,3 +40,17 @@ describe("construirPrompt (lug-ac2)", () => {
     }
   });
 });
+
+// alt-ac1/alt-ac2: el prompt pide alternativas por parada con el campo
+// "alternativas" y el motivo del encaje, y descarta explícitamente que el
+// modelo incluya "categoria" o una URL dentro de cada alternativa.
+describe("construirPrompt (alt-ac2)", () => {
+  it("pide el campo alternativas por parada", () => {
+    const criterios = { destino_o_tipo: "Madrid" } as unknown as CriteriosViaje;
+
+    const prompt = construirPrompt(criterios);
+
+    expect(prompt).toContain('"alternativas"');
+    expect(prompt).toContain('"motivo"');
+  });
+});
