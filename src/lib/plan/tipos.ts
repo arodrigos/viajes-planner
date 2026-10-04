@@ -117,6 +117,13 @@ export interface Parada {
   // este bloque (decisión de Adrián) -- ausente o vacío en los anteriores,
   // nunca un array a medias.
   alternativas?: Alternativa[];
+  // bloque uso-en-destino (dest-ac4): se deriva en repositorio.ts a partir
+  // de `visitas`, leída por (plan_id, id_externo) a través de CUALQUIER
+  // versión -- nunca se guarda en esta fila, así que sobrevive a una
+  // sustitución de otra parada del mismo día. Ausente (nunca `false`
+  // explícito) cuando no está visitada, mismo patrón que el resto de
+  // campos derivados de este fichero.
+  visitada?: boolean;
 }
 
 // bloque alternativas-equivalentes: de dónde sale una alternativa -- el

@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { idsExternosVisitados } from "./visitas";
 import type { Alternativa, AnclaAlojamiento, Dia, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 
 // Forma en la que se guardan los días dentro de plan_versiones.dias: todo
@@ -93,6 +94,10 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
       // alt-ac3: solo las alternativas que ya pasaron el filtro de
       // equivalencia llegan aquí (resolverAlternativasPlan) -- se guardan
       // todas tal cual, sin ningún filtro adicional en el repositorio.
+      // `categoria` es opcional en el tipo (p. ej. la parada sustituida que
+      // sustituir.ts convierte en alternativa puede no tenerla si el modelo
+      // nunca la dio), pero la columna es NOT NULL: mismo "otro" de reserva
+      // que ya usa el enum para la parada sin categoría.
       for (const alternativa of parada.alternativas ?? []) {
         const { error: errorAlternativa } = await supabase.from("paradas_alternativas").insert({
           parada_id: paradaInsertada.id,
@@ -101,7 +106,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
           descripcion: alternativa.descripcion,
           motivo: alternativa.motivo,
           duracion_min: alternativa.duracion_min,
-          categoria: alternativa.categoria,
+          categoria: alternativa.categoria ?? "otro",
           lat: alternativa.coordenadas?.lat ?? null,
           lon: alternativa.coordenadas?.lon ?? null,
           lugar: alternativa.lugar ?? null,
@@ -165,6 +170,11 @@ export async function recuperarPlan(
       : { data: [] as never[], error: null };
   if (errorAlternativas) throw new Error(`No se pudieron leer las alternativas: ${errorAlternativas.message}`);
 
+  // dest-ac4: a través de CUALQUIER versión de este plan, nunca solo de la
+  // que se está leyendo -- es lo que hace que la marca sobreviva a una
+  // sustitución (nueva versión, mismo id_externo).
+  const idsVisitados = await idsExternosVisitados(supabase, planId);
+
   const alternativasPorParadaId = new Map<string, Alternativa[]>();
   for (const fila of alternativaRows ?? []) {
     const lat = fila.lat as number | null;
@@ -213,6 +223,7 @@ export async function recuperarPlan(
           ...(fila.foto ? { foto: fila.foto as Parada["foto"] } : {}),
           ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
           ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
+          ...(idsVisitados.has(fila.id_externo as string) ? { visitada: true } : {}),
         };
       });
     return {

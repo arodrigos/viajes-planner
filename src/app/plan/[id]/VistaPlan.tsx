@@ -3,8 +3,11 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { esFechaDeHoy } from "@/lib/plan/fechaHoy";
 import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
+import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
+import { AccionesVisita } from "./AccionesVisita";
 import type { PuntoMapaDia } from "./MapaDia";
 import { IconoFranja } from "./iconosFranja";
 import { IconoRecomendacion } from "./iconosRecomendacion";
@@ -54,6 +57,9 @@ interface ParadaPublica {
   coordenadas?: { lat: number; lon: number };
   foto?: FotoPublica;
   alternativas?: AlternativaPublica[];
+  // bloque uso-en-destino (dest-ac1/dest-ac4): ausente cuando no está
+  // visitada, mismo patrón que el resto de este tipo.
+  visitada?: boolean;
 }
 
 interface DiaPublico {
@@ -117,6 +123,30 @@ function puntosDelDia(dia: DiaPublico): PuntoMapaDia[] {
   return puntos;
 }
 
+// dest-ac2: la siguiente parada sin visitar, en el orden real de las
+// franjas (el mismo de puntosDelDia) -- es donde se centra el mapa del día
+// de hoy, haya o no enlace "Cómo llegar" todavía.
+function siguienteSinVisitar(puntos: PuntoMapaDia[], idsVisitados: Set<string>): PuntoMapaDia | null {
+  return puntos.find((p) => !idsVisitados.has(p.id)) ?? null;
+}
+
+// dest-ac2: "última visitada, o la primera" hasta la siguiente sin
+// visitar. Si todas las paradas resueltas ya están visitadas, o si la
+// "última visitada" coincide con la "siguiente" (nada visitado todavía y
+// la primera parada es la siguiente), no hay enlace -aunque el mapa sí se
+// siga centrando en esa parada, ver siguienteSinVisitar.
+function calcularComoLlegar(puntos: PuntoMapaDia[], siguiente: PuntoMapaDia | null, idsVisitados: Set<string>): string | null {
+  if (!siguiente) return null;
+
+  let origen = puntos[0];
+  for (const punto of puntos) {
+    if (idsVisitados.has(punto.id)) origen = punto;
+  }
+  if (origen.id === siguiente.id) return null;
+
+  return urlComoLlegar(origen, siguiente);
+}
+
 // map-ac1..ac5: un día entero (cabecera, mapa y lista de franjas/paradas)
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
@@ -126,7 +156,16 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
   const [paradaConPanelAbiertoId, setParadaConPanelAbiertoId] = useState<string | null>(null);
+  const [paradaConVisitaEnCurso, setParadaConVisitaEnCurso] = useState<string | null>(null);
   const refsTarjetas = useRef(new Map<string, HTMLLIElement>());
+
+  // dest-ac2/dest-ac3: "hoy" es la fecha del dispositivo, nunca UTC -- solo
+  // el día de hoy muestra botones de visita, mapa centrado en la siguiente
+  // parada y "Cómo llegar".
+  const esHoy = esFechaDeHoy(dia.fecha);
+  const idsVisitados = new Set(dia.paradas.filter((p) => p.visitada).map((p) => p.id));
+  const siguienteParada = esHoy ? siguienteSinVisitar(puntos, idsVisitados) : null;
+  const hrefComoLlegar = esHoy ? calcularComoLlegar(puntos, siguienteParada, idsVisitados) : null;
 
   async function usarAlternativa(paradaId: string, alternativaId: string) {
     const respuesta = await fetch(`/api/plan/${planId}/paradas/${paradaId}/sustituir`, {
@@ -137,6 +176,23 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
     if (respuesta.ok) {
       setParadaConPanelAbiertoId(null);
       onPlanActualizado();
+    }
+  }
+
+  // dest-ac1: marcar/desmarcar es siempre el mismo cuerpo `{ parada_id }` --
+  // `parada_id` es el id EXTERNO (sobrevive a una sustitución), igual que
+  // `paradaId` en usarAlternativa.
+  async function alternarVisita(paradaId: string, visitadaActualmente: boolean) {
+    setParadaConVisitaEnCurso(paradaId);
+    try {
+      const respuesta = await fetch(`/api/plan/${planId}/visitas`, {
+        method: visitadaActualmente ? "DELETE" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ parada_id: paradaId }),
+      });
+      if (respuesta.ok) onPlanActualizado();
+    } finally {
+      setParadaConVisitaEnCurso(null);
     }
   }
 
@@ -159,7 +215,13 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
           <p className="mapa-sin-paradas">Sin mapa: ninguna parada de este día se ha podido ubicar todavía.</p>
         ) : (
           <div className="seccion-mapa-dia">
-            <MapaDia puntos={puntos} paradaActivaId={paradaActivaId} onSeleccionarParada={seleccionarParada} />
+            <MapaDia
+              puntos={puntos}
+              paradaActivaId={paradaActivaId}
+              onSeleccionarParada={seleccionarParada}
+              idsVisitados={idsVisitados}
+              centroParadaId={siguienteParada?.id ?? null}
+            />
             <ul className="pila enlaces-recorrido">
               {tramos.map((tramo) => (
                 <li key={tramo.href}>
@@ -245,6 +307,19 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                             ↗
                           </a>
                         </p>
+                      )}
+                      {/* dest-ac1..ac3: solo el día de hoy -- un día pasado
+                          o futuro no muestra ningún botón de visita. */}
+                      {esHoy && (
+                        <AccionesVisita
+                          sesionActiva={true}
+                          visitada={Boolean(parada.visitada)}
+                          tieneUbicacion={Boolean(parada.coordenadas)}
+                          cargando={paradaConVisitaEnCurso === parada.id}
+                          hrefComoLlegar={siguienteParada?.id === parada.id ? (hrefComoLlegar ?? undefined) : undefined}
+                          onMarcar={() => alternarVisita(parada.id, false)}
+                          onDesmarcar={() => alternarVisita(parada.id, true)}
+                        />
                       )}
                       {/* alt-ac5/alt-ac7: el botón existe siempre, haya o
                           no alternativas -- es el panel el que explica el
