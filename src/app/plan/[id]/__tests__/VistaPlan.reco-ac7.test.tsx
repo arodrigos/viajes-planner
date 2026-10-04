@@ -3,6 +3,13 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VistaPlan } from "@/app/plan/[id]/VistaPlan";
 
+// reg-ac1: VistaPlan usa useRouter() (regenerar-viaje); este componente no
+// vive bajo un App Router real en el test, mismo doble que
+// FormularioCriterios.test.tsx.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();

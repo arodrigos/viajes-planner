@@ -25,3 +25,29 @@ export async function planPerteneceAUsuario(
   if (error) throw new Error(`No se pudo comprobar la propiedad del plan: ${error.message}`);
   return data !== null;
 }
+
+export interface TrabajoDelPlan {
+  id: string;
+  estado: string;
+  regenerado_en: string | null;
+}
+
+// reg-ac4: el aviso "se está regenerando" en la vista del plan necesita el
+// id del trabajo (para enlazar a /trabajos/<id>) y su estado, no solo si el
+// plan es de este usuario -- misma consulta que planPerteneceAUsuario, con
+// las columnas que regenerar.ts y el aviso necesitan además del booleano.
+export async function trabajoDelPlan(
+  supabase: SupabaseClient,
+  planId: string,
+  usuarioId: string,
+): Promise<TrabajoDelPlan | null> {
+  const { data, error } = await supabase
+    .from("trabajos")
+    .select("id, estado, regenerado_en")
+    .eq("plan_id", planId)
+    .eq("usuario_id", usuarioId)
+    .is("eliminado_en", null)
+    .maybeSingle();
+  if (error) throw new Error(`No se pudo leer el trabajo del plan: ${error.message}`);
+  return data;
+}

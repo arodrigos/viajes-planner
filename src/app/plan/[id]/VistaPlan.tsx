@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
@@ -73,7 +74,17 @@ interface PlanPublico {
   dias: DiaPublico[];
   avisos: string[];
   recomendaciones: RecomendacionPublica[];
+  // reg-ac4: el aviso de "se está regenerando" y su enlace al progreso
+  // necesitan saber si hay una regeneración en vuelo y a qué trabajo
+  // enlazar -- route.ts los añade por encima de aPlanPublico.
+  regenerando: boolean;
+  trabajoId: string;
 }
+
+const TEXTO_CONFIRMACION_REGENERAR =
+  "El plan actual se sustituirá por uno nuevo generado desde cero. Las paradas marcadas como visitadas se perderán. Tarda unos minutos y consume una generación de tu suscripción. ¿Seguir?";
+const AYUDA_REGENERAR = "Vuelve a generar el plan con las mejoras actuales (alternativas, lugares comprobados, fotos)";
+const ERROR_REGENERAR_GENERICO = "No se ha podido regenerar el viaje. Vuelve a intentarlo en un momento.";
 
 // lug-ac7: reescrito -ya no dice "ninguna parada"- porque desde este
 // bloque una parada SÍ puede estar comprobada contra OpenStreetMap o
@@ -307,12 +318,37 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
 }
 
 export function VistaPlan({ id }: { id: string }) {
+  const router = useRouter();
   const [plan, setPlan] = useState<PlanPublico | null>(null);
   const [error, setError] = useState<string | null>(null);
   // alt-ac5: recargar (tras usar una alternativa) es volver a pedir
   // /api/plan/[id] -- esa ruta devuelve siempre la versión más reciente,
   // así que no hace falta nada más que repetir la misma petición.
   const [recargarContador, setRecargarContador] = useState(0);
+  const [dialogoRegenerarAbierto, setDialogoRegenerarAbierto] = useState(false);
+  const [regenerando, setRegenerando] = useState(false);
+  const [errorRegenerar, setErrorRegenerar] = useState<string | null>(null);
+
+  // reg-ac1: "Cancelar" no toca `trabajos` -el POST solo sale del botón "Sí,
+  // regenerar"-; reg-ac3 pone en `errorRegenerar` el mensaje exacto que
+  // devuelve el servidor (409 ya en curso, 429 demasiado pronto).
+  async function confirmarRegenerar() {
+    setRegenerando(true);
+    setErrorRegenerar(null);
+    try {
+      const respuesta = await fetch(`/api/plan/${id}/regenerar`, { method: "POST" });
+      const datos = await respuesta.json();
+      if (!respuesta.ok) {
+        setErrorRegenerar(typeof datos?.error === "string" ? datos.error : ERROR_REGENERAR_GENERICO);
+        return;
+      }
+      router.push(`/trabajos/${datos.trabajo_id}`);
+    } catch {
+      setErrorRegenerar(ERROR_REGENERAR_GENERICO);
+    } finally {
+      setRegenerando(false);
+    }
+  }
 
   useEffect(() => {
     let cancelado = false;
@@ -360,7 +396,45 @@ export function VistaPlan({ id }: { id: string }) {
           desde el bloque generacion) pero nadie lo pintaba -el enlace nuevo
           desde la pantalla de progreso es el primer sitio que necesita que
           esta página se reconozca por su contenido, no solo por la URL. */}
-      {plan && <h2>{plan.destino}</h2>}
+      {plan && (
+        <div className="fila">
+          <h2>{plan.destino}</h2>
+          <button type="button" aria-describedby="ayuda-regenerar" onClick={() => setDialogoRegenerarAbierto(true)}>
+            Regenerar este viaje
+          </button>
+          {/* usabilidad-ac8: nada de `title` -sin hover en táctil-; la
+              ayuda va en un elemento visible al que aria-describedby apunta. */}
+          <p id="ayuda-regenerar" className="ayuda">
+            {AYUDA_REGENERAR}
+          </p>
+        </div>
+      )}
+
+      {/* reg-ac4: aviso visible en la versión anterior, todavía la que ve
+          el usuario, mientras el trabajo sigue en vuelo. */}
+      {plan?.regenerando && (
+        <div className="aviso">
+          <p>
+            Este viaje se está regenerando; el plan que ves se sustituirá cuando termine.{" "}
+            <a href={`/trabajos/${plan.trabajoId}`}>Ver el progreso</a>
+          </p>
+        </div>
+      )}
+
+      {dialogoRegenerarAbierto && (
+        <div role="dialog" aria-label="Regenerar este viaje" className="aviso">
+          <p>{TEXTO_CONFIRMACION_REGENERAR}</p>
+          <div className="fila">
+            <button type="button" autoFocus onClick={() => setDialogoRegenerarAbierto(false)} disabled={regenerando}>
+              Cancelar
+            </button>
+            <button type="button" className="boton-peligro" onClick={() => void confirmarRegenerar()} disabled={regenerando}>
+              {regenerando ? "Regenerando…" : "Sí, regenerar"}
+            </button>
+          </div>
+          {errorRegenerar && <p role="alert">{errorRegenerar}</p>}
+        </div>
+      )}
 
       {plan?.avisos.map((aviso) => (
         <p key={aviso}>{aviso}</p>

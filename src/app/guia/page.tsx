@@ -33,39 +33,36 @@ export default function GuiaPage() {
           autorizados para la familia.
         </li>
         <li>
-          Escribe el código en esa misma pantalla, sin salir de ella: lo que habías escrito sigue ahí, no hace falta
-          repetirlo. Ese código es un inicio de sesión ligado a tu correo -la primera vez crea tu cuenta- para que la
-          aplicación te reconozca la próxima vez que vuelvas, sin pedírtelo de nuevo.
+          Escribe el código sin salir de esta pantalla: lo que habías escrito sigue ahí, no hace falta repetirlo.
+          Ese código es un inicio de sesión ligado a tu correo -la primera vez crea tu cuenta- para que vuelvas sin
+          pedírtelo de nuevo.
         </li>
-        <li>
-          El plan no aparece al instante: verás una pantalla de progreso mientras un agente lo genera, y puede
-          tardar varios minutos.
-        </li>
+        <li>El plan no aparece al instante: verás una pantalla de progreso mientras un agente lo genera.</li>
         <li>
           Cuando termina, el itinerario se ve como una línea de tiempo: cada día tiene sus franjas horarias
           -mañana, comida, tarde, noche- con las paradas agrupadas dentro de cada franja.
         </li>
         <li>
-          Cada parada localizada en OpenStreetMap o Wikipedia aparece como «comprobada», con acceso directo a esa
-          fuente; si no se ha podido localizar, dice «Sin comprobar».
+          Cada parada localizada en OpenStreetMap o Wikipedia aparece como «comprobada», con acceso a esa fuente; si
+          no se ha podido localizar, dice «Sin comprobar».
         </li>
         <li>
           Con alguna parada comprobada, aparece un mapa con un marcador numerado por parada y el recorrido entre
-          ellas (teselas de OpenStreetMap vía OpenFreeMap); si no carga, la lista sigue intacta y «Abrir el
-          recorrido en Google Maps» sigue funcionando.
+          ellas; si no carga, la lista sigue intacta y «Abrir el recorrido en Google Maps» sigue funcionando.
         </li>
         <li>
-          Junto al itinerario hay recomendaciones de sitios de comida y de recintos cercanos: cada una abre una
-          búsqueda de ese sitio en el mapa, nunca una reserva ni un listado verificado.
+          Junto al itinerario hay recomendaciones de comida y recintos cercanos: cada una abre una búsqueda de ese
+          sitio en el mapa, nunca una reserva.
         </li>
         <li>
-          Encuentra cualquier plan sin guardar ninguna dirección: pulsa «Mis viajes» en el pie de cualquier página
-          y verás la lista completa de los viajes pedidos con tu cuenta, cada uno con acceso directo a su plan.
+          Encuentra cualquier plan sin guardar ninguna dirección: pulsa «Mis viajes» en el pie de cualquier página y
+          verás la lista de tus viajes, cada uno con acceso directo a su plan.
         </li>
         <li>
-          Desde «Mis viajes» puedes eliminar un viaje que ya no necesites: confirmas una vez, desaparece de la
-          lista y su plan deja de poder abrirse. No se puede deshacer: no hay papelera ni forma de recuperarlo.
+          Desde «Mis viajes» puedes eliminar un viaje que ya no necesites: confirmas una vez y su plan deja de poder
+          abrirse. No se puede deshacer.
         </li>
+        <li>«Regenerar este viaje» pide una versión nueva, como mucho una vez por hora.</li>
       </ol>
     </main>
   );
