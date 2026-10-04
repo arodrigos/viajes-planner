@@ -51,6 +51,9 @@ export default function GuiaPage() {
           ellas; si no carga, la lista sigue intacta y «Abrir el recorrido en Google Maps» sigue funcionando.
         </li>
         <li>
+          El día de tu viaje, cada parada se puede marcar como visitada y verás «Cómo llegar» hasta la siguiente.
+        </li>
+        <li>
           Junto al itinerario hay recomendaciones de comida y recintos cercanos: cada una abre una búsqueda de ese
           sitio en el mapa, nunca una reserva.
         </li>

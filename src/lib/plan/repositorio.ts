@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { idsExternosVisitados } from "./visitas";
 import type { Alternativa, AnclaAlojamiento, Dia, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 
 // Forma en la que se guardan los días dentro de plan_versiones.dias: todo
@@ -165,6 +166,11 @@ export async function recuperarPlan(
       : { data: [] as never[], error: null };
   if (errorAlternativas) throw new Error(`No se pudieron leer las alternativas: ${errorAlternativas.message}`);
 
+  // dest-ac4: a través de CUALQUIER versión de este plan, nunca solo de la
+  // que se está leyendo -- es lo que hace que la marca sobreviva a una
+  // sustitución (nueva versión, mismo id_externo).
+  const idsVisitados = await idsExternosVisitados(supabase, planId);
+
   const alternativasPorParadaId = new Map<string, Alternativa[]>();
   for (const fila of alternativaRows ?? []) {
     const lat = fila.lat as number | null;
@@ -213,6 +219,7 @@ export async function recuperarPlan(
           ...(fila.foto ? { foto: fila.foto as Parada["foto"] } : {}),
           ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
           ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
+          ...(idsVisitados.has(fila.id_externo as string) ? { visitada: true } : {}),
         };
       });
     return {

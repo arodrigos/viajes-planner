@@ -7,8 +7,9 @@
 // SSR de @vis.gl/react-maplibre).
 import "maplibre-gl/dist/maplibre-gl.css";
 import { setWorkerUrl } from "maplibre-gl";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AttributionControl, Layer, Map, Marker, Source } from "@vis.gl/react-maplibre";
+import type { MapRef } from "@vis.gl/react-maplibre";
 
 const ESTILO_OPENFREEMAP = "https://tiles.openfreemap.org/styles/liberty";
 
@@ -32,6 +33,11 @@ interface PropiedadesMapaDia {
   puntos: PuntoMapaDia[];
   paradaActivaId?: string | null;
   onSeleccionarParada?: (id: string) => void;
+  // dest-ac2: ids de paradas visitadas (marcador con data-estado="visitada")
+  // y la parada en la que recentrar el mapa -la siguiente sin visitar-,
+  // ambos opcionales porque fuera de la vista del día de hoy no se calculan.
+  idsVisitados?: Set<string>;
+  centroParadaId?: string | null;
 }
 
 function calcularBounds(puntos: PuntoMapaDia[]): [[number, number], [number, number]] {
@@ -43,10 +49,20 @@ function calcularBounds(puntos: PuntoMapaDia[]): [[number, number], [number, num
   ];
 }
 
-export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada }: PropiedadesMapaDia) {
+export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisitados, centroParadaId }: PropiedadesMapaDia) {
   const [fallo, setFallo] = useState(false);
+  const mapaRef = useRef<MapRef>(null);
 
   const puntosOrdenados = useMemo(() => [...puntos].sort((a, b) => a.orden - b.orden), [puntos]);
+
+  // dest-ac2: recentra sobre la siguiente parada sin visitar cuando cambia,
+  // sin perder el encuadre inicial de fitBounds si no hay ninguna (plan
+  // recién cargado, o día con todas las paradas visitadas).
+  useEffect(() => {
+    if (!centroParadaId) return;
+    const punto = puntosOrdenados.find((p) => p.id === centroParadaId);
+    if (punto) mapaRef.current?.easeTo({ center: [punto.lon, punto.lat] });
+  }, [centroParadaId, puntosOrdenados]);
 
   const geojsonRecorrido = useMemo(
     () => ({
@@ -68,8 +84,13 @@ export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada }: Propied
   }
 
   return (
-    <div className="contenedor-mapa-dia" data-recorrido-puntos={puntosOrdenados.length}>
+    <div
+      className="contenedor-mapa-dia"
+      data-recorrido-puntos={puntosOrdenados.length}
+      data-centro-parada={centroParadaId ?? undefined}
+    >
       <Map
+        ref={mapaRef}
         initialViewState={{
           bounds: calcularBounds(puntosOrdenados),
           fitBoundsOptions: { padding: 40 },
@@ -96,6 +117,7 @@ export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada }: Propied
               className="marcador-parada"
               data-orden={punto.orden}
               data-parada-id={punto.id}
+              data-estado={idsVisitados?.has(punto.id) ? "visitada" : "pendiente"}
               aria-label={`${punto.orden}. ${punto.nombre}`}
               aria-pressed={paradaActivaId === punto.id}
               onClick={() => onSeleccionarParada?.(punto.id)}
