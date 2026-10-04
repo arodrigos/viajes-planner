@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VistaPlan } from "@/app/plan/[id]/VistaPlan";
 
@@ -47,7 +47,11 @@ describe("VistaPlan sin recomendaciones (reco-ac7(b))", () => {
     render(<VistaPlan id="plan-sin-reco" />);
 
     await waitFor(() => expect(screen.getByText(/no hay recomendaciones de sitios/i)).toBeInTheDocument());
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    // ics-ac2 (cambios_tests_justificados): se acota a la sección de
+    // recomendaciones -el resto de la página ya tiene el enlace fijo
+    // "Añadir al calendario", ajeno al estado vacío que este test comprueba.
+    const seccionRecomendaciones = screen.getByRole("region", { name: "Recomendaciones" });
+    expect(within(seccionRecomendaciones).queryByRole("link")).not.toBeInTheDocument();
   });
 });
 

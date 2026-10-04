@@ -527,6 +527,15 @@ export function VistaPlan({ id }: { id: string }) {
       {plan && (
         <div className="fila">
           <h2>{plan.destino}</h2>
+          {/* ics-ac2: enlace de descarga directo, sin JS -- `download` basta
+              porque la petición es same-origin y lleva la cookie de sesión
+              igual que cualquier navegación. */}
+          <a className="boton" href={`/api/plan/${id}/calendario.ics`} download aria-describedby="ayuda-calendario">
+            Añadir al calendario
+          </a>
+          <p id="ayuda-calendario" className="ayuda">
+            Descarga un fichero .ics que puedes abrir en Google Calendar o en el calendario del móvil
+          </p>
           <button type="button" aria-describedby="ayuda-regenerar" onClick={() => setDialogoRegenerarAbierto(true)}>
             Regenerar este viaje
           </button>

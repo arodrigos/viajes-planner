@@ -100,13 +100,18 @@ on:
 # ci-test-destino-no-hoy, el usuario de dest-ac3 (un día que no es hoy no
 # muestra el botón de visita) -- faltaba en esta lista y el correo nunca
 # llegaba a Mailpit.
+# Suma del bloque exportar-calendario: ci-test-calendario, el usuario real
+# de calendario.movil.e2e.ts (ics-ac2, canjea un código real para ver el
+# botón "Añadir al calendario" y descargar el .ics) -- la sesión real de
+# calendario.integration.test.ts (ics-ac1) usa generateLink/verifyOtp como
+# el resto de integration.test.ts, que no pasa por esta lista.
 # Suma del bloque encaje-y-paseo: ci-test-encaje, el usuario real de
 # encaje-y-paseo.movil.e2e.ts (enc-ac1, canjea un código real para ver las
 # etiquetas de encaje de una alternativa); ci-test-paseo, el usuario del
 # mismo fichero para el aviso de "mucho paseo" (enc-ac2), con su propio
 # usuario para no compartir sesión ni límite de trabajos por hora.
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com,ci-test-peso-visual@example.com,ci-test-peso-visual-vacio@example.com,ci-test-contraste-eliminar@example.com,ci-test-otro-viaje@example.com,ci-test-procedencia@example.com,ci-test-mapa@example.com,ci-test-mapa-vacio@example.com,ci-test-mapa-caido@example.com,ci-test-fotos@example.com,ci-test-alternativas@example.com,ci-test-alternativas-vacio@example.com,ci-test-sustituir@example.com,ci-test-regenerar@example.com,ci-test-regenerar-ac4@example.com,ci-test-destino@example.com,ci-test-destino-no-hoy@example.com,ci-test-encaje@example.com,ci-test-paseo@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com,ci-test-peso-visual@example.com,ci-test-peso-visual-vacio@example.com,ci-test-contraste-eliminar@example.com,ci-test-otro-viaje@example.com,ci-test-procedencia@example.com,ci-test-mapa@example.com,ci-test-mapa-vacio@example.com,ci-test-mapa-caido@example.com,ci-test-fotos@example.com,ci-test-alternativas@example.com,ci-test-alternativas-vacio@example.com,ci-test-sustituir@example.com,ci-test-regenerar@example.com,ci-test-regenerar-ac4@example.com,ci-test-destino@example.com,ci-test-destino-no-hoy@example.com,ci-test-calendario@example.com,ci-test-encaje@example.com,ci-test-paseo@example.com"
 
 jobs:
   lint-typecheck-test:

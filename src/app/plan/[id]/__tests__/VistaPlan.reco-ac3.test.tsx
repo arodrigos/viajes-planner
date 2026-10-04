@@ -56,7 +56,13 @@ describe("VistaPlan con recomendación envenenada (reco-ac3(b))", () => {
     // pero eso no es un enlace hacia ese dominio -- lo que de verdad importa
     // es que ningún href navegue realmente a él, algo que solo "://" sin
     // codificar (nunca "%3A%2F%2F") podría hacer.
-    const urls = extraerUrls(container.innerHTML);
+    //
+    // ics-ac2 (cambios_tests_justificados): se acota a la sección de
+    // recomendaciones -el resto de la página ya tiene el enlace fijo
+    // "Añadir al calendario" (/api/plan/.../calendario.ics), que no es un
+    // dominio incrustado y no debe contarse aquí.
+    const seccionRecomendaciones = container.querySelector('[aria-label="Recomendaciones"]');
+    const urls = extraerUrls(seccionRecomendaciones?.innerHTML ?? "");
     expect(urls).toHaveLength(1);
     expect(new URL(urls[0]).hostname).toBe("www.google.com");
     expect(urls[0]).not.toContain("://malicioso.example");
