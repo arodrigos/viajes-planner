@@ -2,6 +2,7 @@ import type { CriteriosViaje } from "@/lib/criterios/tipos";
 import { CATEGORIAS_RIESGO } from "@/lib/generacion/categoriasRiesgo";
 import { topeEfectivo } from "@/lib/generacion/tope";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
+import { CATEGORIAS_PARADA } from "@/lib/plan/tipos";
 import type { ErrorValidacion } from "@/lib/plan/validar";
 
 // Forma del contrato con el modelo y regla de la flota, responsabilidad de
@@ -22,6 +23,7 @@ function instruccionesFormato(criterios: CriteriosViaje): string {
   const franjaIds = franjasComoArray(criterios.destino_o_tipo)
     .map((f) => f.id)
     .join(", ");
+  const categorias = CATEGORIAS_PARADA.join(", ");
   return `Eres el motor de generación de un planificador de viajes. Devuelve
 ÚNICAMENTE un objeto JSON con la forma { "dias": [...], "recomendaciones": [...] }.
 No lo envuelvas en un bloque de código ni en ningún otro texto: ni
@@ -29,10 +31,16 @@ backticks, ni explicación antes o después, solo el objeto JSON empezando
 por "{" y terminando por "}".
 
 Cada elemento de "dias" tiene esta forma exacta, sin más campos que estos:
-{ "fecha": "YYYY-MM-DD", "paradas": [ { "nombre": "...", "descripcion": "...", "duracion_min": <número>, "prioridad": <0-100>, "franja_id": "..." } ] }
+{ "fecha": "YYYY-MM-DD", "paradas": [ { "nombre": "...", "descripcion": "...", "duracion_min": <número>, "prioridad": <0-100>, "franja_id": "...", "categoria": "..." } ] }
 
 "franja_id" tiene que ser exactamente uno de estos valores, nunca uno
 inventado: ${franjaIds}.
+
+"categoria" tiene que ser exactamente uno de estos valores, el que mejor
+describa el tipo de sitio: ${categorias}. Es la categoría que luego se usa
+para buscar el sitio en fuentes reales y para proponer alternativas
+equivalentes, así que tiene que encajar de verdad con el sitio propuesto
+(un museo es "museo", nunca "monumento").
 
 NO incluyas "id" ni "procedencia" en ninguna parada, ni "franjas" ni
 "ancla_alojamiento" en ningún día: esos los completa el sistema después,

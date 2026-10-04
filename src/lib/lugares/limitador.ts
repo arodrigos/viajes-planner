@@ -16,18 +16,20 @@ export type Limitador = <T>(tarea: () => Promise<T>) => Promise<T>;
 export function crearLimitador(intervaloMinMs: number, reloj: Reloj = relojReal): Limitador {
   let ultimaLlamada = -Infinity;
   // Encadenar sobre la promesa anterior es lo que serializa: una tarea no
-  // empieza su espera hasta que la anterior ha registrado su propia marca
-  // de tiempo, así que nunca hay dos peticiones en vuelo a la vez.
-  let colaSerializada: Promise<void> = Promise.resolve();
+  // empieza su espera hasta que la ANTERIOR TAREA HA TERMINADO DE EJECUTARSE
+  // (no solo de registrar su marca de tiempo), así que nunca hay dos
+  // peticiones en vuelo a la vez. El `.catch` evita que un fallo rompa la
+  // cadena para las tareas siguientes.
+  let colaSerializada: Promise<unknown> = Promise.resolve();
 
-  return async function limitar<T>(tarea: () => Promise<T>): Promise<T> {
+  return function limitar<T>(tarea: () => Promise<T>): Promise<T> {
     const miTurno = colaSerializada.then(async () => {
       const espera = Math.max(0, ultimaLlamada + intervaloMinMs - reloj.ahora());
       if (espera > 0) await reloj.dormir(espera);
       ultimaLlamada = reloj.ahora();
+      return tarea();
     });
-    colaSerializada = miTurno;
-    await miTurno;
-    return tarea();
+    colaSerializada = miTurno.catch(() => undefined);
+    return miTurno;
   };
 }

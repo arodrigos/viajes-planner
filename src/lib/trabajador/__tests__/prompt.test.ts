@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
+import { CATEGORIAS_PARADA } from "@/lib/plan/tipos";
 import { construirPrompt } from "@/lib/trabajador/prompt";
 
 // trabajador-ac3 (a): los criterios del usuario, envenenados o no, viajan
@@ -21,5 +22,21 @@ describe("construirPrompt (trabajador-ac3)", () => {
     expect(inicioDelimitador).toBeGreaterThanOrEqual(0);
     expect(indiceTextoInducido).toBeGreaterThan(inicioDelimitador);
     expect(indiceTextoInducido).toBeLessThan(finDelimitador);
+  });
+});
+
+// lug-ac2/fot-ac3: sin que el prompt pida "categoria", el campo llega
+// siempre null en producción y el filtro de clase OSM (y, más adelante, el
+// respaldo de fotos por cercanía) queda inerte fuera de los tests.
+describe("construirPrompt (lug-ac2)", () => {
+  it("pide el campo categoria por parada, con el enum cerrado completo", () => {
+    const criterios = { destino_o_tipo: "Madrid" } as unknown as CriteriosViaje;
+
+    const prompt = construirPrompt(criterios);
+
+    expect(prompt).toContain('"categoria"');
+    for (const categoria of CATEGORIAS_PARADA) {
+      expect(prompt).toContain(categoria);
+    }
   });
 });
