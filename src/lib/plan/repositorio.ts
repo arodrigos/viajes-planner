@@ -94,6 +94,10 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
       // alt-ac3: solo las alternativas que ya pasaron el filtro de
       // equivalencia llegan aquí (resolverAlternativasPlan) -- se guardan
       // todas tal cual, sin ningún filtro adicional en el repositorio.
+      // `categoria` es opcional en el tipo (p. ej. la parada sustituida que
+      // sustituir.ts convierte en alternativa puede no tenerla si el modelo
+      // nunca la dio), pero la columna es NOT NULL: mismo "otro" de reserva
+      // que ya usa el enum para la parada sin categoría.
       for (const alternativa of parada.alternativas ?? []) {
         const { error: errorAlternativa } = await supabase.from("paradas_alternativas").insert({
           parada_id: paradaInsertada.id,
@@ -102,7 +106,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
           descripcion: alternativa.descripcion,
           motivo: alternativa.motivo,
           duracion_min: alternativa.duracion_min,
-          categoria: alternativa.categoria,
+          categoria: alternativa.categoria ?? "otro",
           lat: alternativa.coordenadas?.lat ?? null,
           lon: alternativa.coordenadas?.lon ?? null,
           lugar: alternativa.lugar ?? null,
