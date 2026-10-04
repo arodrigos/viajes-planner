@@ -154,6 +154,13 @@ test("el mapa del día numera los marcadores en orden de franja, resalta la tarj
     expect(textoAtribucion).toContain(palabra);
   }
 
+  // map-ac6: capturas claro/oscuro de un día con mapa para el juicio
+  // visual del gatekeeper (issue #141).
+  await pagina.emulateMedia({ colorScheme: "light" });
+  await pagina.screenshot({ path: "artefactos/capturas/plan-mapa-claro.png" });
+  await pagina.emulateMedia({ colorScheme: "dark" });
+  await pagina.screenshot({ path: "artefactos/capturas/plan-mapa-oscuro.png" });
+
   await contexto.close();
 });
 
