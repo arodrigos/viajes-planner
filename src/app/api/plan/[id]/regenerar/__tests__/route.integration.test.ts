@@ -148,7 +148,9 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("POST /api/plan/[id]/regenerar (reg-
     expect(await respuesta.json()).toEqual({ error: "Solo se puede regenerar un viaje una vez por hora" });
 
     const { data: fila } = await servicio.from("trabajos").select("regenerado_en").eq("id", trabajoId).single();
-    expect(fila?.regenerado_en).toBe(haceDiezMinutos);
+    // Postgres devuelve el timestamptz con sufijo "+00:00", no "Z" -- mismo
+    // instante, otra representación; se compara por valor, no por cadena.
+    expect(new Date(fila?.regenerado_en ?? "").getTime()).toBe(new Date(haceDiezMinutos).getTime());
   });
 
   it("trabajo elegible: 200 con trabajo_id, misma fila reencolada, sin llamar a ningún host externo", async () => {

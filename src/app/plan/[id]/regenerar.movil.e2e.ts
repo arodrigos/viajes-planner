@@ -123,7 +123,9 @@ test("usabilidad: objetivo táctil, ayuda, aviso de regeneración en curso y cap
   await expect(enlaceProgreso).toHaveAttribute("href", `/trabajos/${trabajo.id}`);
 
   const botonRegenerar = pagina.getByRole("button", { name: "Regenerar este viaje" });
-  await expect(botonRegenerar).toHaveAttribute("title", /Vuelve a generar el plan con las mejoras actuales/);
+  // usabilidad-ac8: nada de `title` -la ayuda va en un texto visible, no en
+  // un tooltip de hover que en táctil no existe.
+  await expect(pagina.getByText(/Vuelve a generar el plan con las mejoras actuales/)).toBeVisible();
 
   const resultados = await medirObjetivosTactiles(pagina);
   const botonMedido = resultados.find((r) => r.descripcion.includes("Regenerar este viaje"));

@@ -399,9 +399,14 @@ export function VistaPlan({ id }: { id: string }) {
       {plan && (
         <div className="fila">
           <h2>{plan.destino}</h2>
-          <button type="button" title={AYUDA_REGENERAR} onClick={() => setDialogoRegenerarAbierto(true)}>
+          <button type="button" aria-describedby="ayuda-regenerar" onClick={() => setDialogoRegenerarAbierto(true)}>
             Regenerar este viaje
           </button>
+          {/* usabilidad-ac8: nada de `title` -sin hover en táctil-; la
+              ayuda va en un elemento visible al que aria-describedby apunta. */}
+          <p id="ayuda-regenerar" className="ayuda">
+            {AYUDA_REGENERAR}
+          </p>
         </div>
       )}
 

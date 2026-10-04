@@ -150,7 +150,9 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("regenerarViaje (reg-ac2, reg-ac3
 
     const { data: fila } = await supabase.from("trabajos").select("regenerado_en, estado").eq("id", trabajoId).single();
     expect(fila?.estado).toBe("completado");
-    expect(fila?.regenerado_en).toBe(haceDiezMinutos);
+    // Postgres devuelve el timestamptz con sufijo "+00:00", no "Z" -- mismo
+    // instante, otra representación; se compara por valor, no por cadena.
+    expect(new Date(fila?.regenerado_en ?? "").getTime()).toBe(new Date(haceDiezMinutos).getTime());
   });
 
   it("regenerado_en hace más de 60 minutos: se puede regenerar otra vez", async () => {

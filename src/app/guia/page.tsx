@@ -66,13 +66,7 @@ export default function GuiaPage() {
           Desde «Mis viajes» puedes eliminar un viaje que ya no necesites: confirmas una vez, desaparece de la
           lista y su plan deja de poder abrirse. No se puede deshacer: no hay papelera ni forma de recuperarlo.
         </li>
-        <li>
-          Si quieres volver a generar un viaje ya hecho -por ejemplo, para que tenga alternativas y las demás
-          mejoras de una versión más reciente- pulsa «Regenerar este viaje» en la cabecera de su plan. El plan
-          actual se sustituye por uno nuevo generado desde cero, las paradas marcadas como visitadas se pierden,
-          tarda unos minutos y consume una generación de tu suscripción: solo se puede hacer una vez por hora por
-          viaje.
-        </li>
+        <li>«Regenerar este viaje» pide una versión nueva, como mucho una vez por hora.</li>
       </ol>
     </main>
   );
