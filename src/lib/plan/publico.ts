@@ -17,6 +17,7 @@ export interface AlternativaPublica {
   nombre: string;
   descripcion: string;
   motivo: string;
+  duracion_min: number;
   origen?: OrigenAlternativa;
   distancia_m?: number;
   foto?: Foto;
@@ -54,6 +55,7 @@ function aAlternativaPublica(parada: Parada, alternativa: NonNullable<Parada["al
     nombre: alternativa.nombre,
     descripcion: alternativa.descripcion,
     motivo: alternativa.motivo,
+    duracion_min: alternativa.duracion_min,
     origen: alternativa.origen,
     ...(parada.coordenadas && alternativa.coordenadas
       ? { distancia_m: Math.round(distanciaMetros(parada.coordenadas, alternativa.coordenadas)) }
@@ -64,9 +66,20 @@ function aAlternativaPublica(parada: Parada, alternativa: NonNullable<Parada["al
   };
 }
 
+// alt-ac1 (verificacion_modelo_real): la procedencia pública de una parada
+// se deriva aquí, a partir de `lugar`, el mismo único sitio que ya usa
+// `aAlternativaPublica` -- antes solo se derivaba al leer con
+// `repositorio.recuperarPlan`, así que un `Plan` que nunca pasó por la base
+// de datos (como el de `scripts/generar-plan-real.ts --resolver`) se
+// serializaba siempre con `propuesto-sin-verificar` aunque `lugar` ya
+// tuviera coordenadas reales.
 function aParadaPublica(parada: Parada): ParadaPublica {
+  const procedencia: Procedencia = parada.lugar
+    ? { fuente: parada.lugar.fuente, url: parada.lugar.url }
+    : { fuente: "propuesto-sin-verificar" };
   return {
     ...parada,
+    procedencia,
     alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(parada, alternativa)),
   };
 }

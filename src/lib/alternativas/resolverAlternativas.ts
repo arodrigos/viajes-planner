@@ -4,6 +4,7 @@
 // el complemento sin modelo de Overpass (cercanos.ts). Nunca se llama al
 // modelo desde aquí.
 import "server-only";
+import { normalizarNombre } from "@/lib/lugares/normalizar";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
 import type { FuenteLugares } from "@/lib/lugares/tipos";
 import type { Alternativa, Parada, Plan } from "@/lib/plan/tipos";
@@ -13,6 +14,28 @@ import { distanciaMetros, esEquivalente } from "./equivalencia";
 const MINIMO_ALTERNATIVAS_SIN_COMPLEMENTO = 2;
 const MAXIMO_CERCANOS = 3;
 
+// alt-ac4 (hallazgo del gatekeeper, iteración 12): Overpass puede devolver
+// la propia parada como "alternativa" de sí misma (el nombre que el
+// modelo dio y el nombre oficial de OSM casi nunca son idénticos: "Mercado
+// Central de Valencia" -> "Mercat Central" a 2 m), o la de otra parada del
+// mismo plan. Un sitio que ya es parte del itinerario no es una
+// alternativa, aunque resuelva y sea equivalente.
+function identidadesDelPlan(plan: Plan): Set<string> {
+  const identidades = new Set<string>();
+  for (const dia of plan.dias) {
+    for (const parada of dia.paradas) {
+      identidades.add(normalizarNombre(parada.nombre));
+      if (parada.lugar?.id) identidades.add(parada.lugar.id);
+    }
+  }
+  return identidades;
+}
+
+function esLaMismaParadaDelPlan(candidato: { nombre: string; lugar?: { id: string } }, identidades: Set<string>): boolean {
+  if (identidades.has(normalizarNombre(candidato.nombre))) return true;
+  return !!candidato.lugar?.id && identidades.has(candidato.lugar.id);
+}
+
 export async function resolverAlternativasPlan(
   fuenteLugares: FuenteLugares,
   fuenteCercanos: FuenteCercanos,
@@ -20,12 +43,15 @@ export async function resolverAlternativasPlan(
   perfil: string,
 ): Promise<Plan> {
   const bbox = await fuenteLugares.geocodificarDestino(plan.destino);
+  const identidades = identidadesDelPlan(plan);
 
   const dias = await Promise.all(
     plan.dias.map(async (dia) => ({
       ...dia,
       paradas: await Promise.all(
-        dia.paradas.map((parada) => resolverAlternativasParada(fuenteLugares, fuenteCercanos, parada, plan.destino, bbox, perfil)),
+        dia.paradas.map((parada) =>
+          resolverAlternativasParada(fuenteLugares, fuenteCercanos, parada, plan.destino, bbox, perfil, identidades),
+        ),
       ),
     })),
   );
@@ -40,6 +66,7 @@ async function resolverAlternativasParada(
   destino: string,
   bbox: Awaited<ReturnType<FuenteLugares["geocodificarDestino"]>>,
   perfil: string,
+  identidades: Set<string>,
 ): Promise<Parada> {
   const propuestas = parada.alternativas ?? [];
   // Sin categoria no hay con qué comparar equivalencia ni qué pedir a
@@ -58,13 +85,14 @@ async function resolverAlternativasParada(
       lugar: resolucion.lugar,
     };
     const { equivalente } = esEquivalente(parada, candidata, perfil);
-    if (equivalente) resueltas.push(candidata);
+    if (equivalente && !esLaMismaParadaDelPlan(candidata, identidades)) resueltas.push(candidata);
   }
 
   if (resueltas.length < MINIMO_ALTERNATIVAS_SIN_COMPLEMENTO && parada.coordenadas) {
     const cercanos = await fuenteCercanos.buscar(parada.categoria, parada.coordenadas.lat, parada.coordenadas.lon);
     const etiqueta = ETIQUETA_OSM_POR_CATEGORIA[parada.categoria];
-    for (const cercano of cercanos.slice(0, MAXIMO_CERCANOS)) {
+    const cercanosAjenos = cercanos.filter((cercano) => !esLaMismaParadaDelPlan({ nombre: cercano.nombre, lugar: { id: cercano.id } }, identidades));
+    for (const cercano of cercanosAjenos.slice(0, MAXIMO_CERCANOS)) {
       const distanciaM = distanciaMetros(parada.coordenadas, cercano);
       resueltas.push({
         nombre: cercano.nombre,

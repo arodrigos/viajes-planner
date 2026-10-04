@@ -61,4 +61,43 @@ describe("aPlanPublico (alt-ac5)", () => {
     expect(sinResolver?.procedencia).toEqual({ fuente: "propuesto-sin-verificar" });
     expect(sinResolver?.distancia_m).toBeUndefined();
   });
+
+  it("expone duracion_min en cada alternativa pública", () => {
+    const publico = aPlanPublico(planConAlternativa());
+    const alternativas = publico.dias[0].paradas[0].alternativas;
+    expect(alternativas?.[0].duracion_min).toBe(90);
+    expect(alternativas?.[1].duracion_min).toBe(60);
+  });
+});
+
+// alt-ac1 (verificacion_modelo_real): derivar la procedencia de la PARADA
+// desde `lugar` en publico.ts, no solo al leer con repositorio.ts -- es lo
+// que necesita scripts/generar-plan-real.ts --resolver, que nunca pasa por
+// la base de datos.
+describe("aPlanPublico deriva la procedencia de la parada desde lugar (alt-ac1)", () => {
+  it("una parada con lugar resuelto expone procedencia derivada, aunque el campo procedencia del Plan interno sea el literal por defecto", () => {
+    const plan = planConAlternativa();
+    plan.dias[0].paradas[0].procedencia = { fuente: "propuesto-sin-verificar" };
+    plan.dias[0].paradas[0].lugar = {
+      fuente: "osm",
+      id: "osm:node/1",
+      url: "https://www.openstreetmap.org/node/1",
+      nombre_fuente: "Museo del Prado",
+      etiquetas: {},
+      resuelto_en: "2026-10-04T00:00:00Z",
+    };
+
+    const publico = aPlanPublico(plan);
+
+    expect(publico.dias[0].paradas[0].procedencia).toEqual({ fuente: "osm", url: "https://www.openstreetmap.org/node/1" });
+  });
+
+  it("una parada sin lugar queda con procedencia propuesto-sin-verificar", () => {
+    const plan = planConAlternativa();
+    delete plan.dias[0].paradas[0].lugar;
+
+    const publico = aPlanPublico(plan);
+
+    expect(publico.dias[0].paradas[0].procedencia).toEqual({ fuente: "propuesto-sin-verificar" });
+  });
 });

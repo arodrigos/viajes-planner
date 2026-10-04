@@ -293,7 +293,10 @@ export async function procesarTrabajo(
   // alt-ac1/alt-ac3/alt-ac4: alternativas SOLO para viajes nuevos (decisión
   // de Adrián) -- es justo lo que genera este paso, nunca el barrido de
   // planes existentes (relleno-planes-existentes no toca `alternativas`).
-  const cercanos = fuenteCercanos ?? crearFuenteCercanosAbierta();
+  // alt-ac4: misma caché persistente que lug-ac3 exige para Nominatim --
+  // en memoria se evaporaba en cada tick del trabajador (un proceso nuevo
+  // por tick), así que nunca evitaba una segunda petición real a Overpass.
+  const cercanos = fuenteCercanos ?? crearFuenteCercanosAbierta({ cache: cacheSitiosSupabase(supabase) });
   const planFinal = await resolverAlternativasPlan(fuente, cercanos, planConFotos, trabajo.criterios.perfil);
 
   await publicarEtapa(supabase, trabajo.id, "guardando");
