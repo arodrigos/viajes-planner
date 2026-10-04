@@ -77,11 +77,16 @@ function ordenDeterminista(nombres: string[]): string[] {
 
 function clavesDeNivel(direccion: CandidatoLugar["direccion"], nivel: NivelDireccion): string[] {
   if (!direccion) return [];
+  // nivel "distrito": state_district/county son los campos "de libro" de
+  // Nominatim, pero para Londres (y otras ciudades con boroughs) la API
+  // real no los rellena -- usa borough/city_district/suburb en su lugar
+  // (verificado contra la API real el 2026-10-04). Se prueban en ese
+  // orden, de más administrativo a más local.
   const valores =
     nivel === "ciudad"
       ? [direccion.city, direccion.town, direccion.village, direccion.municipality]
       : nivel === "distrito"
-        ? [direccion.state_district, direccion.county]
+        ? [direccion.state_district, direccion.county, direccion.borough, direccion.city_district, direccion.suburb]
         : [direccion.state, direccion.region];
   const primero = valores.find((valor) => !!valor && valor.trim().length > 0);
   return primero ? [primero] : [];
@@ -94,10 +99,9 @@ interface VotoParada {
 }
 
 interface Escrutinio {
-  ganador: string | null;
-  apoyo: number;
-  paradasVotantes: VotoParada[];
-  top3: CandidatoCiudad[];
+  ordenados: CandidatoCiudad[];
+  votantesDe: Map<string, VotoParada[]>;
+  nConsultadas: number;
 }
 
 function escrutar(votosPorParada: VotoParada[][], nivel: NivelDireccion, nConsultadas: number): Escrutinio {
@@ -124,22 +128,67 @@ function escrutar(votosPorParada: VotoParada[][], nivel: NivelDireccion, nConsul
     .map(([nombre, paradas]) => ({ nombre, apoyo: paradas.size }))
     .sort((a, b) => (b.apoyo !== a.apoyo ? b.apoyo - a.apoyo : a.nombre < b.nombre ? -1 : a.nombre > b.nombre ? 1 : 0));
 
-  const top3 = ordenados.slice(0, 3);
-  const primero = ordenados[0];
-  const segundo = ordenados[1];
+  return { ordenados, votantesDe, nConsultadas };
+}
 
-  const esGanador =
-    !!primero &&
-    primero.apoyo >= APOYO_MINIMO &&
-    primero.apoyo >= nConsultadas * PROPORCION_MINIMA &&
-    primero.apoyo - (segundo?.apoyo ?? 0) >= VENTAJA_MINIMA;
+interface Ganador {
+  nombre: string;
+  apoyo: number;
+  caja: CajaDelimitadora;
+  top3: CandidatoCiudad[];
+}
 
-  return {
-    ganador: esGanador ? primero.nombre : null,
-    apoyo: primero?.apoyo ?? 0,
-    paradasVotantes: esGanador ? (votantesDe.get(primero.nombre) ?? []) : [],
-    top3,
-  };
+interface GanadorRechazado {
+  nombre: string;
+  motivo: string;
+  top3: CandidatoCiudad[];
+}
+
+// ciu-ac2, calibrado con datos reales (feedback del gatekeeper del
+// 2026-10-04): con direcciones REALES de Nominatim, una ciudad grande con
+// "ciudades" internas (Londres/"City of Westminster") reparte el voto de
+// nivel "ciudad" entre la ciudad grande y su sub-ciudad sin que ninguna
+// llegue a la ventaja mínima -- y el nivel "distrito" (boroughs) no ayuda
+// porque cada borough individual tampoco llega a la ventaja. La votación
+// por mayoría simple no basta; hace falta la prueba de CONTENCIÓN
+// geográfica: si la caja verificada del primero contiene también las
+// coordenadas de las paradas que votaron al segundo, el segundo no es un
+// candidato rival, es una subdivisión del primero (Westminster está
+// dentro de Gran Londres), así que el primero gana sin exigir ventaja.
+async function elegirGanador(fuente: FuenteCiudad, escrutinio: Escrutinio): Promise<Ganador | { rechazado: GanadorRechazado } | null> {
+  const primero = escrutinio.ordenados[0];
+  if (!primero || primero.apoyo < APOYO_MINIMO || primero.apoyo < escrutinio.nConsultadas * PROPORCION_MINIMA) {
+    return null;
+  }
+
+  const top3 = escrutinio.ordenados.slice(0, 3);
+  const paradasVotantesPrimero = escrutinio.votantesDe.get(primero.nombre) ?? [];
+  const caja = await fuente.geocodificarCiudad(primero.nombre);
+  const paradasDentro = caja ? paradasVotantesPrimero.filter((voto) => enCaja(voto.candidato, caja)).length : 0;
+
+  if (!caja || !spanValido(caja)) {
+    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» abarca una zona demasiado grande`, top3 } };
+  }
+  if (paradasDentro < MINIMO_PARADAS_VOTANTES_EN_CAJA) {
+    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» no se pudo verificar geográficamente`, top3 } };
+  }
+
+  const segundo = escrutinio.ordenados[1];
+  const ventajaSuficiente = primero.apoyo - (segundo?.apoyo ?? 0) >= VENTAJA_MINIMA;
+  const votantesSegundo = segundo ? escrutinio.votantesDe.get(segundo.nombre) ?? [] : [];
+  const segundoContenido = votantesSegundo.length > 0 && votantesSegundo.some((voto) => enCaja(voto.candidato, caja));
+
+  if (!ventajaSuficiente && !segundoContenido) {
+    return {
+      rechazado: {
+        nombre: primero.nombre,
+        motivo: `la ciudad candidata «${primero.nombre}» no tiene ventaja suficiente sobre «${segundo?.nombre}»`,
+        top3,
+      },
+    };
+  }
+
+  return { nombre: primero.nombre, apoyo: primero.apoyo, caja, top3 };
 }
 
 function enCaja(candidato: CandidatoLugar, caja: CajaDelimitadora): boolean {
@@ -208,18 +257,15 @@ async function deducirPorParadas(
 
   for (const nivel of ["ciudad", "distrito", "region"] as const) {
     const escrutinio = escrutar(votosPorParada, nivel, consultadas.length);
-    if (!escrutinio.ganador) continue;
+    const resultado = await elegirGanador(fuente, escrutinio);
+    if (resultado === null) continue;
 
-    const caja = await fuente.geocodificarCiudad(escrutinio.ganador);
-    const paradasDentro = caja ? escrutinio.paradasVotantes.filter((voto) => enCaja(voto.candidato, caja)).length : 0;
-
-    if (!caja || !spanValido(caja) || paradasDentro < MINIMO_PARADAS_VOTANTES_EN_CAJA) {
+    if ("rechazado" in resultado) {
+      const r = resultado.rechazado;
       return {
         estado: "sin-ciudad-identificable",
-        motivo: caja && !spanValido(caja)
-          ? `la ciudad candidata «${escrutinio.ganador}» abarca una zona demasiado grande`
-          : `la ciudad candidata «${escrutinio.ganador}» no se pudo verificar geográficamente`,
-        candidatos: escrutinio.top3,
+        motivo: r.motivo,
+        candidatos: r.top3,
         intentado_en: ahora,
         ...(motivoDestinoDescartado ? { motivo_destino_descartado: motivoDestinoDescartado } : {}),
       };
@@ -228,17 +274,17 @@ async function deducirPorParadas(
     return {
       estado: "resuelta",
       metodo: "paradas",
-      nombre: escrutinio.ganador,
+      nombre: resultado.nombre,
       nivel,
-      apoyo: escrutinio.apoyo,
-      caja,
+      apoyo: resultado.apoyo,
+      caja: resultado.caja,
       intentado_en: ahora,
       ...(motivoDestinoDescartado ? { motivo_destino_descartado: motivoDestinoDescartado } : {}),
     };
   }
 
   const escrutinioCiudad = escrutar(votosPorParada, "ciudad", consultadas.length);
-  const candidatos = escrutinioCiudad.top3;
+  const candidatos = escrutinioCiudad.ordenados.slice(0, 3);
   const resumen = candidatos.map((c) => `${c.nombre} ${c.apoyo}`).join(", ");
   return {
     estado: "sin-ciudad-identificable",
