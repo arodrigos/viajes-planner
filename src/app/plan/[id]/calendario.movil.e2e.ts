@@ -29,7 +29,7 @@ async function sembrarPlanDeUnaParada(supabase: SupabaseClient, planId: string) 
 
   const { data: procedencia, error: errorProcedencia } = await supabase
     .from("procedencias")
-    .insert({ fuente: "osm", url: "https://www.openstreetmap.org/way/1" })
+    .insert({ fuente: "propuesto-sin-verificar" })
     .select("id")
     .single();
   if (errorProcedencia || !procedencia) throw new Error(`No se pudo sembrar la procedencia: ${errorProcedencia?.message}`);
@@ -46,6 +46,8 @@ async function sembrarPlanDeUnaParada(supabase: SupabaseClient, planId: string) 
     duracion_min: 90,
     prioridad: 80,
     procedencia_id: procedencia.id,
+    lugar: { fuente: "osm", id: "osm:way/1", url: "https://www.openstreetmap.org/way/1", nombre_fuente: "Mezquita-Catedral", etiquetas: {}, resuelto_en: new Date().toISOString() },
+    resolucion: { estado: "resuelta", intentado_en: new Date().toISOString() },
   });
   if (errorParada) throw new Error(`No se pudo sembrar la parada 'p-calendario-a': ${errorParada.message}`);
 }
