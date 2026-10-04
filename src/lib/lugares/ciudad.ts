@@ -34,6 +34,11 @@ export interface CiudadEfectiva {
   // bloque posterior, pero el campo tiene que existir ya para que el
   // barrido sepa qué texto pedirle a Nominatim.
   nombre_pedido?: string;
+  // ciudad-a-mano (man-ac2/man-ac4): cuándo se pidió `nombre_pedido` --
+  // es lo único contra lo que se mide la ventana de una hora de
+  // pedirCiudadManual; distinto de `intentado_en`, que es cuándo el
+  // barrido intentó (o intentará) resolverlo.
+  pedido_en?: string;
 }
 
 const TAMANO_MUESTRA_DESTINO = 5;
