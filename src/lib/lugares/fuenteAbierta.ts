@@ -44,6 +44,9 @@ interface ResultadoNominatim {
     municipality?: string;
     state_district?: string;
     county?: string;
+    borough?: string;
+    city_district?: string;
+    suburb?: string;
     state?: string;
     region?: string;
   };

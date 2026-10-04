@@ -32,6 +32,15 @@ export interface DireccionLugar {
   municipality?: string;
   state_district?: string;
   county?: string;
+  // Verificado contra la API real de Nominatim el 2026-10-04 (issue de
+  // calibración del gatekeeper): para Londres NO devuelve state_district
+  // ni county, devuelve estos tres -- borough ("London Borough of Tower
+  // Hamlets"), city_district ("Camden", "Kensington y Chelsea") y suburb
+  // ("Bloomsbury"). Sin ellos, el nivel "distrito" de ciudad.ts está
+  // siempre vacío para cualquier parada londinense.
+  borough?: string;
+  city_district?: string;
+  suburb?: string;
   state?: string;
   region?: string;
 }

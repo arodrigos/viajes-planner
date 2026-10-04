@@ -114,46 +114,68 @@ describe("resolverCiudadEfectiva -- destino (ciu-ac1)", () => {
   });
 });
 
-function direccionLondres(city: string): CandidatoLugar["direccion"] {
-  return { city, state_district: "Greater London" };
+// Fixtures grabadas de verdad contra la API real de Nominatim el
+// 2026-10-04 (format=jsonv2&limit=3&addressdetails=1&accept-language=es),
+// SIN viewbox -- exactamente la llamada que hace buscarLibre. Sustituyen a
+// las fixtures con `state_district: "Greater London"` del run anterior,
+// que el gatekeeper comprobó que la API real no devuelve para Londres: la
+// API real da `city` ("Gran Londres" o "City of Westminster") y, cuando
+// hay distrito, `city_district`/`borough`/`suburb`, nunca state_district
+// ni county para esta ciudad.
+function direccionLondres(parcial: Pick<NonNullable<CandidatoLugar["direccion"]>, "city"> & Partial<CandidatoLugar["direccion"]>): CandidatoLugar["direccion"] {
+  return { state: "Inglaterra", ...parcial };
 }
 
 describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
-  const PARADAS_LONDRES = [
-    "British Museum",
-    "London Eye",
-    "Tower of London",
-    "Hyde Park",
-    "Natural History Museum",
-    "Camden Market",
-    "Greenwich Park",
-    "Science Museum",
+  // Las 7 paradas y sus direcciones reales grabadas el 2026-10-04. 4 caen
+  // bajo address.city="Gran Londres" y 3 bajo address.city="City of
+  // Westminster" -- la ventaja entre ambas es solo 1, por debajo de
+  // VENTAJA_MINIMA, exactamente el escrutinio que el gatekeeper midió
+  // contra la API real con el destino «Londres en familia con niños».
+  const PARADAS_LONDRES_REALES: Array<{ nombre: string; lat: number; lon: number; direccion: CandidatoLugar["direccion"] }> = [
+    { nombre: "British Museum", lat: 51.5193118, lon: -0.1267051, direccion: direccionLondres({ city: "Gran Londres", city_district: "Camden", suburb: "Bloomsbury" }) },
+    { nombre: "London Eye", lat: 51.5028274, lon: -0.1174123, direccion: direccionLondres({ city: "Gran Londres", city_district: "London Borough of Lambeth", suburb: "Waterloo" }) },
+    { nombre: "Tower of London", lat: 51.508217, lon: -0.0761879, direccion: direccionLondres({ city: "Gran Londres", borough: "London Borough of Tower Hamlets", suburb: "Whitechapel" }) },
+    { nombre: "Natural History Museum", lat: 51.4965109, lon: -0.1760019, direccion: direccionLondres({ city: "Gran Londres", city_district: "Kensington y Chelsea", suburb: "Brompton" }) },
+    { nombre: "Hyde Park", lat: 51.5074889, lon: -0.1622074, direccion: direccionLondres({ city: "City of Westminster", suburb: "Mayfair" }) },
+    { nombre: "Buckingham Palace", lat: 51.5008349, lon: -0.1430045, direccion: direccionLondres({ city: "City of Westminster", suburb: "Victoria" }) },
+    { nombre: "Westminster Abbey", lat: 51.499399, lon: -0.127391, direccion: direccionLondres({ city: "City of Westminster", suburb: "Millbank" }) },
   ];
+  const PARADAS_LONDRES = PARADAS_LONDRES_REALES.map((p) => p.nombre);
+  // Caja real de "Gran Londres" (geocodificarCiudad con featureType=settlement),
+  // grabada el 2026-10-04: span 0,405 x 0,844 grados, contiene las coordenadas
+  // de las 7 paradas de arriba (incluidas las 3 de "City of Westminster").
+  const CAJA_GRAN_LONDRES = { minLat: 51.2867601, maxLat: 51.6918741, minLon: -0.5103751, maxLon: 0.3340155 };
 
   function fixturesLondres(): FixturesFuenteGrabada {
     const libres: Record<string, CandidatoLugar[]> = {};
-    const ciudades = ["London", "London", "London", "City of Westminster", "City of Westminster", "City of Westminster", "Camden", "Greenwich"];
-    PARADAS_LONDRES.forEach((nombre, indice) => {
-      libres[nombre] = [candidato({ nombreFuente: nombre, lat: 51.5 + indice * 0.01, lon: -0.1, direccion: direccionLondres(ciudades[indice]) })];
-    });
+    for (const p of PARADAS_LONDRES_REALES) {
+      libres[p.nombre] = [candidato({ nombreFuente: p.nombre, lat: p.lat, lon: p.lon, direccion: p.direccion })];
+    }
     return {
       destinos: {},
       nominatim: {},
       libres,
-      ciudades: { "Greater London": { minLat: 51.28, maxLat: 51.69, minLon: -0.51, maxLon: 0.33 } },
+      ciudades: { "Gran Londres": CAJA_GRAN_LONDRES },
     };
   }
 
-  // cp-ciu-04
-  it("cuando ningún borough gana con ventaja 2, sube al distrito y resuelve con apoyo total", async () => {
+  // cp-ciu-04: con datos reales, "Gran Londres" (4 paradas) y "City of
+  // Westminster" (3 paradas) empatan por debajo de la ventaja mínima en el
+  // nivel "ciudad" -- el nivel "distrito" (boroughs) no da ningún ganador
+  // porque cada borough tiene como mucho 1 voto. Gana "Gran Londres" por
+  // CONTENCIÓN: su caja verificada contiene también las coordenadas de las
+  // 3 paradas que votaron a Westminster, así que Westminster no es un
+  // candidato rival, es una subdivisión suya.
+  it("cuando la ciudad grande y una sub-ciudad reparten el voto sin ventaja, gana la que contiene a la otra", async () => {
     const c = contador();
     const fuente = c.envolver(crearFuenteLugaresGrabada(fixturesLondres()));
     const resultado = await resolverCiudadEfectiva(fuente, "Londres en familia con niños", PARADAS_LONDRES);
     expect(resultado?.estado).toBe("resuelta");
     expect(resultado?.metodo).toBe("paradas");
-    expect(resultado?.nivel).toBe("distrito");
-    expect(resultado?.nombre).toBe("Greater London");
-    expect(resultado?.apoyo).toBeGreaterThanOrEqual(6);
+    expect(resultado?.nivel).toBe("ciudad");
+    expect(resultado?.nombre).toBe("Gran Londres");
+    expect(resultado?.apoyo).toBeGreaterThanOrEqual(4);
     const caja = resultado!.caja!;
     expect(caja.maxLat - caja.minLat).toBeLessThanOrEqual(2);
     expect(caja.maxLon - caja.minLon).toBeLessThanOrEqual(2);
@@ -162,12 +184,43 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     expect(conteos.ciudades).toBe(1);
   });
 
-  it("no consulta una novena parada aunque el plan tenga 24", async () => {
+  it("no consulta una octava parada aunque el plan tenga 24", async () => {
     const c = contador();
     const fuente = c.envolver(crearFuenteLugaresGrabada(fixturesLondres()));
-    const extra = Array.from({ length: 16 }, (_, i) => `Sitio inventado ${i}`);
+    const extra = Array.from({ length: 17 }, (_, i) => `Sitio inventado ${i}`);
     await resolverCiudadEfectiva(fuente, "Londres en familia con niños", [...PARADAS_LONDRES, ...extra]);
     expect(c.conteos().libres).toBeLessThanOrEqual(8);
+  });
+
+  // La contención no es gratis: si la sub-ciudad minoritaria tuviera
+  // coordenadas FUERA de la caja de la mayoritaria (dos lugares de verdad
+  // distintos, no una ciudad y su distrito), no debe ganar sin ventaja.
+  it("sin contención geográfica, el empate sin ventaja no se resuelve y cae al nivel siguiente", async () => {
+    const libres: Record<string, CandidatoLugar[]> = {};
+    const datos = [
+      { nombre: "Sitio Madrid 1", lat: 40.4, lon: -3.7, city: "Madrid" },
+      { nombre: "Sitio Madrid 2", lat: 40.42, lon: -3.69, city: "Madrid" },
+      { nombre: "Sitio Madrid 3", lat: 40.41, lon: -3.71, city: "Madrid" },
+      { nombre: "Sitio Valencia 1", lat: 39.47, lon: -0.38, city: "Valencia" },
+      { nombre: "Sitio Valencia 2", lat: 39.46, lon: -0.37, city: "Valencia" },
+    ];
+    for (const d of datos) {
+      libres[d.nombre] = [candidato({ nombreFuente: d.nombre, lat: d.lat, lon: d.lon, direccion: { city: d.city, state: "España" } })];
+    }
+    const c = contador();
+    const fuente = c.envolver(
+      crearFuenteLugaresGrabada({
+        destinos: {},
+        nominatim: {},
+        libres,
+        ciudades: { Madrid: { minLat: 40.3, maxLat: 40.5, minLon: -3.8, maxLon: -3.6 } },
+      }),
+    );
+    const resultado = await resolverCiudadEfectiva(fuente, "Ciudad con niños", datos.map((d) => d.nombre));
+    expect(resultado?.estado).toBe("sin-ciudad-identificable");
+    expect(resultado?.nombre).not.toBe("resuelta");
+    const conteos = c.conteos();
+    expect(conteos.ciudades).toBe(1);
   });
 
   // cp-ciu-05
@@ -222,49 +275,37 @@ describe("resolverCiudadEfectiva -- red (ciu-ac7)", () => {
 });
 
 describe("resolverCiudadEfectiva -- invariante de orden", () => {
+  // Reutiliza las 7 paradas reales grabadas arriba (4 "Gran Londres" + 3
+  // "City of Westminster", resueltas por contención): el orden de consulta
+  // no puede cambiar ni el escrutinio ni la decisión de contención.
   it("permutar la lista de paradas nunca cambia el resultado", async () => {
+    const datosPorNombre: Record<string, { lat: number; lon: number; direccion: CandidatoLugar["direccion"] }> = {
+      "British Museum": { lat: 51.5193118, lon: -0.1267051, direccion: direccionLondres({ city: "Gran Londres", city_district: "Camden", suburb: "Bloomsbury" }) },
+      "London Eye": { lat: 51.5028274, lon: -0.1174123, direccion: direccionLondres({ city: "Gran Londres", city_district: "London Borough of Lambeth", suburb: "Waterloo" }) },
+      "Tower of London": { lat: 51.508217, lon: -0.0761879, direccion: direccionLondres({ city: "Gran Londres", borough: "London Borough of Tower Hamlets", suburb: "Whitechapel" }) },
+      "Natural History Museum": { lat: 51.4965109, lon: -0.1760019, direccion: direccionLondres({ city: "Gran Londres", city_district: "Kensington y Chelsea", suburb: "Brompton" }) },
+      "Hyde Park": { lat: 51.5074889, lon: -0.1622074, direccion: direccionLondres({ city: "City of Westminster", suburb: "Mayfair" }) },
+      "Buckingham Palace": { lat: 51.5008349, lon: -0.1430045, direccion: direccionLondres({ city: "City of Westminster", suburb: "Victoria" }) },
+      "Westminster Abbey": { lat: 51.499399, lon: -0.127391, direccion: direccionLondres({ city: "City of Westminster", suburb: "Millbank" }) },
+    };
     await fc.assert(
-      fc.asyncProperty(
-        fc.shuffledSubarray(
-          [
-            "British Museum",
-            "London Eye",
-            "Tower of London",
-            "Hyde Park",
-            "Natural History Museum",
-            "Camden Market",
-            "Greenwich Park",
-            "Science Museum",
-          ],
-          { minLength: 8 },
-        ),
-        async (orden) => {
-          const libres: Record<string, CandidatoLugar[]> = {};
-          const ciudadesPorNombre: Record<string, string> = {
-            "British Museum": "London",
-            "London Eye": "London",
-            "Tower of London": "London",
-            "Hyde Park": "City of Westminster",
-            "Natural History Museum": "City of Westminster",
-            "Camden Market": "City of Westminster",
-            "Greenwich Park": "Camden",
-            "Science Museum": "Greenwich",
-          };
-          for (const nombre of orden) {
-            libres[nombre] = [candidato({ nombreFuente: nombre, lat: 51.5, lon: -0.1, direccion: direccionLondres(ciudadesPorNombre[nombre]) })];
-          }
-          const fuente = crearFuenteLugaresGrabada({
-            destinos: {},
-            nominatim: {},
-            libres,
-            ciudades: { "Greater London": { minLat: 51.28, maxLat: 51.69, minLon: -0.51, maxLon: 0.33 } },
-          });
-          const resultado = await resolverCiudadEfectiva(fuente, "Londres en familia con niños", orden);
-          expect(resultado?.estado).toBe("resuelta");
-          expect(resultado?.nombre).toBe("Greater London");
-          expect(resultado?.apoyo).toBe(8);
-        },
-      ),
+      fc.asyncProperty(fc.shuffledSubarray(Object.keys(datosPorNombre), { minLength: 7 }), async (orden) => {
+        const libres: Record<string, CandidatoLugar[]> = {};
+        for (const nombre of orden) {
+          const d = datosPorNombre[nombre];
+          libres[nombre] = [candidato({ nombreFuente: nombre, lat: d.lat, lon: d.lon, direccion: d.direccion })];
+        }
+        const fuente = crearFuenteLugaresGrabada({
+          destinos: {},
+          nominatim: {},
+          libres,
+          ciudades: { "Gran Londres": { minLat: 51.2867601, maxLat: 51.6918741, minLon: -0.5103751, maxLon: 0.3340155 } },
+        });
+        const resultado = await resolverCiudadEfectiva(fuente, "Londres en familia con niños", orden);
+        expect(resultado?.estado).toBe("resuelta");
+        expect(resultado?.nombre).toBe("Gran Londres");
+        expect(resultado?.apoyo).toBe(4);
+      }),
       { numRuns: 15 },
     );
   });
