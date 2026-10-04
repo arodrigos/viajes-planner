@@ -108,6 +108,11 @@ export interface Parada {
   lugar?: Lugar;
   resolucion?: InfoResolucion;
   foto?: Foto;
+  // bloque fotos-paradas (fot-ac4): se guarda SIEMPRE que se intenta
+  // buscar foto, con éxito o sin él -- es lo que permite al barrido
+  // distinguir "todavía no se ha intentado" ('foto' y esto ambos null) de
+  // "se intentó y no había foto aceptable" ('foto' null, esto con fecha).
+  foto_intentada_en?: string;
 }
 
 export type AnclaAlojamiento =

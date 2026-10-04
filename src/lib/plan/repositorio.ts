@@ -76,7 +76,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
         lugar: parada.lugar ?? null,
         foto: parada.foto ?? null,
         resolucion: parada.resolucion ?? null,
-        foto_intentada_en: parada.foto ? new Date().toISOString() : null,
+        foto_intentada_en: parada.foto_intentada_en ?? null,
       });
       if (errorParada) throw new Error(`No se pudo guardar la parada '${parada.id}': ${errorParada.message}`);
     }

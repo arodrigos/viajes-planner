@@ -9,7 +9,8 @@ import type { EjecutorModelo } from "./ejecutorModelo";
 import { procesarTrabajo } from "./procesarTrabajo";
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
-import type { FuenteLugares } from "@/lib/lugares/tipos";
+import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
+import type { FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 
 export interface ResultadoTick {
   cerrojoAdquirido: boolean;
@@ -23,6 +24,7 @@ export interface OpcionesTick {
   esperaOciosaMs?: number;
   intervaloOciosoMs?: number;
   fuenteLugares?: FuenteLugares;
+  fuenteFotos?: FuenteFotos;
 }
 
 function esperar(ms: number): Promise<void> {
@@ -55,6 +57,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   await supabase.from("salud").insert({ origen: "trabajador-vps1" });
 
   const fuenteLugares = opciones.fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
+  const fuenteFotos = opciones.fuenteFotos ?? crearFuenteFotosAbierta();
   let trabajosProcesados = 0;
   try {
     let ociosoDesde: number | null = null;
@@ -66,7 +69,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         await procesarTrabajo(
           supabase,
           { id: trabajo.id, plan_id: trabajo.plan_id, criterios: trabajo.criterios as CriteriosViaje },
-          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares },
+          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares, fuenteFotos },
         );
         trabajosProcesados += 1;
         continue;
@@ -74,7 +77,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
 
       if (!barridoHecho) {
         barridoHecho = true;
-        await completarParadasPendientes(supabase, fuenteLugares, LIMITE_BARRIDO_DEFECTO);
+        await completarParadasPendientes(supabase, fuenteLugares, LIMITE_BARRIDO_DEFECTO, fuenteFotos);
       }
 
       if (trabajosProcesados === 0) break;

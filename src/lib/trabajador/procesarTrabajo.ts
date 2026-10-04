@@ -9,7 +9,9 @@ import { CATEGORIAS_PARADA, type Dia, type Franja, type Parada, type Plan, type 
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
 import { resolverPlan } from "@/lib/lugares/resolverPlan";
-import type { FuenteLugares } from "@/lib/lugares/tipos";
+import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
+import { resolverFotosPlan } from "@/lib/lugares/resolverFotos";
+import type { FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
@@ -33,6 +35,8 @@ interface DependenciasProcesarTrabajo {
   // llega a "completado" colgaba el job de CI contra la red real. Por
   // defecto, la fuente abierta de verdad.
   fuenteLugares?: FuenteLugares;
+  // fot-ac1: mismo motivo que fuenteLugares, para Wikipedia/Commons.
+  fuenteFotos?: FuenteFotos;
 }
 
 type IntentoEnsamblado = { valido: true; plan: Plan } | { valido: false; errores: ErrorValidacion[] };
@@ -201,7 +205,7 @@ async function invocarOPausar(
 export async function procesarTrabajo(
   supabase: SupabaseClient,
   trabajo: TrabajoAProcesar,
-  { ejecutor, directorio, fuenteLugares }: DependenciasProcesarTrabajo,
+  { ejecutor, directorio, fuenteLugares, fuenteFotos }: DependenciasProcesarTrabajo,
 ): Promise<{ estado: "completado" | "fallido" | "pausado-por-cuota" }> {
   const familia = familiaDeModelo(MODELO_GENERACION);
 
@@ -241,7 +245,13 @@ export async function procesarTrabajo(
   // limitador.ts. Una parada que no resuelve nunca hace fallar el trabajo
   // -resolverPlan la deja con resolucion.estado y el plan se guarda igual.
   const fuente = fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
-  const planFinal = await resolverPlan(fuente, planPostProcesado);
+  const planConLugares = await resolverPlan(fuente, planPostProcesado);
+
+  // fot-ac1: fotos de las paradas ya resueltas, en el mismo paso visible
+  // "ubicando las paradas" -- no se anuncia una etapa nueva para no
+  // romper la secuencia que lug-ac6 ya comprueba.
+  const fotos = fuenteFotos ?? crearFuenteFotosAbierta();
+  const planFinal = await resolverFotosPlan(fotos, planConLugares);
 
   await publicarEtapa(supabase, trabajo.id, "guardando");
   await guardarPlan(supabase, planFinal);
