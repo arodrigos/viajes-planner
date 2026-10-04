@@ -1,8 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
-import type { CajaDelimitadora, FuenteLugares } from "@/lib/lugares/tipos";
-import type { CategoriaParada } from "@/lib/plan/tipos";
+import { resolverFoto } from "@/lib/lugares/resolverFotos";
+import type { CajaDelimitadora, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
+import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
 
 export const LIMITE_BARRIDO_DEFECTO = 40;
 const DIAS_CADUCIDAD_NO_RESUELTA = 30;
@@ -59,6 +60,7 @@ export async function completarParadasPendientes(
   supabase: SupabaseClient,
   fuente: FuenteLugares,
   limite: number = LIMITE_BARRIDO_DEFECTO,
+  fuenteFotos?: FuenteFotos,
 ): Promise<number> {
   const { data: trabajosVivos, error: errorTrabajos } = await supabase
     .from("trabajos")
@@ -153,6 +155,39 @@ export async function completarParadasPendientes(
           },
         })
         .eq("id", candidato.paradaId);
+    }
+  }
+
+  // fot-ac4: segundo barrido, después del de ubicación y dentro del mismo
+  // tope -- paradas YA resueltas (de este barrido o de uno anterior, o de
+  // una generación reciente) que todavía no tienen foto ni se han
+  // intentado. Un fallo en una foto concreta nunca tumba el tick: deja
+  // constancia del intento (foto_intentada_en) y sigue con la siguiente.
+  if (fuenteFotos) {
+    const { data: paradasSinFoto, error: errorFotos } = await supabase
+      .from("paradas")
+      .select("id, categoria, lat, lon, lugar")
+      .in("plan_version_id", versionIds)
+      .eq("resolucion->>estado", "resuelta")
+      .is("foto", null)
+      .is("foto_intentada_en", null)
+      .limit(limite);
+    if (errorFotos) throw new Error(`No se pudieron leer las paradas sin foto: ${errorFotos.message}`);
+
+    for (const fila of paradasSinFoto ?? []) {
+      try {
+        const lugar = (fila.lugar as Lugar | null) ?? undefined;
+        const categoria = (fila.categoria as CategoriaParada | null) ?? undefined;
+        const coordenadas =
+          fila.lat !== null && fila.lon !== null ? { lat: fila.lat as number, lon: fila.lon as number } : undefined;
+        const foto = await resolverFoto(fuenteFotos, lugar, categoria, coordenadas);
+        await supabase
+          .from("paradas")
+          .update({ foto: foto ?? null, foto_intentada_en: new Date().toISOString() })
+          .eq("id", fila.id);
+      } catch {
+        await supabase.from("paradas").update({ foto_intentada_en: new Date().toISOString() }).eq("id", fila.id);
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
 import type { PuntoMapaDia } from "./MapaDia";
 import { IconoFranja } from "./iconosFranja";
 import { IconoRecomendacion } from "./iconosRecomendacion";
+import { IconoSinFoto } from "./iconoSinFoto";
 
 // map-ac1: carga dinámica sin SSR -maplibre-gl exige `window` y no se
 // puede renderizar en el servidor (guía SSR de @vis.gl/react-maplibre).
@@ -22,6 +23,14 @@ interface ProcedenciaPublica {
   url?: string;
 }
 
+interface FotoPublica {
+  url: string;
+  autor: string;
+  licencia: string;
+  licencia_url: string;
+  pagina_url: string;
+}
+
 interface ParadaPublica {
   id: string;
   franja_id: string;
@@ -29,6 +38,7 @@ interface ParadaPublica {
   descripcion: string;
   procedencia: ProcedenciaPublica;
   coordenadas?: { lat: number; lon: number };
+  foto?: FotoPublica;
 }
 
 interface DiaPublico {
@@ -161,6 +171,30 @@ function SeccionDia({ dia }: { dia: DiaPublico }) {
                     <div>
                       <strong>{parada.nombre}</strong>
                       <p>{parada.descripcion}</p>
+                      {/* fot-ac2/fot-ac3: la foto nunca viene de otro
+                          sitio -procede de resolverFotos.ts, server-only-;
+                          sin ella, el marcador de posición es digno, nunca
+                          un hueco roto. */}
+                      {parada.foto ? (
+                        <>
+                          <img src={parada.foto.url} alt={parada.nombre} loading="lazy" className="foto-parada" />
+                          <p className="atribucion-foto">
+                            Foto:{" "}
+                            <a href={parada.foto.pagina_url} target="_blank" rel="noopener noreferrer">
+                              {parada.foto.autor}
+                            </a>{" "}
+                            ·{" "}
+                            <a href={parada.foto.licencia_url} target="_blank" rel="noopener noreferrer">
+                              {parada.foto.licencia}
+                            </a>
+                          </p>
+                        </>
+                      ) : (
+                        <div className="foto-ausente">
+                          <IconoSinFoto />
+                          <span>Sin foto</span>
+                        </div>
+                      )}
                       {parada.procedencia.fuente === "propuesto-sin-verificar" ? (
                         <p className="procedencia-parada">
                           Sin comprobar. No hemos podido localizar este sitio en los mapas abiertos: comprueba el

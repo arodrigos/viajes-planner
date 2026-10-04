@@ -8,7 +8,9 @@ import type { CajaDelimitadora, CandidatoLugar, FuenteLugares } from "./tipos";
 // familia. La versión viene del propio package.json en build; en local o
 // en un entorno sin esa variable cae a "0.0.0", que sigue siendo un UA
 // válido y honesto (no inventa un número).
-function userAgent(): string {
+// Exportado para que fotos.ts use el mismo User-Agent honesto (fot-ac4
+// exige "el mismo User-Agent" que el resto de las fuentes abiertas).
+export function userAgent(): string {
   const version = process.env.npm_package_version ?? "0.0.0";
   return `viajes-planner/${version} (+https://github.com/arodrigos/viajes-planner)`;
 }

@@ -5,7 +5,13 @@ import { tick } from "@/lib/trabajador/tick";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { CandidatoLugar, FuenteLugares } from "@/lib/lugares/tipos";
+import { crearFuenteFotosGrabada } from "@/lib/lugares/fuenteFotosGrabada";
 import type { Dia, Plan } from "@/lib/plan/tipos";
+
+// fot-ac4: sin fixtures, ninguna llamada a Wikipedia/Commons de verdad --
+// las paradas que este fichero resuelve vía Nominatim quedan con
+// foto_intentada_en pero sin foto, que es justo lo que miden sus tests.
+const FUENTE_FOTOS_SIN_RED = crearFuenteFotosGrabada({ paginas: {}, imagenes: {}, geosearch: {} });
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -146,6 +152,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
       ejecutor: ejecutorQueFalla(),
       directorio: "/tmp",
       fuenteLugares: fuente,
+      fuenteFotos: FUENTE_FOTOS_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -184,6 +191,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
       ejecutor: ejecutorQueFalla(),
       directorio: "/tmp",
       fuenteLugares: fuente,
+      fuenteFotos: FUENTE_FOTOS_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -201,6 +209,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
       ejecutor: ejecutorQueFalla(),
       directorio: "/tmp",
       fuenteLugares: fuente,
+      fuenteFotos: FUENTE_FOTOS_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -238,6 +247,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
       ejecutor: ejecutorQueFalla(),
       directorio: "/tmp",
       fuenteLugares: fuente,
+      fuenteFotos: FUENTE_FOTOS_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -261,5 +271,76 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
     const liberado = await adquirirCerrojo(supabase, "comprobacion-cerrojo-libre");
     expect(liberado).toBe(true);
     await liberarCerrojo(supabase, "comprobacion-cerrojo-libre");
+  });
+
+  it("fot-ac4: completa fotos de paradas YA resueltas sin foto ni intento previo, dentro del mismo tope de 40 y sin tocar las que no son 'comida'", async () => {
+    await sembrarPlan(supabase, "plan-barrido-fotos", ["Monumento Foto Uno", "Monumento Foto Dos"]);
+
+    // Simula paradas resueltas en una generación o barrido anterior
+    // (lat/lon/lugar/resolucion ya puestos), pero a las que nunca les
+    // tocó el paso de fotos -- exactamente el estado que fot-ac4 describe.
+    const { data: filas } = await supabase.from("paradas").select("id, nombre").in("nombre", ["Monumento Foto Uno", "Monumento Foto Dos"]);
+    for (const fila of filas ?? []) {
+      await supabase
+        .from("paradas")
+        .update({ lat: 39.47, lon: -0.37, resolucion: { estado: "resuelta", intentado_en: new Date().toISOString() } })
+        .eq("id", fila.id);
+    }
+
+    const llamadasGeosearch: Array<{ lat: number; lon: number }> = [];
+    const FOTO_FIXTURE = {
+      url: "https://upload.wikimedia.org/wikipedia/commons/thumb/x/x/Foto.jpg/640px-Foto.jpg",
+      fichero: "Foto.jpg",
+      autor: "Autor de prueba",
+      licencia: "CC BY-SA 4.0",
+      licencia_url: "https://creativecommons.org/licenses/by-sa/4.0",
+      pagina_url: "https://commons.wikimedia.org/wiki/File:Foto.jpg",
+      fuente: "commons" as const,
+    };
+    const fuenteFotosInstrumentada = crearFuenteFotosGrabada({
+      // El geosearch solo devuelve lang+título; resolverFoto necesita
+      // resumenPagina() para llegar del título al nombre de fichero antes
+      // de pedir infoImagen() -sin esta entrada, intentarPagina() se para
+      // en 'sin fichero' y la foto nunca llega aunque geosearch acierte-.
+      paginas: { "es:Página con foto": { fichero: "Foto.jpg" } },
+      imagenes: { "Foto.jpg": FOTO_FIXTURE },
+      geosearch: { "39.47,-0.37": [{ lang: "es", titulo: "Página con foto" }] },
+    });
+    const geosearchOriginal = fuenteFotosInstrumentada.geosearch.bind(fuenteFotosInstrumentada);
+    let llamadaNumero = 0;
+    fuenteFotosInstrumentada.geosearch = async (lat: number, lon: number) => {
+      llamadasGeosearch.push({ lat, lon });
+      llamadaNumero++;
+      // La primera parada "encuentra" foto; la segunda no tiene página con
+      // imagen -- dos resultados distintos con la misma fuente instrumentada.
+      if (llamadaNumero === 1) return geosearchOriginal(lat, lon);
+      return [];
+    };
+
+    const resultado = await tick(supabase, {
+      ejecutor: ejecutorQueFalla(),
+      directorio: "/tmp",
+      fuenteLugares: fuenteInstrumentada({}),
+      fuenteFotos: fuenteFotosInstrumentada,
+      esperaOciosaMs: 0,
+      intervaloOciosoMs: 10,
+    });
+
+    expect(resultado.cerrojoAdquirido).toBe(true);
+    expect(llamadasGeosearch).toHaveLength(2);
+
+    const { data: paradasFinal } = await supabase
+      .from("paradas")
+      .select("nombre, foto, foto_intentada_en")
+      .in("nombre", ["Monumento Foto Uno", "Monumento Foto Dos"])
+      .order("nombre", { ascending: true });
+    expect(paradasFinal).toHaveLength(2);
+    for (const parada of paradasFinal ?? []) {
+      expect(parada.foto_intentada_en).not.toBeNull();
+    }
+    const conFoto = (paradasFinal ?? []).filter((p) => p.foto !== null);
+    const sinFoto = (paradasFinal ?? []).filter((p) => p.foto === null);
+    expect(conFoto).toHaveLength(1);
+    expect(sinFoto).toHaveLength(1);
   });
 });

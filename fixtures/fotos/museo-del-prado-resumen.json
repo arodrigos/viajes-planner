@@ -1,0 +1,13 @@
+{
+  "title": "Museo del Prado",
+  "originalimage": {
+    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/68/Museo_del_Prado_2016_%2825185969599%29.jpg/3840px-Museo_del_Prado_2016_%2825185969599%29.jpg?utm_source=es.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+    "width": 4045,
+    "height": 3021
+  },
+  "thumbnail": {
+    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/68/Museo_del_Prado_2016_%2825185969599%29.jpg/330px-Museo_del_Prado_2016_%2825185969599%29.jpg?utm_source=es.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+    "width": 330,
+    "height": 246
+  }
+}
