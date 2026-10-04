@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { esFechaDeHoy } from "@/lib/plan/fechaHoy";
+import { formatearKm } from "@/lib/plan/paseo";
 import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
 import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
@@ -46,6 +47,20 @@ interface AlternativaPublica {
   foto?: FotoPublica;
   coordenadas?: { lat: number; lon: number };
   procedencia: ProcedenciaPublica;
+  // encaje-y-paseo (enc-ac1): ya formateadas por el servidor
+  // (formatearEtiquetasEncaje) -- este componente solo las pinta.
+  etiquetasEncaje: string[];
+}
+
+// encaje-y-paseo (enc-ac2)
+interface AvisoPaseoPublico {
+  texto: string;
+  paradaId: string;
+}
+
+interface PaseoPublico {
+  km: number;
+  aviso?: AvisoPaseoPublico;
 }
 
 interface ParadaPublica {
@@ -66,6 +81,7 @@ interface DiaPublico {
   fecha: string;
   franjas: FranjaPublica[];
   paradas: ParadaPublica[];
+  paseo?: PaseoPublico;
 }
 
 interface RecomendacionPublica {
@@ -201,11 +217,39 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
     refsTarjetas.current.get(paradaId)?.scrollIntoView({ block: "nearest" });
   }
 
+  // enc-ac2: el aviso de "mucho paseo" enlaza al panel de alternativas de
+  // la parada más alejada -- abrirlo y llevar la vista hasta su tarjeta,
+  // igual que hace tocar su marcador en el mapa.
+  function abrirPanelDesdeAviso(paradaId: string) {
+    setParadaConPanelAbiertoId(paradaId);
+    seleccionarParada(paradaId);
+  }
+
   const tramos = puntos.length > 0 ? urlRecorridoDia(puntos.map((p) => ({ lat: p.lat, lon: p.lon }))) : [];
 
   return (
     <section aria-label={`Día ${dia.fecha}`} className="seccion-dia">
       <h2>{dia.fecha}</h2>
+      {/* enc-ac2: ausente cuando el día tiene menos de dos paradas
+          resueltas -- nunca un paseo a medias. */}
+      {dia.paseo && (
+        <p className="paseo-dia">
+          Paseo estimado: {formatearKm(dia.paseo.km)}
+          {dia.paseo.aviso && (
+            <>
+              {" — "}
+              {dia.paseo.aviso.texto}.{" "}
+              <button
+                type="button"
+                className="enlace-boton"
+                onClick={() => abrirPanelDesdeAviso(dia.paseo!.aviso!.paradaId)}
+              >
+                Ver sus alternativas
+              </button>
+            </>
+          )}
+        </p>
+      )}
       {!tieneAlgunaParada && <p className="dia-sin-paradas">Todavía no hay paradas planificadas para este día.</p>}
 
       {tieneAlgunaParada &&
@@ -365,6 +409,15 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                                       {alternativa.distancia_m !== undefined && <span>A {alternativa.distancia_m} m</span>}{" "}
                                       <span>{alternativa.origen === "cercano" ? "cerca de aquí" : "propuesta"}</span>
                                     </p>
+                                    {/* enc-ac1: hechos calculados, no redactados -- ver
+                                        formatearEtiquetasEncaje en src/lib/alternativas/encaje.ts. */}
+                                    {alternativa.etiquetasEncaje.length > 0 && (
+                                      <ul className="pila etiquetas-encaje">
+                                        {alternativa.etiquetasEncaje.map((etiqueta) => (
+                                          <li key={etiqueta}>{etiqueta}</li>
+                                        ))}
+                                      </ul>
+                                    )}
                                     <button
                                       type="button"
                                       className="boton boton-principal"

@@ -36,7 +36,13 @@ describe("los límites horarios solo viven en config-franjas.ts", () => {
         return (
           !rel.endsWith("plan/config-franjas.ts") &&
           !rel.includes("__tests__") &&
-          !rel.includes("__fixtures__")
+          !rel.includes("__fixtures__") &&
+          // encaje-y-paseo: los *.e2e.ts siembran datos de prueba junto a
+          // las páginas (no en __tests__/__fixtures__) y pueden sembrar un
+          // `opening_hours` real de OpenStreetMap ("Mo-Su 10:00-20:00..."),
+          // que coincide con el patrón HH:MM sin ser un límite de franja.
+          // Son test code, no producción: misma exención que __tests__.
+          !rel.endsWith(".e2e.ts")
         );
       })
       .filter((ruta) => PATRON_HORA.test(readFileSync(ruta, "utf8")));

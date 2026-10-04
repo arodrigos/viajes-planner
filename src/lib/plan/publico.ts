@@ -1,5 +1,7 @@
+import { calcularEtiquetasEncaje, formatearEtiquetasEncaje, vecinosResueltos } from "@/lib/alternativas/encaje";
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
-import type { AnclaAlojamiento, Foto, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
+import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./paseo";
+import type { AnclaAlojamiento, Dia, Foto, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 
 // Serialización hacia el cliente. hora_inicio/hora_fin son internas (costura
 // con VROOM en fase 2) y no se envían nunca: que no se envíen es lo que
@@ -23,6 +25,11 @@ export interface AlternativaPublica {
   foto?: Foto;
   coordenadas?: { lat: number; lon: number };
   procedencia: Procedencia;
+  // encaje-y-paseo (enc-ac1): hechos deterministas ya formateados como
+  // texto ("A 350 m de la parada anterior", "Abre a esa hora"...) --
+  // nunca las horas de franja en sí (esquema-plan-ac2), de las que se
+  // derivan sin enviarlas.
+  etiquetasEncaje: string[];
 }
 
 export interface ParadaPublica extends Omit<Parada, "alternativas"> {
@@ -34,6 +41,9 @@ export interface DiaPublico {
   ancla_alojamiento?: AnclaAlojamiento;
   franjas: FranjaPublica[];
   paradas: ParadaPublica[];
+  // encaje-y-paseo (enc-ac2): ausente cuando el día tiene menos de dos
+  // paradas resueltas -- nunca un paseo a medias.
+  paseo?: { km: number; aviso?: AvisoPaseo };
 }
 
 export interface PlanPublico {
@@ -46,10 +56,34 @@ export interface PlanPublico {
   recomendaciones: Recomendacion[];
 }
 
-function aAlternativaPublica(parada: Parada, alternativa: NonNullable<Parada["alternativas"]>[number]): AlternativaPublica {
+function aAlternativaPublica(
+  dia: Dia,
+  parada: Parada,
+  alternativa: NonNullable<Parada["alternativas"]>[number],
+): AlternativaPublica {
   const procedencia: Procedencia = alternativa.lugar
     ? { fuente: alternativa.lugar.fuente, url: alternativa.lugar.url }
     : { fuente: "propuesto-sin-verificar" };
+
+  // enc-ac1: sin la franja de la parada (no debería faltar: franja_id
+  // siempre referencia una de las franjas del propio día) no hay ventana
+  // horaria con la que evaluar la apertura -- la alternativa se sirve
+  // igual, solo sin esa etiqueta concreta.
+  const franja = dia.franjas.find((f) => f.id === parada.franja_id);
+  const vecinos = vecinosResueltos(dia, parada.id);
+  const etiquetasEncaje = franja
+    ? formatearEtiquetasEncaje(
+        calcularEtiquetasEncaje({
+          parada,
+          alternativa,
+          coordenadasAnterior: vecinos.anterior,
+          coordenadasSiguiente: vecinos.siguiente,
+          fecha: dia.fecha,
+          horaInicioFranja: franja.hora_inicio,
+        }),
+      )
+    : [];
+
   return {
     id: alternativa.id,
     nombre: alternativa.nombre,
@@ -63,6 +97,7 @@ function aAlternativaPublica(parada: Parada, alternativa: NonNullable<Parada["al
     foto: alternativa.foto,
     coordenadas: alternativa.coordenadas,
     procedencia,
+    etiquetasEncaje,
   };
 }
 
@@ -73,18 +108,22 @@ function aAlternativaPublica(parada: Parada, alternativa: NonNullable<Parada["al
 // de datos (como el de `scripts/generar-plan-real.ts --resolver`) se
 // serializaba siempre con `propuesto-sin-verificar` aunque `lugar` ya
 // tuviera coordenadas reales.
-function aParadaPublica(parada: Parada): ParadaPublica {
+function aParadaPublica(dia: Dia, parada: Parada): ParadaPublica {
   const procedencia: Procedencia = parada.lugar
     ? { fuente: parada.lugar.fuente, url: parada.lugar.url }
     : { fuente: "propuesto-sin-verificar" };
   return {
     ...parada,
     procedencia,
-    alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(parada, alternativa)),
+    alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(dia, parada, alternativa)),
   };
 }
 
-export function aPlanPublico(plan: Plan): PlanPublico {
+// perfil: `criterios.perfil` del trabajo propietario (propiedad.ts) --
+// ausente en una llamada que no lo conoce (p. ej. un script sin trabajo
+// detrás), en cuyo caso el paseo usa el umbral no familiar, el más
+// permisivo.
+export function aPlanPublico(plan: Plan, perfil: string | null = null): PlanPublico {
   return {
     id: plan.id,
     version: plan.version,
@@ -94,7 +133,8 @@ export function aPlanPublico(plan: Plan): PlanPublico {
       fecha: dia.fecha,
       ancla_alojamiento: dia.ancla_alojamiento,
       franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
-      paradas: dia.paradas.map(aParadaPublica),
+      paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada)),
+      paseo: calcularPaseoDia(ordenarParadasResueltas(dia.franjas, dia.paradas), perfil) ?? undefined,
     })),
     avisos: plan.avisos ?? [],
     recomendaciones: plan.recomendaciones ?? [],

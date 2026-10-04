@@ -280,6 +280,31 @@ h3 {
   font-style: italic;
 }
 
+/* bloque encaje-y-paseo (enc-ac1/enc-ac2) */
+.paseo-dia {
+  font-size: var(--texto-pequeno);
+  opacity: 0.8;
+}
+
+.etiquetas-encaje {
+  gap: var(--espacio-1, 0.25rem);
+  font-size: var(--texto-pequeno);
+  opacity: 0.8;
+}
+
+/* botón con pinta de enlace, para que quepa dentro del texto del aviso de
+   paseo sin romper su línea -- conserva el objetivo táctil de `button`. */
+.enlace-boton {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--foco);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* bloque alternativas-equivalentes (alt-ac5/alt-ac7) */
 .panel-alternativas {
   margin-top: var(--espacio-2);
