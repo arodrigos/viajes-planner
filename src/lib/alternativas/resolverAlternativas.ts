@@ -31,7 +31,11 @@ function identidadesDelPlan(plan: Plan): Set<string> {
   return identidades;
 }
 
-function esLaMismaParadaDelPlan(candidato: { nombre: string; lugar?: { id: string } }, identidades: Set<string>): boolean {
+// alt-ac1 (barrido-planes-existentes): exportado para que el tercer
+// barrido de completarParadasPendientes reutilice el MISMO filtro, con la
+// identidad del plan reconstruida desde las filas de `paradas` en vez del
+// objeto `Plan` completo (el barrido no lo tiene: lee la tabla directo).
+export function esLaMismaParadaDelPlan(candidato: { nombre: string; lugar?: { id: string } }, identidades: Set<string>): boolean {
   if (identidades.has(normalizarNombre(candidato.nombre))) return true;
   return !!candidato.lugar?.id && identidades.has(candidato.lugar.id);
 }

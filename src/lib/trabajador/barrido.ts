@@ -4,8 +4,14 @@ import { resolverNombre } from "@/lib/lugares/resolverPlan";
 import { resolverFoto } from "@/lib/lugares/resolverFotos";
 import { resolverCiudadEfectiva, type CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { relojReal, type Reloj } from "@/lib/lugares/limitador";
+import { normalizarNombre } from "@/lib/lugares/normalizar";
 import type { CajaDelimitadora, FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
+import { ETIQUETA_OSM_POR_CATEGORIA, type FuenteCercanos } from "@/lib/alternativas/cercanos";
+import { distanciaMetros } from "@/lib/alternativas/equivalencia";
+import { esLaMismaParadaDelPlan } from "@/lib/alternativas/resolverAlternativas";
+
+const MAXIMO_CERCANOS = 3;
 
 // bar-ac3: 120 paradas o 180 s de reloj (lo que ocurra primero), para vaciar
 // las 467 pendientes en ~4 ticks sin solaparse con el cron de 5 min.
@@ -62,6 +68,15 @@ interface FilaParada {
   dia_index: number;
   plan_version_id: string;
   resolucion: { estado: "resuelta" | "no-resuelta" | "error"; intentado_en: string } | null;
+  // alt-ac1: añadidos para el tercer barrido (alternativas) -- lat/lon y
+  // lugar ya los traía la respuesta de ubicación de este mismo tick o de
+  // uno anterior; duracion_min y alternativas_intentadas_en son nuevos
+  // solo para esta lectura, no se escribían antes en esta consulta.
+  lat: number | null;
+  lon: number | null;
+  lugar: Lugar | null;
+  duracion_min: number;
+  alternativas_intentadas_en: string | null;
 }
 
 interface FilaPlanRelacionado {
@@ -144,6 +159,7 @@ export async function completarParadasPendientes(
   fuenteFotos?: FuenteFotos,
   reloj: Reloj = relojReal,
   presupuestoMs: number = PRESUPUESTO_BARRIDO_MS_DEFECTO,
+  fuenteCercanos?: FuenteCercanos,
 ): Promise<number> {
   // bar-ac1: el alcance ya no parte de `trabajos` -- parte de TODO plan con
   // al menos una versión, viva o no. Un plan sin ninguna fila en
@@ -179,7 +195,7 @@ export async function completarParadasPendientes(
 
   const { data: paradas, error: errorParadas } = await supabase
     .from("paradas")
-    .select("id, nombre, categoria, dia_index, plan_version_id, resolucion")
+    .select("id, nombre, categoria, dia_index, plan_version_id, resolucion, lat, lon, lugar, duracion_min, alternativas_intentadas_en")
     .in("plan_version_id", versionIds);
   if (errorParadas) throw new Error(`No se pudieron leer las paradas: ${errorParadas.message}`);
 
@@ -187,10 +203,22 @@ export async function completarParadasPendientes(
 
   const nombresPorVersion = new Map<string, string[]>();
   const pendientesPorVersion = new Map<string, FilaParada[]>();
+  // alt-ac1: identidades de CUALQUIER parada de la versión (nombre
+  // normalizado + lugar.id si ya está resuelta), para que el barrido de
+  // alternativas no proponga como "cercano" un sitio que ya forma parte
+  // del propio plan -- el mismo filtro que resolverAlternativasPlan usa
+  // en la generación, reconstruido aquí desde las filas en vez del
+  // objeto Plan.
+  const identidadesPorVersion = new Map<string, Set<string>>();
   for (const fila of (paradas as FilaParada[] | null) ?? []) {
     const nombres = nombresPorVersion.get(fila.plan_version_id) ?? [];
     nombres.push(fila.nombre);
     nombresPorVersion.set(fila.plan_version_id, nombres);
+
+    const identidades = identidadesPorVersion.get(fila.plan_version_id) ?? new Set<string>();
+    identidades.add(normalizarNombre(fila.nombre));
+    if (fila.lugar?.id) identidades.add(fila.lugar.id);
+    identidadesPorVersion.set(fila.plan_version_id, identidades);
 
     if (!estaPendiente(fila.resolucion, cutoffIso)) continue;
     const pendientes = pendientesPorVersion.get(fila.plan_version_id) ?? [];
@@ -281,6 +309,78 @@ export async function completarParadasPendientes(
           .eq("id", fila.id);
       } catch {
         await supabase.from("paradas").update({ foto_intentada_en: new Date().toISOString() }).eq("id", fila.id);
+      }
+    }
+  }
+
+  // alt-ac1: tercer barrido, después del de ubicación y del de fotos y
+  // dentro del mismo tope -- paradas YA resueltas (de este barrido, de uno
+  // anterior o de una generación reciente), sin alternativas intentadas
+  // todavía, para las que se pide a Overpass hasta 3 cercanos de origen
+  // 'cercano'. El intento se marca SIEMPRE (éxito, 0 resultados o fallo de
+  // Overpass) para no volver a preguntar en el siguiente tick. Consulta
+  // fresca a la BD, igual que el barrido de fotos de arriba, para que una
+  // parada recién resuelta en ESTE mismo tick entre también.
+  if (fuenteCercanos) {
+    interface FilaParadaSinAlternativas {
+      id: string;
+      categoria: CategoriaParada | null;
+      lat: number | null;
+      lon: number | null;
+      plan_version_id: string;
+      duracion_min: number;
+    }
+
+    const { data: paradasSinAlternativas, error: errorAlternativas } = await supabase
+      .from("paradas")
+      .select("id, categoria, lat, lon, plan_version_id, duracion_min")
+      .in("plan_version_id", versionIds)
+      .eq("resolucion->>estado", "resuelta")
+      .is("alternativas_intentadas_en", null)
+      .limit(limite);
+    if (errorAlternativas) throw new Error(`No se pudieron leer las paradas sin alternativas: ${errorAlternativas.message}`);
+
+    for (const fila of (paradasSinAlternativas as FilaParadaSinAlternativas[] | null) ?? []) {
+      const identidades = identidadesPorVersion.get(fila.plan_version_id) ?? new Set<string>();
+      try {
+        if (!fila.categoria || fila.lat === null || fila.lon === null) {
+          await supabase.from("paradas").update({ alternativas_intentadas_en: new Date().toISOString() }).eq("id", fila.id);
+          continue;
+        }
+        const categoria = fila.categoria;
+        const lat = fila.lat;
+        const lon = fila.lon;
+        const cercanos = await fuenteCercanos.buscar(categoria, lat, lon);
+        const ajenos = cercanos.filter(
+          (cercano) => !esLaMismaParadaDelPlan({ nombre: cercano.nombre, lugar: { id: cercano.id } }, identidades),
+        );
+        const etiqueta = ETIQUETA_OSM_POR_CATEGORIA[categoria];
+        for (const cercano of ajenos.slice(0, MAXIMO_CERCANOS)) {
+          const distanciaM = distanciaMetros({ lat, lon }, cercano);
+          const { error: errorInsert } = await supabase.from("paradas_alternativas").insert({
+            parada_id: fila.id,
+            origen: "cercano",
+            nombre: cercano.nombre,
+            descripcion: `Sitio cercano de la categoría '${fila.categoria}' según OpenStreetMap.`,
+            motivo: `A ${Math.round(distanciaM)} m, misma categoría (${etiqueta}) según OpenStreetMap.`,
+            duracion_min: fila.duracion_min,
+            categoria: fila.categoria,
+            lat: cercano.lat,
+            lon: cercano.lon,
+            lugar: {
+              fuente: "osm",
+              id: cercano.id,
+              url: `https://www.openstreetmap.org/${cercano.id.replace("osm:", "")}`,
+              nombre_fuente: cercano.nombre,
+              etiquetas: {},
+              resuelto_en: new Date().toISOString(),
+            },
+          });
+          if (errorInsert) throw new Error(errorInsert.message);
+        }
+        await supabase.from("paradas").update({ alternativas_intentadas_en: new Date().toISOString() }).eq("id", fila.id);
+      } catch {
+        await supabase.from("paradas").update({ alternativas_intentadas_en: new Date().toISOString() }).eq("id", fila.id);
       }
     }
   }

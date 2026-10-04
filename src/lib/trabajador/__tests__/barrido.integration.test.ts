@@ -7,12 +7,18 @@ import { guardarPlan } from "@/lib/plan/repositorio";
 import type { CandidatoLugar, FuenteCiudad, FuenteLugares } from "@/lib/lugares/tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { crearFuenteFotosGrabada } from "@/lib/lugares/fuenteFotosGrabada";
+import type { FuenteCercanos } from "@/lib/alternativas/cercanos";
 import type { Dia, Plan } from "@/lib/plan/tipos";
 
 // fot-ac4: sin fixtures, ninguna llamada a Wikipedia/Commons de verdad --
 // las paradas que este fichero resuelve vía Nominatim quedan con
 // foto_intentada_en pero sin foto, que es justo lo que miden sus tests.
 const FUENTE_FOTOS_SIN_RED = crearFuenteFotosGrabada({ paginas: {}, imagenes: {}, geosearch: {} });
+
+// alt-ac1: este fichero no comprueba el tercer barrido (alternativas) --
+// sin este doble, el tick por defecto crearía una fuente real de Overpass
+// y las paradas que aquí se resuelven lanzarían peticiones de verdad.
+const FUENTE_CERCANOS_SIN_RED: FuenteCercanos = { async buscar() { return []; } };
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -188,6 +194,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
       directorio: "/tmp",
       fuenteLugares: fuente,
       fuenteFotos: FUENTE_FOTOS_SIN_RED,
+      fuenteCercanos: FUENTE_CERCANOS_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -239,6 +246,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
         directorio: "/tmp",
         fuenteLugares: fuente,
         fuenteFotos: FUENTE_FOTOS_SIN_RED,
+        fuenteCercanos: FUENTE_CERCANOS_SIN_RED,
         esperaOciosaMs: 0,
         intervaloOciosoMs: 10,
       });
@@ -287,6 +295,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
       directorio: "/tmp",
       fuenteLugares: fuente,
       fuenteFotos: FUENTE_FOTOS_SIN_RED,
+      fuenteCercanos: FUENTE_CERCANOS_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -330,6 +339,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
       directorio: "/tmp",
       fuenteLugares: fuente,
       fuenteFotos: FUENTE_FOTOS_SIN_RED,
+      fuenteCercanos: FUENTE_CERCANOS_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
@@ -404,6 +414,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
       directorio: "/tmp",
       fuenteLugares: fuenteInstrumentada({}),
       fuenteFotos: fuenteFotosInstrumentada,
+      fuenteCercanos: FUENTE_CERCANOS_SIN_RED,
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
