@@ -298,7 +298,11 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
       fuente: "commons" as const,
     };
     const fuenteFotosInstrumentada = crearFuenteFotosGrabada({
-      paginas: {},
+      // El geosearch solo devuelve lang+título; resolverFoto necesita
+      // resumenPagina() para llegar del título al nombre de fichero antes
+      // de pedir infoImagen() -sin esta entrada, intentarPagina() se para
+      // en 'sin fichero' y la foto nunca llega aunque geosearch acierte-.
+      paginas: { "es:Página con foto": { fichero: "Foto.jpg" } },
       imagenes: { "Foto.jpg": FOTO_FIXTURE },
       geosearch: { "39.47,-0.37": [{ lang: "es", titulo: "Página con foto" }] },
     });
