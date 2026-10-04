@@ -1,9 +1,9 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { procesarDentroDePresupuesto, resolverPuertaDeCiudad, seleccionarPendientes } from "@/lib/trabajador/barrido";
+import { crearContadoresCiudad, procesarDentroDePresupuesto, resolverPuertaDeCiudad, seleccionarPendientes } from "@/lib/trabajador/barrido";
 import { crearFuenteLugaresGrabada } from "@/lib/lugares/fuenteGrabada";
 import { VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
-import type { CajaDelimitadora, CandidatoLugar, FuenteCiudad, FuenteLugares } from "@/lib/lugares/tipos";
+import { FalloRedCiudad, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares } from "@/lib/lugares/tipos";
 import type { Reloj } from "@/lib/lugares/limitador";
 
 // bar-ac3: tope y presupuesto, con reloj falso y sin tocar Supabase --
@@ -143,6 +143,26 @@ describe("resolverPuertaDeCiudad (bar-ac1/bar-ac2)", () => {
     expect(resultado).toBeNull();
   });
 
+  // bar-ac4: el tick tiene que poder distinguir este caso ("ya sellado,
+  // nunca se reintenta") de un fallo de red pasajero sin tocar la base
+  // real -- de ahí el contador saltadosSellados.
+  it("ciudad 'sin-ciudad-identificable' sellada por la versión VIGENTE: incrementa saltadosSellados y ningún otro contador", async () => {
+    const contadores = crearContadoresCiudad();
+    await resolverPuertaDeCiudad(
+      supabaseQueLanzaSiSeEscribe() as never,
+      fuenteQueLanzaSiSeLlama(),
+      version({
+        estado: "sin-ciudad-identificable",
+        motivo: "no hay una ciudad clara",
+        intentado_en: "2026-10-04T10:00:00Z",
+        version_resolutor: VERSION_RESOLUTOR_ACTUAL,
+      }),
+      ["Monumento Uno"],
+      contadores,
+    );
+    expect(contadores).toEqual({ resueltos: 0, reintentados: 0, saltadosSellados: 1, saltadosPorRed: 0 });
+  });
+
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): esto es lo que hace que
   // los 27 planes marcados por el resolutor ANTERIOR a ciu-ac2 vuelvan a
   // entrar una vez en vez de quedarse bloqueados para siempre.
@@ -156,6 +176,7 @@ describe("resolverPuertaDeCiudad (bar-ac1/bar-ac2)", () => {
       buscarLibre: async () => [],
       geocodificarCiudad: async () => bbox,
     };
+    const contadores = crearContadoresCiudad();
     const resultado = await resolverPuertaDeCiudad(
       cliente as never,
       fuente,
@@ -167,12 +188,43 @@ describe("resolverPuertaDeCiudad (bar-ac1/bar-ac2)", () => {
         // previo a este bloque.
       }),
       ["Real Alcázar", "Catedral de Sevilla"],
+      contadores,
     );
     expect(resultado).not.toBeNull();
     expect(registros).toHaveLength(1);
     const ciudadPersistida = (registros[0].valores as { ciudad: CiudadEfectiva }).ciudad;
     expect(ciudadPersistida.estado).toBe("resuelta");
     expect(ciudadPersistida.version_resolutor).toBe(VERSION_RESOLUTOR_ACTUAL);
+    expect(contadores).toEqual({ resueltos: 1, reintentados: 1, saltadosSellados: 0, saltadosPorRed: 0 });
+  });
+
+  // bar-ac4: un fallo de red durante el reintento no puede contarse como
+  // "resuelto" ni confundirse con "sellado" -- saltadosPorRed es la única
+  // señal de que este plan se reintentará solo en el siguiente tick.
+  it("fallo de red durante el reintento de una ciudad sellada por versión anterior: incrementa reintentados y saltadosPorRed, sin escritura", async () => {
+    const fuente: FuenteLugares & FuenteCiudad = {
+      geocodificarDestino: async () => {
+        throw new FalloRedCiudad("Nominatim no respondió");
+      },
+      buscarNominatim: async () => [],
+      buscarWikipedia: async () => [],
+      buscarLibre: async () => [],
+      geocodificarCiudad: async () => null,
+    };
+    const contadores = crearContadoresCiudad();
+    const resultado = await resolverPuertaDeCiudad(
+      supabaseQueLanzaSiSeEscribe() as never,
+      fuente,
+      version({
+        estado: "sin-ciudad-identificable",
+        motivo: "no hay una ciudad clara",
+        intentado_en: "2026-10-01T00:00:00Z",
+      }),
+      ["Real Alcázar", "Catedral de Sevilla"],
+      contadores,
+    );
+    expect(resultado).toBeNull();
+    expect(contadores).toEqual({ resueltos: 0, reintentados: 1, saltadosSellados: 0, saltadosPorRed: 1 });
   });
 
   it("ciudad ya 'resuelta': cero peticiones de red y ninguna escritura, devuelve su nombre/caja tal cual", async () => {

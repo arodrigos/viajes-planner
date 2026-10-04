@@ -21,7 +21,15 @@ export interface CandidatoCiudad {
 // número cada vez que `elegirGanador`/`deducirPorParadas`/
 // `intentarCajaDelDestino` cambien su criterio de decisión es lo que deja
 // que esos planes se reintenten UNA vez (y solo una) en el siguiente tick.
-export const VERSION_RESOLUTOR_ACTUAL = 2;
+//
+// Subida a 3 (bar-ac4, feedback del gatekeeper, 2026-10-04): `elegirGanador`
+// ya no devuelve "abarca una zona demasiado grande" cuando en realidad no
+// hubo caja que verificar, y un rechazo en el nivel "ciudad" ya no cancela
+// los niveles "distrito" y "región" -- los 27 planes reales sellados con la
+// versión 2 (como el de "Londres en familia con niños", que el gatekeeper
+// midió que SÍ resuelve con la lógica corregida) tienen que reintentarse
+// una vez más contra esta versión del criterio.
+export const VERSION_RESOLUTOR_ACTUAL = 3;
 
 // ciu-ac1..ciu-ac2: la "ciudad efectiva" de un plan -- persistida tal cual
 // en planes.ciudad (jsonb). `apoyo`/`nivel` solo tienen sentido cuando
@@ -182,7 +190,16 @@ async function elegirGanador(fuente: FuenteCiudad, escrutinio: Escrutinio): Prom
   const caja = await fuente.geocodificarCiudad(primero.nombre);
   const paradasDentro = caja ? paradasVotantesPrimero.filter((voto) => enCaja(voto.candidato, caja)).length : 0;
 
-  if (!caja || !spanValido(caja)) {
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): antes estos dos casos
+  // compartían el mismo motivo ("abarca una zona demasiado grande"), que es
+  // justo lo que Adrián lee en el aviso de ciudad-a-mano -- y es FALSO
+  // cuando lo que pasó es que `geocodificarCiudad` no devolvió caja (no se
+  // pudo verificar, no que la zona fuera grande). Con datos reales esto
+  // importa: dice cuál de las dos ramas se tomó de verdad.
+  if (!caja) {
+    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» no se pudo verificar geográficamente (sin caja)`, top3 } };
+  }
+  if (!spanValido(caja)) {
     return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» abarca una zona demasiado grande`, top3 } };
   }
   if (paradasDentro < MINIMO_PARADAS_VOTANTES_EN_CAJA) {
@@ -271,20 +288,22 @@ async function deducirPorParadas(
     votosPorParada.push(candidatos.slice(0, 3).map((candidato, indice) => ({ indice, claves: new Set<string>(), candidato })));
   }
 
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): un ganador RECHAZADO en
+  // un nivel no cancela los dos siguientes -- la arquitectura describe una
+  // escalera de TRES niveles (ciudad -> distrito -> región), y antes un
+  // rechazo en "ciudad" devolvía sin-ciudad-identificable sin probar nunca
+  // "distrito" ni "región". Solo se devuelve el negativo al agotar los
+  // tres, con el motivo del ÚLTIMO rechazo (el del nivel más específico
+  // que llegó a tener un ganador, aunque no se pudiera aceptar).
+  let ultimoRechazo: GanadorRechazado | undefined;
   for (const nivel of ["ciudad", "distrito", "region"] as const) {
     const escrutinio = escrutar(votosPorParada, nivel, consultadas.length);
     const resultado = await elegirGanador(fuente, escrutinio);
     if (resultado === null) continue;
 
     if ("rechazado" in resultado) {
-      const r = resultado.rechazado;
-      return {
-        estado: "sin-ciudad-identificable",
-        motivo: r.motivo,
-        candidatos: r.top3,
-        intentado_en: ahora,
-        ...(motivoDestinoDescartado ? { motivo_destino_descartado: motivoDestinoDescartado } : {}),
-      };
+      ultimoRechazo = resultado.rechazado;
+      continue;
     }
 
     return {
@@ -294,6 +313,16 @@ async function deducirPorParadas(
       nivel,
       apoyo: resultado.apoyo,
       caja: resultado.caja,
+      intentado_en: ahora,
+      ...(motivoDestinoDescartado ? { motivo_destino_descartado: motivoDestinoDescartado } : {}),
+    };
+  }
+
+  if (ultimoRechazo) {
+    return {
+      estado: "sin-ciudad-identificable",
+      motivo: ultimoRechazo.motivo,
+      candidatos: ultimoRechazo.top3,
       intentado_en: ahora,
       ...(motivoDestinoDescartado ? { motivo_destino_descartado: motivoDestinoDescartado } : {}),
     };

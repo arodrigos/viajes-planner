@@ -107,6 +107,22 @@ interface CandidatoBarrido extends CandidatoPendiente {
   bbox: CajaDelimitadora;
 }
 
+// bar-ac4 (feedback del gatekeeper, 2026-10-04): contadores de qué pasó con
+// la ciudad de cada plan mirado este tick, para distinguir desde fuera (sin
+// acceso a la base real) un plan que se saltó porque ya está sellado con la
+// versión vigente de uno que se saltó por un fallo de red pasajero -- antes
+// ambos casos eran indistinguibles mirando solo paradasIntentadas.
+export interface ContadoresCiudad {
+  resueltos: number;
+  reintentados: number;
+  saltadosSellados: number;
+  saltadosPorRed: number;
+}
+
+export function crearContadoresCiudad(): ContadoresCiudad {
+  return { resueltos: 0, reintentados: 0, saltadosSellados: 0, saltadosPorRed: 0 };
+}
+
 // bar-ac1: la puerta de la ciudad para un plan concreto -- devuelve el
 // cualificador/caja a usar para sus paradas pendientes, o null si el plan
 // se tiene que saltar este tick (sin ciudad identificable, o un fallo de
@@ -117,6 +133,7 @@ export async function resolverPuertaDeCiudad(
   fuente: FuenteLugares & FuenteCiudad,
   version: VersionDePlan,
   nombresTodasLasParadas: string[],
+  contadores?: ContadoresCiudad,
 ): Promise<{ nombre: string; caja: CajaDelimitadora } | null> {
   let ciudad = version.ciudad;
 
@@ -131,9 +148,17 @@ export async function resolverPuertaDeCiudad(
   const marcadoPorVersionAnterior =
     ciudad?.estado === "sin-ciudad-identificable" && (ciudad.version_resolutor ?? 0) < VERSION_RESOLUTOR_ACTUAL;
 
+  if (ciudad?.estado === "sin-ciudad-identificable" && !marcadoPorVersionAnterior) {
+    if (contadores) contadores.saltadosSellados++;
+  }
+
   if (ciudad === null || marcadoPorVersionAnterior) {
+    if (contadores) contadores.reintentados++;
     const resultado = await resolverCiudadEfectiva(fuente, version.destino, nombresTodasLasParadas);
-    if (resultado === null) return null; // fallo de red: se reintenta en el siguiente tick
+    if (resultado === null) {
+      if (contadores) contadores.saltadosPorRed++;
+      return null; // fallo de red: se reintenta en el siguiente tick
+    }
     ciudad = resultado;
     await supabase.from("planes").update({ ciudad }).eq("id", version.planId);
   } else if (ciudad.estado === "pendiente-manual") {
@@ -152,6 +177,7 @@ export async function resolverPuertaDeCiudad(
   }
 
   if (ciudad.estado === "resuelta" && ciudad.nombre && ciudad.caja) {
+    if (contadores) contadores.resueltos++;
     return { nombre: ciudad.nombre, caja: ciudad.caja };
   }
   // bar-ac2: "sin-ciudad-identificable" (o un "resuelta" sin caja, que no
@@ -169,6 +195,10 @@ export async function resolverPuertaDeCiudad(
 export interface ResultadoBarrido {
   planesMirados: number;
   paradasIntentadas: number;
+  planesResueltos: number;
+  planesReintentados: number;
+  planesSaltadosSellados: number;
+  planesSaltadosPorRed: number;
 }
 
 // rel-ac1/rel-ac2/bar-ac1: cumple la decisión de Adrián -- coordenadas (y
@@ -215,7 +245,9 @@ export async function completarParadasPendientes(
   const versionPorId = new Map<string, VersionDePlan>();
   for (const version of ultimaVersionPorPlan.values()) versionPorId.set(version.id, version);
   const versionIds = [...versionPorId.keys()];
-  if (versionIds.length === 0) return { planesMirados: 0, paradasIntentadas: 0 };
+  if (versionIds.length === 0) {
+    return { planesMirados: 0, paradasIntentadas: 0, planesResueltos: 0, planesReintentados: 0, planesSaltadosSellados: 0, planesSaltadosPorRed: 0 };
+  }
 
   const { data: paradas, error: errorParadas } = await supabase
     .from("paradas")
@@ -255,13 +287,20 @@ export async function completarParadasPendientes(
   // gasta ni una petición de ciudad, la tenga o no ya persistida.
   const candidatos: CandidatoBarrido[] = [];
   let planesMirados = 0;
+  const contadoresCiudad = crearContadoresCiudad();
   for (const [versionId, pendientes] of pendientesPorVersion) {
     if (pendientes.length === 0) continue;
     const version = versionPorId.get(versionId);
     if (!version) continue;
     planesMirados++;
 
-    const cualificador = await resolverPuertaDeCiudad(supabase, fuente, version, nombresPorVersion.get(versionId) ?? []);
+    const cualificador = await resolverPuertaDeCiudad(
+      supabase,
+      fuente,
+      version,
+      nombresPorVersion.get(versionId) ?? [],
+      contadoresCiudad,
+    );
     if (!cualificador) continue;
 
     for (const parada of pendientes) {
@@ -411,5 +450,12 @@ export async function completarParadasPendientes(
     }
   }
 
-  return { planesMirados, paradasIntentadas: procesados };
+  return {
+    planesMirados,
+    paradasIntentadas: procesados,
+    planesResueltos: contadoresCiudad.resueltos,
+    planesReintentados: contadoresCiudad.reintentados,
+    planesSaltadosSellados: contadoresCiudad.saltadosSellados,
+    planesSaltadosPorRed: contadoresCiudad.saltadosPorRed,
+  };
 }

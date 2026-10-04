@@ -81,6 +81,10 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   let trabajosProcesados = 0;
   let planesMirados = 0;
   let paradasIntentadas = 0;
+  let planesResueltos = 0;
+  let planesReintentados = 0;
+  let planesSaltadosSellados = 0;
+  let planesSaltadosPorRed = 0;
   let errorTick: unknown;
   try {
     let ociosoDesde: number | null = null;
@@ -111,6 +115,10 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         );
         planesMirados = resultadoBarrido.planesMirados;
         paradasIntentadas = resultadoBarrido.paradasIntentadas;
+        planesResueltos = resultadoBarrido.planesResueltos;
+        planesReintentados = resultadoBarrido.planesReintentados;
+        planesSaltadosSellados = resultadoBarrido.planesSaltadosSellados;
+        planesSaltadosPorRed = resultadoBarrido.planesSaltadosPorRed;
       }
 
       if (trabajosProcesados === 0) break;
@@ -128,6 +136,10 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         trabajos_procesados: trabajosProcesados,
         planes_mirados: planesMirados,
         paradas_intentadas: paradasIntentadas,
+        planes_resueltos: planesResueltos,
+        planes_reintentados: planesReintentados,
+        planes_saltados_sellados: planesSaltadosSellados,
+        planes_saltados_por_red: planesSaltadosPorRed,
         ...(errorTick === undefined
           ? {}
           : { error: errorTick instanceof Error ? errorTick.message : "fallo desconocido en el tick" }),
