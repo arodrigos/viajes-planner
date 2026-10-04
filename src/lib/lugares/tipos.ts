@@ -72,8 +72,11 @@ export interface FuenteCiudad {
 // aplicados dentro de la implementación real).
 export interface FuenteLugares {
   geocodificarDestino(destino: string): Promise<CajaDelimitadora | null>;
-  buscarNominatim(nombre: string, destino: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]>;
-  buscarWikipedia(nombre: string, destino: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]>;
+  // ciu-ac3: "cualificador", nunca "destino" -- es el texto que acompaña al
+  // nombre de la parada en la búsqueda y en la clave de caché, y desde este
+  // bloque es la ciudad efectiva del plan, no el destino en bruto.
+  buscarNominatim(nombre: string, cualificador: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]>;
+  buscarWikipedia(nombre: string, cualificador: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]>;
 }
 
 // bloque fotos-paradas: el resumen de una página de Wikipedia, reducido a

@@ -122,15 +122,15 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
     return { minLat, maxLat, minLon, maxLon };
   }
 
-  async function buscarNominatim(nombre: string, destino: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]> {
-    const clave = claveNominatim(slugDestino(destino), normalizarClaveNombre(nombre));
+  async function buscarNominatim(nombre: string, cualificador: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]> {
+    const clave = claveNominatim(slugDestino(cualificador), normalizarClaveNombre(nombre));
     const enCache = await cache.obtener(clave);
     if (!esFalloDeCache(enCache)) return enCache as CandidatoLugar[];
 
     // viewbox = izquierda,arriba,derecha,abajo (lon_min,lat_max,lon_max,lat_min).
     const viewbox = `${bbox.minLon},${bbox.maxLat},${bbox.maxLon},${bbox.minLat}`;
     const url =
-      `${NOMINATIM_URL}?q=${encodeURIComponent(`${nombre}, ${destino}`)}&format=jsonv2&limit=5` +
+      `${NOMINATIM_URL}?q=${encodeURIComponent(`${nombre}, ${cualificador}`)}&format=jsonv2&limit=5` +
       `&viewbox=${viewbox}&bounded=1&extratags=1&namedetails=1&addressdetails=1&accept-language=es`;
     const respuesta = await limitarNominatim(() => peticionConReintento(url));
     const candidatos = respuesta ? ((await respuesta.json()) as ResultadoNominatim[]).map(aCandidatoNominatim) : [];
@@ -139,15 +139,15 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
   }
 
   // bbox no acota la búsqueda en Wikipedia (su API de búsqueda de texto no
-  // acepta una caja): el filtrado por destino lo hace evaluarCandidato
+  // acepta una caja): el filtrado por el cualificador lo hace evaluarCandidato
   // después, con las coordenadas que sí trae cada resultado.
-  async function buscarWikipedia(nombre: string, destino: string): Promise<CandidatoLugar[]> {
-    const clave = `wikipedia:${slugDestino(destino)}:${normalizarClaveNombre(nombre)}`;
+  async function buscarWikipedia(nombre: string, cualificador: string): Promise<CandidatoLugar[]> {
+    const clave = `wikipedia:${slugDestino(cualificador)}:${normalizarClaveNombre(nombre)}`;
     const enCache = await cache.obtener(clave);
     if (!esFalloDeCache(enCache)) return enCache as CandidatoLugar[];
 
     const urlBusqueda =
-      `${WIKIPEDIA_SEARCH_URL}?action=query&list=search&format=json&srsearch=${encodeURIComponent(`${nombre} ${destino}`)}&srlimit=3`;
+      `${WIKIPEDIA_SEARCH_URL}?action=query&list=search&format=json&srsearch=${encodeURIComponent(`${nombre} ${cualificador}`)}&srlimit=3`;
     const respuestaBusqueda = await peticionConReintento(urlBusqueda);
     const resultadosBusqueda = respuestaBusqueda ? ((await respuestaBusqueda.json()) as ResultadoBusquedaWikipedia) : null;
     const titulos = resultadosBusqueda?.query?.search?.map((r) => r.title) ?? [];
