@@ -159,6 +159,18 @@ export async function resolverPuertaDeCiudad(
   return null;
 }
 
+// Feedback del gatekeeper (bar-ac4, 2026-10-04): sin esto, un tick que se
+// queda colgado (código viejo en VPS1, una excepción que aborta el
+// barrido, o un reintento que de verdad se hizo y salió negativo) son tres
+// hipótesis indistinguibles desde fuera. `planesMirados` es el número de
+// planes con al menos una parada pendiente considerados este tick (tengan
+// o no ciudad ya resuelta); `paradasIntentadas` es el de ubicaciones
+// intentadas. tick.ts los persiste en `salud.resultado`.
+export interface ResultadoBarrido {
+  planesMirados: number;
+  paradasIntentadas: number;
+}
+
 // rel-ac1/rel-ac2/bar-ac1: cumple la decisión de Adrián -- coordenadas (y
 // fotos) de TODOS los planes con al menos una versión, tengan o no trabajo
 // vivo, sin invocar al modelo y sin regenerar el plan. ciu-ac1/ciu-ac3: el
@@ -172,7 +184,7 @@ export async function completarParadasPendientes(
   reloj: Reloj = relojReal,
   presupuestoMs: number = PRESUPUESTO_BARRIDO_MS_DEFECTO,
   fuenteCercanos?: FuenteCercanos,
-): Promise<number> {
+): Promise<ResultadoBarrido> {
   // bar-ac1: el alcance ya no parte de `trabajos` -- parte de TODO plan con
   // al menos una versión, viva o no. Un plan sin ninguna fila en
   // `plan_versiones` (el caso "Oporto") simplemente no aparece aquí.
@@ -203,7 +215,7 @@ export async function completarParadasPendientes(
   const versionPorId = new Map<string, VersionDePlan>();
   for (const version of ultimaVersionPorPlan.values()) versionPorId.set(version.id, version);
   const versionIds = [...versionPorId.keys()];
-  if (versionIds.length === 0) return 0;
+  if (versionIds.length === 0) return { planesMirados: 0, paradasIntentadas: 0 };
 
   const { data: paradas, error: errorParadas } = await supabase
     .from("paradas")
@@ -242,10 +254,12 @@ export async function completarParadasPendientes(
   // que de verdad tienen algo pendiente -- un plan ya resuelto del todo no
   // gasta ni una petición de ciudad, la tenga o no ya persistida.
   const candidatos: CandidatoBarrido[] = [];
+  let planesMirados = 0;
   for (const [versionId, pendientes] of pendientesPorVersion) {
     if (pendientes.length === 0) continue;
     const version = versionPorId.get(versionId);
     if (!version) continue;
+    planesMirados++;
 
     const cualificador = await resolverPuertaDeCiudad(supabase, fuente, version, nombresPorVersion.get(versionId) ?? []);
     if (!cualificador) continue;
@@ -397,5 +411,5 @@ export async function completarParadasPendientes(
     }
   }
 
-  return procesados;
+  return { planesMirados, paradasIntentadas: procesados };
 }

@@ -95,4 +95,21 @@ describe("construirSalud", () => {
   it("no incluye relleno cuando no se pasa", () => {
     expect(construirSalud()).not.toHaveProperty("relleno");
   });
+
+  // bar-ac4: commit_sha y ultimo_resultado solo aparecen junto a
+  // visto_hace_seg -- sin ellos, "código viejo" y "excepción silenciosa" eran
+  // indistinguibles desde fuera.
+  it("expone trabajador.commit_sha y trabajador.ultimo_resultado cuando se pasan", () => {
+    const ultimoResultado = { ok: false, trabajos_procesados: 0, planes_mirados: 3, paradas_intentadas: 0, error: "boom" };
+    const salud = construirSalud({
+      trabajadorVistoHaceSeg: 42,
+      trabajadorCommitSha: "c66ade5",
+      trabajadorUltimoResultado: ultimoResultado,
+    });
+    expect(salud.trabajador).toEqual({
+      visto_hace_seg: 42,
+      commit_sha: "c66ade5",
+      ultimo_resultado: ultimoResultado,
+    });
+  });
 });

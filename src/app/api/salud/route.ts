@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { clienteServicio } from "@/lib/db/cliente";
 import { leerEstadoRelleno } from "@/lib/relleno";
-import { construirSalud, ESQUEMA_VERSION, type EstadoRelleno } from "@/lib/salud";
+import { construirSalud, ESQUEMA_VERSION, type EstadoRelleno, type ResultadoTickTrabajador } from "@/lib/salud";
 import { MODELO_ACCESO } from "@/lib/trabajador/config";
 import vercelConfig from "../../../../vercel.json";
 
@@ -22,21 +22,33 @@ const SECRETOS_REQUERIDOS = [
 // (modelo de amenazas, mitigación de credenciales) se ha roto.
 const VARIABLES_CREDENCIAL_MODELO = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_API_KEY"] as const;
 
-async function comprobarSupabase(): Promise<{ estado: "activa" | "error"; vistoHaceSeg: number | null }> {
+interface EstadoSupabase {
+  estado: "activa" | "error";
+  vistoHaceSeg: number | null;
+  commitSha: string | null;
+  ultimoResultado: ResultadoTickTrabajador | null;
+}
+
+async function comprobarSupabase(): Promise<EstadoSupabase> {
   try {
     const supabase = clienteServicio();
     const { data, error } = await supabase
       .from("salud")
-      .select("registrado_en")
+      .select("registrado_en, commit_sha, resultado")
       .eq("origen", "trabajador-vps1")
       .order("registrado_en", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (error) throw error;
     const vistoHaceSeg = data ? Math.floor((Date.now() - new Date(data.registrado_en).getTime()) / 1000) : null;
-    return { estado: "activa", vistoHaceSeg };
+    return {
+      estado: "activa",
+      vistoHaceSeg,
+      commitSha: data?.commit_sha ?? null,
+      ultimoResultado: (data?.resultado as ResultadoTickTrabajador | null) ?? null,
+    };
   } catch {
-    return { estado: "error", vistoHaceSeg: null };
+    return { estado: "error", vistoHaceSeg: null, commitSha: null, ultimoResultado: null };
   }
 }
 
@@ -65,7 +77,7 @@ async function leerRellenoSinTumbarSalud(): Promise<EstadoRelleno | undefined> {
 }
 
 export async function GET(request: NextRequest) {
-  const { estado, vistoHaceSeg } = await comprobarSupabase();
+  const { estado, vistoHaceSeg, commitSha, ultimoResultado } = await comprobarSupabase();
   await tocarSiEsElCron(request, estado === "activa");
   const relleno = await leerRellenoSinTumbarSalud();
 
@@ -76,6 +88,8 @@ export async function GET(request: NextRequest) {
     esquemaVersion: ESQUEMA_VERSION,
     modeloAcceso: MODELO_ACCESO,
     trabajadorVistoHaceSeg: vistoHaceSeg,
+    trabajadorCommitSha: commitSha,
+    trabajadorUltimoResultado: ultimoResultado,
     secretosFaltantes: SECRETOS_REQUERIDOS.filter((nombre) => !process.env[nombre]),
     credencialesModeloEnWeb: VARIABLES_CREDENCIAL_MODELO.some((nombre) => Boolean(process.env[nombre])),
     fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap" },

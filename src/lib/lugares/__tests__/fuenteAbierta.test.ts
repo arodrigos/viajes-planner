@@ -109,16 +109,30 @@ describe("crearFuenteAbierta (lug-ac3)", () => {
     expect(resultado).toHaveLength(1);
   });
 
-  it("un 429 persistente (dos fallos seguidos) deja la búsqueda sin candidatos, sin un tercer intento", async () => {
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): un fallo de red NO es una
+  // respuesta negativa legítima. Antes se cacheaba como [] y la parada
+  // quedaba "no-resuelta" (congelada 30 días); ahora lanza y resolverNombre
+  // la deja en "error" (se reintenta en el siguiente tick).
+  it("un 429 persistente (dos fallos seguidos) lanza en vez de devolver [], y no cachea nada", async () => {
     const reloj = crearRelojFalso();
     const fetchFalso = vi.fn(async () => respuestaJson({ error: "demasiadas peticiones" }, 429));
-    const fuente = crearFuenteAbierta({ fetch: fetchFalso as unknown as typeof fetch, reloj, cache: cacheSitiosMemoria() });
+    const cache = cacheSitiosMemoria();
+    const fuente = crearFuenteAbierta({ fetch: fetchFalso as unknown as typeof fetch, reloj, cache });
     const bbox = { minLat: 40, maxLat: 41, minLon: -4, maxLon: -3 };
 
-    const resultado = await fuente.buscarNominatim("Museo del Prado", "Madrid", bbox);
+    await expect(fuente.buscarNominatim("Museo del Prado", "Madrid", bbox)).rejects.toThrow(
+      "no se pudo buscar «Museo del Prado, Madrid»",
+    );
 
     expect(fetchFalso).toHaveBeenCalledTimes(2);
-    expect(resultado).toEqual([]);
+
+    // Nada cacheado: un segundo intento vuelve a pedir red, no da por buena
+    // una respuesta negativa que nunca llegó a darse.
+    fetchFalso.mockClear();
+    fetchFalso.mockImplementation(async () => respuestaJson([{ ...CANDIDATO_NOMINATIM, boundingbox: ["40", "41", "-4", "-3"] }]));
+    const resultado = await fuente.buscarNominatim("Museo del Prado", "Madrid", bbox);
+    expect(fetchFalso).toHaveBeenCalledTimes(1);
+    expect(resultado).toHaveLength(1);
   });
 });
 

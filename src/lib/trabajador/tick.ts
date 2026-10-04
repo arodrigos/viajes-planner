@@ -31,6 +31,10 @@ export interface OpcionesTick {
   fuenteLugares?: FuenteLugares & FuenteCiudad;
   fuenteFotos?: FuenteFotos;
   fuenteCercanos?: FuenteCercanos;
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): el SHA que de verdad
+  // ejecuta este tick en VPS1, distinto del commit que Vercel informa en
+  // /api/salud -- scripts/trabajador-tick.ts lo calcula con `git rev-parse`.
+  commitSha?: string;
 }
 
 function esperar(ms: number): Promise<void> {
@@ -60,12 +64,24 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   // esqueleto-ac1: deja constancia de que VPS1 sigue vivo (/api/salud lee la
   // fila más reciente de este origen). Va aquí, no en procesarTrabajo, para
   // que un tick con la cola vacía cuente igual que uno que sí trabaja.
-  await supabase.from("salud").insert({ origen: "trabajador-vps1" });
+  // bar-ac4: se guarda el id de esta fila para poder completarla al final
+  // con el resultado del tick -- así /api/salud distingue "código viejo"
+  // (SHA desfasado), "excepción en el barrido" (resultado.error) y "reintento
+  // que salió negativo" (resultado.ok con contadores en cero), que hoy son
+  // indistinguibles porque el heartbeat se escribe ANTES de hacer nada.
+  const { data: filaSalud } = await supabase
+    .from("salud")
+    .insert({ origen: "trabajador-vps1", commit_sha: opciones.commitSha ?? null })
+    .select("id")
+    .single();
 
   const fuenteLugares = opciones.fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
   const fuenteFotos = opciones.fuenteFotos ?? crearFuenteFotosAbierta();
   const fuenteCercanos = opciones.fuenteCercanos ?? crearFuenteCercanosAbierta({ cache: cacheSitiosSupabase(supabase) });
   let trabajosProcesados = 0;
+  let planesMirados = 0;
+  let paradasIntentadas = 0;
+  let errorTick: unknown;
   try {
     let ociosoDesde: number | null = null;
     let barridoHecho = false;
@@ -84,7 +100,17 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
 
       if (!barridoHecho) {
         barridoHecho = true;
-        await completarParadasPendientes(supabase, fuenteLugares, LIMITE_BARRIDO_DEFECTO, fuenteFotos, relojReal, PRESUPUESTO_BARRIDO_MS_DEFECTO, fuenteCercanos);
+        const resultadoBarrido = await completarParadasPendientes(
+          supabase,
+          fuenteLugares,
+          LIMITE_BARRIDO_DEFECTO,
+          fuenteFotos,
+          relojReal,
+          PRESUPUESTO_BARRIDO_MS_DEFECTO,
+          fuenteCercanos,
+        );
+        planesMirados = resultadoBarrido.planesMirados;
+        paradasIntentadas = resultadoBarrido.paradasIntentadas;
       }
 
       if (trabajosProcesados === 0) break;
@@ -92,7 +118,22 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
       if (Date.now() - ociosoDesde >= esperaOciosaMs) break;
       await esperar(intervaloOciosoMs);
     }
+  } catch (error) {
+    errorTick = error;
+    throw error;
   } finally {
+    if (filaSalud) {
+      const resultado = {
+        ok: errorTick === undefined,
+        trabajos_procesados: trabajosProcesados,
+        planes_mirados: planesMirados,
+        paradas_intentadas: paradasIntentadas,
+        ...(errorTick === undefined
+          ? {}
+          : { error: errorTick instanceof Error ? errorTick.message : "fallo desconocido en el tick" }),
+      };
+      await supabase.from("salud").update({ resultado }).eq("id", filaSalud.id);
+    }
     await liberarCerrojo(supabase, tomadoPor);
   }
 
