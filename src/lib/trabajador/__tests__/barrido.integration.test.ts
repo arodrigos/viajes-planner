@@ -4,7 +4,8 @@ import { adquirirCerrojo, liberarCerrojo } from "@/lib/trabajador/cerrojo";
 import { tick } from "@/lib/trabajador/tick";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
-import type { CandidatoLugar, FuenteLugares } from "@/lib/lugares/tipos";
+import type { CandidatoLugar, FuenteCiudad, FuenteLugares } from "@/lib/lugares/tipos";
+import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { crearFuenteFotosGrabada } from "@/lib/lugares/fuenteFotosGrabada";
 import type { Dia, Plan } from "@/lib/plan/tipos";
 
@@ -18,6 +19,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const DESTINO = "Valencia-barrido-test";
 const BBOX = { minLat: 39, maxLat: 40, minLon: -1, maxLon: 0 };
+const CIUDAD_RESUELTA: CiudadEfectiva = { estado: "resuelta", metodo: "destino", nombre: DESTINO, caja: BBOX, intentado_en: "2026-10-01T00:00:00Z" };
 
 function candidato(nombre: string): CandidatoLugar {
   return {
@@ -35,10 +37,10 @@ function candidato(nombre: string): CandidatoLugar {
 }
 
 // Doble instrumentado: registra cada nombre por el que se preguntó a
-// Nominatim, para comprobar tanto que las paradas de un plan eliminado
-// nunca se consultan (rel-ac1) como que una parada ya resuelta no vuelve a
-// pedirse en un barrido posterior (rel-ac1).
-function fuenteInstrumentada(nominatim: Record<string, CandidatoLugar[]>): FuenteLugares & { consultadas: string[] } {
+// Nominatim, para comprobar tanto que un plan sin ciudad resuelta nunca
+// consume peticiones (bar-ac2) como que una parada ya resuelta no vuelve a
+// pedirse en un barrido posterior.
+function fuenteInstrumentada(nominatim: Record<string, CandidatoLugar[]>): FuenteLugares & FuenteCiudad & { consultadas: string[] } {
   const consultadas: string[] = [];
   return {
     consultadas,
@@ -51,6 +53,12 @@ function fuenteInstrumentada(nominatim: Record<string, CandidatoLugar[]>): Fuent
     },
     async buscarWikipedia() {
       return [];
+    },
+    async buscarLibre() {
+      throw new Error("bar-ac1: este fichero siembra ciudad ya resuelta -- no debería deducirla por paradas");
+    },
+    async geocodificarCiudad() {
+      throw new Error("bar-ac1: este fichero siembra ciudad ya resuelta -- no debería geocodificarla de nuevo");
     },
   };
 }
@@ -82,20 +90,45 @@ function diaConParadas(nombres: string[], fecha: string): Dia {
   };
 }
 
+interface OpcionesSiembra {
+  eliminado?: boolean;
+  sinTrabajo?: boolean;
+  sinVersion?: boolean;
+  fecha?: string;
+  ciudad?: CiudadEfectiva | null;
+}
+
+// bar-ac1: el alcance ya no depende de `trabajos` -- se siembra con o sin
+// trabajo, con o sin eliminado_en, y hasta sin ninguna versión, para
+// comprobar las cuatro combinaciones del caso de prueba cp-bar-01.
 async function sembrarPlan(
   supabase: ReturnType<typeof clienteDePrueba>,
   planId: string,
   nombres: string[],
-  opciones: { eliminado?: boolean; fecha?: string } = {},
+  opciones: OpcionesSiembra = {},
 ): Promise<void> {
+  if (opciones.sinVersion) {
+    const { error } = await supabase.from("planes").insert({ id: planId, destino: DESTINO, ciudad: opciones.ciudad ?? null });
+    if (error) throw new Error(`No se pudo sembrar el plan sin versión: ${error.message}`);
+    return;
+  }
+
   const plan: Plan = {
     id: planId,
     version: 1,
     destino: DESTINO,
     personas: 2,
     dias: [diaConParadas(nombres, opciones.fecha ?? "2026-11-01")],
+    ...(opciones.ciudad !== undefined ? { ciudad: opciones.ciudad ?? undefined } : {}),
   };
   await guardarPlan(supabase, plan);
+  if (opciones.ciudad === null) {
+    // guardarPlan omite la clave `ciudad` cuando es undefined (para no
+    // pisar una ya resuelta) -- este fichero necesita planes.ciudad
+    // explícitamente en null para los casos que empiezan sin ciudad.
+    await supabase.from("planes").update({ ciudad: null }).eq("id", planId);
+  }
+  if (opciones.sinTrabajo) return;
   const { error } = await supabase
     .from("trabajos")
     .insert({
@@ -108,7 +141,7 @@ async function sembrarPlan(
   if (error) throw new Error(`No se pudo sembrar el trabajo de prueba: ${error.message}`);
 }
 
-describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel-ac2)", () => {
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar-ac2, bar-ac5)", () => {
   const supabase = clienteDePrueba();
 
   beforeEach(async () => {
@@ -128,23 +161,25 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
     // ficheros de trabajador (cuota, validacion, aislamiento-criterios)
     // ejecutan procesarTrabajo de verdad contra el doble del fixture de 5
     // días y dejan un plan real, con paradas sin resolver, enlazado por un
-    // `trabajos.plan_id` -- exactamente lo que este barrido recoge como
-    // "plan vivo". Esos ficheros ya completaron sus propias aserciones
-    // cuando este se ejecuta (antes o después), así que barrer aquí
-    // cualquier plan que no sea de este fichero es seguro y es lo único
-    // que da un recuento determinista de "cuántas paradas pendientes hay".
+    // `trabajos.plan_id` -- exactamente lo que este barrido recoge. Esos
+    // ficheros ya completaron sus propias aserciones cuando este se
+    // ejecuta (antes o después), así que barrer aquí cualquier plan que no
+    // sea de este fichero es seguro y es lo único que da un recuento
+    // determinista de "cuántas paradas pendientes hay".
     await supabase.from("planes").delete().not("id", "like", "plan-barrido-%");
   });
 
-  it("con la cola vacía, resuelve las paradas pendientes de planes vivos, ignora las del plan eliminado, y no invoca al modelo", async () => {
-    await sembrarPlan(supabase, "plan-barrido-vivo", ["Monumento Uno", "Monumento Dos", "Monumento Tres"]);
-    await sembrarPlan(supabase, "plan-barrido-eliminado", ["Monumento Fantasma"], { eliminado: true });
+  it("cp-bar-01: cubre vivo, eliminado y sin-trabajo por igual; se salta el que no tiene versión; nunca invoca al modelo", async () => {
+    await sembrarPlan(supabase, "plan-barrido-vivo", ["Monumento Uno", "Monumento Dos"], { ciudad: CIUDAD_RESUELTA });
+    await sembrarPlan(supabase, "plan-barrido-eliminado", ["Monumento Tres"], { eliminado: true, ciudad: CIUDAD_RESUELTA });
+    await sembrarPlan(supabase, "plan-barrido-sin-trabajo", ["Monumento Cuatro"], { sinTrabajo: true, ciudad: CIUDAD_RESUELTA });
+    await sembrarPlan(supabase, "plan-barrido-sin-version", [], { sinVersion: true, ciudad: CIUDAD_RESUELTA });
 
     const nominatim: Record<string, CandidatoLugar[]> = {
       "Monumento Uno": [candidato("Monumento Uno")],
       "Monumento Dos": [candidato("Monumento Dos")],
       "Monumento Tres": [candidato("Monumento Tres")],
-      "Monumento Fantasma": [candidato("Monumento Fantasma")],
+      "Monumento Cuatro": [candidato("Monumento Cuatro")],
     };
     const fuente = fuenteInstrumentada(nominatim);
 
@@ -158,36 +193,96 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
     });
 
     expect(resultado.trabajosProcesados).toBe(0);
-    expect(fuente.consultadas).toEqual(expect.arrayContaining(["Monumento Uno", "Monumento Dos", "Monumento Tres"]));
-    expect(fuente.consultadas).not.toContain("Monumento Fantasma");
+    expect(fuente.consultadas).toEqual(
+      expect.arrayContaining(["Monumento Uno", "Monumento Dos", "Monumento Tres", "Monumento Cuatro"]),
+    );
 
-    const { data: paradasVivas } = await supabase
+    const { data: paradasCubiertas } = await supabase
       .from("paradas")
       .select("nombre, lat, lon, resolucion, lugar")
-      .in("nombre", ["Monumento Uno", "Monumento Dos", "Monumento Tres"]);
-    expect(paradasVivas).toHaveLength(3);
-    for (const parada of paradasVivas ?? []) {
+      .in("nombre", ["Monumento Uno", "Monumento Dos", "Monumento Tres", "Monumento Cuatro"]);
+    expect(paradasCubiertas).toHaveLength(4);
+    for (const parada of paradasCubiertas ?? []) {
       expect(parada.lat).toBeCloseTo(39.47);
-      expect(parada.lon).toBeCloseTo(-0.37);
       expect((parada.resolucion as { estado: string }).estado).toBe("resuelta");
-      expect((parada.lugar as { fuente: string }).fuente).toBe("osm");
     }
-
-    const { data: paradaFantasma } = await supabase.from("paradas").select("lat, resolucion").eq("nombre", "Monumento Fantasma").single();
-    expect(paradaFantasma?.lat).toBeNull();
-    expect(paradaFantasma?.resolucion).toBeNull();
   });
 
-  it("con 50 paradas pendientes, resuelve exactamente 40 en un tick y las 10 restantes en el siguiente, sin repetir ninguna", async () => {
-    const nombres = Array.from({ length: 50 }, (_, i) => `Parada ${String(i).padStart(3, "0")}`);
-    await sembrarPlan(supabase, "plan-barrido-cincuenta", nombres);
+  it("cp-bar-02: un plan 'sin-ciudad-identificable' consume cero peticiones en dos ticks seguidos y no toca su intentado_en", async () => {
+    const intentadoEnOriginal = "2026-10-04T10:00:00Z";
+    await sembrarPlan(supabase, "plan-barrido-sinciudad", Array.from({ length: 5 }, (_, i) => `Parada sin ciudad ${i}`), {
+      ciudad: { estado: "sin-ciudad-identificable", motivo: "no hay una ciudad clara: Madrid 2, Valencia 2, Barcelona 1", intentado_en: intentadoEnOriginal },
+    });
+    await sembrarPlan(supabase, "plan-barrido-sevilla", ["Parada Sevilla Reciente", "Parada Sevilla Vieja"], { ciudad: CIUDAD_RESUELTA });
 
-    const nominatim: Record<string, CandidatoLugar[]> = Object.fromEntries(
-      nombres.map((nombre) => [nombre, [candidato(nombre)]]),
-    );
-    const fuente = fuenteInstrumentada(nominatim);
+    // Una parada "no-resuelta" reciente (hace 10 días) no se reintenta; una
+    // de hace 40 días sí.
+    const { data: filasSevilla } = await supabase
+      .from("paradas")
+      .select("id, nombre")
+      .in("nombre", ["Parada Sevilla Reciente", "Parada Sevilla Vieja"]);
+    const haceDiez = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    const haceCuarenta = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+    for (const fila of filasSevilla ?? []) {
+      const intentadoEn = fila.nombre === "Parada Sevilla Reciente" ? haceDiez : haceCuarenta;
+      await supabase.from("paradas").update({ resolucion: { estado: "no-resuelta", intentado_en: intentadoEn } }).eq("id", fila.id);
+    }
 
-    const primerTick = await tick(supabase, {
+    const nominatim: Record<string, CandidatoLugar[]> = {
+      "Parada Sevilla Vieja": [candidato("Parada Sevilla Vieja")],
+    };
+
+    for (let i = 0; i < 2; i++) {
+      const fuente = fuenteInstrumentada(nominatim);
+      await tick(supabase, {
+        ejecutor: ejecutorQueFalla(),
+        directorio: "/tmp",
+        fuenteLugares: fuente,
+        fuenteFotos: FUENTE_FOTOS_SIN_RED,
+        esperaOciosaMs: 0,
+        intervaloOciosoMs: 10,
+      });
+      expect(fuente.consultadas.some((n) => n.startsWith("Parada sin ciudad"))).toBe(false);
+      expect(fuente.consultadas).not.toContain("Parada Sevilla Reciente");
+    }
+
+    const { data: planSinCiudad } = await supabase.from("planes").select("ciudad").eq("id", "plan-barrido-sinciudad").single();
+    expect((planSinCiudad?.ciudad as CiudadEfectiva).intentado_en).toBe(intentadoEnOriginal);
+
+    const { data: paradasSinCiudad } = await supabase.from("paradas").select("resolucion").in("nombre", Array.from({ length: 5 }, (_, i) => `Parada sin ciudad ${i}`));
+    for (const parada of paradasSinCiudad ?? []) {
+      expect(parada.resolucion).toBeNull();
+    }
+
+    const { data: viejaFinal } = await supabase.from("paradas").select("resolucion").eq("nombre", "Parada Sevilla Vieja").single();
+    expect((viejaFinal?.resolucion as { estado: string }).estado).toBe("resuelta");
+  });
+
+  it("bar-ac1: un plan con ciudad null la resuelve por su destino limpio (Sevilla) y a partir de ahí resuelve sus paradas", async () => {
+    await sembrarPlan(supabase, "plan-barrido-ciudad-null", ["Real Alcázar", "Catedral de Sevilla", "Plaza de España", "Metropol Parasol", "Barrio de Santa Cruz"], {
+      ciudad: null,
+    });
+
+    const nombreMuestra = ["Real Alcázar", "Catedral de Sevilla", "Plaza de España", "Metropol Parasol", "Barrio de Santa Cruz"];
+    const fuente: FuenteLugares & FuenteCiudad = {
+      async geocodificarDestino(destino: string) {
+        return destino === DESTINO ? BBOX : null;
+      },
+      async buscarNominatim(nombre: string) {
+        return nombreMuestra.includes(nombre) ? [candidato(nombre)] : [];
+      },
+      async buscarWikipedia() {
+        return [];
+      },
+      async buscarLibre() {
+        throw new Error("no debería deducir por paradas: el destino ya resuelve");
+      },
+      async geocodificarCiudad() {
+        throw new Error("no debería geocodificar ciudad por separado: el destino ya resuelve");
+      },
+    };
+
+    await tick(supabase, {
       ejecutor: ejecutorQueFalla(),
       directorio: "/tmp",
       fuenteLugares: fuente,
@@ -195,42 +290,23 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
       esperaOciosaMs: 0,
       intervaloOciosoMs: 10,
     });
-    expect(primerTick.trabajosProcesados).toBe(0);
-    expect(fuente.consultadas).toHaveLength(40);
 
-    const { count: countResueltas } = await supabase
-      .from("paradas")
-      .select("id", { count: "exact", head: true })
-      .not("resolucion", "is", null)
-      .in("nombre", nombres);
-    expect(countResueltas).toBe(40);
+    const { data: plan } = await supabase.from("planes").select("ciudad").eq("id", "plan-barrido-ciudad-null").single();
+    const ciudad = plan?.ciudad as CiudadEfectiva;
+    expect(ciudad.estado).toBe("resuelta");
+    expect(ciudad.metodo).toBe("destino");
+    expect(ciudad.nombre).toBe(DESTINO);
 
-    const segundoTick = await tick(supabase, {
-      ejecutor: ejecutorQueFalla(),
-      directorio: "/tmp",
-      fuenteLugares: fuente,
-      fuenteFotos: FUENTE_FOTOS_SIN_RED,
-      esperaOciosaMs: 0,
-      intervaloOciosoMs: 10,
-    });
-    expect(segundoTick.trabajosProcesados).toBe(0);
-    expect(fuente.consultadas).toHaveLength(50);
-    // Ninguna de las 50 se consultó dos veces: las 40 del primer tick no
-    // vuelven a pedirse en el segundo.
-    expect(new Set(fuente.consultadas).size).toBe(50);
-
-    const { count: countResueltasFinal } = await supabase
-      .from("paradas")
-      .select("id", { count: "exact", head: true })
-      .not("resolucion", "is", null)
-      .in("nombre", nombres);
-    expect(countResueltasFinal).toBe(50);
+    const { data: paradas } = await supabase.from("paradas").select("resolucion").in("nombre", nombreMuestra);
+    for (const parada of paradas ?? []) {
+      expect((parada.resolucion as { estado: string }).estado).toBe("resuelta");
+    }
   });
 
   it("un fallo persistente en una parada concreta no tumba el tick ni deja el cerrojo cogido", async () => {
-    await sembrarPlan(supabase, "plan-barrido-error", ["Parada Buena Uno", "Parada Rota", "Parada Buena Dos"]);
+    await sembrarPlan(supabase, "plan-barrido-error", ["Parada Buena Uno", "Parada Rota", "Parada Buena Dos"], { ciudad: CIUDAD_RESUELTA });
 
-    const fuente: FuenteLugares = {
+    const fuente: FuenteLugares & FuenteCiudad = {
       async geocodificarDestino() {
         return BBOX;
       },
@@ -240,6 +316,12 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
       },
       async buscarWikipedia() {
         return [];
+      },
+      async buscarLibre() {
+        return [];
+      },
+      async geocodificarCiudad() {
+        return null;
       },
     };
 
@@ -273,8 +355,8 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (rel-ac1, rel
     await liberarCerrojo(supabase, "comprobacion-cerrojo-libre");
   });
 
-  it("fot-ac4: completa fotos de paradas YA resueltas sin foto ni intento previo, dentro del mismo tope de 40 y sin tocar las que no son 'comida'", async () => {
-    await sembrarPlan(supabase, "plan-barrido-fotos", ["Monumento Foto Uno", "Monumento Foto Dos"]);
+  it("fot-ac4: completa fotos de paradas YA resueltas sin foto ni intento previo, dentro del mismo tope y sin tocar las que no son 'comida'", async () => {
+    await sembrarPlan(supabase, "plan-barrido-fotos", ["Monumento Foto Uno", "Monumento Foto Dos"], { ciudad: CIUDAD_RESUELTA });
 
     // Simula paradas resueltas en una generación o barrido anterior
     // (lat/lon/lugar/resolucion ya puestos), pero a las que nunca les

@@ -27,6 +27,15 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
   beforeEach(async () => {
     await supabase.from("cerrojo_trabajador").update({ tomado_por: null, tomado_hasta: null }).eq("id", 1);
     await supabase.from("trabajos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    // bar-ac1: completarParadasPendientes ya no parte de `trabajos` sino de
+    // `planes` directamente, así que vaciar la cola de arriba ya no basta
+    // para garantizar un tick vacío y rápido -- un plan real con paradas
+    // pendientes que haya dejado otro fichero de integración (orden de
+    // ficheros no garantizado con fileParallelism:false) haría que este
+    // tick saliera a la red real de verdad y superase los 20 s del test.
+    // Este fichero no siembra ningún plan propio, así que barrerlos todos
+    // aquí es seguro (mismo razonamiento que ya usa barrido.integration.test.ts).
+    await supabase.from("planes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   });
 
   it("con la cola vacía, completa rápido y sin invocar al modelo", async () => {
