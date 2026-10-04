@@ -258,7 +258,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
     expect((viejaFinal?.resolucion as { estado: string }).estado).toBe("resuelta");
   });
 
-  it("cp-bar-04 (parcial, bar-ac1): un plan con ciudad null la resuelve por su destino limpio (Sevilla) y a partir de ahí resuelve sus paradas", async () => {
+  it("bar-ac1: un plan con ciudad null la resuelve por su destino limpio (Sevilla) y a partir de ahí resuelve sus paradas", async () => {
     await sembrarPlan(supabase, "plan-barrido-ciudad-null", ["Real Alcázar", "Catedral de Sevilla", "Plaza de España", "Metropol Parasol", "Barrio de Santa Cruz"], {
       ciudad: null,
     });
