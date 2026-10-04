@@ -195,6 +195,13 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
   // La contención no es gratis: si la sub-ciudad minoritaria tuviera
   // coordenadas FUERA de la caja de la mayoritaria (dos lugares de verdad
   // distintos, no una ciudad y su distrito), no debe ganar sin ventaja.
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): antes, un rechazo en el
+  // nivel "ciudad" devolvía sin-ciudad-identificable de inmediato y nunca
+  // llegaba a probar "región" -- esto comprueba que SÍ cae al nivel
+  // siguiente (todas las paradas comparten state="España", así que el
+  // nivel "región" tiene un ganador con apoyo 5) y que el motivo final es
+  // el del ÚLTIMO rechazo (región, porque "España" no está en el mapa de
+  // ciudades de la fixture y no se pudo verificar), no el de "ciudad".
   it("sin contención geográfica, el empate sin ventaja no se resuelve y cae al nivel siguiente", async () => {
     const libres: Record<string, CandidatoLugar[]> = {};
     const datos = [
@@ -219,8 +226,14 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     const resultado = await resolverCiudadEfectiva(fuente, "Ciudad con niños", datos.map((d) => d.nombre));
     expect(resultado?.estado).toBe("sin-ciudad-identificable");
     expect(resultado?.nombre).not.toBe("resuelta");
+    expect(resultado?.motivo).toContain("España");
+    expect(resultado?.motivo).toContain("no se pudo verificar geográficamente");
     const conteos = c.conteos();
-    expect(conteos.ciudades).toBe(1);
+    // Una llamada a geocodificarCiudad por nivel con ganador: "Madrid" en
+    // el nivel "ciudad" (rechazado por falta de ventaja) y "España" en el
+    // nivel "región" (rechazado por falta de caja) -- "distrito" no tiene
+    // ningún ganador porque ninguna parada trae ese campo.
+    expect(conteos.ciudades).toBe(2);
   });
 
   // cp-ciu-05
@@ -240,6 +253,12 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     expect(c.conteos().ciudades).toBe(0);
   });
 
+  // bar-ac4: igual que arriba, el rechazo de "Sevilla" en el nivel
+  // "ciudad" ya no corta la escalera -- cae a "región" ("Andalucía" gana
+  // con apoyo 4). Para que el motivo final siga siendo el mismo texto, la
+  // caja de "Andalucía" también tiene que superar los 2 grados de span;
+  // si no, el nivel "región" rechazaría por falta de caja en vez de por
+  // span, y el motivo cambiaría.
   it("rechaza un ganador cuya caja abarca más de 2 grados", async () => {
     const nombres = ["Sitio A", "Sitio B", "Sitio C", "Sitio D"];
     const libres: Record<string, CandidatoLugar[]> = {};
@@ -252,7 +271,10 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
         destinos: {},
         nominatim: {},
         libres,
-        ciudades: { Sevilla: { minLat: 30, maxLat: 35, minLon: -8, maxLon: -3 } },
+        ciudades: {
+          Sevilla: { minLat: 30, maxLat: 35, minLon: -8, maxLon: -3 },
+          Andalucía: { minLat: 36, maxLat: 41, minLon: -8, maxLon: -1 },
+        },
       }),
     );
     const resultado = await resolverCiudadEfectiva(fuente, "Andalucía con niños", nombres);

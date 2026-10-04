@@ -19,6 +19,13 @@ export interface ResultadoTickTrabajador {
   trabajos_procesados: number;
   planes_mirados: number;
   paradas_intentadas: number;
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): opcionales porque los
+  // ticks anteriores a este bloque no los escriben, y un literal viejo en
+  // un test no tiene por qué incluirlos.
+  planes_resueltos?: number;
+  planes_reintentados?: number;
+  planes_saltados_sellados?: number;
+  planes_saltados_por_red?: number;
   error?: string;
 }
 
