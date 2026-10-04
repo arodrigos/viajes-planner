@@ -72,4 +72,43 @@ describe("resolverPlan (lug-ac1)", () => {
     }
     expect(resuelto.dias[0].paradas).toHaveLength(3);
   });
+
+  // alt-ac1 (feedback del gatekeeper, iteración 24): una parada con el
+  // nombre de una actividad ("Cena en Ruzafa") se busca por el sitio real
+  // ("Ruzafa"), no por la frase completa -- si no, nunca resuelve.
+  it("busca por el nombre limpio del sitio real cuando la parada trae una coletilla de actividad", async () => {
+    const planConActividad: Plan = {
+      ...plan(),
+      dias: [
+        {
+          ...plan().dias[0],
+          paradas: [
+            {
+              id: "p1",
+              franja_id: "manana",
+              nombre: "Cena en Ruzafa",
+              descripcion: "Cena en el barrio",
+              duracion_min: 90,
+              prioridad: 70,
+              procedencia: { fuente: "propuesto-sin-verificar" },
+              categoria: "comida",
+            },
+          ],
+        },
+      ],
+    };
+
+    const fuente = crearFuenteLugaresGrabada({
+      destinos: { Madrid: BBOX_MADRID },
+      nominatim: {
+        "Ruzafa::Madrid": [candidatoReal({ nombreFuente: "Ruzafa", lat: 40.42, lon: -3.7, categoriaOsm: "amenity" })],
+      },
+    });
+
+    const resuelto = await resolverPlan(fuente, planConActividad);
+    const [parada] = resuelto.dias[0].paradas;
+
+    expect(parada.resolucion?.estado).toBe("resuelta");
+    expect(parada.lugar?.nombre_fuente).toBe("Ruzafa");
+  });
 });

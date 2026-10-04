@@ -54,3 +54,22 @@ describe("construirPrompt (alt-ac2)", () => {
     expect(prompt).toContain('"motivo"');
   });
 });
+
+// alt-ac1 (feedback del gatekeeper, iteración 24): el modelo devolvía
+// alternativas completas pero "nombre" era una actividad ("Cena en
+// Ruzafa") en vez de un sitio real buscable, así que la resolución contra
+// Nominatim/Wikipedia nunca encontraba nada. El prompt tiene que dejar
+// esto explícito, con ejemplos de qué va en "nombre" y qué en
+// "descripcion".
+describe("construirPrompt (alt-ac1)", () => {
+  it("pide que 'nombre' sea un sitio real buscable, no una actividad, con ejemplos", () => {
+    const criterios = { destino_o_tipo: "Valencia" } as unknown as CriteriosViaje;
+
+    const prompt = construirPrompt(criterios);
+
+    expect(prompt).toContain("NOMBRE REAL Y BUSCABLE");
+    expect(prompt).toContain("nunca una actividad");
+    expect(prompt).toContain('"nombre": "Cena en Ruzafa"');
+    expect(prompt).toContain('"nombre": "Mercado de Ruzafa"');
+  });
+});

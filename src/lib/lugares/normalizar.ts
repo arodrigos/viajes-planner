@@ -53,3 +53,41 @@ export function mejorSimilitud(nombreBuscado: string, candidatos: string[]): num
   const normalizado = normalizarNombre(nombreBuscado);
   return candidatos.reduce((mejor, candidato) => Math.max(mejor, similitudDice(normalizado, normalizarNombre(candidato))), 0);
 }
+
+// alt-ac1 (feedback del gatekeeper, iteración 24): el modelo a veces da
+// como "nombre" una ACTIVIDAD ("Cena en Ruzafa", "Paseo nocturno por el
+// Puente de l'Assut de l'Or") en vez del sitio real que hay que buscar.
+// Ni Nominatim ni Wikipedia encuentran eso, así que la parada nunca
+// resuelve. Esto es una red de seguridad determinista ANTES de llamar a
+// las fuentes -- quita la coletilla de actividad y el cualificador final,
+// deja el nombre del sitio real que sí es buscable. No toca el nombre que
+// se guarda ni se muestra: solo el texto que se envía a buscar.
+const PREFIJOS_ACTIVIDAD: RegExp[] = [
+  /^cena\s+(en|cerca de|cerca del)\s+/i,
+  /^comida\s+(en|cerca de|cerca del)\s+/i,
+  /^almuerzo\s+(en|cerca de|cerca del)\s+/i,
+  /^desayuno\s+(en|cerca de|cerca del)\s+/i,
+  /^compras?\s+(en|por)\s+/i,
+  /^paseo\s+\S*\s*(por|en)\s+/i,
+  /^visita\s+(a|al|a la)\s+/i,
+];
+
+const SUFIJOS_CUALIFICADORES: RegExp[] = [
+  /\s*\([^)]*\)\s*$/,
+  /\s+(iluminad[oa]s?|nocturn[oa]s?|al atardecer|de noche)\s*$/i,
+];
+
+const ARTICULO_INICIAL = /^(el|la|los|las|del|al)\s+/i;
+
+export function limpiarNombreBusqueda(nombre: string): string {
+  let resultado = nombre.trim();
+  for (const sufijo of SUFIJOS_CUALIFICADORES) resultado = resultado.replace(sufijo, "").trim();
+  for (const prefijo of PREFIJOS_ACTIVIDAD) {
+    if (prefijo.test(resultado)) {
+      resultado = resultado.replace(prefijo, "").trim();
+      break;
+    }
+  }
+  resultado = resultado.replace(ARTICULO_INICIAL, "").trim();
+  return resultado.length > 0 ? resultado : nombre.trim();
+}

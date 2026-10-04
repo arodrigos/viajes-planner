@@ -33,6 +33,20 @@ por "{" y terminando por "}".
 Cada elemento de "dias" tiene esta forma exacta, sin más campos que estos:
 { "fecha": "YYYY-MM-DD", "paradas": [ { "nombre": "...", "descripcion": "...", "duracion_min": <número>, "prioridad": <0-100>, "franja_id": "...", "categoria": "...", "alternativas": [...] } ] }
 
+"nombre" tiene que ser el NOMBRE REAL Y BUSCABLE de un sitio que existe de
+verdad (un monumento, un museo, un parque, una plaza, un mercado, un
+restaurante, una tienda concreta...), nunca una actividad ni una frase: el
+sistema busca ese nombre literal en mapas abiertos después, y una frase
+como "Cena en Ruzafa" o "Paseo por el Jardín del Turia" no encuentra nada.
+Pon la actividad en "descripcion", no en "nombre".
+Mal: "nombre": "Cena en Ruzafa".
+Bien: "nombre": "Mercado de Ruzafa", "descripcion": "Cena en uno de los puestos del mercado".
+Mal: "nombre": "Paseo nocturno por el Puente de l'Assut de l'Or".
+Bien: "nombre": "Puente de l'Assut de l'Or", "descripcion": "Paseo nocturno por el puente".
+Para una comida sin un restaurante concreto en mente, usa el nombre del
+barrio o la zona sin la palabra de la actividad: "nombre": "Ruzafa", nunca
+"Comida en Ruzafa".
+
 "alternativas" es una lista de 1 a 3 sitios que encajarían igual de bien en
 el mismo hueco si la familia quisiera cambiar esta parada por otra: misma
 franja, duración parecida, mismo tipo de sitio. Para CUALQUIER parada normal

@@ -1,6 +1,7 @@
 import "server-only";
 import type { CategoriaParada, InfoResolucion, Lugar, Parada, Plan } from "@/lib/plan/tipos";
 import { elegirMejorCandidato } from "./aceptacion";
+import { limpiarNombreBusqueda } from "./normalizar";
 import type { CajaDelimitadora, CandidatoLugar, FuenteLugares } from "./tipos";
 
 // lug-ac1: resuelve cada parada del plan contra la fuente de lugares.
@@ -50,14 +51,15 @@ export async function resolverNombre(
   }
 
   try {
-    const candidatosNominatim = await fuente.buscarNominatim(nombre, destino, bbox);
-    const elegidoNominatim = elegirMejorCandidato(nombre, candidatosNominatim, bbox, categoria);
+    const nombreBusqueda = limpiarNombreBusqueda(nombre);
+    const candidatosNominatim = await fuente.buscarNominatim(nombreBusqueda, destino, bbox);
+    const elegidoNominatim = elegirMejorCandidato(nombreBusqueda, candidatosNominatim, bbox, categoria);
     if (elegidoNominatim.candidato) {
       return lugarResuelto(elegidoNominatim.candidato, ahora);
     }
 
-    const candidatosWikipedia = await fuente.buscarWikipedia(nombre, destino, bbox);
-    const elegidoWikipedia = elegirMejorCandidato(nombre, candidatosWikipedia, bbox, categoria);
+    const candidatosWikipedia = await fuente.buscarWikipedia(nombreBusqueda, destino, bbox);
+    const elegidoWikipedia = elegirMejorCandidato(nombreBusqueda, candidatosWikipedia, bbox, categoria);
     if (elegidoWikipedia.candidato) {
       return lugarResuelto(elegidoWikipedia.candidato, ahora);
     }
