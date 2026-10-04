@@ -30,6 +30,11 @@ export interface TrabajoDelPlan {
   id: string;
   estado: string;
   regenerado_en: string | null;
+  // enc-ac2: el umbral del "paseo estimado" depende del perfil de viaje,
+  // que vive en los criterios del trabajo, nunca en el propio Plan -- un
+  // trabajo sin perfil (no debería darse, es obligatorio en el esquema)
+  // cae al umbral no familiar, el más permisivo.
+  perfil: string | null;
 }
 
 // reg-ac4: el aviso "se está regenerando" en la vista del plan necesita el
@@ -43,11 +48,13 @@ export async function trabajoDelPlan(
 ): Promise<TrabajoDelPlan | null> {
   const { data, error } = await supabase
     .from("trabajos")
-    .select("id, estado, regenerado_en")
+    .select("id, estado, regenerado_en, criterios")
     .eq("plan_id", planId)
     .eq("usuario_id", usuarioId)
     .is("eliminado_en", null)
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer el trabajo del plan: ${error.message}`);
-  return data;
+  if (!data) return null;
+  const criterios = data.criterios as { perfil?: string } | null;
+  return { id: data.id, estado: data.estado, regenerado_en: data.regenerado_en, perfil: criterios?.perfil ?? null };
 }

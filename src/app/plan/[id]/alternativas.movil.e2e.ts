@@ -107,7 +107,10 @@ test("cambiar una parada por una alternativa crea una versión nueva y la antigu
   const tarjetaConAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Catedral de Sevilla" });
   await tarjetaConAlternativas.getByRole("button", { name: "Cambiar" }).click();
   await expect(tarjetaConAlternativas.getByText("Real Alcázar")).toBeVisible();
-  await expect(tarjetaConAlternativas.getByText(/a \d+ m/i)).toBeVisible();
+  // Acotado a los metadatos de la alternativa: desde encaje-y-paseo, la propia
+  // parada también muestra "a N m de la siguiente parada" (etiquetas de encaje),
+  // que con un locator sin acotar vuelve ambiguo el texto "a N m".
+  await expect(tarjetaConAlternativas.locator(".metadatos-alternativa").getByText(/a \d+ m/i)).toBeVisible();
   await tarjetaConAlternativas.getByRole("button", { name: "Usar esta" }).click();
 
   // alt-ac5: exactamente una fila más en plan_versiones.

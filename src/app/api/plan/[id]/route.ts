@@ -30,5 +30,5 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   // de que se va a sustituir, con el enlace a la pantalla de progreso.
   const regenerando = trabajo.regenerado_en !== null && ESTADOS_EN_VUELO.includes(trabajo.estado);
 
-  return NextResponse.json({ ...aPlanPublico(plan), regenerando, trabajoId: trabajo.id });
+  return NextResponse.json({ ...aPlanPublico(plan, trabajo.perfil), regenerando, trabajoId: trabajo.id });
 }
