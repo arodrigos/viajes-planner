@@ -137,6 +137,62 @@ describe("resolverAlternativasPlan (alt-ac3/alt-ac4)", () => {
     expect(resultado.dias[0].paradas[0].alternativas).toHaveLength(2);
   });
 
+  it("descarta de Overpass el candidato cuyo id OSM es el de la propia parada, aunque el nombre no coincida (alt-ac4, hallazgo gatekeeper: 'Mercado Central de Valencia' -> 'Mercat Central')", async () => {
+    const lugares = fuenteLugares({});
+    const conCercanos: FuenteCercanos = {
+      async buscar() {
+        return [
+          { id: "osm:node/mismo-sitio", nombre: "Mercat Central", lat: 40.5001, lon: -3.5001 },
+          { id: "osm:node/2", nombre: "Museo Cercano B", lat: 40.502, lon: -3.502 },
+        ];
+      },
+    };
+    const plan = planConUnaParada("museo", { lat: 40.5, lon: -3.5 }, []);
+    plan.dias[0].paradas[0].lugar = {
+      fuente: "osm",
+      id: "osm:node/mismo-sitio",
+      url: "https://www.openstreetmap.org/node/mismo-sitio",
+      nombre_fuente: "Mercat Central",
+      etiquetas: {},
+      resuelto_en: "2026-10-04T00:00:00Z",
+    };
+
+    const resultado = await resolverAlternativasPlan(lugares, conCercanos, plan, "familiar");
+
+    const alternativas = resultado.dias[0].paradas[0].alternativas;
+    expect(alternativas).toHaveLength(1);
+    expect(alternativas?.[0].nombre).toBe("Museo Cercano B");
+  });
+
+  it("descarta de Overpass un candidato que ya es OTRA parada del mismo plan", async () => {
+    const lugares = fuenteLugares({});
+    const conCercanos: FuenteCercanos = {
+      async buscar() {
+        return [
+          { id: "osm:node/jardin-del-turia", nombre: "Jardín del Turia", lat: 40.501, lon: -3.501 },
+          { id: "osm:node/2", nombre: "Museo Cercano B", lat: 40.502, lon: -3.502 },
+        ];
+      },
+    };
+    const plan = planConUnaParada("museo", { lat: 40.5, lon: -3.5 }, []);
+    plan.dias[0].paradas.push({
+      id: "parada-2",
+      franja_id: "manana",
+      nombre: "Jardín del Turia",
+      descripcion: "d",
+      duracion_min: 60,
+      prioridad: 70,
+      procedencia: { fuente: "propuesto-sin-verificar" },
+      categoria: "parque",
+    });
+
+    const resultado = await resolverAlternativasPlan(lugares, conCercanos, plan, "familiar");
+
+    const alternativas = resultado.dias[0].paradas[0].alternativas;
+    expect(alternativas).toHaveLength(1);
+    expect(alternativas?.[0].nombre).toBe("Museo Cercano B");
+  });
+
   it("una parada sin categoria no guarda alternativas", async () => {
     const lugares = fuenteLugares({});
     const sinCercanos: FuenteCercanos = { async buscar() { return []; } };

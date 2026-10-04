@@ -59,10 +59,29 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("sustituirParada (alt-ac3, alt-ac
   });
 
   it("guarda la alternativa en paradas_alternativas al guardar el plan", async () => {
+    // Filtrar solo por nombre es ambiguo: el PR #77 añadió otro plan de
+    // prueba (route.integration.test.ts) con una alternativa que se llama
+    // igual. Hay que acotar a la parada de ESTE plan.
+    const { data: version, error: errorVersion } = await supabase
+      .from("plan_versiones")
+      .select("id")
+      .eq("plan_id", planId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .single();
+    expect(errorVersion).toBeNull();
+    const { data: parada, error: errorParada } = await supabase
+      .from("paradas")
+      .select("id")
+      .eq("plan_version_id", version!.id)
+      .eq("id_externo", "parada-sustituir-1")
+      .single();
+    expect(errorParada).toBeNull();
+
     const { data, error } = await supabase
       .from("paradas_alternativas")
       .select("nombre, origen, categoria")
-      .eq("nombre", "Real Alcázar");
+      .eq("parada_id", parada!.id);
     expect(error).toBeNull();
     expect(data).toEqual([{ nombre: "Real Alcázar", origen: "modelo", categoria: "monumento" }]);
   });
