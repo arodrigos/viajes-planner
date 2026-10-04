@@ -51,9 +51,15 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
 
   for (const [diaIndex, dia] of plan.dias.entries()) {
     for (const parada of dia.paradas) {
+      // El CHECK de `procedencias.fuente` solo admite 'propuesto-sin-verificar'
+      // (migración 005); la procedencia real ('osm'/'wikipedia') se deriva al
+      // LEER a partir de `lugar`, nunca se escribe aquí -- aunque `parada`
+      // venga de un `recuperarPlan` previo (sustituirParada) con `procedencia`
+      // ya derivada a 'osm'/'wikipedia', lo que se guarda es siempre el valor
+      // fijo que el CHECK acepta.
       const { data: procedenciaInsertada, error: errorProcedencia } = await supabase
         .from("procedencias")
-        .insert({ fuente: parada.procedencia.fuente })
+        .insert({ fuente: "propuesto-sin-verificar" })
         .select("id")
         .single();
       if (errorProcedencia || !procedenciaInsertada) {
