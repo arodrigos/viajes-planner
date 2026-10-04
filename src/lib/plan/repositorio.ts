@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AnclaAlojamiento, Dia, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
+import type { Alternativa, AnclaAlojamiento, Dia, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 
 // Forma en la que se guardan los días dentro de plan_versiones.dias: todo
 // menos las paradas, que tienen su propia tabla porque procedencias y
@@ -51,34 +51,66 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
 
   for (const [diaIndex, dia] of plan.dias.entries()) {
     for (const parada of dia.paradas) {
+      // El CHECK de `procedencias.fuente` solo admite 'propuesto-sin-verificar'
+      // (migración 005); la procedencia real ('osm'/'wikipedia') se deriva al
+      // LEER a partir de `lugar`, nunca se escribe aquí -- aunque `parada`
+      // venga de un `recuperarPlan` previo (sustituirParada) con `procedencia`
+      // ya derivada a 'osm'/'wikipedia', lo que se guarda es siempre el valor
+      // fijo que el CHECK acepta.
       const { data: procedenciaInsertada, error: errorProcedencia } = await supabase
         .from("procedencias")
-        .insert({ fuente: parada.procedencia.fuente })
+        .insert({ fuente: "propuesto-sin-verificar" })
         .select("id")
         .single();
       if (errorProcedencia || !procedenciaInsertada) {
         throw new Error(`No se pudo guardar la procedencia: ${errorProcedencia?.message}`);
       }
 
-      const { error: errorParada } = await supabase.from("paradas").insert({
-        id_externo: parada.id,
-        plan_version_id: planVersionId,
-        dia_index: diaIndex,
-        franja_id: parada.franja_id,
-        nombre: parada.nombre,
-        descripcion: parada.descripcion,
-        lat: parada.coordenadas?.lat ?? null,
-        lon: parada.coordenadas?.lon ?? null,
-        duracion_min: parada.duracion_min,
-        prioridad: parada.prioridad,
-        procedencia_id: procedenciaInsertada.id,
-        categoria: parada.categoria ?? null,
-        lugar: parada.lugar ?? null,
-        foto: parada.foto ?? null,
-        resolucion: parada.resolucion ?? null,
-        foto_intentada_en: parada.foto_intentada_en ?? null,
-      });
-      if (errorParada) throw new Error(`No se pudo guardar la parada '${parada.id}': ${errorParada.message}`);
+      const { data: paradaInsertada, error: errorParada } = await supabase
+        .from("paradas")
+        .insert({
+          id_externo: parada.id,
+          plan_version_id: planVersionId,
+          dia_index: diaIndex,
+          franja_id: parada.franja_id,
+          nombre: parada.nombre,
+          descripcion: parada.descripcion,
+          lat: parada.coordenadas?.lat ?? null,
+          lon: parada.coordenadas?.lon ?? null,
+          duracion_min: parada.duracion_min,
+          prioridad: parada.prioridad,
+          procedencia_id: procedenciaInsertada.id,
+          categoria: parada.categoria ?? null,
+          lugar: parada.lugar ?? null,
+          foto: parada.foto ?? null,
+          resolucion: parada.resolucion ?? null,
+          foto_intentada_en: parada.foto_intentada_en ?? null,
+        })
+        .select("id")
+        .single();
+      if (errorParada || !paradaInsertada) throw new Error(`No se pudo guardar la parada '${parada.id}': ${errorParada?.message}`);
+
+      // alt-ac3: solo las alternativas que ya pasaron el filtro de
+      // equivalencia llegan aquí (resolverAlternativasPlan) -- se guardan
+      // todas tal cual, sin ningún filtro adicional en el repositorio.
+      for (const alternativa of parada.alternativas ?? []) {
+        const { error: errorAlternativa } = await supabase.from("paradas_alternativas").insert({
+          parada_id: paradaInsertada.id,
+          origen: alternativa.origen,
+          nombre: alternativa.nombre,
+          descripcion: alternativa.descripcion,
+          motivo: alternativa.motivo,
+          duracion_min: alternativa.duracion_min,
+          categoria: alternativa.categoria,
+          lat: alternativa.coordenadas?.lat ?? null,
+          lon: alternativa.coordenadas?.lon ?? null,
+          lugar: alternativa.lugar ?? null,
+          foto: alternativa.foto ?? null,
+        });
+        if (errorAlternativa) {
+          throw new Error(`No se pudo guardar la alternativa '${alternativa.nombre}' de la parada '${parada.id}': ${errorAlternativa.message}`);
+        }
+      }
     }
   }
 
@@ -114,11 +146,45 @@ export async function recuperarPlan(
   const { data: paradaRows, error: errorParadas } = await supabase
     .from("paradas")
     .select(
-      "id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, procedencias(fuente)",
+      "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, procedencias(fuente)",
     )
     .eq("plan_version_id", versionRow.id)
     .order("dia_index", { ascending: true });
   if (errorParadas) throw new Error(`No se pudieron leer las paradas: ${errorParadas.message}`);
+
+  // alt-ac5: las alternativas se leen aparte, indexadas por el id INTERNO
+  // de la parada (paradas.id, nunca id_externo -- es la clave real de la
+  // FK) y se adjuntan al construir cada Parada pública más abajo.
+  const idsParadas = (paradaRows ?? []).map((fila) => fila.id as string);
+  const { data: alternativaRows, error: errorAlternativas } =
+    idsParadas.length > 0
+      ? await supabase
+          .from("paradas_alternativas")
+          .select("id, parada_id, origen, nombre, descripcion, motivo, duracion_min, categoria, lat, lon, lugar, foto")
+          .in("parada_id", idsParadas)
+      : { data: [] as never[], error: null };
+  if (errorAlternativas) throw new Error(`No se pudieron leer las alternativas: ${errorAlternativas.message}`);
+
+  const alternativasPorParadaId = new Map<string, Alternativa[]>();
+  for (const fila of alternativaRows ?? []) {
+    const lat = fila.lat as number | null;
+    const lon = fila.lon as number | null;
+    const alternativa: Alternativa = {
+      id: fila.id as string,
+      nombre: fila.nombre as string,
+      descripcion: fila.descripcion as string,
+      motivo: fila.motivo as string,
+      duracion_min: fila.duracion_min as number,
+      categoria: fila.categoria as Alternativa["categoria"],
+      origen: fila.origen as Alternativa["origen"],
+      ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
+      ...(fila.lugar ? { lugar: fila.lugar as Lugar } : {}),
+      ...(fila.foto ? { foto: fila.foto as Alternativa["foto"] } : {}),
+    };
+    const listaExistente = alternativasPorParadaId.get(fila.parada_id as string) ?? [];
+    listaExistente.push(alternativa);
+    alternativasPorParadaId.set(fila.parada_id as string, listaExistente);
+  }
 
   const diasAlmacenados = versionRow.dias as DiaAlmacenado[];
   const dias: Dia[] = diasAlmacenados.map((diaMeta, indice) => {
@@ -132,6 +198,7 @@ export async function recuperarPlan(
         // `lugar`, nunca de la tabla `procedencias` (su CHECK solo admite
         // 'propuesto-sin-verificar': ver el porqué en tipos.ts).
         const procedencia: Procedencia = lugar ? { fuente: lugar.fuente, url: lugar.url } : { fuente: "propuesto-sin-verificar" };
+        const alternativas = alternativasPorParadaId.get(fila.id as string);
         return {
           id: fila.id_externo as string,
           franja_id: fila.franja_id as string,
@@ -145,6 +212,7 @@ export async function recuperarPlan(
           ...(lugar ? { lugar } : {}),
           ...(fila.foto ? { foto: fila.foto as Parada["foto"] } : {}),
           ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
+          ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
         };
       });
     return {

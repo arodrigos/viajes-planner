@@ -17,12 +17,31 @@ import { ejecutorClaudeCode } from "../src/lib/trabajador/ejecutorClaudeCode";
 import { construirPrompt, construirPromptReintento } from "../src/lib/trabajador/prompt";
 import { ensamblarYValidar } from "../src/lib/trabajador/procesarTrabajo";
 import type { Plan } from "../src/lib/plan/tipos";
+import { aPlanPublico, type PlanPublico } from "../src/lib/plan/publico";
+import { crearFuenteAbierta } from "../src/lib/lugares/fuenteAbierta";
+import { resolverPlan } from "../src/lib/lugares/resolverPlan";
+import { crearFuenteFotosAbierta } from "../src/lib/lugares/fuenteFotosAbierta";
+import { resolverFotosPlan } from "../src/lib/lugares/resolverFotos";
+import { crearFuenteCercanosAbierta } from "../src/lib/alternativas/cercanos";
+import { resolverAlternativasPlan } from "../src/lib/alternativas/resolverAlternativas";
 
 function leerRutaCriterios(argv: string[]): string {
   const indice = argv.indexOf("--criterios-fichero");
   const ruta = indice !== -1 ? argv[indice + 1] : undefined;
-  if (!ruta) throw new Error("uso: generar-plan-real --criterios-fichero <ruta>");
+  if (!ruta) throw new Error("uso: generar-plan-real --criterios-fichero <ruta> [--resolver]");
   return ruta;
+}
+
+// alt-ac1: --resolver recorre EXACTAMENTE el mismo camino que
+// procesarTrabajo.ts tras el ensamblado -- resolverPlan, resolverFotosPlan
+// y resolverAlternativasPlan contra las fuentes abiertas reales (nunca un
+// doble) -- para que el Gatekeeper pueda comprobar de extremo a extremo
+// que el modelo real + la resolución real producen el % de cobertura que
+// el manifiesto exige. Sin la flag, el comportamiento es el de siempre
+// (solo hasta postProcesarPlan): los demás bloques que usan este script
+// sin --resolver no cambian.
+function usaResolver(argv: string[]): boolean {
+  return argv.includes("--resolver");
 }
 
 // Una invocación real, con el reintento que ya existe en producción cuando
@@ -52,8 +71,13 @@ async function generarUnPlan(criterios: CriteriosViaje, directorio: string): Pro
   return { crudo, plan };
 }
 
+function algunaParadaConAlternativas(plan: Plan): boolean {
+  return plan.dias.some((dia) => dia.paradas.some((parada) => (parada.alternativas ?? []).length > 0));
+}
+
 async function main() {
-  const rutaCriterios = leerRutaCriterios(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const rutaCriterios = leerRutaCriterios(argv);
   const criterios = JSON.parse(readFileSync(rutaCriterios, "utf-8")) as CriteriosViaje;
 
   const directorio = mkdtempSync(join(tmpdir(), "viajes-verificacion-modelo-"));
@@ -70,7 +94,26 @@ async function main() {
       }
     }
 
-    process.stdout.write(`${JSON.stringify({ crudo: resultado.crudo, plan: resultado.plan })}\n`);
+    // alt-ac1: misma regla de reintento único, ahora también para
+    // alternativas -- dos invocaciones seguidas sin ninguna es un fallo
+    // real del bloque alternativas-equivalentes, no mala suerte.
+    if (!algunaParadaConAlternativas(resultado.plan)) {
+      resultado = await generarUnPlan(criterios, directorio);
+      if (!algunaParadaConAlternativas(resultado.plan)) {
+        throw new Error("dos invocaciones seguidas sin ninguna alternativa: fallo del bloque, no mala suerte");
+      }
+    }
+
+    let planParaSalida: Plan | PlanPublico = resultado.plan;
+    if (usaResolver(argv)) {
+      const fuenteLugares = crearFuenteAbierta();
+      const conLugares = await resolverPlan(fuenteLugares, resultado.plan);
+      const conFotos = await resolverFotosPlan(crearFuenteFotosAbierta(), conLugares);
+      const conAlternativas = await resolverAlternativasPlan(fuenteLugares, crearFuenteCercanosAbierta(), conFotos, criterios.perfil);
+      planParaSalida = aPlanPublico(conAlternativas);
+    }
+
+    process.stdout.write(`${JSON.stringify({ crudo: resultado.crudo, plan: planParaSalida })}\n`);
   } finally {
     rmSync(directorio, { recursive: true, force: true });
   }

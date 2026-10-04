@@ -100,5 +100,9 @@ test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni d
   await expect(aviso).toBeVisible();
   await page.reload();
   await expect(aviso).toBeVisible();
-  await expect(page.locator("button")).toHaveCount(0);
+  // El aviso en sí (role="note") no lleva ningún control de cierre -los
+  // botones "Cambiar" de alternativas-equivalentes son de cada parada, no
+  // del aviso, así que la aserción original de "cero botones en toda la
+  // página" ya no aplica desde ese bloque.
+  await expect(page.getByRole("note").locator("button")).toHaveCount(0);
 });

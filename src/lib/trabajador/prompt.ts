@@ -31,7 +31,17 @@ backticks, ni explicación antes o después, solo el objeto JSON empezando
 por "{" y terminando por "}".
 
 Cada elemento de "dias" tiene esta forma exacta, sin más campos que estos:
-{ "fecha": "YYYY-MM-DD", "paradas": [ { "nombre": "...", "descripcion": "...", "duracion_min": <número>, "prioridad": <0-100>, "franja_id": "...", "categoria": "..." } ] }
+{ "fecha": "YYYY-MM-DD", "paradas": [ { "nombre": "...", "descripcion": "...", "duracion_min": <número>, "prioridad": <0-100>, "franja_id": "...", "categoria": "...", "alternativas": [...] } ] }
+
+"alternativas" es una lista opcional (puede ser [] u omitirse) de 0 a 3
+sitios que encajarían igual de bien en el mismo hueco si la familia
+quisiera cambiar esta parada por otra: misma franja, duración parecida,
+mismo tipo de sitio. Cada elemento tiene esta forma exacta, sin más campos
+que estos: { "nombre": "...", "descripcion": "...", "motivo": "por qué
+encaja igual", "duracion_min": <número> }. NO incluyas "categoria", "url"
+ni coordenadas en una alternativa: se asume la misma categoría que la
+parada que sustituye, y el sistema la resuelve contra fuentes reales
+después.
 
 "franja_id" tiene que ser exactamente uno de estos valores, nunca uno
 inventado: ${franjaIds}.

@@ -5,13 +5,15 @@ import { postProcesarPlan } from "@/lib/generacion/postProcesar";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { validarPlan, type ErrorValidacion } from "@/lib/plan/validar";
 import { guardarPlan } from "@/lib/plan/repositorio";
-import { CATEGORIAS_PARADA, type Dia, type Franja, type Parada, type Plan, type Recomendacion, type TipoRecomendacion } from "@/lib/plan/tipos";
+import { CATEGORIAS_PARADA, type Alternativa, type Dia, type Franja, type Parada, type Plan, type Recomendacion, type TipoRecomendacion } from "@/lib/plan/tipos";
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
 import { resolverPlan } from "@/lib/lugares/resolverPlan";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
 import { resolverFotosPlan } from "@/lib/lugares/resolverFotos";
 import type { FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
+import { crearFuenteCercanosAbierta, type FuenteCercanos } from "@/lib/alternativas/cercanos";
+import { resolverAlternativasPlan } from "@/lib/alternativas/resolverAlternativas";
 import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
@@ -37,6 +39,9 @@ interface DependenciasProcesarTrabajo {
   fuenteLugares?: FuenteLugares;
   // fot-ac1: mismo motivo que fuenteLugares, para Wikipedia/Commons.
   fuenteFotos?: FuenteFotos;
+  // alt-ac4: mismo motivo que fuenteLugares, para el complemento de
+  // Overpass.
+  fuenteCercanos?: FuenteCercanos;
 }
 
 type IntentoEnsamblado = { valido: true; plan: Plan } | { valido: false; errores: ErrorValidacion[] };
@@ -124,6 +129,7 @@ function ensamblarDia(diaCrudo: Record<string, unknown> | null, franjas: Franja[
 function ensamblarParada(paradaCruda: Record<string, unknown> | null): Parada {
   const categoriaCruda = paradaCruda?.categoria;
   const categoria = typeof categoriaCruda === "string" && CATEGORIAS_VALIDAS.has(categoriaCruda) ? categoriaCruda : undefined;
+  const alternativas = ensamblarAlternativas(paradaCruda?.alternativas);
   return {
     id: generarIdParada(),
     franja_id: paradaCruda?.franja_id as string,
@@ -133,7 +139,38 @@ function ensamblarParada(paradaCruda: Record<string, unknown> | null): Parada {
     prioridad: paradaCruda?.prioridad as number,
     procedencia: { fuente: "propuesto-sin-verificar" },
     ...(categoria ? { categoria: categoria as Parada["categoria"] } : {}),
+    ...(alternativas.length > 0 ? { alternativas } : {}),
   };
+}
+
+// alt-ac2: copia SOLO nombre/descripcion/motivo/duracion_min -cualquier
+// otro campo que el modelo devuelva (url, coordenadas, categoria) se
+// descarta aquí, nunca llega al candidato-; descarta las alternativas sin
+// los cuatro campos válidos sin invalidar el plan, y recorta a 3 por
+// orden (el modelo ya puede devolver como máximo 3, pero esto no confía
+// en que lo respete).
+function ensamblarAlternativas(alternativasCrudas: unknown): Alternativa[] {
+  if (!Array.isArray(alternativasCrudas)) return [];
+  const validas: Alternativa[] = [];
+  for (const cruda of alternativasCrudas as Array<Record<string, unknown> | null>) {
+    const nombre = cruda?.nombre;
+    const descripcion = cruda?.descripcion;
+    const motivo = cruda?.motivo;
+    const duracionMin = cruda?.duracion_min;
+    if (
+      typeof nombre === "string" &&
+      nombre.length > 0 &&
+      typeof descripcion === "string" &&
+      descripcion.length > 0 &&
+      typeof motivo === "string" &&
+      motivo.length > 0 &&
+      typeof duracionMin === "number" &&
+      duracionMin > 0
+    ) {
+      validas.push({ nombre, descripcion, motivo, duracion_min: duracionMin });
+    }
+  }
+  return validas.slice(0, 3);
 }
 
 // reco-ac3: el modelo solo aporta tipo/nombre/motivo -- cualquier "url" u
@@ -205,7 +242,7 @@ async function invocarOPausar(
 export async function procesarTrabajo(
   supabase: SupabaseClient,
   trabajo: TrabajoAProcesar,
-  { ejecutor, directorio, fuenteLugares, fuenteFotos }: DependenciasProcesarTrabajo,
+  { ejecutor, directorio, fuenteLugares, fuenteFotos, fuenteCercanos }: DependenciasProcesarTrabajo,
 ): Promise<{ estado: "completado" | "fallido" | "pausado-por-cuota" }> {
   const familia = familiaDeModelo(MODELO_GENERACION);
 
@@ -251,7 +288,13 @@ export async function procesarTrabajo(
   // "ubicando las paradas" -- no se anuncia una etapa nueva para no
   // romper la secuencia que lug-ac6 ya comprueba.
   const fotos = fuenteFotos ?? crearFuenteFotosAbierta();
-  const planFinal = await resolverFotosPlan(fotos, planConLugares);
+  const planConFotos = await resolverFotosPlan(fotos, planConLugares);
+
+  // alt-ac1/alt-ac3/alt-ac4: alternativas SOLO para viajes nuevos (decisión
+  // de Adrián) -- es justo lo que genera este paso, nunca el barrido de
+  // planes existentes (relleno-planes-existentes no toca `alternativas`).
+  const cercanos = fuenteCercanos ?? crearFuenteCercanosAbierta();
+  const planFinal = await resolverAlternativasPlan(fuente, cercanos, planConFotos, trabajo.criterios.perfil);
 
   await publicarEtapa(supabase, trabajo.id, "guardando");
   await guardarPlan(supabase, planFinal);

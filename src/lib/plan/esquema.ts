@@ -143,6 +143,23 @@ export const esquemaPlan = {
           required: ["lat", "lon"],
           properties: { lat: { type: "number" }, lon: { type: "number" } },
         },
+        // alt-ac2: opcional -ausente, el plan sigue siendo válido- y, en
+        // este punto del pipeline (antes de resolverPlan/resolverAlternativas),
+        // solo los cuatro campos que el modelo puede originar de verdad.
+        // El ensamblador ya descartó cualquier otro campo y recortó a 3
+        // antes de que esto se valide.
+        alternativas: { type: "array", maxItems: 3, items: { $ref: "#/$defs/alternativaCruda" } },
+      },
+    },
+    alternativaCruda: {
+      type: "object",
+      additionalProperties: false,
+      required: ["nombre", "descripcion", "motivo", "duracion_min"],
+      properties: {
+        nombre: { type: "string", minLength: 1 },
+        descripcion: { type: "string", minLength: 1 },
+        motivo: { type: "string", minLength: 1 },
+        duracion_min: { type: "number", exclusiveMinimum: 0 },
       },
     },
   },

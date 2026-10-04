@@ -31,6 +31,19 @@ interface FotoPublica {
   pagina_url: string;
 }
 
+// bloque alternativas-equivalentes
+interface AlternativaPublica {
+  id?: string;
+  nombre: string;
+  descripcion: string;
+  motivo: string;
+  origen?: "modelo" | "cercano";
+  distancia_m?: number;
+  foto?: FotoPublica;
+  coordenadas?: { lat: number; lon: number };
+  procedencia: ProcedenciaPublica;
+}
+
 interface ParadaPublica {
   id: string;
   franja_id: string;
@@ -39,6 +52,7 @@ interface ParadaPublica {
   procedencia: ProcedenciaPublica;
   coordenadas?: { lat: number; lon: number };
   foto?: FotoPublica;
+  alternativas?: AlternativaPublica[];
 }
 
 interface DiaPublico {
@@ -96,11 +110,24 @@ function puntosDelDia(dia: DiaPublico): PuntoMapaDia[] {
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-function SeccionDia({ dia }: { dia: DiaPublico }) {
+function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planId: string; onPlanActualizado: () => void }) {
   const tieneAlgunaParada = dia.paradas.length > 0;
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
+  const [paradaConPanelAbiertoId, setParadaConPanelAbiertoId] = useState<string | null>(null);
   const refsTarjetas = useRef(new Map<string, HTMLLIElement>());
+
+  async function usarAlternativa(paradaId: string, alternativaId: string) {
+    const respuesta = await fetch(`/api/plan/${planId}/paradas/${paradaId}/sustituir`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ alternativa_id: alternativaId }),
+    });
+    if (respuesta.ok) {
+      setParadaConPanelAbiertoId(null);
+      onPlanActualizado();
+    }
+  }
 
   function seleccionarParada(paradaId: string) {
     setParadaActivaId(paradaId);
@@ -208,6 +235,65 @@ function SeccionDia({ dia }: { dia: DiaPublico }) {
                           </a>
                         </p>
                       )}
+                      {/* alt-ac5/alt-ac7: el botón existe siempre, haya o
+                          no alternativas -- es el panel el que explica el
+                          estado vacío, nunca se esconde el botón. */}
+                      <button
+                        type="button"
+                        className="boton"
+                        aria-expanded={paradaConPanelAbiertoId === parada.id}
+                        onClick={() => setParadaConPanelAbiertoId(paradaConPanelAbiertoId === parada.id ? null : parada.id)}
+                      >
+                        Cambiar
+                      </button>
+                      {paradaConPanelAbiertoId === parada.id && (
+                        <div className="panel-alternativas" role="region" aria-label={`Alternativas a ${parada.nombre}`}>
+                          <p className="ayuda-alternativas">
+                            Cambiar una parada crea una nueva versión del plan; podrás volver a la anterior desde esta
+                            misma lista.
+                          </p>
+                          {(parada.alternativas ?? []).length === 0 ? (
+                            <div className="alternativas-vacio">
+                              <p>No hay alternativas comprobadas para esta parada.</p>
+                              <p className="ayuda-alternativas">
+                                Las alternativas salen al generar el plan; los viajes anteriores no las tienen. Puedes
+                                regenerar este viaje desde el menú del plan para obtenerlas.
+                              </p>
+                            </div>
+                          ) : (
+                            <ul className="pila lista-alternativas">
+                              {(parada.alternativas ?? []).map((alternativa, indice) => (
+                                <li key={alternativa.id ?? `${parada.id}-${indice}`} className="tarjeta-alternativa">
+                                  {alternativa.foto ? (
+                                    <img src={alternativa.foto.url} alt={alternativa.nombre} loading="lazy" className="foto-alternativa" />
+                                  ) : (
+                                    <div className="foto-ausente">
+                                      <IconoSinFoto />
+                                      <span>Sin foto</span>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <strong>{alternativa.nombre}</strong>
+                                    <p>{alternativa.motivo}</p>
+                                    <p className="metadatos-alternativa">
+                                      {alternativa.distancia_m !== undefined && <span>A {alternativa.distancia_m} m</span>}{" "}
+                                      <span>{alternativa.origen === "cercano" ? "cerca de aquí" : "propuesta"}</span>
+                                    </p>
+                                    <button
+                                      type="button"
+                                      className="boton boton-principal"
+                                      disabled={!alternativa.id}
+                                      onClick={() => alternativa.id && usarAlternativa(parada.id, alternativa.id)}
+                                    >
+                                      Usar esta
+                                    </button>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -223,6 +309,10 @@ function SeccionDia({ dia }: { dia: DiaPublico }) {
 export function VistaPlan({ id }: { id: string }) {
   const [plan, setPlan] = useState<PlanPublico | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // alt-ac5: recargar (tras usar una alternativa) es volver a pedir
+  // /api/plan/[id] -- esa ruta devuelve siempre la versión más reciente,
+  // así que no hace falta nada más que repetir la misma petición.
+  const [recargarContador, setRecargarContador] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -249,7 +339,7 @@ export function VistaPlan({ id }: { id: string }) {
     return () => {
       cancelado = true;
     };
-  }, [id]);
+  }, [id, recargarContador]);
 
   return (
     <div className="pila">
@@ -277,7 +367,7 @@ export function VistaPlan({ id }: { id: string }) {
       ))}
 
       {plan?.dias.map((dia) => (
-        <SeccionDia key={dia.fecha} dia={dia} />
+        <SeccionDia key={dia.fecha} dia={dia} planId={id} onPlanActualizado={() => setRecargarContador((n) => n + 1)} />
       ))}
 
       {plan && (

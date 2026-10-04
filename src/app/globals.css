@@ -280,6 +280,47 @@ h3 {
   font-style: italic;
 }
 
+/* bloque alternativas-equivalentes (alt-ac5/alt-ac7) */
+.panel-alternativas {
+  margin-top: var(--espacio-2);
+  padding: var(--espacio-2);
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+}
+
+.ayuda-alternativas {
+  font-size: var(--texto-pequeno);
+  opacity: 0.8;
+}
+
+.lista-alternativas {
+  gap: var(--espacio-2);
+}
+
+.tarjeta-alternativa {
+  display: flex;
+  gap: var(--espacio-2);
+  align-items: flex-start;
+}
+
+.foto-alternativa {
+  display: block;
+  width: 4.5rem;
+  height: 4.5rem;
+  object-fit: cover;
+  border-radius: 0.375rem;
+  flex-shrink: 0;
+}
+
+.metadatos-alternativa {
+  font-size: var(--texto-pequeno);
+  opacity: 0.8;
+}
+
+.alternativas-vacio {
+  font-size: var(--texto-pequeno);
+}
+
 label {
   font-size: var(--texto-pequeno);
   font-weight: 600;
