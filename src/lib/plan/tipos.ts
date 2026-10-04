@@ -136,6 +136,11 @@ export type OrigenAlternativa = "modelo" | "cercano";
 // ya resuelta y guardada. coordenadas/lugar/foto, igual que en Parada, los
 // rellena la resolución, nunca el modelo.
 export interface Alternativa {
+  // Id de fila (paradas_alternativas.id) -- ausente en una alternativa
+  // recién propuesta por el modelo o por Overpass, antes de guardarse;
+  // siempre presente en una ya leída de la base de datos, que es lo que
+  // el endpoint de sustitución necesita para identificarla sin ambigüedad.
+  id?: string;
   nombre: string;
   descripcion: string;
   motivo: string;
