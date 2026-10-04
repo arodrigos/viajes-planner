@@ -170,6 +170,7 @@ export async function resolverPuertaDeCiudad(
       : {
           estado: "sin-ciudad-identificable",
           motivo: `No hemos encontrado «${nombrePedido}» en el mapa: comprueba el nombre`,
+          categoria_motivo: "ciudad-no-encontrada",
           intentado_en: ahora,
           version_resolutor: VERSION_RESOLUTOR_ACTUAL,
         };

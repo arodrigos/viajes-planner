@@ -39,6 +39,13 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     planesConTrabajoVivo,
     planesConCiudad,
     planesSinCiudadIdentificable,
+    planesSelladosPocasParadas,
+    planesSelladosSinCaja,
+    planesSelladosZonaGrande,
+    planesSelladosSinContencion,
+    planesSelladosSinVentaja,
+    planesSelladosSinCandidatoClaro,
+    planesSelladosCiudadNoEncontrada,
   ] = await Promise.all([
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true })),
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true }).eq("resolucion->>estado", "resuelta")),
@@ -63,6 +70,15 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     contar(() =>
       supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>estado", "sin-ciudad-identificable"),
     ),
+    // bar-ac4: desglose por categoría cerrada -- un solo campo jsonb
+    // (`ciudad->>categoria_motivo`), sin join, igual de barato que el resto.
+    contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "pocas-paradas")),
+    contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "sin-caja")),
+    contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "zona-grande")),
+    contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "sin-contencion")),
+    contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "sin-ventaja")),
+    contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "sin-candidato-claro")),
+    contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "ciudad-no-encontrada")),
   ]);
 
   return {
@@ -78,6 +94,13 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     planes_sin_trabajo_vivo: planesTotal - planesConTrabajoVivo,
     planes_con_ciudad: planesConCiudad,
     planes_sin_ciudad_identificable: planesSinCiudadIdentificable,
+    planes_sellados_pocas_paradas: planesSelladosPocasParadas,
+    planes_sellados_sin_caja: planesSelladosSinCaja,
+    planes_sellados_zona_grande: planesSelladosZonaGrande,
+    planes_sellados_sin_contencion: planesSelladosSinContencion,
+    planes_sellados_sin_ventaja: planesSelladosSinVentaja,
+    planes_sellados_sin_candidato_claro: planesSelladosSinCandidatoClaro,
+    planes_sellados_ciudad_no_encontrada: planesSelladosCiudadNoEncontrada,
   };
 }
 

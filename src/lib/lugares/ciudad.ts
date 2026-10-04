@@ -29,7 +29,29 @@ export interface CandidatoCiudad {
 // versión 2 (como el de "Londres en familia con niños", que el gatekeeper
 // midió que SÍ resuelve con la lógica corregida) tienen que reintentarse
 // una vez más contra esta versión del criterio.
-export const VERSION_RESOLUTOR_ACTUAL = 3;
+//
+// Subida a 4 (bar-ac4, feedback del gatekeeper, 2026-10-04): las claves de
+// caché de `buscarLibre`/`geocodificarCiudad` en fuenteAbierta.ts no llevaban
+// la versión del resolutor, así que un reintento contra la versión 3 podía
+// seguir leyendo el resultado negativo que había escrito la lógica rota de
+// la versión 1 o 2 -- el plan se resellaba sin haber preguntado nada de
+// verdad. Ahora la clave incluye la versión, así que esta subida es la que
+// de verdad fuerza una pregunta nueva a Nominatim para los planes sellados
+// con una versión anterior (Londres incluido).
+export const VERSION_RESOLUTOR_ACTUAL = 4;
+
+// bar-ac4: categoría cerrada del motivo de sellado, para poder contar por
+// tipo en /api/salud.relleno sin tener que hacer coincidir texto libre
+// (dos motivos legítimos comparten subcadena: "no se pudo verificar
+// geográficamente" y "no se pudo verificar geográficamente (sin caja)").
+export type CategoriaMotivoSellado =
+  | "pocas-paradas"
+  | "sin-caja"
+  | "zona-grande"
+  | "sin-contencion"
+  | "sin-ventaja"
+  | "sin-candidato-claro"
+  | "ciudad-no-encontrada";
 
 // ciu-ac1..ciu-ac2: la "ciudad efectiva" de un plan -- persistida tal cual
 // en planes.ciudad (jsonb). `apoyo`/`nivel` solo tienen sentido cuando
@@ -45,6 +67,9 @@ export interface CiudadEfectiva {
   apoyo?: number;
   nivel?: string;
   motivo?: string;
+  // bar-ac4: solo presente cuando estado es "sin-ciudad-identificable" --
+  // la categoría cerrada del motivo, para contar por tipo sin parsear texto.
+  categoria_motivo?: CategoriaMotivoSellado;
   motivo_destino_descartado?: string;
   candidatos?: CandidatoCiudad[];
   intentado_en: string;
@@ -165,6 +190,7 @@ interface Ganador {
 interface GanadorRechazado {
   nombre: string;
   motivo: string;
+  categoria: CategoriaMotivoSellado;
   top3: CandidatoCiudad[];
 }
 
@@ -197,13 +223,13 @@ async function elegirGanador(fuente: FuenteCiudad, escrutinio: Escrutinio): Prom
   // pudo verificar, no que la zona fuera grande). Con datos reales esto
   // importa: dice cuál de las dos ramas se tomó de verdad.
   if (!caja) {
-    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» no se pudo verificar geográficamente (sin caja)`, top3 } };
+    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» no se pudo verificar geográficamente (sin caja)`, categoria: "sin-caja", top3 } };
   }
   if (!spanValido(caja)) {
-    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» abarca una zona demasiado grande`, top3 } };
+    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» abarca una zona demasiado grande`, categoria: "zona-grande", top3 } };
   }
   if (paradasDentro < MINIMO_PARADAS_VOTANTES_EN_CAJA) {
-    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» no se pudo verificar geográficamente`, top3 } };
+    return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» no se pudo verificar geográficamente`, categoria: "sin-contencion", top3 } };
   }
 
   const segundo = escrutinio.ordenados[1];
@@ -216,6 +242,7 @@ async function elegirGanador(fuente: FuenteCiudad, escrutinio: Escrutinio): Prom
       rechazado: {
         nombre: primero.nombre,
         motivo: `la ciudad candidata «${primero.nombre}» no tiene ventaja suficiente sobre «${segundo?.nombre}»`,
+        categoria: "sin-ventaja",
         top3,
       },
     };
@@ -276,6 +303,7 @@ async function deducirPorParadas(
     return {
       estado: "sin-ciudad-identificable",
       motivo: `no hay suficientes paradas para deducir la ciudad (${nombresOrdenados.length})`,
+      categoria_motivo: "pocas-paradas",
       intentado_en: ahora,
       ...(motivoDestinoDescartado ? { motivo_destino_descartado: motivoDestinoDescartado } : {}),
     };
@@ -322,6 +350,7 @@ async function deducirPorParadas(
     return {
       estado: "sin-ciudad-identificable",
       motivo: ultimoRechazo.motivo,
+      categoria_motivo: ultimoRechazo.categoria,
       candidatos: ultimoRechazo.top3,
       intentado_en: ahora,
       ...(motivoDestinoDescartado ? { motivo_destino_descartado: motivoDestinoDescartado } : {}),
@@ -334,6 +363,7 @@ async function deducirPorParadas(
   return {
     estado: "sin-ciudad-identificable",
     motivo: `no hay una ciudad clara (${resumen})`,
+    categoria_motivo: "sin-candidato-claro",
     candidatos,
     intentado_en: ahora,
     ...(motivoDestinoDescartado ? { motivo_destino_descartado: motivoDestinoDescartado } : {}),

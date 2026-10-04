@@ -3,6 +3,7 @@ import { crearLimitador, relojReal, type Reloj } from "./limitador";
 import { cacheSitiosMemoria, claveNominatim, esFalloDeCache, normalizarClaveNombre, slugDestino, type CacheSitios } from "./cacheSitios";
 import { normalizarNombre } from "./normalizar";
 import { FalloRedCiudad, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares } from "./tipos";
+import { VERSION_RESOLUTOR_ACTUAL } from "./ciudad";
 
 // lug-ac3: identifica la APLICACIÓN y el repo, nunca a Adrián ni a la
 // familia. La versión viene del propio package.json en build; en local o
@@ -199,7 +200,11 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
   // (Nominatim contestó "no hay nada"), que es una conclusión muy distinta
   // de "no se pudo preguntar".
   async function buscarLibre(nombre: string): Promise<CandidatoLugar[]> {
-    const clave = `libre:${normalizarClaveNombre(nombre)}`;
+    // bar-ac4 (feedback del gatekeeper, 2026-10-04): la clave de caché lleva
+    // la versión del resolutor -- sin esto, un reintento en la versión 4
+    // podía leer el [] negativo que escribió la lógica rota de la versión 1
+    // o 2, y el plan se volvía a sellar sin haber preguntado nada de verdad.
+    const clave = `libre:v${VERSION_RESOLUTOR_ACTUAL}:${normalizarClaveNombre(nombre)}`;
     const enCache = await cache.obtener(clave);
     if (!esFalloDeCache(enCache)) return enCache as CandidatoLugar[];
 
@@ -217,11 +222,17 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
   // geográfica del nivel que gana la votación (span y contención de las
   // paradas votantes). Mismo trato de fallo de red que buscarLibre.
   async function geocodificarCiudad(nombre: string): Promise<CajaDelimitadora | null> {
-    const clave = `ciudad:${normalizarClaveNombre(nombre)}`;
+    // bar-ac4: misma razón que en buscarLibre -- la clave lleva la versión
+    // del resolutor para que un reintento en una versión nueva no lea un
+    // null cacheado por la lógica de una versión anterior.
+    const clave = `ciudad:v${VERSION_RESOLUTOR_ACTUAL}:${normalizarClaveNombre(nombre)}`;
     const enCache = await cache.obtener(clave);
     if (!esFalloDeCache(enCache)) return enCache as CajaDelimitadora | null;
 
-    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(nombre)}&format=jsonv2&limit=1&featureType=settlement`;
+    // bar-ac4: alineado con buscarLibre -- sin accept-language=es, Nominatim
+    // podía devolver un nombre en otro idioma que luego no empataba con el
+    // texto del destino al verificar la caja.
+    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(nombre)}&format=jsonv2&limit=1&featureType=settlement&accept-language=es`;
     const respuesta = await limitarNominatim(() => peticionConReintento(url));
     if (!respuesta) throw new FalloRedCiudad(`no se pudo geocodificar la ciudad candidata «${nombre}»`);
     const datos = (await respuesta.json()) as ResultadoNominatim[];
