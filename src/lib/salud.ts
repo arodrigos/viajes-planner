@@ -63,6 +63,20 @@ export interface EstadoRelleno {
   // fallo de red persistente).
   planes_con_ciudad: number;
   planes_sin_ciudad_identificable: number;
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): desglose por categoría
+  // de los planes sellados -- lista CERRADA, igual que el resto de esta
+  // interfaz, para poder distinguir "182 sin candidato aceptable" (el techo
+  // matemático del 85% que ya es inalcanzable) de un sellado real por otra
+  // causa, sin tener que leer el texto libre de `motivo`. La suma de las
+  // siete no tiene por qué igualar planes_sin_ciudad_identificable: un plan
+  // sellado antes de este bloque no tiene categoria_motivo.
+  planes_sellados_pocas_paradas: number;
+  planes_sellados_sin_caja: number;
+  planes_sellados_zona_grande: number;
+  planes_sellados_sin_contencion: number;
+  planes_sellados_sin_ventaja: number;
+  planes_sellados_sin_candidato_claro: number;
+  planes_sellados_ciudad_no_encontrada: number;
 }
 
 export interface RespuestaSalud {

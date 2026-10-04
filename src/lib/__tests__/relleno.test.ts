@@ -35,7 +35,7 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
     for (let i = 0; i < 10; i++) {
       await leerEstadoRelleno(cliente, inicio + i * 1_000);
     }
-    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(12);
+    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(19);
   });
 
   it("tras 61 s desde la última tanda, se vuelve a consultar", async () => {
@@ -43,13 +43,13 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
     const inicio = 2_000_000;
     await leerEstadoRelleno(cliente, inicio);
     await leerEstadoRelleno(cliente, inicio + 61_000);
-    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(24);
+    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(38);
   });
 
-  // ciu-ac6: la lista crece de 10 a 12 claves con los dos contadores de la
-  // ciudad efectiva del plan -- sigue siendo una lista CERRADA, solo con
-  // dos miembros más.
-  it("el resultado cacheado tiene las doce claves del objeto relleno", async () => {
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): la lista crece de 12 a 19
+  // claves con el desglose por categoría de los planes sellados -- sigue
+  // siendo una lista CERRADA, solo con siete miembros más.
+  it("el resultado cacheado tiene las diecinueve claves del objeto relleno", async () => {
     const cliente = clienteFalso() as never;
     const relleno = await leerEstadoRelleno(cliente, 3_000_000);
     expect(Object.keys(relleno).sort()).toEqual(
@@ -66,6 +66,13 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
         "planes_sin_trabajo_vivo",
         "planes_con_ciudad",
         "planes_sin_ciudad_identificable",
+        "planes_sellados_pocas_paradas",
+        "planes_sellados_sin_caja",
+        "planes_sellados_zona_grande",
+        "planes_sellados_sin_contencion",
+        "planes_sellados_sin_ventaja",
+        "planes_sellados_sin_candidato_claro",
+        "planes_sellados_ciudad_no_encontrada",
       ].sort(),
     );
   });

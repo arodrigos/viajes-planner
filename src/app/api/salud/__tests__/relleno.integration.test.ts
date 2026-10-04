@@ -70,7 +70,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     await supabase.from("planes").delete().like("id", `${PREFIJO}%`);
   });
 
-  it("cuadra el total, usa solo las doce claves numéricas, y no publica ningún dato personal", async () => {
+  it("cuadra el total, usa solo las diecinueve claves numéricas, y no publica ningún dato personal", async () => {
     // Plan 1: destino descriptivo real de Adrián, trabajo vivo, parada sin
     // intentar, ciudad efectiva ya resuelta (ciu-ac6).
     const plan1: Plan = {
@@ -103,6 +103,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
       ciudad: {
         estado: "sin-ciudad-identificable",
         motivo: "no hay una ciudad clara (Madrid 2, Valencia 2, Barcelona 1)",
+        categoria_motivo: "sin-candidato-claro",
         candidatos: [{ nombre: "Madrid", apoyo: 2 }, { nombre: "Valencia", apoyo: 2 }, { nombre: "Barcelona", apoyo: 1 }],
         intentado_en: new Date().toISOString(),
       },
@@ -164,6 +165,13 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
         "planes_sin_trabajo_vivo",
         "planes_con_ciudad",
         "planes_sin_ciudad_identificable",
+        "planes_sellados_pocas_paradas",
+        "planes_sellados_sin_caja",
+        "planes_sellados_zona_grande",
+        "planes_sellados_sin_contencion",
+        "planes_sellados_sin_ventaja",
+        "planes_sellados_sin_candidato_claro",
+        "planes_sellados_ciudad_no_encontrada",
       ].sort(),
     );
     expect(new Set(Object.values(relleno).map((v) => typeof v))).toEqual(new Set(["number"]));
@@ -185,6 +193,13 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     expect(relleno.planes_con_ciudad).toBe(1); // Londres
     expect(relleno.planes_sin_ciudad_identificable).toBe(1); // Ciudad con niños
     expect(relleno.planes_con_ciudad + relleno.planes_sin_ciudad_identificable).toBeLessThan(relleno.planes_total);
+    expect(relleno.planes_sellados_sin_candidato_claro).toBe(1); // Ciudad con niños
+    expect(relleno.planes_sellados_pocas_paradas).toBe(0);
+    expect(relleno.planes_sellados_sin_caja).toBe(0);
+    expect(relleno.planes_sellados_zona_grande).toBe(0);
+    expect(relleno.planes_sellados_sin_contencion).toBe(0);
+    expect(relleno.planes_sellados_sin_ventaja).toBe(0);
+    expect(relleno.planes_sellados_ciudad_no_encontrada).toBe(0);
 
     // Modelo de amenazas: `relleno` no puede contener ni un destino, ni un
     // nombre de parada, ni un correo, ni un identificador de usuario.
