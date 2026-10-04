@@ -116,8 +116,10 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("POST /api/plan/[id]/ciudad (man-ac4
     );
     expect(respuestaAjeno.status).toBe(404);
     expect(respuestaInexistente.status).toBe(404);
-    expect(await respuestaAjeno.json()).toEqual(await respuestaInexistente.json());
-    expect(await respuestaAjeno.json()).toEqual({ error: "no encontrado" });
+    const cuerpoAjeno = await respuestaAjeno.json();
+    const cuerpoInexistente = await respuestaInexistente.json();
+    expect(cuerpoAjeno).toEqual(cuerpoInexistente);
+    expect(cuerpoAjeno).toEqual({ error: "no encontrado" });
 
     const { count: trabajosDespues } = await servicio.from("trabajos").select("id", { count: "exact", head: true });
     expect(trabajosDespues).toBe(trabajosAntes);
