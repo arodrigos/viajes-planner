@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { clienteServicio } from "@/lib/db/cliente";
-import { construirSalud, ESQUEMA_VERSION } from "@/lib/salud";
+import { leerEstadoRelleno } from "@/lib/relleno";
+import { construirSalud, ESQUEMA_VERSION, type EstadoRelleno } from "@/lib/salud";
 import { MODELO_ACCESO } from "@/lib/trabajador/config";
 import vercelConfig from "../../../../vercel.json";
 
@@ -52,9 +53,21 @@ async function tocarSiEsElCron(request: NextRequest, supabaseActiva: boolean): P
   await clienteServicio().from("salud").insert({ origen: "cron-salud" });
 }
 
+// sal-ac1: si cualquier consulta de recuento falla, la respuesta omite
+// `relleno` entero y conserva el resto de los campos en vez de devolver 500
+// -- el endpoint sigue sirviendo para diagnosticar justo cuando algo va mal.
+async function leerRellenoSinTumbarSalud(): Promise<EstadoRelleno | undefined> {
+  try {
+    return await leerEstadoRelleno(clienteServicio());
+  } catch {
+    return undefined;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { estado, vistoHaceSeg } = await comprobarSupabase();
   await tocarSiEsElCron(request, estado === "activa");
+  const relleno = await leerRellenoSinTumbarSalud();
 
   const salud = construirSalud({
     cronsRegistrados: vercelConfig.crons.length,
@@ -66,6 +79,7 @@ export async function GET(request: NextRequest) {
     secretosFaltantes: SECRETOS_REQUERIDOS.filter((nombre) => !process.env[nombre]),
     credencialesModeloEnWeb: VARIABLES_CREDENCIAL_MODELO.some((nombre) => Boolean(process.env[nombre])),
     fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap" },
+    relleno,
   });
   return NextResponse.json(salud, { status: salud.ok ? 200 : 503 });
 }

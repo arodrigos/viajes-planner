@@ -20,6 +20,22 @@ export interface Fuentes {
   mapa: string;
 }
 
+// sal-ac1/sal-ac3: contadores AGREGADOS del relleno real en DEV, todos
+// enteros -- es la lista CERRADA de claves que el modelo de amenazas exige:
+// ni un destino, ni un nombre de parada, ni un correo, ni un identificador.
+export interface EstadoRelleno {
+  paradas_total: number;
+  paradas_resueltas: number;
+  paradas_no_resueltas: number;
+  paradas_en_error: number;
+  paradas_sin_intentar: number;
+  paradas_con_foto: number;
+  paradas_con_alternativas: number;
+  planes_total: number;
+  planes_sin_version: number;
+  planes_sin_trabajo_vivo: number;
+}
+
 export interface RespuestaSalud {
   ok: boolean;
   version: string;
@@ -34,6 +50,7 @@ export interface RespuestaSalud {
   secretos_faltantes?: string[];
   credenciales_modelo_en_web?: boolean;
   fuentes?: Fuentes;
+  relleno?: EstadoRelleno;
 }
 
 // Se incrementa a mano cuando una migración cambia una forma que este
@@ -58,6 +75,7 @@ export interface OpcionesSalud {
   secretosFaltantes?: string[];
   credencialesModeloEnWeb?: boolean;
   fuentes?: Fuentes;
+  relleno?: EstadoRelleno;
 }
 
 // `ok` es deliberadamente estrecho (commit bien formado + las dependencias
@@ -86,5 +104,6 @@ export function construirSalud(opciones: OpcionesSalud = {}): RespuestaSalud {
       ? {}
       : { credenciales_modelo_en_web: opciones.credencialesModeloEnWeb }),
     ...(opciones.fuentes === undefined ? {} : { fuentes: opciones.fuentes }),
+    ...(opciones.relleno === undefined ? {} : { relleno: opciones.relleno }),
   };
 }

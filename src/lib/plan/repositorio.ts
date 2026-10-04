@@ -198,8 +198,22 @@ export async function recuperarPlan(
 
   const diasAlmacenados = versionRow.dias as DiaAlmacenado[];
   const dias: Dia[] = diasAlmacenados.map((diaMeta, indice) => {
+    // Postgres no garantiza el orden de filas con el mismo dia_index sin un
+    // ORDER BY que las desambigüe: sin esto, dos paradas del mismo día podían
+    // volver en cualquier orden según el layout físico de la tabla (expuesto
+    // al añadir relleno.integration.test.ts, que vacía `planes` entero antes
+    // de cada test y cambió ese layout). El orden correcto es el cronológico
+    // de la franja (vía diaMeta.franjas, configuración por destino), con
+    // id_externo como desempate estable dentro de la misma franja.
+    const ordenFranja = new Map(diaMeta.franjas.map((franja, i) => [franja.id, i]));
     const paradasDelDia: Parada[] = (paradaRows ?? [])
       .filter((fila) => fila.dia_index === indice)
+      .sort((a, b) => {
+        const ordenA = ordenFranja.get(a.franja_id as string) ?? Number.MAX_SAFE_INTEGER;
+        const ordenB = ordenFranja.get(b.franja_id as string) ?? Number.MAX_SAFE_INTEGER;
+        if (ordenA !== ordenB) return ordenA - ordenB;
+        return (a.id_externo as string).localeCompare(b.id_externo as string);
+      })
       .map((fila) => {
         const lat = fila.lat as number | null;
         const lon = fila.lon as number | null;
