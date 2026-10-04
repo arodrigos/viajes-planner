@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { procesarDentroDePresupuesto, resolverPuertaDeCiudad, seleccionarPendientes } from "@/lib/trabajador/barrido";
 import { crearFuenteLugaresGrabada } from "@/lib/lugares/fuenteGrabada";
-import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
+import { VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { CajaDelimitadora, CandidatoLugar, FuenteCiudad, FuenteLugares } from "@/lib/lugares/tipos";
 import type { Reloj } from "@/lib/lugares/limitador";
 
@@ -68,6 +68,21 @@ describe("procesarDentroDePresupuesto (bar-ac3)", () => {
 
 const CAJA: CajaDelimitadora = { minLat: 37.3, maxLat: 37.45, minLon: -6.05, maxLon: -5.9 };
 
+function candidatoDePrueba(nombre: string): CandidatoLugar {
+  return {
+    fuente: "osm",
+    id: `osm:node/${nombre}`,
+    url: `https://www.openstreetmap.org/node/${nombre}`,
+    nombreFuente: nombre,
+    nombresAlternativos: [],
+    lat: 37.38,
+    lon: -5.98,
+    categoriaOsm: "historic",
+    tipoOsm: "memorial",
+    etiquetas: {},
+  };
+}
+
 function fuenteQueLanzaSiSeLlama(): FuenteLugares & FuenteCiudad {
   const lanzar = () => {
     throw new Error("bar-ac2: no se esperaba ninguna petición de red para este plan");
@@ -113,14 +128,51 @@ function version(ciudad: CiudadEfectiva | null) {
 }
 
 describe("resolverPuertaDeCiudad (bar-ac1/bar-ac2)", () => {
-  it("ciudad 'sin-ciudad-identificable': cero peticiones de red y ninguna escritura, devuelve null", async () => {
+  it("ciudad 'sin-ciudad-identificable' sellada por la versión VIGENTE: cero peticiones de red y ninguna escritura, devuelve null", async () => {
     const resultado = await resolverPuertaDeCiudad(
       supabaseQueLanzaSiSeEscribe() as never,
       fuenteQueLanzaSiSeLlama(),
-      version({ estado: "sin-ciudad-identificable", motivo: "no hay una ciudad clara", intentado_en: "2026-10-04T10:00:00Z" }),
+      version({
+        estado: "sin-ciudad-identificable",
+        motivo: "no hay una ciudad clara",
+        intentado_en: "2026-10-04T10:00:00Z",
+        version_resolutor: VERSION_RESOLUTOR_ACTUAL,
+      }),
       ["Monumento Uno"],
     );
     expect(resultado).toBeNull();
+  });
+
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04): esto es lo que hace que
+  // los 27 planes marcados por el resolutor ANTERIOR a ciu-ac2 vuelvan a
+  // entrar una vez en vez de quedarse bloqueados para siempre.
+  it("ciudad 'sin-ciudad-identificable' sellada por una versión ANTERIOR (o sin sello): se reintenta una vez y el nuevo veredicto queda sellado con la versión vigente", async () => {
+    const { registros, cliente } = supabaseQueRegistra();
+    const bbox = CAJA;
+    const fuente: FuenteLugares & FuenteCiudad = {
+      geocodificarDestino: async () => bbox,
+      buscarNominatim: async (nombre: string) => [candidatoDePrueba(nombre)],
+      buscarWikipedia: async () => [],
+      buscarLibre: async () => [],
+      geocodificarCiudad: async () => bbox,
+    };
+    const resultado = await resolverPuertaDeCiudad(
+      cliente as never,
+      fuente,
+      version({
+        estado: "sin-ciudad-identificable",
+        motivo: "no hay una ciudad clara",
+        intentado_en: "2026-10-01T00:00:00Z",
+        // sin version_resolutor: lo que escribió cualquier resolutor
+        // previo a este bloque.
+      }),
+      ["Real Alcázar", "Catedral de Sevilla"],
+    );
+    expect(resultado).not.toBeNull();
+    expect(registros).toHaveLength(1);
+    const ciudadPersistida = (registros[0].valores as { ciudad: CiudadEfectiva }).ciudad;
+    expect(ciudadPersistida.estado).toBe("resuelta");
+    expect(ciudadPersistida.version_resolutor).toBe(VERSION_RESOLUTOR_ACTUAL);
   });
 
   it("ciudad ya 'resuelta': cero peticiones de red y ninguna escritura, devuelve su nombre/caja tal cual", async () => {
@@ -195,13 +247,13 @@ describe("resolverPuertaDeCiudad (bar-ac1/bar-ac2)", () => {
     expect(ciudadPersistida.motivo).toContain("Xyzzyborg");
   });
 
-  it("invariante: para cualquier ciudad ya en estado 'sin-ciudad-identificable', nunca hay petición de red", async () => {
+  it("invariante: para cualquier ciudad ya en estado 'sin-ciudad-identificable' sellada con la versión VIGENTE, nunca hay petición de red", async () => {
     await fc.assert(
       fc.asyncProperty(fc.string(), async (motivo) => {
         const resultado = await resolverPuertaDeCiudad(
           supabaseQueLanzaSiSeEscribe() as never,
           fuenteQueLanzaSiSeLlama(),
-          version({ estado: "sin-ciudad-identificable", motivo, intentado_en: "2026-10-04T10:00:00Z" }),
+          version({ estado: "sin-ciudad-identificable", motivo, intentado_en: "2026-10-04T10:00:00Z", version_resolutor: VERSION_RESOLUTOR_ACTUAL }),
           ["cualquier parada"],
         );
         expect(resultado).toBeNull();

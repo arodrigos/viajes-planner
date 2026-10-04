@@ -11,6 +11,18 @@ export interface CandidatoCiudad {
   apoyo: number;
 }
 
+// bar-ac2/bar-ac4 (feedback del gatekeeper, 2026-10-04): un "sin-ciudad-
+// identificable" no es una conclusión sobre el PLAN, es una conclusión
+// sobre lo que supo decidir la lógica vigente cuando se escribió. Si esa
+// lógica cambia (como en ciu-ac2), los planes ya marcados por una versión
+// anterior se quedarían bloqueados para siempre -- bar-ac2 dice, con toda
+// razón, que un "sin-ciudad-identificable" no genera peticiones, pero eso
+// solo tiene sentido si el veredicto es el de la lógica ACTUAL. Subir este
+// número cada vez que `elegirGanador`/`deducirPorParadas`/
+// `intentarCajaDelDestino` cambien su criterio de decisión es lo que deja
+// que esos planes se reintenten UNA vez (y solo una) en el siguiente tick.
+export const VERSION_RESOLUTOR_ACTUAL = 2;
+
 // ciu-ac1..ciu-ac2: la "ciudad efectiva" de un plan -- persistida tal cual
 // en planes.ciudad (jsonb). `apoyo`/`nivel` solo tienen sentido cuando
 // metodo es "paradas"; `motivo_destino_descartado` es la traza intermedia
@@ -28,6 +40,10 @@ export interface CiudadEfectiva {
   motivo_destino_descartado?: string;
   candidatos?: CandidatoCiudad[];
   intentado_en: string;
+  // bar-ac2/bar-ac4: con qué versión del resolutor se decidió este
+  // veredicto. Ausente en todo lo escrito antes de este bloque (se trata
+  // como "anterior a cualquier versión", nunca como "versión 0 válida").
+  version_resolutor?: number;
   // bar-ac2/ciudad-a-mano: lo que Adrián escribió a mano cuando el estado es
   // "pendiente-manual" -- el barrido lo geocodifica en el siguiente tick
   // (bloque barrido-todos-los-planes); el endpoint que lo escribe es de un
@@ -309,10 +325,11 @@ export async function resolverCiudadEfectiva(
 
   try {
     const porDestino = await intentarCajaDelDestino(fuente, destino, nombresOrdenados, ahora);
-    if ("estado" in porDestino) return porDestino;
+    if ("estado" in porDestino) return { ...porDestino, version_resolutor: VERSION_RESOLUTOR_ACTUAL };
 
     const motivoDestinoDescartado = porDestino.descartado.length > 0 ? porDestino.descartado : undefined;
-    return await deducirPorParadas(fuente, nombresOrdenados, ahora, motivoDestinoDescartado);
+    const resultado = await deducirPorParadas(fuente, nombresOrdenados, ahora, motivoDestinoDescartado);
+    return { ...resultado, version_resolutor: VERSION_RESOLUTOR_ACTUAL };
   } catch (error) {
     if (error instanceof FalloRedCiudad) return null;
     throw error;

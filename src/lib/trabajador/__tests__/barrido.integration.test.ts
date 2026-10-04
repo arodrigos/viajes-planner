@@ -5,7 +5,7 @@ import { tick } from "@/lib/trabajador/tick";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { CandidatoLugar, FuenteCiudad, FuenteLugares } from "@/lib/lugares/tipos";
-import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
+import { VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { crearFuenteFotosGrabada } from "@/lib/lugares/fuenteFotosGrabada";
 import type { FuenteCercanos } from "@/lib/alternativas/cercanos";
 import type { Dia, Plan } from "@/lib/plan/tipos";
@@ -215,10 +215,15 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
     }
   });
 
-  it("cp-bar-02: un plan 'sin-ciudad-identificable' consume cero peticiones en dos ticks seguidos y no toca su intentado_en", async () => {
+  it("cp-bar-02: un plan 'sin-ciudad-identificable' sellado por la versión VIGENTE del resolutor consume cero peticiones en dos ticks seguidos y no toca su intentado_en", async () => {
     const intentadoEnOriginal = "2026-10-04T10:00:00Z";
     await sembrarPlan(supabase, "plan-barrido-sinciudad", Array.from({ length: 5 }, (_, i) => `Parada sin ciudad ${i}`), {
-      ciudad: { estado: "sin-ciudad-identificable", motivo: "no hay una ciudad clara: Madrid 2, Valencia 2, Barcelona 1", intentado_en: intentadoEnOriginal },
+      ciudad: {
+        estado: "sin-ciudad-identificable",
+        motivo: "no hay una ciudad clara: Madrid 2, Valencia 2, Barcelona 1",
+        intentado_en: intentadoEnOriginal,
+        version_resolutor: VERSION_RESOLUTOR_ACTUAL,
+      },
     });
     await sembrarPlan(supabase, "plan-barrido-sevilla", ["Parada Sevilla Reciente", "Parada Sevilla Vieja"], { ciudad: CIUDAD_RESUELTA });
 
@@ -264,6 +269,60 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
 
     const { data: viejaFinal } = await supabase.from("paradas").select("resolucion").eq("nombre", "Parada Sevilla Vieja").single();
     expect((viejaFinal?.resolucion as { estado: string }).estado).toBe("resuelta");
+  });
+
+  it("bar-ac4 (feedback 2026-10-04): un plan 'sin-ciudad-identificable' sellado por una versión ANTERIOR del resolutor se reintenta UNA vez, y si vuelve a fallar deja de reintentarse", async () => {
+    const intentadoEnViejo = "2026-10-01T00:00:00Z";
+    // Sin `version_resolutor` (lo que escribió cualquier resolutor previo a
+    // este bloque): tiene que tratarse como "anterior a cualquier versión".
+    await sembrarPlan(supabase, "plan-barrido-sello-viejo", ["Real Alcázar", "Catedral de Sevilla", "Plaza de España"], {
+      ciudad: { estado: "sin-ciudad-identificable", motivo: "no hay una ciudad clara: Madrid 1, Valencia 1, Barcelona 1", intentado_en: intentadoEnViejo },
+    });
+
+    const nominatim: Record<string, CandidatoLugar[]> = {
+      "Real Alcázar": [candidato("Real Alcázar")],
+      "Catedral de Sevilla": [candidato("Catedral de Sevilla")],
+      "Plaza de España": [candidato("Plaza de España")],
+    };
+
+    const primeraFuente = fuenteInstrumentada(nominatim);
+    await tick(supabase, {
+      ejecutor: ejecutorQueFalla(),
+      directorio: "/tmp",
+      fuenteLugares: primeraFuente,
+      fuenteFotos: FUENTE_FOTOS_SIN_RED,
+      fuenteCercanos: FUENTE_CERCANOS_SIN_RED,
+      esperaOciosaMs: 0,
+      intervaloOciosoMs: 10,
+    });
+
+    // El destino de prueba geocodifica siempre a BBOX y las 3 paradas
+    // resuelven, así que el reintento sale "resuelta" -- lo que importa
+    // aquí no es el resultado, sino que SÍ se gastó una petición y que el
+    // nuevo veredicto queda sellado con la versión vigente.
+    expect(primeraFuente.consultadas.length).toBeGreaterThan(0);
+
+    const { data: planTrasReintento } = await supabase.from("planes").select("ciudad").eq("id", "plan-barrido-sello-viejo").single();
+    const ciudadTrasReintento = planTrasReintento?.ciudad as CiudadEfectiva;
+    expect(ciudadTrasReintento.intentado_en).not.toBe(intentadoEnViejo);
+    expect(ciudadTrasReintento.version_resolutor).toBe(VERSION_RESOLUTOR_ACTUAL);
+
+    // Si el reintento también hubiera salido "sin-ciudad-identificable",
+    // ya vendría sellado con la versión vigente y el segundo tick no
+    // gastaría ninguna petición más (bar-ac2 sobre el veredicto nuevo).
+    if (ciudadTrasReintento.estado === "sin-ciudad-identificable") {
+      const segundaFuente = fuenteInstrumentada(nominatim);
+      await tick(supabase, {
+        ejecutor: ejecutorQueFalla(),
+        directorio: "/tmp",
+        fuenteLugares: segundaFuente,
+        fuenteFotos: FUENTE_FOTOS_SIN_RED,
+        fuenteCercanos: FUENTE_CERCANOS_SIN_RED,
+        esperaOciosaMs: 0,
+        intervaloOciosoMs: 10,
+      });
+      expect(segundaFuente.consultadas).toHaveLength(0);
+    }
   });
 
   it("bar-ac1: un plan con ciudad null la resuelve por su destino limpio (Sevilla) y a partir de ahí resuelve sus paradas", async () => {
