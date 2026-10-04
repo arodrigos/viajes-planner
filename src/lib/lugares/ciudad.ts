@@ -38,7 +38,16 @@ export interface CandidatoCiudad {
 // verdad. Ahora la clave incluye la versión, así que esta subida es la que
 // de verdad fuerza una pregunta nueva a Nominatim para los planes sellados
 // con una versión anterior (Londres incluido).
-export const VERSION_RESOLUTOR_ACTUAL = 4;
+//
+// Subida a 5 (bar-ac4, feedback del gatekeeper, 2026-10-04, ronda 7): nuevo
+// escalón `intentarCandidatosDesdeTexto` entre la caja del destino entero y
+// la deducción por paradas -- IMPRESCINDIBLE subir la versión en el MISMO
+// commit, porque el reintento único de la versión 4 para los 3 planes
+// sellados (categoria_motivo=sin-candidato-claro, Londres incluido) ya está
+// gastado: sin esta subida, la clave de caché `ciudad:v4:...` del nivel de
+// deducción seguiría siendo válida y el plan ni siquiera llegaría a probar
+// el escalón nuevo con una pregunta real a Nominatim.
+export const VERSION_RESOLUTOR_ACTUAL = 5;
 
 // bar-ac4: categoría cerrada del motivo de sellado, para poder contar por
 // tipo en /api/salud.relleno sin tener que hacer coincidir texto libre
@@ -260,8 +269,17 @@ function enCaja(candidato: CandidatoLugar, caja: CajaDelimitadora): boolean {
   );
 }
 
+// bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): una caja de 0x0
+// grados no es una ciudad, es un único punto sin área -- medido contra
+// Nominatim real: geocodificarDestino("Ciudad con niños") devuelve
+// exactamente boundingbox [X,X,Y,Y]. Antes pasaba `spanValido` porque
+// 0 <= SPAN_MAXIMO_GRADOS, y solo no causaba daño porque ninguna parada
+// real cae dentro de un área de superficie cero. Exigir span > 0 en ambos
+// ejes lo rechaza explícitamente en vez de confiar en ese efecto lateral.
 function spanValido(caja: CajaDelimitadora): boolean {
-  return caja.maxLat - caja.minLat <= SPAN_MAXIMO_GRADOS && caja.maxLon - caja.minLon <= SPAN_MAXIMO_GRADOS;
+  const spanLat = caja.maxLat - caja.minLat;
+  const spanLon = caja.maxLon - caja.minLon;
+  return spanLat > 0 && spanLon > 0 && spanLat <= SPAN_MAXIMO_GRADOS && spanLon <= SPAN_MAXIMO_GRADOS;
 }
 
 async function intentarCajaDelDestino(
@@ -288,6 +306,95 @@ async function intentarCajaDelDestino(
     return { descartado: `la caja del destino «${destino}» abarca una zona demasiado grande` };
   }
   return { descartado: `la caja del destino no resolvió ninguna parada (${aceptadas} de ${muestra.length})` };
+}
+
+// bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): colas
+// cualificadoras conocidas que Adrián antepone/pospone al nombre real de
+// la ciudad en un destino descriptivo. De más larga a más corta para que
+// "en familia con niños" se quite entera antes que "con niños" sola.
+const COLAS_CUALIFICADORAS_DESTINO = [
+  "en familia con niños",
+  "en familia con ninos",
+  "de fin de semana",
+  "en familia",
+  "con niños",
+  "con ninos",
+  "con amigos",
+  "en pareja",
+  "low cost",
+].sort((a, b) => b.length - a.length);
+
+function escaparRegExp(texto: string): string {
+  return texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): genera hasta 3
+// candidatos de nombre de ciudad A PARTIR del texto del destino, para el
+// escalón intermedio `intentarCandidatosDesdeTexto`. Dos estrategias, en
+// este orden: (1) quitar colas cualificadoras conocidas del final del
+// texto, repitiendo hasta que no quede ninguna ("Londres en familia con
+// niños" -> "Londres"); (2) prefijos por token (primero 1, luego 2) para
+// los destinos sin una cola reconocida. Nunca se devuelve el destino
+// completo tal cual -- eso ya lo prueba `intentarCajaDelDestino` antes.
+function candidatosDesdeTextoDestino(destino: string): string[] {
+  const destinoNormalizado = destino.trim();
+  const candidatos: string[] = [];
+  const agregar = (valor: string) => {
+    const limpio = valor.trim();
+    if (limpio.length > 0 && limpio !== destinoNormalizado && !candidatos.includes(limpio)) candidatos.push(limpio);
+  };
+
+  let sinCola = destinoNormalizado;
+  let cambiado = true;
+  while (cambiado) {
+    cambiado = false;
+    for (const cola of COLAS_CUALIFICADORAS_DESTINO) {
+      const regex = new RegExp(`\\s+${escaparRegExp(cola)}$`, "i");
+      if (regex.test(sinCola)) {
+        sinCola = sinCola.replace(regex, "").trim();
+        cambiado = true;
+      }
+    }
+  }
+  agregar(sinCola);
+
+  const tokens = destinoNormalizado.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) agregar(tokens[0]);
+  if (tokens.length > 2) agregar(tokens.slice(0, 2).join(" "));
+
+  return candidatos.slice(0, 3);
+}
+
+// bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): el escalón que
+// faltaba entre "caja del destino entero" y "deducción por paradas".
+// Medido contra Nominatim real: geocodificarDestino/geocodificarCiudad del
+// texto entero "Londres en familia con niños" no devuelven caja, pero
+// geocodificarCiudad("Londres") sí -- la ciudad nombrada en el destino está
+// a una sola petición de distancia y la escalera nunca la pedía. La
+// validación contra la MISMA muestra de 5 paradas que usa
+// `intentarCajaDelDestino` no es opcional: geocodificarCiudad("Ciudad")
+// TAMBIÉN devuelve una caja real (de un asentamiento que se llama así),
+// así que aceptar la caja de un candidato sin comprobar que resuelve
+// paradas de verdad sería peor que sellar el plan.
+async function intentarCandidatosDesdeTexto(
+  fuente: FuenteLugares & FuenteCiudad,
+  destino: string,
+  nombresOrdenados: string[],
+): Promise<{ nombre: string; caja: CajaDelimitadora } | null> {
+  const muestra = nombresOrdenados.slice(0, TAMANO_MUESTRA_DESTINO);
+
+  for (const candidato of candidatosDesdeTextoDestino(destino)) {
+    const caja = await fuente.geocodificarCiudad(candidato);
+    if (!caja || !spanValido(caja)) continue;
+
+    let aceptadas = 0;
+    for (const nombre of muestra) {
+      const candidatosLugar = await fuente.buscarNominatim(limpiarNombreBusqueda(nombre), candidato, caja);
+      if (elegirMejorCandidato(nombre, candidatosLugar, caja).candidato) aceptadas++;
+    }
+    if (aceptadas >= MINIMO_ACEPTADAS_DESTINO) return { nombre: candidato, caja };
+  }
+  return null;
 }
 
 // ciu-ac2: deducción por voto de conjuntos sobre hasta 8 paradas. Cada
@@ -385,6 +492,18 @@ export async function resolverCiudadEfectiva(
   try {
     const porDestino = await intentarCajaDelDestino(fuente, destino, nombresOrdenados, ahora);
     if ("estado" in porDestino) return { ...porDestino, version_resolutor: VERSION_RESOLUTOR_ACTUAL };
+
+    const porCandidatoDeTexto = await intentarCandidatosDesdeTexto(fuente, destino, nombresOrdenados);
+    if (porCandidatoDeTexto) {
+      return {
+        estado: "resuelta",
+        metodo: "destino",
+        nombre: porCandidatoDeTexto.nombre,
+        caja: porCandidatoDeTexto.caja,
+        intentado_en: ahora,
+        version_resolutor: VERSION_RESOLUTOR_ACTUAL,
+      };
+    }
 
     const motivoDestinoDescartado = porDestino.descartado.length > 0 ? porDestino.descartado : undefined;
     const resultado = await deducirPorParadas(fuente, nombresOrdenados, ahora, motivoDestinoDescartado);

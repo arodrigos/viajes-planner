@@ -35,16 +35,20 @@ separadas en el tiempo, nunca una lectura aislada.
 ## Cuándo un plan queda sin ciudad identificable
 
 `resolverCiudadEfectiva` (`src/lib/lugares/ciudad.ts`) intenta primero la
-caja del destino tal como lo escribió quien pidió el viaje, y si esa caja
-no resuelve suficientes paradas o abarca una zona demasiado grande, cae a
-deducir la ciudad por voto de consenso entre las paradas ya nombradas. El
-plan queda en `ciudad.estado = 'sin-ciudad-identificable'` cuando ninguna
-de las dos vías llega a un resultado claro -- casos reales: un destino
-genérico como "Ciudad con niños" (sin nombre de ciudad en absoluto) o un
-destino con paradas repartidas entre varias ciudades candidatas sin que
-ninguna tenga ventaja clara. El motivo exacto (el recuento de candidatos,
-o por qué se descartó la caja del destino) queda en `ciudad.motivo` y es
-lo que la vista del plan muestra tal cual, nunca reinterpretado.
+caja del destino tal como lo escribió quien pidió el viaje; si esa caja no
+resuelve suficientes paradas o abarca una zona demasiado grande, prueba
+hasta 3 nombres de ciudad extraídos del propio texto del destino (quitando
+colas conocidas como "en familia con niños" o tomando los primeros tokens),
+cada uno validado contra la misma muestra de paradas; y si ninguno de esos
+candidatos verifica, cae a deducir la ciudad por voto de consenso entre las
+paradas ya nombradas. El plan queda en `ciudad.estado =
+'sin-ciudad-identificable'` cuando ninguna de las tres vías llega a un
+resultado claro -- casos reales: un destino genérico como "Ciudad con
+niños" (sin nombre de ciudad en absoluto) o un destino con paradas
+repartidas entre varias ciudades candidatas sin que ninguna tenga ventaja
+clara. El motivo exacto (el recuento de candidatos, o por qué se descartó
+la caja del destino) queda en `ciudad.motivo` y es lo que la vista del plan
+muestra tal cual, nunca reinterpretado.
 
 No hay reintento automático de la deducción: es determinista, así que
 repetirla con las mismas paradas vuelve a fallar igual. La única salida es
