@@ -194,3 +194,35 @@ describe("invariantes (property tests)", () => {
     expect(esFecha("2027-02-30")).toBe(false);
   });
 });
+
+describe("cp-eve-01 multiciudad y eve-ac3", () => {
+  const festivosPT = { festivos: async () => [{ fecha: "2027-06-10", nombre: "Dia de Portugal", tipo: "festivo" as const, fuente: "openholidays" as const, url: "https://www.openholidaysapi.org/en/" }] };
+  const wikidata = {
+    async ciudad(nombre: string) {
+      return nombre === "Lisboa"
+        ? { q: "Q597", pais: "PT", fiestas: [{ nombre: "Fiestas de Lisboa", url: "https://www.wikidata.org/wiki/Q1", fecha: "2027-06-13" }] }
+        : { q: "Q36433", pais: "PT", fiestas: [{ nombre: "San Juan de Oporto", url: "https://www.wikidata.org/wiki/Q2", fecha: "2027-06-24" }] };
+    },
+  };
+  const segmentos = [
+    { etapa: 0, ciudad: "Lisboa", desde: "2027-06-08", hasta: "2027-06-11" },
+    { etapa: 1, ciudad: "Oporto", desde: "2027-06-12", hasta: "2027-06-15" },
+  ];
+
+  it("la fiesta de Lisboa del 13 cae en la etapa de Oporto y la del 24 fuera de fechas: solo queda el festivo", async () => {
+    const r = await calcularEventos({ festivos: festivosPT, wikidata }, segmentos);
+    expect(r.eventos.map((e) => [e.fecha, e.nombre, e.etapa])).toEqual([["2027-06-10", "Dia de Portugal", 0]]);
+  });
+
+  it("con la etapa de Lisboa hasta el 13, la fiesta de Lisboa sí aparece, con Wikidata", async () => {
+    const r = await calcularEventos({ festivos: festivosPT, wikidata }, [{ ...segmentos[0]!, hasta: "2027-06-13" }]);
+    expect(r.eventos.find((e) => e.fecha === "2027-06-13")).toMatchObject({ fuente: "wikidata", nombre: "Fiestas de Lisboa" });
+  });
+
+  it("eve-ac3: todas las peticiones llevan User-Agent y ninguna cuerpo", async () => {
+    const peticiones: Peticion[] = [];
+    await calcularEventos(fuentes(peticiones), [SEG]);
+    expect(peticiones.length).toBeGreaterThan(0);
+    for (const p of peticiones) expect((p.cabeceras as Record<string, string>)["User-Agent"]).toMatch(/\S/);
+  });
+});
