@@ -118,10 +118,12 @@ export const ORIGEN_PASADA_ALTERNATIVAS = "pasada-alternativas";
 export interface PasadaAlternativas {
   registrada_hace_seg: number;
   commit_sha: string | null;
-  // Solo enteros y el mensaje acotado del último error de inserción: sin
-  // nombres de parada ni destinos (el endpoint es público).
+  // Solo enteros y la categoría cerrada del último error: el texto crudo
+  // (un fallo de PostgREST o de red puede traer un fragmento de consulta o
+  // una URL interna) se queda en los logs del trabajador, porque el
+  // endpoint es público (hallazgo de seguridad #123).
   contadores: Record<string, number>;
-  ultimo_error: string | null;
+  ultimo_error_categoria: CategoriaResultado | null;
 }
 
 export function resumirPasadaAlternativas(
@@ -140,7 +142,7 @@ export function resumirPasadaAlternativas(
     registrada_hace_seg: registradaHaceSeg,
     commit_sha: commitSha,
     contadores,
-    ultimo_error: typeof error === "string" ? error.slice(0, 160) : null,
+    ultimo_error_categoria: typeof error === "string" && error ? categorizarResultado({ ok: false, error }) : null,
   };
 }
 
