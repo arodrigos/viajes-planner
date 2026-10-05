@@ -3,6 +3,7 @@
 // tipos-publicos.ts): son la traducción directa a ventana temporal de VROOM
 // (costura con la fase 2) y no deben llegar nunca al cliente.
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
+import type { Modo } from "@/lib/criterios/tipos";
 
 // Hasta el bloque lugares-resolucion, "propuesto-sin-verificar" era el
 // único valor posible (no había ficha contra la que resolver). Ahora una
@@ -186,6 +187,9 @@ export type AnclaAlojamiento =
 
 export interface Dia {
   fecha: string; // "YYYY-MM-DD"
+  // etapas-pais: índice de la etapa a la que pertenece el día. Ausente en
+  // los planes de una sola ciudad.
+  etapa?: number;
   // Opcional en fase 1: el modelo no propone alojamiento todavía (F2-06).
   ancla_alojamiento?: AnclaAlojamiento;
   franjas: Franja[];
@@ -203,6 +207,32 @@ export interface Recomendacion {
   tipo: TipoRecomendacion;
   nombre: string;
   motivo: string;
+}
+
+// etapas-pais: una ciudad de un viaje de varias. `ciudad` es la ciudad
+// efectiva de la etapa (con su caja de como mucho 2 grados) y `ajustes`
+// cada corrección que el planificador hizo a lo que propuso el modelo.
+export interface EtapaPlan {
+  ciudad: CiudadEfectiva;
+  pais: string;
+  dias: number;
+  dia_inicio: number;
+  motivo?: string;
+  // Para el grupo entero, no por persona.
+  alojamiento_noche_eur: number;
+  zona: number;
+  ajustes: string[];
+}
+
+// Tramo entre dos etapas consecutivas; siempre estimado por distancia.
+export interface TrasladoPlan {
+  desde: string;
+  hasta: string;
+  modo: Modo;
+  distancia_km: number;
+  duracion_min: number;
+  coste_eur: number;
+  procedencia: "estimado";
 }
 
 export interface Plan {
@@ -223,4 +253,8 @@ export interface Plan {
   // plan que todavía no pasó por resolverCiudadEfectiva ni por la
   // resolución manual.
   ciudad?: CiudadEfectiva;
+  // etapas-pais: solo en viajes de varias ciudades. Siempre hay un traslado
+  // menos que etapas.
+  etapas?: EtapaPlan[];
+  traslados?: TrasladoPlan[];
 }

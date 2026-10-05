@@ -12,7 +12,9 @@ import {
   type PresupuestoPeticiones,
 } from "./tipos";
 
-export type EstadoCiudad = "resuelta" | "pendiente-manual" | "sin-ciudad-identificable";
+// "multiciudad" (etapas-pais): el plan no tiene UNA ciudad efectiva; cada
+// etapa guarda la suya en plan_versiones.etapas.
+export type EstadoCiudad = "resuelta" | "pendiente-manual" | "sin-ciudad-identificable" | "multiciudad";
 export type MetodoCiudad = "destino" | "paradas" | "manual";
 
 export interface CandidatoCiudad {

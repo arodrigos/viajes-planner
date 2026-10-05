@@ -15,7 +15,12 @@ import { MODELO_GENERACION } from "../src/lib/trabajador/config";
 import { LimiteDeUsoAlcanzado } from "../src/lib/trabajador/ejecutorModelo";
 import { ejecutorClaudeCode } from "../src/lib/trabajador/ejecutorClaudeCode";
 import { construirPrompt, construirPromptReintento } from "../src/lib/trabajador/prompt";
-import { ensamblarYValidar } from "../src/lib/trabajador/procesarTrabajo";
+import { ensamblarYValidar, extraerJson } from "../src/lib/trabajador/procesarTrabajo";
+import { clasificarDestino } from "../src/lib/etapas/clasificar";
+import { comprobarViabilidad, type Inviable } from "../src/lib/etapas/viabilidad";
+import { cerrarEtapas, erroresDeDias, erroresParaReintento, extraerEtapasPropuestas, situarEtapas, validarPropuesta, type EtapaSituada } from "../src/lib/etapas/multiciudad";
+import { porEtapas } from "../src/lib/etapas/porEtapa";
+import type { ErrorEtapa } from "../src/lib/etapas/validar";
 import type { Plan } from "../src/lib/plan/tipos";
 import { aPlanPublico, type PlanPublico } from "../src/lib/plan/publico";
 import { crearFuenteAbierta } from "../src/lib/lugares/fuenteAbierta";
@@ -76,6 +81,55 @@ function algunaParadaConAlternativas(plan: Plan): boolean {
   return plan.dias.some((dia) => dia.paradas.some((parada) => (parada.alternativas ?? []).length > 0));
 }
 
+// eta-ac5: el camino de un destino de varias ciudades, EXACTAMENTE el de
+// procesarTrabajo.ts: clasificación, viabilidad previa, modelo real con su
+// reintento, validación y reparación de etapas, y resolución por etapa contra
+// las fuentes abiertas reales. Imprime {plan, inviable}.
+async function generarMulticiudad(criterios: CriteriosViaje, directorio: string): Promise<{ plan: PlanPublico | null; inviable: Inviable | null; zonas: string[] } | null> {
+  const fuente = crearFuenteAbierta();
+  const clasificacion = await clasificarDestino(fuente, criterios.destino_o_tipo);
+  if (clasificacion.modo !== "multiciudad") return null;
+  const zonas = clasificacion.zonas.map((z) => z.nombre);
+  const viabilidad = comprobarViabilidad(clasificacion.zonas, criterios, clasificacion.pedidas);
+  if (!viabilidad.viable) return { plan: null, inviable: { razones: viabilidad.razones, sugerencias: viabilidad.sugerencias }, zonas };
+
+  const ctx = { zonas: clasificacion.zonas, modos: criterios.transporte ?? [], personas: criterios.personas.length, presupuestoEur: criterios.presupuesto_eur };
+  const planId = generarIdPlan();
+  let situadas: EtapaSituada[] = [];
+  let erroresEtapas: ErrorEtapa[] = [];
+  const analizar = async (texto: string) => {
+    const resultado = ensamblarYValidar(criterios, planId, texto);
+    if (!resultado.valido) return resultado;
+    let datos: unknown = null;
+    try {
+      datos = JSON.parse(extraerJson(texto));
+    } catch {
+      datos = null;
+    }
+    situadas = await situarEtapas(fuente, extraerEtapasPropuestas(datos, ctx.personas), ctx.zonas);
+    erroresEtapas = [...erroresDeDias(datos), ...validarPropuesta(situadas, ctx, resultado.plan)];
+    return resultado;
+  };
+
+  const prompt = construirPrompt(criterios, zonas);
+  let intento = await analizar((await ejecutorClaudeCode.invocar(prompt, { directorio, modelo: MODELO_GENERACION })).texto);
+  if (!intento.valido || erroresEtapas.length > 0) {
+    const errores = [...(intento.valido ? [] : intento.errores), ...erroresParaReintento(erroresEtapas)];
+    intento = await analizar((await ejecutorClaudeCode.invocar(construirPromptReintento(prompt, errores), { directorio, modelo: MODELO_GENERACION })).texto);
+  }
+  if (!intento.valido) throw new Error(`la respuesta del modelo no validó tras el reintento: ${intento.errores.map((e) => `${e.ruta}: ${e.mensaje}`).join("; ")}`);
+
+  const { plan: postProcesado } = postProcesarPlan(intento.plan, criterios);
+  const cierre = cerrarEtapas(postProcesado, situadas, ctx);
+  if (cierre.inviable) return { plan: null, inviable: cierre.descarte, zonas };
+
+  const conLugares = await porEtapas(cierre.plan, (sub, cualificador) => resolverPlan(fuente, sub, cualificador));
+  const conFotos = await resolverFotosPlan(crearFuenteFotosAbierta(), conLugares);
+  const cercanos = crearFuenteCercanosAbierta();
+  const final = await porEtapas(conFotos, (sub, cualificador) => resolverAlternativasPlan(fuente, cercanos, sub, criterios.perfil, cualificador));
+  return { plan: aPlanPublico(final, criterios.perfil, criterios.presupuesto_eur), inviable: null, zonas };
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const rutaCriterios = leerRutaCriterios(argv);
@@ -83,6 +137,13 @@ async function main() {
 
   const directorio = mkdtempSync(join(tmpdir(), "viajes-verificacion-modelo-"));
   try {
+    if (usaResolver(argv)) {
+      const multi = await generarMulticiudad(criterios, directorio);
+      if (multi) {
+        process.stdout.write(`${JSON.stringify({ zonas: multi.zonas, plan: multi.plan, inviable: multi.inviable })}\n`);
+        return;
+      }
+    }
     let resultado = await generarUnPlan(criterios, directorio);
 
     // manifiesto.verificacion_modelo_real: si el modelo no devuelve ninguna

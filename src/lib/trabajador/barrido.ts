@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
+import { cualificadorDeEtapa } from "@/lib/etapas/porEtapa";
+import type { EtapaPlan } from "@/lib/plan/tipos";
 import { resolverFoto } from "@/lib/lugares/resolverFotos";
 import { PETICIONES_MAXIMAS_POR_PLAN, resolverCiudadEfectiva, VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { relojReal, type Reloj } from "@/lib/lugares/limitador";
@@ -209,6 +211,8 @@ interface VersionDePlan {
   destino: string;
   ciudad: CiudadEfectiva | null;
   dias: Array<{ fecha: string }>;
+  // etapas-pais: solo en versiones de varias ciudades.
+  etapas?: EtapaPlan[] | null;
 }
 
 function estaPendiente(resolucion: FilaParada["resolucion"], cutoffIso: string): boolean {
@@ -383,7 +387,7 @@ export async function completarParadasPendientes(
   // `plan_versiones` (el caso "Oporto") simplemente no aparece aquí.
   const { data: versiones, error: errorVersiones } = await supabase
     .from("plan_versiones")
-    .select("id, plan_id, version, dias, planes(id, destino, ciudad)")
+    .select("id, plan_id, version, dias, etapas, planes(id, destino, ciudad)")
     .order("version", { ascending: false });
   if (errorVersiones) throw new Error(`No se pudieron leer las versiones: ${errorVersiones.message}`);
 
@@ -403,6 +407,7 @@ export async function completarParadasPendientes(
       destino: plan.destino,
       ciudad: plan.ciudad ?? null,
       dias: fila.dias as Array<{ fecha: string }>,
+      etapas: (fila.etapas as EtapaPlan[] | null) ?? null,
     });
   }
   const versionPorId = new Map<string, VersionDePlan>();
@@ -466,6 +471,26 @@ export async function completarParadasPendientes(
     const version = versionPorId.get(versionId);
     if (!version) continue;
     planesMirados++;
+
+    // eta-ac3: en un viaje de varias ciudades no se deduce ninguna ciudad
+    // única: cada parada se resuelve contra la caja de la etapa de su día. Una
+    // etapa sin ciudad efectiva deja sus paradas «sin comprobar».
+    if (version.ciudad?.estado === "multiciudad" && version.etapas) {
+      for (const parada of pendientes) {
+        const etapa = version.etapas.find((e) => parada.dia_index >= e.dia_inicio && parada.dia_index < e.dia_inicio + e.dias);
+        const cualEtapa = etapa ? cualificadorDeEtapa(etapa) : null;
+        if (!cualEtapa) continue;
+        candidatos.push({
+          paradaId: parada.id,
+          nombre: parada.nombre,
+          categoria: parada.categoria ?? undefined,
+          cualificador: cualEtapa.nombre,
+          bbox: cualEtapa.caja,
+          fecha: version.dias[parada.dia_index]?.fecha ?? "9999-12-31",
+        });
+      }
+      continue;
+    }
 
     const cualificador = await resolverPuertaDeCiudad(
       supabase,

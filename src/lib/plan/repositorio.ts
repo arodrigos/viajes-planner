@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { idsExternosVisitados } from "./visitas";
-import type { Alternativa, AnclaAlojamiento, Dia, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
+import type { Alternativa, AnclaAlojamiento, Dia, EtapaPlan, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion, TrasladoPlan } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { fotoSegura } from "@/lib/lugares/urlFoto";
 
@@ -12,6 +12,7 @@ interface DiaAlmacenado {
   fecha: string;
   ancla_alojamiento?: AnclaAlojamiento;
   franjas: Franja[];
+  etapa?: number;
 }
 
 export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise<{ version: number }> {
@@ -36,6 +37,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
     fecha: dia.fecha,
     ancla_alojamiento: dia.ancla_alojamiento,
     franjas: dia.franjas,
+    ...(dia.etapa !== undefined ? { etapa: dia.etapa } : {}),
   }));
 
   const { data: versionInsertada, error: errorInsertarVersion } = await supabase
@@ -47,6 +49,9 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
       dias: diasAlmacenados,
       avisos: plan.avisos ?? [],
       recomendaciones: plan.recomendaciones ?? [],
+      // etapas-pais: null en los viajes de una sola ciudad.
+      etapas: plan.etapas ?? null,
+      traslados: plan.traslados ?? null,
     })
     .select("id")
     .single();
@@ -144,7 +149,7 @@ export async function recuperarPlan(
 
   let consultaVersion = supabase
     .from("plan_versiones")
-    .select("id, version, personas, dias, avisos, recomendaciones")
+    .select("id, version, personas, dias, avisos, recomendaciones, etapas, traslados")
     .eq("plan_id", planId);
   consultaVersion =
     version === undefined
@@ -251,6 +256,7 @@ export async function recuperarPlan(
       });
     return {
       fecha: diaMeta.fecha,
+      ...(diaMeta.etapa !== undefined ? { etapa: diaMeta.etapa } : {}),
       ancla_alojamiento: diaMeta.ancla_alojamiento,
       franjas: diaMeta.franjas,
       paradas: paradasDelDia,
@@ -266,5 +272,7 @@ export async function recuperarPlan(
     avisos: (versionRow.avisos as string[] | null) ?? [],
     recomendaciones: (versionRow.recomendaciones as Recomendacion[] | null) ?? [],
     ...(planRow.ciudad ? { ciudad: planRow.ciudad as CiudadEfectiva } : {}),
+    ...(versionRow.etapas ? { etapas: versionRow.etapas as EtapaPlan[] } : {}),
+    ...(versionRow.traslados ? { traslados: versionRow.traslados as TrasladoPlan[] } : {}),
   };
 }

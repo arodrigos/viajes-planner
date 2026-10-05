@@ -3,7 +3,7 @@ import { distanciaMetros } from "@/lib/alternativas/equivalencia";
 import { avisoRecortada, calcularHorarioDia, horaDeMinutos, minutosDeHora, type HorarioParada } from "./horario";
 import { zonaDeParada } from "./zona";
 import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./paseo";
-import type { AnclaAlojamiento, Dia, Foto, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
+import type { AnclaAlojamiento, Dia, EtapaPlan, Foto, TrasladoPlan, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
 import { calcularPresupuesto } from "@/lib/presupuesto/calcular";
@@ -54,6 +54,8 @@ export interface ParadaPublica extends Omit<Parada, "alternativas"> {
 
 export interface DiaPublico {
   fecha: string;
+  // etapas-pais: índice de la etapa del día, solo en viajes de varias ciudades.
+  etapa?: number;
   ancla_alojamiento?: AnclaAlojamiento;
   franjas: FranjaPublica[];
   paradas: ParadaPublica[];
@@ -74,6 +76,9 @@ export interface PlanPublico {
   // para que el script de verificación del modelo real pueda comprobarla
   // sin depender de un acceso directo a la base de datos.
   ciudad?: CiudadEfectiva;
+  // etapas-pais: solo en viajes de varias ciudades.
+  etapas?: EtapaPlan[];
+  traslados?: TrasladoPlan[];
   // mot-ac1: suma de las visitas con coste, calculada aquí y no en el
   // cliente.
   presupuesto: PresupuestoPublico;
@@ -171,7 +176,7 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
 // detrás), en cuyo caso el paseo usa el umbral no familiar, el más
 // permisivo.
 export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null): PlanPublico {
-  const { total_eur, total_estimado_eur, total_de_fuente_eur } = calcularPresupuesto(plan);
+  const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur } = calcularPresupuesto(plan);
   return {
     id: plan.id,
     version: plan.version,
@@ -181,15 +186,18 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
       const horarios = calcularHorarioDia(dia);
       return {
         fecha: dia.fecha,
+        ...(dia.etapa !== undefined ? { etapa: dia.etapa } : {}),
         ancla_alojamiento: dia.ancla_alojamiento,
         franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
-        paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja)),
+        paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined))),
         paseo: calcularPaseoDia(ordenarParadasResueltas(dia.franjas, dia.paradas), perfil) ?? undefined,
       };
     }),
     avisos: plan.avisos ?? [],
     recomendaciones: plan.recomendaciones ?? [],
     ...(plan.ciudad ? { ciudad: plan.ciudad } : {}),
-    presupuesto: { total_eur, total_estimado_eur, total_de_fuente_eur, ...(presupuestoEur !== null ? { tu_presupuesto_eur: presupuestoEur } : {}) },
+    ...(plan.etapas ? { etapas: plan.etapas } : {}),
+    ...(plan.traslados ? { traslados: plan.traslados } : {}),
+    presupuesto: { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur, ...(presupuestoEur !== null ? { tu_presupuesto_eur: presupuestoEur } : {}) },
   };
 }
