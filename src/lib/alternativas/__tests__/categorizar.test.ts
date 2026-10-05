@@ -20,6 +20,10 @@ describe("inferirCategoria", () => {
     expect(inferirCategoria(nombre, etiquetas)).toBe(esperada);
   });
 
+  it.each(["constructor", "__proto__", "toString", "hasOwnProperty"])("la clasificación heredada %s no es una categoría", (clasificacion) => {
+    expect(inferirCategoria("Knightsbridge", { clasificacion_osm: clasificacion })).toBeNull();
+  });
+
   it("para cualquier nombre y clasificación devuelve null o una categoría del enum, sin lanzar", () => {
     fc.assert(
       fc.property(fc.string(), fc.option(fc.string(), { nil: undefined }), (nombre, clasificacion) => {

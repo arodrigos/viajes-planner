@@ -42,8 +42,11 @@ const POR_NOMBRE: Array<[RegExp, CategoriaParada]> = [
 export function inferirCategoria(nombre: string, etiquetas?: EtiquetasLugar): CategoriaParada | null {
   const clasificacion = etiquetas?.clasificacion_osm;
   if (clasificacion) {
-    const exacta = POR_CLASIFICACION_OSM[clasificacion] ?? POR_CLASE_OSM[clasificacion.split("=")[0] ?? ""];
-    if (exacta) return exacta;
+    // hasOwn y no `??` sobre el objeto: una clasificación como «constructor» o
+    // «__proto__» resolvería a una propiedad heredada, no a una categoría.
+    const clase = clasificacion.split("=")[0] ?? "";
+    if (Object.hasOwn(POR_CLASIFICACION_OSM, clasificacion)) return POR_CLASIFICACION_OSM[clasificacion] ?? null;
+    if (Object.hasOwn(POR_CLASE_OSM, clase)) return POR_CLASE_OSM[clase] ?? null;
   }
   for (const [patron, categoria] of POR_NOMBRE) {
     if (patron.test(nombre)) return categoria;
