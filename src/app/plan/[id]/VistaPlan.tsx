@@ -74,6 +74,9 @@ interface ParadaPublica {
   coordenadas?: { lat: number; lon: number };
   foto?: FotoPublica;
   alternativas?: AlternativaPublica[];
+  // horario-local (hor-ac1/hor-ac2): ya resuelto por el servidor en hora
+  // local del lugar.
+  horario?: { inicio: string; fin: string; recortada: boolean; aviso?: string; apertura: string };
   // bloque uso-en-destino (dest-ac1/dest-ac4): ausente cuando no está
   // visitada, mismo patrón que el resto de este tipo.
   visitada?: boolean;
@@ -320,6 +323,14 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                     <IconoFranja franjaId={franja.id} />
                     <div>
                       <strong>{parada.nombre}</strong>
+                      {parada.horario && (
+                        <p className="horario-parada" data-testid="horario-parada">
+                          <time>{parada.horario.inicio} – {parada.horario.fin}</time>
+                          {" · "}
+                          {parada.horario.apertura}
+                          {parada.horario.aviso && <span className="aviso-horario"> · {parada.horario.aviso}</span>}
+                        </p>
+                      )}
                       <p>{parada.descripcion}</p>
                       {/* fot-ac2/fot-ac3: la foto nunca viene de otro
                           sitio -procede de resolverFotos.ts, server-only-;

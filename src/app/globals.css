@@ -280,6 +280,12 @@ h3 {
   font-style: italic;
 }
 
+/* bloque horario-local */
+.horario-parada {
+  font-size: var(--texto-pequeno);
+  margin: 0;
+}
+
 /* bloque encaje-y-paseo (enc-ac1/enc-ac2) */
 .paseo-dia {
   font-size: var(--texto-pequeno);

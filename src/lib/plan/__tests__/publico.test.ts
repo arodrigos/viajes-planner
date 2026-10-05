@@ -13,7 +13,8 @@ describe("aPlanPublico", () => {
   it("conserva el resto del plan intacto", () => {
     const publico = aPlanPublico(planFixture);
     expect(publico.dias).toHaveLength(planFixture.dias.length);
-    expect(publico.dias[0].paradas).toEqual(planFixture.dias[0].paradas);
+    // El horario es lo único que la serialización añade a cada parada (horario-local).
+    expect(publico.dias[0].paradas.map((p) => ({ ...p, horario: undefined }))).toEqual(planFixture.dias[0].paradas);
     expect(publico.dias[0].franjas[0]).toEqual({
       id: planFixture.dias[0].franjas[0].id,
       etiqueta: planFixture.dias[0].franjas[0].etiqueta,

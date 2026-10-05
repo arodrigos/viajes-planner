@@ -27,20 +27,56 @@ function redondearA(metros: number, paso: number): number {
   return Math.round(metros / paso) * paso;
 }
 
-// enc-ac1: evalúa la apertura en el instante de inicio de la franja -- un
-// rango horario de OpenStreetMap cubre la ventana entera o ninguna parte
-// de ella en la inmensa mayoría de los casos; esta herramienta no
-// pretende resolver un cierre a mitad de franja. Sin etiqueta
-// `opening_hours`, o con una que la librería no sepa interpretar, el
-// resultado es siempre "desconocida" -- nunca un horario inventado.
-export function calcularApertura(openingHours: string | undefined, fecha: string, horaInicioFranja: string): EstadoApertura {
-  if (!openingHours) return "desconocida";
+export interface IntervaloVisita {
+  fecha: string; // "YYYY-MM-DD"
+  inicio: string; // "HH:MM", hora local del lugar
+  fin: string;
+}
+
+export interface ResultadoApertura {
+  estado: EstadoApertura;
+  // Hora local a la que cierra a mitad de la visita; solo con "cerrada" y
+  // cuando el sitio estaba abierto al empezar.
+  cierre?: string;
+  zona: string | null;
+}
+
+// hor-ac2: «abierta» solo si opening_hours indica abierto en TODO el
+// intervalo de la visita, en la hora local del lugar. La librería lee el
+// reloj de pared (getHours...) del Date que recibe, y las etiquetas de OSM
+// son hora local del lugar, así que se le pasa un Date construido con esa
+// hora de pared: el resultado no depende de la zona del proceso. Se probó
+// TZDate (@date-fns/tz) como pedía el diseño y no sirve: con el proceso en
+// cualquier zona por delante de la del lugar (Tokio, Sídney...) getNextChange
+// entra en «infinite loop». Lo que devuelve getNextChange también es hora de
+// pared del proceso, de ahí que se compare por sus campos locales. Sin
+// etiqueta, sin zona o con una etiqueta ilegible: "desconocida", nunca un
+// horario inventado.
+export function calcularApertura(openingHours: string | undefined, intervalo: IntervaloVisita, zona: string | null): ResultadoApertura {
+  if (!openingHours || !zona) return { estado: "desconocida", zona };
   try {
     const regla = new OpeningHours(openingHours);
-    const instante = new Date(`${fecha}T${horaInicioFranja}:00`);
-    return regla.getState(instante) ? "abierta" : "cerrada";
+    const [anioD, mesD, diaD] = intervalo.fecha.split("-").map(Number);
+    const [hi, mi] = intervalo.inicio.split(":").map(Number);
+    const desde = new Date(anioD, mesD - 1, diaD, hi, mi);
+    if (regla.getUnknown(desde)) return { estado: "desconocida", zona };
+    if (!regla.getState(desde)) return { estado: "cerrada", zona };
+
+    const cambio = regla.getNextChange(desde);
+    if (cambio) {
+      const [anio, mes, dia] = intervalo.fecha.split("-").map(Number);
+      const [hf, mf] = intervalo.fin.split(":").map(Number);
+      const paredFin = Date.UTC(anio, mes - 1, dia, hf, mf);
+      const paredCambio = Date.UTC(cambio.getFullYear(), cambio.getMonth(), cambio.getDate(), cambio.getHours(), cambio.getMinutes());
+      if (paredCambio < paredFin) {
+        const hh = String(cambio.getHours()).padStart(2, "0");
+        const mm = String(cambio.getMinutes()).padStart(2, "0");
+        return { estado: "cerrada", cierre: `${hh}:${mm}`, zona };
+      }
+    }
+    return { estado: "abierta", zona };
   } catch {
-    return "desconocida";
+    return { estado: "desconocida", zona };
   }
 }
 
@@ -78,10 +114,11 @@ export function calcularEtiquetasEncaje(params: {
   alternativa: Pick<Alternativa, "categoria" | "duracion_min" | "coordenadas" | "lugar">;
   coordenadasAnterior?: { lat: number; lon: number };
   coordenadasSiguiente?: { lat: number; lon: number };
-  fecha: string;
-  horaInicioFranja: string;
+  // Intervalo que ocuparía la alternativa en el hueco de la parada.
+  intervalo: IntervaloVisita;
+  zona: string | null;
 }): EtiquetasEncaje {
-  const { parada, alternativa, coordenadasAnterior, coordenadasSiguiente, fecha, horaInicioFranja } = params;
+  const { parada, alternativa, coordenadasAnterior, coordenadasSiguiente, intervalo, zona } = params;
   const categoriaCoincide = alternativa.categoria !== undefined && alternativa.categoria === parada.categoria;
 
   return {
@@ -95,7 +132,7 @@ export function calcularEtiquetasEncaje(params: {
         : undefined,
     categoria: categoriaCoincide ? alternativa.categoria : undefined,
     duracionSimilar: Math.abs(alternativa.duracion_min - parada.duracion_min) <= parada.duracion_min * TOLERANCIA_DURACION,
-    apertura: calcularApertura(alternativa.lugar?.etiquetas.opening_hours, fecha, horaInicioFranja),
+    apertura: calcularApertura(alternativa.lugar?.etiquetas.opening_hours, intervalo, zona).estado,
   };
 }
 

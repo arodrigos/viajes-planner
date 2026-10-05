@@ -2,28 +2,32 @@ import { describe, expect, it } from "vitest";
 import { calcularApertura, calcularEtiquetasEncaje, formatearEtiquetasEncaje, vecinosResueltos } from "../encaje";
 
 // enc-ac1
+const ZONA = "Europe/Madrid";
+// Visita de una hora que empieza a una hora en punto.
+const visita = (fecha: string, inicio: string) => ({ fecha, inicio, fin: `${String(Number(inicio.slice(0, 2)) + 1).padStart(2, "0")}:00` });
+
 describe("calcularApertura (enc-ac1)", () => {
   const FECHA_MARTES = "2026-10-06"; // martes real
   const FECHA_MIERCOLES = "2026-10-07";
 
   it("'Mo-Su 10:00-20:00; Tu off' con franja mañana (09:00) de un martes -> cerrada", () => {
-    expect(calcularApertura("Mo-Su 10:00-20:00; Tu off", FECHA_MARTES, "09:00")).toBe("cerrada");
+    expect(calcularApertura("Mo-Su 10:00-20:00; Tu off", visita(FECHA_MARTES, "09:00"), ZONA).estado).toBe("cerrada");
   });
 
   it("la misma regla un miércoles por la mañana (10:00) -> abierta", () => {
-    expect(calcularApertura("Mo-Su 10:00-20:00; Tu off", FECHA_MIERCOLES, "10:00")).toBe("abierta");
+    expect(calcularApertura("Mo-Su 10:00-20:00; Tu off", visita(FECHA_MIERCOLES, "10:00"), ZONA).estado).toBe("abierta");
   });
 
   it("sin etiqueta opening_hours -> horario desconocido", () => {
-    expect(calcularApertura(undefined, FECHA_MARTES, "09:00")).toBe("desconocida");
+    expect(calcularApertura(undefined, visita(FECHA_MARTES, "09:00"), ZONA).estado).toBe("desconocida");
   });
 
   it("'24/7' -> siempre abierta", () => {
-    expect(calcularApertura("24/7", FECHA_MARTES, "03:00")).toBe("abierta");
+    expect(calcularApertura("24/7", visita(FECHA_MARTES, "03:00"), ZONA).estado).toBe("abierta");
   });
 
   it("una etiqueta que la librería no sabe interpretar -> desconocida, nunca lanza", () => {
-    expect(calcularApertura("esto no es un horario válido de OSM @@@", FECHA_MARTES, "09:00")).toBe("desconocida");
+    expect(calcularApertura("esto no es un horario válido de OSM @@@", visita(FECHA_MARTES, "09:00"), ZONA).estado).toBe("desconocida");
   });
 });
 
@@ -36,8 +40,8 @@ describe("calcularEtiquetasEncaje / formatearEtiquetasEncaje (enc-ac1)", () => {
       alternativa: { categoria: "museo", duracion_min: 90, coordenadas: { lat: 40.4138, lon: -3.6921 } },
       coordenadasAnterior: { lat: 40.4138, lon: -3.6963 }, // ~357 m -> 350
       coordenadasSiguiente: { lat: 40.4138, lon: -3.6880 }, // ~345 m -> 350
-      fecha: "2026-10-07",
-      horaInicioFranja: "09:00",
+      intervalo: { fecha: "2026-10-07", inicio: "09:00", fin: "10:30" },
+      zona: ZONA,
     });
     expect(etiquetas.distanciaAnteriorM).toBeGreaterThanOrEqual(300);
     expect(etiquetas.distanciaAnteriorM! % 50).toBe(0);
@@ -52,8 +56,8 @@ describe("calcularEtiquetasEncaje / formatearEtiquetasEncaje (enc-ac1)", () => {
     const etiquetas = calcularEtiquetasEncaje({
       parada,
       alternativa: { categoria: "museo", duracion_min: 90, coordenadas: { lat: 40.4138, lon: -3.6921 } },
-      fecha: "2026-10-07",
-      horaInicioFranja: "09:00",
+      intervalo: { fecha: "2026-10-07", inicio: "09:00", fin: "10:30" },
+      zona: ZONA,
     });
     expect(etiquetas.distanciaAnteriorM).toBeUndefined();
     expect(etiquetas.distanciaSiguienteM).toBeUndefined();
@@ -66,8 +70,8 @@ describe("calcularEtiquetasEncaje / formatearEtiquetasEncaje (enc-ac1)", () => {
     const etiquetas = calcularEtiquetasEncaje({
       parada,
       alternativa: { categoria: "museo", duracion_min: 90, coordenadas: { lat: 40.4138, lon: -3.6921 } },
-      fecha: "2026-10-07",
-      horaInicioFranja: "09:00",
+      intervalo: { fecha: "2026-10-07", inicio: "09:00", fin: "10:30" },
+      zona: ZONA,
     });
     expect(formatearEtiquetasEncaje(etiquetas)).toContain("Misma categoría (museo)");
   });
@@ -76,8 +80,8 @@ describe("calcularEtiquetasEncaje / formatearEtiquetasEncaje (enc-ac1)", () => {
     const etiquetas = calcularEtiquetasEncaje({
       parada,
       alternativa: { categoria: "parque", duracion_min: 90, coordenadas: { lat: 40.4138, lon: -3.6921 } },
-      fecha: "2026-10-07",
-      horaInicioFranja: "09:00",
+      intervalo: { fecha: "2026-10-07", inicio: "09:00", fin: "10:30" },
+      zona: ZONA,
     });
     expect(etiquetas.categoria).toBeUndefined();
     expect(formatearEtiquetasEncaje(etiquetas).some((t) => t.startsWith("Misma categoría"))).toBe(false);
@@ -87,22 +91,22 @@ describe("calcularEtiquetasEncaje / formatearEtiquetasEncaje (enc-ac1)", () => {
     const dentro = calcularEtiquetasEncaje({
       parada,
       alternativa: { categoria: "museo", duracion_min: 100, coordenadas: { lat: 40.4138, lon: -3.6921 } },
-      fecha: "2026-10-07",
-      horaInicioFranja: "09:00",
+      intervalo: { fecha: "2026-10-07", inicio: "09:00", fin: "10:30" },
+      zona: ZONA,
     });
     expect(formatearEtiquetasEncaje(dentro)).toContain("Duración similar");
 
     const fuera = calcularEtiquetasEncaje({
       parada,
       alternativa: { categoria: "museo", duracion_min: 45, coordenadas: { lat: 40.4138, lon: -3.6921 } },
-      fecha: "2026-10-07",
-      horaInicioFranja: "09:00",
+      intervalo: { fecha: "2026-10-07", inicio: "09:00", fin: "10:30" },
+      zona: ZONA,
     });
     expect(formatearEtiquetasEncaje(fuera)).not.toContain("Duración similar");
   });
 
   it("apertura 'cerrada' -> etiqueta 'Cerrado a esa hora'; 'abierta' -> 'Abre a esa hora'; desconocida -> 'Horario desconocido'", () => {
-    const base = { parada, fecha: "2026-10-06", horaInicioFranja: "09:00" };
+    const base = { parada, intervalo: { fecha: "2026-10-06", inicio: "09:00", fin: "10:30" }, zona: ZONA };
 
     const cerrada = calcularEtiquetasEncaje({
       ...base,
