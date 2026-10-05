@@ -16,6 +16,7 @@
     "verificar:esqueleto": "bash scripts/verificar-esqueleto.sh",
     "trabajador:tick": "tsx --conditions=react-server scripts/trabajador-tick.ts",
     "generar:infografia-ejemplo": "tsx --conditions=react-server scripts/generar-infografia-ejemplo.ts",
+    "generar:goldens-infografia": "tsx --conditions=react-server scripts/generar-goldens-infografia.ts",
     "medir:lamina": "tsx --conditions=react-server scripts/medir-lamina.ts",
     "generar:plan-real": "tsx --conditions=react-server scripts/generar-plan-real.ts"
   },

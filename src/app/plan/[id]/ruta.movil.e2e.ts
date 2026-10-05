@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
+import type { Plan } from "@/lib/plan/tipos";
+import { CAJA_LISBOA, CAJA_OPORTO, etapaSembrada, sembrarPlan } from "./semillas-e2e";
 
 // etv-ac1..ac4 (cp-etv-01, cp-etv-02, cp-etv-03): «Ruta del viaje» de un plan
 // multiciudad sembrado con el formato que produce etapas-pais. El envío del
@@ -12,62 +14,37 @@ test.use({ viewport: { width: 390, height: 844 } });
 // Un correo por sesión: fullyParallel ejecuta los tests a la vez y leerCodigo
 // toma el último mensaje del correo, así que compartirlo cruzaría los códigos.
 const correo = (sufijo: string) => `ci-test-ruta-${sufijo}@example.com`;
-const CAJA_LISBOA = { minLat: 38.6, maxLat: 38.9, minLon: -9.35, maxLon: -9.0 };
-const CAJA_OPORTO = { minLat: 41.0, maxLat: 41.3, minLon: -8.8, maxLon: -8.45 };
 
-const etapa = (nombre: string, caja: typeof CAJA_LISBOA, dia_inicio: number, noche: number, ajustes: string[]) => ({
-  ciudad: { estado: "resuelta", nombre, metodo: "destino", caja, intentado_en: "2026-10-05T00:00:00Z" },
-  pais: "Portugal",
-  dias: 4,
-  dia_inicio,
-  motivo: `Por qué ${nombre}`,
-  alojamiento_noche_eur: noche,
-  zona: 0,
-  ajustes,
-});
-
-async function sembrarPlan(supabase: SupabaseClient, planId: string, modo: "tren" | "avion" | "coche") {
-  const { error: errorPlan } = await supabase.from("planes").insert({ id: planId, destino: "Portugal" });
-  if (errorPlan) throw new Error(`No se pudo sembrar el plan: ${errorPlan.message}`);
-
+function planRuta(planId: string, modo: "tren" | "avion" | "coche"): Plan {
   const franjas = franjasComoArray("Portugal");
-  const dias = Array.from({ length: 8 }, (_, i) => ({ fecha: `2027-06-${String(8 + i).padStart(2, "0")}`, franjas, etapa: i < 4 ? 0 : 1 }));
-  const { data: version, error: errorVersion } = await supabase
-    .from("plan_versiones")
-    .insert({
-      plan_id: planId,
-      version: 1,
-      personas: 2,
-      dias,
-      avisos: [],
-      etapas: [etapa("Lisboa", CAJA_LISBOA, 0, 90, ["Quitamos Coímbra: 1 día no deja tiempo para descansar"]), etapa("Oporto", CAJA_OPORTO, 4, 80, [])],
-      traslados: [{ desde: "Lisboa", hasta: "Oporto", modo, distancia_km: 313, duracion_min: 229, coste_eur: 79, procedencia: "estimado" }],
-    })
-    .select("id")
-    .single();
-  if (errorVersion || !version) throw new Error(`No se pudo sembrar la versión: ${errorVersion?.message}`);
-
-  const { data: procedencia } = await supabase.from("procedencias").insert({ fuente: "propuesto-sin-verificar" }).select("id").single();
-  for (let i = 0; i < 8; i++) {
-    const [lat, lon] = i < 4 ? [38.72, -9.14] : [41.15, -8.61];
-    const { error } = await supabase.from("paradas").insert({
-      id_externo: `p-ruta-${i}`,
-      plan_version_id: version.id,
-      dia_index: i,
-      franja_id: "manana",
-      nombre: `Sitio ${i + 1}`,
-      descripcion: "Visita",
-      lat,
-      lon,
-      duracion_min: 60,
-      prioridad: 80,
-      coste: { importe_eur: 30, por: "grupo", procedencia: "estimado" },
-      procedencia_id: procedencia?.id,
-      lugar: { fuente: "osm", id: `osm:way/${i}`, url: "https://www.openstreetmap.org/way/1", nombre_fuente: `Sitio ${i + 1}`, etiquetas: {}, resuelto_en: new Date().toISOString() },
-      resolucion: { estado: "resuelta", intentado_en: new Date().toISOString() },
-    });
-    if (error) throw new Error(`No se pudo sembrar la parada ${i}: ${error.message}`);
-  }
+  return {
+    id: planId,
+    version: 1,
+    destino: "Portugal",
+    personas: 2,
+    dias: Array.from({ length: 8 }, (_, i) => ({
+      fecha: `2027-06-${String(8 + i).padStart(2, "0")}`,
+      franjas,
+      etapa: i < 4 ? 0 : 1,
+      paradas: [
+        {
+          id: `p-ruta-${i}`,
+          franja_id: "manana",
+          nombre: `Sitio ${i + 1}`,
+          descripcion: "Visita",
+          coordenadas: i < 4 ? { lat: 38.72, lon: -9.14 } : { lat: 41.15, lon: -8.61 },
+          duracion_min: 60,
+          prioridad: 80,
+          coste: { importe_eur: 30, por: "grupo", procedencia: "estimado", fecha: "2027-06-08" },
+          procedencia: { fuente: "propuesto-sin-verificar" },
+          lugar: { fuente: "osm", id: `osm:way/${i}`, url: "https://www.openstreetmap.org/way/1", nombre_fuente: `Sitio ${i + 1}`, etiquetas: {}, resuelto_en: new Date().toISOString() },
+          resolucion: { estado: "resuelta", intentado_en: new Date().toISOString() },
+        },
+      ],
+    })),
+    etapas: [etapaSembrada("Lisboa", 4, 0, 90, ["Quitamos Coímbra: 1 día no deja tiempo para descansar"], "Por qué Lisboa"), etapaSembrada("Oporto", 4, 4, 80, [], "Por qué Oporto")],
+    traslados: [{ desde: "Lisboa", hasta: "Oporto", modo, distancia_km: 313, duracion_min: 229, coste_eur: 79, procedencia: "estimado" }],
+  };
 }
 
 async function abrirPlan(browser: import("@playwright/test").Browser, supabase: SupabaseClient, modo: "tren" | "avion" | "coche", sufijo: string) {
@@ -80,7 +57,7 @@ async function abrirPlan(browser: import("@playwright/test").Browser, supabase: 
     usuarioId = data.user.id;
   }
   const planId = `plan-ruta-e2e-${modo}-${Date.now()}`;
-  await sembrarPlan(supabase, planId, modo);
+  await sembrarPlan(supabase, planRuta(planId, modo));
   const { error } = await supabase.from("trabajos").insert({ usuario_id: usuarioId, tipo: "generacion", criterios: { presupuesto_eur: 3000 }, estado: "completado", plan_id: planId });
   if (error) throw new Error(`No se pudo sembrar el trabajo: ${error.message}`);
 
