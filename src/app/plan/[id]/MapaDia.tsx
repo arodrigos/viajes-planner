@@ -38,6 +38,9 @@ interface PropiedadesMapaDia {
   // ambos opcionales porque fuera de la vista del día de hoy no se calculan.
   idsVisitados?: Set<string>;
   centroParadaId?: string | null;
+  // etv-ac2: en un viaje de varias ciudades, la caja de la etapa del día; sin
+  // paradas resueltas el mapa se centra en ella y no en el país entero.
+  cajaEtapa?: { minLat: number; maxLat: number; minLon: number; maxLon: number };
 }
 
 function calcularBounds(puntos: PuntoMapaDia[]): [[number, number], [number, number]] {
@@ -49,7 +52,7 @@ function calcularBounds(puntos: PuntoMapaDia[]): [[number, number], [number, num
   ];
 }
 
-export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisitados, centroParadaId }: PropiedadesMapaDia) {
+export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisitados, centroParadaId, cajaEtapa }: PropiedadesMapaDia) {
   const [fallo, setFallo] = useState(false);
   const mapaRef = useRef<MapRef>(null);
 
@@ -83,16 +86,23 @@ export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisita
     return <p className="mapa-no-disponible">El mapa no está disponible ahora.</p>;
   }
 
+  const bounds: [[number, number], [number, number]] = puntosOrdenados.length > 0
+    ? calcularBounds(puntosOrdenados)
+    : cajaEtapa
+      ? [[cajaEtapa.minLon, cajaEtapa.minLat], [cajaEtapa.maxLon, cajaEtapa.maxLat]]
+      : [[-180, -85], [180, 85]];
+
   return (
     <div
       className="contenedor-mapa-dia"
+      data-centro={`${(bounds[0][1] + bounds[1][1]) / 2},${(bounds[0][0] + bounds[1][0]) / 2}`}
       data-recorrido-puntos={puntosOrdenados.length}
       data-centro-parada={centroParadaId ?? undefined}
     >
       <Map
         ref={mapaRef}
         initialViewState={{
-          bounds: calcularBounds(puntosOrdenados),
+          bounds,
           fitBoundsOptions: { padding: 40 },
         }}
         mapStyle={ESTILO_OPENFREEMAP}

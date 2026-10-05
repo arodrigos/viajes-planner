@@ -14,6 +14,10 @@ import { SeccionesGuia } from "./SeccionesGuia";
 import { textoCabeceraPresupuesto, textoPrecioParada, type PresupuestoPublico } from "@/lib/presupuesto/texto";
 import { AccionesVisita } from "./AccionesVisita";
 import { AvisoCiudad } from "./AvisoCiudad";
+import { RutaViaje } from "./RutaViaje";
+import { calcularRuta } from "@/lib/etapas/ruta";
+import type { EtapaPlan, TrasladoPlan } from "@/lib/plan/tipos";
+import type { CajaDelimitadora } from "@/lib/lugares/tipos";
 import type { PuntoMapaDia } from "./MapaDia";
 import { IconoFranja } from "./iconosFranja";
 import { IconoRecomendacion } from "./iconosRecomendacion";
@@ -94,6 +98,8 @@ interface ParadaPublica {
 
 interface DiaPublico {
   fecha: string;
+  // etapas-pais: índice de la etapa del día, solo en viajes de varias ciudades.
+  etapa?: number;
   franjas: FranjaPublica[];
   paradas: ParadaPublica[];
   paseo?: PaseoPublico;
@@ -123,6 +129,10 @@ interface PlanPublico {
   // Opcional en el cliente: los dobles de test y una respuesta cacheada de
   // antes de este bloque no lo traen y la cabecera simplemente no aparece.
   presupuesto?: PresupuestoPublico;
+  // etapas-vista: solo en viajes de varias ciudades.
+  etapas?: EtapaPlan[];
+  traslados?: TrasladoPlan[];
+  personas?: number;
 }
 
 const TEXTO_CONFIRMACION_REGENERAR =
@@ -189,7 +199,7 @@ function calcularComoLlegar(puntos: PuntoMapaDia[], siguiente: PuntoMapaDia | nu
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planId: string; onPlanActualizado: () => void }) {
+function SeccionDia({ dia, indice, etapa, planId, onPlanActualizado }: { dia: DiaPublico; indice: number; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; onPlanActualizado: () => void }) {
   const tieneAlgunaParada = dia.paradas.length > 0;
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
@@ -250,8 +260,18 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
   const tramos = puntos.length > 0 ? urlRecorridoDia(puntos.map((p) => ({ lat: p.lat, lon: p.lon }))) : [];
 
   return (
-    <section aria-label={`Día ${dia.fecha}`} className="seccion-dia">
-      <h2>{dia.fecha}</h2>
+    <section aria-label={`Día ${dia.fecha}`} className="seccion-dia" id={`dia-${indice}`}>
+      {/* etv-ac2: en un viaje de varias ciudades la cabecera nombra la ciudad de la etapa. */}
+      {etapa ? (
+        <>
+          <h2>
+            Día {indice + 1} · {etapa.ciudad}
+          </h2>
+          <p className="ayuda">{dia.fecha}</p>
+        </>
+      ) : (
+        <h2>{dia.fecha}</h2>
+      )}
       {/* enc-ac2: ausente cuando el día tiene menos de dos paradas
           resueltas -- nunca un paseo a medias. */}
       {dia.paseo && (
@@ -274,8 +294,8 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
       )}
       {!tieneAlgunaParada && <p className="dia-sin-paradas">Todavía no hay paradas planificadas para este día.</p>}
 
-      {tieneAlgunaParada &&
-        (puntos.length === 0 ? (
+      {(tieneAlgunaParada || etapa?.caja) &&
+        (puntos.length === 0 && !etapa?.caja ? (
           // map-ac5: un día sin ninguna parada resuelta no tiene mapa, y se
           // explica por qué en vez de dejar un hueco mudo.
           <p className="mapa-sin-paradas">Sin mapa: ninguna parada de este día se ha podido ubicar todavía.</p>
@@ -287,6 +307,7 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
               onSeleccionarParada={seleccionarParada}
               idsVisitados={idsVisitados}
               centroParadaId={siguienteParada?.id ?? null}
+              cajaEtapa={etapa?.caja}
             />
             <ul className="pila enlaces-recorrido">
               {tramos.map((tramo) => (
@@ -657,9 +678,28 @@ export function VistaPlan({ id }: { id: string }) {
         <p key={aviso}>{aviso}</p>
       ))}
 
-      {plan?.dias.map((dia) => (
-        <SeccionDia key={dia.fecha} dia={dia} planId={id} onPlanActualizado={() => setRecargarContador((n) => n + 1)} />
-      ))}
+      {/* etv-ac1: un plan sin etapas no pinta nada nuevo. */}
+      {plan?.etapas && plan.etapas.length > 0 && (
+        <RutaViaje
+          ruta={calcularRuta({ personas: plan.personas ?? 1, dias: plan.dias, etapas: plan.etapas, traslados: plan.traslados })}
+          presupuesto={plan.presupuesto}
+          onIrADia={(i) => document.getElementById(`dia-${i}`)?.scrollIntoView({ block: "start" })}
+        />
+      )}
+
+      {plan?.dias.map((dia, indice) => {
+        const etapa = dia.etapa !== undefined ? plan.etapas?.[dia.etapa] : undefined;
+        return (
+          <SeccionDia
+            key={dia.fecha}
+            dia={dia}
+            indice={indice}
+            etapa={etapa ? { ciudad: etapa.ciudad.nombre ?? etapa.pais, caja: etapa.ciudad.caja } : undefined}
+            planId={id}
+            onPlanActualizado={() => setRecargarContador((n) => n + 1)}
+          />
+        );
+      })}
 
       {plan && (
         <section aria-label="Recomendaciones" className="seccion-recomendaciones">
