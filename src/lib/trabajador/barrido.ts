@@ -20,8 +20,11 @@ const MAXIMO_CERCANOS = 3;
 // Se movió del merge de alternativas-completas (09:00Z) al del arreglo de
 // Overpass (11:00Z) y de nuevo al de los contadores del tick (12:30Z): en dev
 // la pasada seguía en 0 con las paradas selladas a las 11:00Z sin que nada
-// dijera por qué, así que vuelven a entrar una vez, ya con contadores.
-export const CORTE_ALTERNATIVAS = new Date("2026-10-05T12:30:00Z");
+// dijera por qué, así que vuelven a entrar una vez, ya con contadores. Y de
+// nuevo (15:00Z): el tick que ejecutó la pasada de 12:30Z se pisó a los 5 min
+// sin que nadie viera sus contadores; ahora la pasada deja su propia fila de
+// salud (tick.ts) con el último error, así que un 0 vuelve a poder explicarse.
+export const CORTE_ALTERNATIVAS = new Date("2026-10-05T15:00:00Z");
 
 // bar-ac3: 120 paradas o 180 s de reloj (lo que ocurra primero), para vaciar
 // las 467 pendientes en ~4 ticks sin solaparse con el cron de 5 min.
@@ -307,10 +310,17 @@ export interface ContadoresAlternativas {
   sinDatos: number;
   falloFuente: number;
   errorInterno: number;
+  // Mensaje (acotado) del último error interno: es lo que dice POR QUÉ una
+  // parada real no gana alternativas (un CHECK, un NOT NULL, RLS...).
+  ultimoError: string | null;
+}
+
+function mensajeAcotado(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error)).slice(0, 160);
 }
 
 function contadoresAlternativasVacios(): ContadoresAlternativas {
-  return { candidatas: 0, intentadas: 0, conCercanos: 0, sinDatos: 0, falloFuente: 0, errorInterno: 0 };
+  return { candidatas: 0, intentadas: 0, conCercanos: 0, sinDatos: 0, falloFuente: 0, errorInterno: 0, ultimoError: null };
 }
 
 // rel-ac1/rel-ac2/bar-ac1: cumple la decisión de Adrián -- coordenadas (y
@@ -548,6 +558,7 @@ export async function completarParadasPendientes(
           continue;
         }
         contadoresAlt.errorInterno += 1;
+        contadoresAlt.ultimoError = mensajeAcotado(error);
         await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
       }
     }
@@ -632,6 +643,7 @@ export async function completarParadasPendientes(
             continue;
           }
           contadoresAlt.errorInterno += 1;
+          contadoresAlt.ultimoError = mensajeAcotado(error);
         }
         await marcar([fila.id]);
       }

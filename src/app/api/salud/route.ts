@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { clienteServicio } from "@/lib/db/cliente";
 import { leerEstadoRelleno } from "@/lib/relleno";
-import { construirSalud, ESQUEMA_VERSION, type EstadoRelleno, type ResultadoTickTrabajador } from "@/lib/salud";
+import {
+  construirSalud,
+  ESQUEMA_VERSION,
+  ORIGEN_PASADA_ALTERNATIVAS,
+  resumirPasadaAlternativas,
+  type PasadaAlternativas,
+  type EstadoRelleno, type ResultadoTickTrabajador } from "@/lib/salud";
 import { MODELO_ACCESO } from "@/lib/trabajador/config";
 import vercelConfig from "../../../../vercel.json";
 
@@ -27,6 +33,7 @@ interface EstadoSupabase {
   vistoHaceSeg: number | null;
   commitSha: string | null;
   ultimoResultado: ResultadoTickTrabajador | null;
+  pasadaAlternativas: PasadaAlternativas | null;
 }
 
 async function comprobarSupabase(): Promise<EstadoSupabase> {
@@ -40,15 +47,30 @@ async function comprobarSupabase(): Promise<EstadoSupabase> {
       .limit(1)
       .maybeSingle();
     if (error) throw error;
+    const { data: pasada } = await supabase
+      .from("salud")
+      .select("registrado_en, commit_sha, resultado")
+      .eq("origen", ORIGEN_PASADA_ALTERNATIVAS)
+      .order("registrado_en", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const pasadaAlternativas = pasada
+      ? resumirPasadaAlternativas(
+          pasada.resultado,
+          Math.floor((Date.now() - new Date(pasada.registrado_en).getTime()) / 1000),
+          pasada.commit_sha ?? null,
+        )
+      : null;
     const vistoHaceSeg = data ? Math.floor((Date.now() - new Date(data.registrado_en).getTime()) / 1000) : null;
     return {
       estado: "activa",
       vistoHaceSeg,
       commitSha: data?.commit_sha ?? null,
       ultimoResultado: (data?.resultado as ResultadoTickTrabajador | null) ?? null,
+      pasadaAlternativas,
     };
   } catch {
-    return { estado: "error", vistoHaceSeg: null, commitSha: null, ultimoResultado: null };
+    return { estado: "error", vistoHaceSeg: null, commitSha: null, ultimoResultado: null, pasadaAlternativas: null };
   }
 }
 
@@ -77,7 +99,7 @@ async function leerRellenoSinTumbarSalud(): Promise<EstadoRelleno | undefined> {
 }
 
 export async function GET(request: NextRequest) {
-  const { estado, vistoHaceSeg, commitSha, ultimoResultado } = await comprobarSupabase();
+  const { estado, vistoHaceSeg, commitSha, ultimoResultado, pasadaAlternativas } = await comprobarSupabase();
   await tocarSiEsElCron(request, estado === "activa");
   const relleno = await leerRellenoSinTumbarSalud();
 
@@ -90,6 +112,7 @@ export async function GET(request: NextRequest) {
     trabajadorVistoHaceSeg: vistoHaceSeg,
     trabajadorCommitSha: commitSha,
     trabajadorUltimoResultado: ultimoResultado,
+    pasadaAlternativas,
     secretosFaltantes: SECRETOS_REQUERIDOS.filter((nombre) => !process.env[nombre]),
     credencialesModeloEnWeb: VARIABLES_CREDENCIAL_MODELO.some((nombre) => Boolean(process.env[nombre])),
     fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap" },
