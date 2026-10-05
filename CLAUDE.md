@@ -37,3 +37,27 @@ facturada por token.
   Nominatim, Wikipedia/Wikimedia Commons, Overpass API): nunca Google Maps
   Platform ni ningún otro proveedor de mapas o lugares. Detalle en
   `docs/fuentes-de-datos.md`.
+
+## Evidencia de los criterios
+
+Cuando un criterio de aceptación se da por cumplido, su evidencia empieza
+por el comando exacto que la reproduce, para que cualquiera pueda volver a
+ejecutarlo tal cual:
+
+- Unitarios: `npx vitest run <ruta completa>`.
+- Integración: `npx vitest run --config vitest.integration.config.mts <ruta completa>`.
+- e2e: `npx playwright test <ruta completa>`.
+- Scripts: `npm run <script>`.
+
+Reglas:
+
+- La ruta va completa desde la raíz del repo, con los corchetes de las
+  rutas dinámicas incluidos (`[id]`). Una ruta abreviada o sin corchetes no
+  se puede reproducir ni comprobar con una búsqueda de texto.
+- Entre el comando y la ruta no hay paréntesis ni comillas ni texto.
+- Si el criterio nombra varios ficheros de test, la evidencia cita la ruta
+  de cada uno.
+
+Ejemplo:
+
+`npx playwright test src/app/plan/[id]/infografia.movil.e2e.ts`
