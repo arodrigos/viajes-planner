@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { guardarBorrador, leerBorrador } from "@/lib/criterios/borrador";
 import { validarCriterios } from "@/lib/criterios/validar";
 import { PanelAcceso } from "./PanelAcceso";
-import type { CriteriosViaje, Perfil } from "@/lib/criterios/tipos";
+import { MODOS_TRANSPORTE, type CriteriosViaje, type Modo, type Perfil } from "@/lib/criterios/tipos";
+
+const ETIQUETAS_MODO: Record<Modo, string> = { coche: "Coche", avion: "Avión", tren: "Tren", autobus: "Autobús" };
 
 const CRITERIOS_INICIALES: CriteriosViaje = {
   destino_o_tipo: "",
@@ -119,6 +121,18 @@ export function FormularioCriterios() {
 
   function quitarPersona(indice: number) {
     setCriterios((c) => ({ ...c, personas: c.personas.filter((_, i) => i !== indice) }));
+  }
+
+  // Sin ninguna casilla la clave desaparece (no queda []): «cualquier medio»
+  // es la ausencia del campo, igual que en los criterios antiguos.
+  function alternarModo(modo: Modo, marcado: boolean) {
+    setCriterios((c) => {
+      const elegidos = MODOS_TRANSPORTE.filter((m) => (m === modo ? marcado : (c.transporte ?? []).includes(m)));
+      const siguiente: CriteriosViaje = { ...c };
+      delete siguiente.transporte;
+      if (elegidos.length > 0) siguiente.transporte = elegidos;
+      return siguiente;
+    });
   }
 
   function alSubmit(e: React.FormEvent) {
@@ -288,6 +302,24 @@ export function FormularioCriterios() {
           Presupuesto total del viaje, no por persona.
         </p>
       </div>
+
+      <fieldset aria-describedby="ayuda-transporte">
+        <legend>¿Cómo te moverías entre ciudades?</legend>
+        {MODOS_TRANSPORTE.map((modo) => (
+          <label key={modo}>
+            <input
+              type="checkbox"
+              checked={(criterios.transporte ?? []).includes(modo)}
+              onChange={(e) => alternarModo(modo, e.target.checked)}
+            />
+            {ETIQUETAS_MODO[modo]}
+          </label>
+        ))}
+        <p id="ayuda-transporte" className="ayuda">
+          Solo cuenta si el destino es un país, una región o varios países: así elegimos los traslados. Si no marcas
+          ninguna, vale cualquiera.
+        </p>
+      </fieldset>
 
       <fieldset>
         <legend>Alojamiento (opcional, solo si ya lo has reservado)</legend>

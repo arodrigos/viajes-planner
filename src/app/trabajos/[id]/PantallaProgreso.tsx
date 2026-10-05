@@ -12,6 +12,17 @@ interface EstadoTrabajo {
   // trabajo se completó antes de esta tanda); en cualquier otro estado es
   // null.
   plan_id: string | null;
+  // Ausente en respuestas anteriores a este campo.
+  transporte?: string[];
+}
+
+const NOMBRE_MODO: Record<string, string> = { coche: "coche", avion: "avión", tren: "tren", autobus: "autobús" };
+
+// Resumen de lo elegido en el formulario: «Tren, autobús» o «Cualquier medio».
+export function textoTransporte(modos: string[] | undefined): string {
+  if (!modos || modos.length === 0) return "Cualquier medio";
+  const texto = modos.map((m) => NOMBRE_MODO[m] ?? m).join(", ");
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
 const INTERVALO_MS = 3000;
@@ -128,11 +139,18 @@ export function PantallaProgreso({ id }: { id: string }) {
     </div>
   );
 
+  const resumen = (
+    <p data-testid="resumen-viaje">
+      Medios entre ciudades: <span data-testid="resumen-transporte">{textoTransporte(trabajo.transporte)}</span>
+    </p>
+  );
+
   if (trabajo.estado === "encolado") {
     return (
       <>
         <h1>Tu viaje se está generando</h1>
         <div className="pila">
+          {resumen}
           <p>Tu viaje está en la cola: un agente lo va a generar en cuanto le llegue el turno, y puede tardar varios minutos.</p>
           {avisoDireccion}
         </div>

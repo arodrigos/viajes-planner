@@ -46,6 +46,12 @@ export const esquemaCriterios = {
       required: ["direccion"],
       properties: { direccion: { type: "string", minLength: 1 } },
     },
+    transporte: {
+      type: "array",
+      uniqueItems: true,
+      maxItems: 4,
+      items: { enum: ["coche", "avion", "tren", "autobus"] },
+    },
     tope_sitios_por_franja: { type: "integer", minimum: 1, maximum: 10 },
   },
 } as const;
