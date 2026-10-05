@@ -3,7 +3,7 @@ import { relojReal, type Reloj } from "./limitador";
 import { userAgent } from "./fuenteAbierta";
 import type { CandidatoGeosearch, FuenteFotos, ResumenPaginaWikipedia } from "./tipos";
 import type { Foto } from "@/lib/plan/tipos";
-import { esUrlFotoValida, normalizarUrlFoto } from "./urlFoto";
+import { esUrlFotoValida, licenciaUrlSegura, normalizarUrlFoto } from "./urlFoto";
 
 // fot-ac1: lista blanca de licencias -- se compara contra LicenseShortName
 // tal cual lo devuelve Commons (p. ej. "CC BY-SA 4.0", "CC0 1.0", "Public
@@ -21,10 +21,6 @@ export interface OpcionesFuenteFotosAbierta {
 
 function limpiarHtml(valor: string): string {
   return valor.replace(/<[^>]*>/g, "").trim();
-}
-
-function aUrlAbsoluta(url: string): string {
-  return url.startsWith("//") ? `https:${url}` : url;
 }
 
 interface RespuestaResumenWikipedia {
@@ -120,7 +116,7 @@ export function crearFuenteFotosAbierta(opciones: OpcionesFuenteFotosAbierta = {
         fichero,
         autor: limpiarHtml(info.extmetadata?.Artist?.value ?? "Wikimedia Commons"),
         licencia,
-        licencia_url: aUrlAbsoluta(info.extmetadata?.LicenseUrl?.value ?? "https://commons.wikimedia.org/wiki/Commons:Licensing"),
+        licencia_url: licenciaUrlSegura(info.extmetadata?.LicenseUrl?.value),
         pagina_url: `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(ficheroNormalizado)}`,
         fuente: "commons",
       };

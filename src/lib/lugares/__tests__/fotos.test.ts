@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
-import { esUrlFotoValida, fotoSegura, normalizarUrlFoto } from "../urlFoto";
+import { esUrlFotoValida, fotoSegura, LICENCIAS_COMMONS, licenciaUrlSegura, normalizarUrlFoto } from "../urlFoto";
 import { crearFuenteFotosAbierta } from "../fuenteFotosAbierta";
 import { crearFuenteFotosGrabada } from "../fuenteFotosGrabada";
 import { resolverFoto } from "../resolverFotos";
@@ -216,6 +216,34 @@ describe("urlFoto (alc-ac5)", () => {
         if (esUrlFotoValida(url)) expect(url.startsWith("https://upload.wikimedia.org/")).toBe(true);
       }),
     );
+  });
+
+  it("#97: licencia_url solo es https; javascript:, http: o basura acaban en la página de licencias de Commons", () => {
+    expect(licenciaUrlSegura("https://creativecommons.org/licenses/by-sa/4.0")).toBe("https://creativecommons.org/licenses/by-sa/4.0");
+    expect(licenciaUrlSegura("//creativecommons.org/licenses/by/2.0")).toBe("https://creativecommons.org/licenses/by/2.0");
+    for (const hostil of ["javascript:alert(1)", "http://creativecommons.org/x", "data:text/html,x", "https://u:p@evil.example/", "", undefined, 42]) {
+      expect(licenciaUrlSegura(hostil)).toBe(LICENCIAS_COMMONS);
+    }
+    fc.assert(
+      fc.property(fc.oneof(fc.string(), fc.webUrl()), (url) => {
+        expect(licenciaUrlSegura(url).startsWith("https://")).toBe(true);
+      }),
+    );
+  });
+
+  it("#97: infoImagen fuerza la licencia de Commons cuando LicenseUrl no es https", async () => {
+    const hostil = JSON.parse(JSON.stringify(IMAGEINFO_PRADO));
+    const pagina = Object.values(hostil.query.pages)[0] as { imageinfo: Array<{ extmetadata: { LicenseUrl?: { value: string } } }> };
+    pagina.imageinfo[0].extmetadata.LicenseUrl = { value: "javascript:alert(document.cookie)" };
+    const fuente = crearFuenteFotosAbierta({ fetch: (async () => respuestaJson(hostil)) as typeof fetch, reloj: crearRelojFalso() });
+    const foto = await fuente.infoImagen("Museo del Prado 2016 (25185969599).jpg");
+    expect(foto?.url.startsWith("https://upload.wikimedia.org/")).toBe(true);
+    expect(foto?.licencia_url).toBe(LICENCIAS_COMMONS);
+  });
+
+  it("#97: fotoSegura sanea la licencia de una foto ya guardada", () => {
+    const guardada = { url: "https://upload.wikimedia.org/a.jpg", fichero: "a.jpg", autor: "Ana", licencia: "CC BY 4.0", licencia_url: "javascript:alert(1)", pagina_url: "https://commons.wikimedia.org/wiki/File:a.jpg", fuente: "commons" as const };
+    expect(fotoSegura(guardada)?.licencia_url).toBe(LICENCIAS_COMMONS);
   });
 
   it("infoImagen no devuelve una foto cuya URL no es de Wikimedia", async () => {

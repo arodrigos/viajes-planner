@@ -25,6 +25,26 @@ export function normalizarUrlFoto(url: string): string {
   return url.startsWith(host) ? PREFIJO + url.slice(host.length) : url;
 }
 
+// Hallazgo de seguridad #97: `licencia_url` sale de extmetadata.LicenseUrl,
+// un campo editable de un wiki, y acaba en un `href`. Solo se acepta https
+// sin credenciales; cualquier otra cosa se cambia por la página de licencias
+// de Commons, que siempre es un enlace correcto aunque menos preciso.
+export const LICENCIAS_COMMONS = "https://commons.wikimedia.org/wiki/Commons:Licensing";
+
+export function licenciaUrlSegura(url: unknown): string {
+  if (typeof url !== "string") return LICENCIAS_COMMONS;
+  const absoluta = url.startsWith("//") ? `https:${url}` : url;
+  try {
+    const analizada = new URL(absoluta);
+    return analizada.protocol === "https:" && analizada.username === "" && analizada.password === "" ? absoluta : LICENCIAS_COMMONS;
+  } catch {
+    return LICENCIAS_COMMONS;
+  }
+}
+
 export function fotoSegura<T extends Pick<Foto, "url">>(foto: T | null | undefined): T | undefined {
-  return foto && esUrlFotoValida(foto.url) ? foto : undefined;
+  if (!foto || !esUrlFotoValida(foto.url)) return undefined;
+  // Fotos ya guardadas antes de #97: se sanea al leer, no hace falta migrar.
+  if ("licencia_url" in foto) return { ...foto, licencia_url: licenciaUrlSegura((foto as { licencia_url?: unknown }).licencia_url) };
+  return foto;
 }
