@@ -20,6 +20,9 @@ público y sin autenticar no se convierta en un amplificador de carga:
   otras cuatro.
 - `paradas_con_foto`, `paradas_con_alternativas`: cuántas paradas tienen
   foto o al menos una alternativa guardada.
+- `paradas_con_categoria`: cuántas paradas tienen `categoria`. Sin ella la
+  pasada de alternativas no consulta Overpass; el barrido la deduce del
+  nombre y de la clasificación OSM del lugar (`alternativas/categorizar.ts`).
 - `planes_total`, `planes_con_version`, `planes_con_trabajo_vivo`: cuántos
   planes existen, cuántos ya tienen al menos una versión generada y
   cuántos tienen un trabajo propietario sin marcar `eliminado_en`.

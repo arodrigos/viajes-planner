@@ -18,6 +18,9 @@ export interface EtiquetasLugar {
   wikipedia?: string;
   wikidata?: string;
   website?: string;
+  // «clase=tipo» de Nominatim (p. ej. «tourism=museum»): lo que permite
+  // deducir la categoría de una parada que el modelo no clasificó.
+  clasificacion_osm?: string;
 }
 
 export type FuenteCandidato = "osm" | "wikipedia";

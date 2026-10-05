@@ -82,6 +82,7 @@ describe("construirSalud", () => {
       paradas_sin_intentar: 421,
       paradas_con_foto: 0,
       paradas_con_alternativas: 0,
+      paradas_con_categoria: 0,
       planes_total: 6,
       planes_sin_version: 1,
       planes_sin_trabajo_vivo: 3,

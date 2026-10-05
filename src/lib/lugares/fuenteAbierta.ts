@@ -75,6 +75,7 @@ function aCandidatoNominatim(r: ResultadoNominatim): CandidatoLugar {
       wikipedia: r.extratags?.wikipedia,
       wikidata: r.extratags?.wikidata,
       website: r.extratags?.website,
+      ...((r.category ?? r.class) && r.type ? { clasificacion_osm: `${r.category ?? r.class}=${r.type}` } : {}),
     },
     ...(r.address ? { direccion: { ...r.address } } : {}),
   };
