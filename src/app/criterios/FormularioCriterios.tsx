@@ -23,6 +23,11 @@ const CRITERIOS_INICIALES: CriteriosViaje = {
 // navegar ni salir nunca de esta página.
 type Vista = "formulario" | "pidiendo-acceso";
 
+// cam-ac2: un 5xx o un fallo de red no son «criterios no válidos»: el viajero
+// no tiene nada que corregir y sus datos siguen en el formulario.
+const MENSAJE_FALLO_NUESTRO =
+  "No hemos podido preparar tu viaje por un fallo nuestro. Tus datos siguen en el formulario: vuelve a intentarlo en unos minutos.";
+
 export function FormularioCriterios() {
   const router = useRouter();
   const [criterios, setCriterios] = useState<CriteriosViaje>(CRITERIOS_INICIALES);
@@ -83,9 +88,19 @@ export function FormularioCriterios() {
         setMensajeEnvio("Has alcanzado el límite de viajes por hora. Puedes volver a intentarlo más tarde: lo escrito no se pierde.");
         return;
       }
-      setMensajeEnvio("Los criterios no son válidos. Revisa el formulario e inténtalo de nuevo.");
+      if (respuesta.status === 400) {
+        // cam-ac2: solo un 400 es de verdad un problema de los datos; los
+        // mensajes por campo vienen del propio validador del servidor.
+        const cuerpo = (await respuesta.json().catch(() => null)) as { detalle?: unknown } | null;
+        const detalle = Array.isArray(cuerpo?.detalle)
+          ? cuerpo.detalle.filter((d): d is string => typeof d === "string")
+          : [];
+        setErrores(detalle.length > 0 ? detalle : ["Los criterios no son válidos. Revisa el formulario e inténtalo de nuevo."]);
+        return;
+      }
+      setMensajeEnvio(MENSAJE_FALLO_NUESTRO);
     } catch {
-      setMensajeEnvio("No se ha podido enviar la solicitud. Comprueba tu conexión e inténtalo de nuevo.");
+      setMensajeEnvio(MENSAJE_FALLO_NUESTRO);
     } finally {
       setEnviando(false);
     }

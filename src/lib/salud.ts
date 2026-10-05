@@ -29,10 +29,73 @@ export interface ResultadoTickTrabajador {
   error?: string;
 }
 
+// cam-ac4: lista cerrada con la que /api/salud resume por qué falló el último
+// tick. El texto crudo del error puede llevar el destino de un viaje (p. ej.
+// «Nominatim 503 al buscar Lisboa») y /api/salud es público.
+export const CATEGORIAS_RESULTADO = [
+  "ok",
+  "red",
+  "cuota",
+  "modelo",
+  "base-de-datos",
+  "fuente-externa",
+  "desconocido",
+] as const;
+export type CategoriaResultado = (typeof CATEGORIAS_RESULTADO)[number];
+
+// El orden importa: una cuota agotada de una fuente externa es «cuota», y un
+// 503 de Nominatim es «fuente-externa» aunque el mensaje mencione un fetch.
+const REGLAS_CATEGORIA: ReadonlyArray<readonly [CategoriaResultado, RegExp]> = [
+  ["cuota", /\b429\b|cuota|rate.?limit|quota/i],
+  ["fuente-externa", /nominatim|overpass|wikipedia|wikimedia|commons|wikivoyage|wikidata|openholidays|nager/i],
+  ["base-de-datos", /postgrest|pgrst|supabase|postgres|base de datos/i],
+  ["modelo", /modelo|claude|anthropic/i],
+  ["red", /fetch|econn|etimedout|enotfound|eai_again|socket|network|timeout|tiempo de espera/i],
+];
+
+export function categorizarResultado(resultado: unknown): CategoriaResultado {
+  if (typeof resultado !== "object" || resultado === null || Array.isArray(resultado)) return "desconocido";
+  const { ok, error } = resultado as { ok?: unknown; error?: unknown };
+  if (error === undefined || error === null) return ok === true ? "ok" : "desconocido";
+  if (typeof error !== "string") return "desconocido";
+  return REGLAS_CATEGORIA.find(([, patron]) => patron.test(error))?.[0] ?? "desconocido";
+}
+
+// Lista blanca de contadores: salud.resultado es jsonb libre, así que ni el
+// texto del error ni ninguna clave inesperada salen de aquí.
+const CONTADORES_PUBLICOS = [
+  "trabajos_procesados",
+  "planes_mirados",
+  "paradas_intentadas",
+  "planes_resueltos",
+  "planes_reintentados",
+  "planes_saltados_sellados",
+  "planes_saltados_por_red",
+] as const;
+
+export function resumirResultadoPublico(resultado: ResultadoTickTrabajador): PublicoResultadoTick {
+  const origen = (typeof resultado === "object" && resultado !== null ? resultado : {}) as Record<string, unknown>;
+  const contadores: Record<string, number> = {};
+  for (const clave of CONTADORES_PUBLICOS) {
+    const valor = origen[clave];
+    if (typeof valor === "number" && Number.isInteger(valor)) contadores[clave] = valor;
+  }
+  return {
+    ok: origen.ok === true,
+    trabajos_procesados: 0,
+    planes_mirados: 0,
+    paradas_intentadas: 0,
+    ...contadores,
+    categoria: categorizarResultado(resultado),
+  };
+}
+
+export type PublicoResultadoTick = Omit<ResultadoTickTrabajador, "error"> & { categoria: CategoriaResultado };
+
 export interface EstadoTrabajador {
   visto_hace_seg: number | null;
   commit_sha?: string | null;
-  ultimo_resultado?: ResultadoTickTrabajador | null;
+  ultimo_resultado?: PublicoResultadoTick | null;
 }
 
 // lug-ac6: expone qué pila resuelve lugares y pinta el mapa -- lo lee el
@@ -149,7 +212,12 @@ export function construirSalud(opciones: OpcionesSalud = {}): RespuestaSalud {
             ...(opciones.trabajadorCommitSha === undefined ? {} : { commit_sha: opciones.trabajadorCommitSha }),
             ...(opciones.trabajadorUltimoResultado === undefined
               ? {}
-              : { ultimo_resultado: opciones.trabajadorUltimoResultado }),
+              : {
+                  ultimo_resultado:
+                    opciones.trabajadorUltimoResultado === null
+                      ? null
+                      : resumirResultadoPublico(opciones.trabajadorUltimoResultado),
+                }),
           },
         }),
     ...(opciones.secretosFaltantes === undefined ? {} : { secretos_faltantes: opciones.secretosFaltantes }),

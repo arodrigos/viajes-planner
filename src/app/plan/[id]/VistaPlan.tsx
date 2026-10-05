@@ -353,8 +353,13 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                       ) : (
                         <p className="procedencia-parada">
                           Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}{" "}
-                          <a href={parada.procedencia.url} target="_blank" rel="noopener noreferrer">
-                            ↗
+                          <a
+                            href={parada.procedencia.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Ver en ${parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}: ${parada.nombre}`}
+                          >
+                            <span aria-hidden="true">↗</span>
                           </a>
                         </p>
                       )}
@@ -371,23 +376,28 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                           onDesmarcar={() => alternarVisita(parada.id, true)}
                         />
                       )}
-                      {/* alt-ac5/alt-ac7: el botón existe siempre, haya o
-                          no alternativas -- es el panel el que explica el
-                          estado vacío, nunca se esconde el botón. */}
-                      <button
-                        type="button"
-                        className="boton"
-                        aria-expanded={paradaConPanelAbiertoId === parada.id}
-                        onClick={() => setParadaConPanelAbiertoId(paradaConPanelAbiertoId === parada.id ? null : parada.id)}
-                      >
-                        Cambiar
-                      </button>
+                      {/* cam-ac1: el botón solo existe si hay a qué cambiar; un
+                          botón que abre un panel vacío era ruido. */}
+                      {(parada.alternativas ?? []).length > 0 && (
+                        <button
+                          type="button"
+                          className="boton"
+                          aria-expanded={paradaConPanelAbiertoId === parada.id}
+                          onClick={() =>
+                            setParadaConPanelAbiertoId(paradaConPanelAbiertoId === parada.id ? null : parada.id)
+                          }
+                        >
+                          Cambiar por una alternativa
+                        </button>
+                      )}
                       {paradaConPanelAbiertoId === parada.id && (
                         <div className="panel-alternativas" role="region" aria-label={`Alternativas a ${parada.nombre}`}>
                           <p className="ayuda-alternativas">
                             Cambiar una parada crea una nueva versión del plan; podrás volver a la anterior desde esta
                             misma lista.
                           </p>
+                          {/* El panel también se abre desde «Ver sus alternativas» del paseo
+                              del día, sin botón de cambio: el estado vacío sigue siendo alcanzable. */}
                           {(parada.alternativas ?? []).length === 0 ? (
                             <div className="alternativas-vacio">
                               <p>No hay alternativas comprobadas para esta parada.</p>

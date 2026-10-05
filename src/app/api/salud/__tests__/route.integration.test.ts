@@ -53,7 +53,26 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud (esqueleto-ac1)",
     const cuerpo = await respuesta.json();
 
     expect(cuerpo.trabajador.commit_sha).toBe("c66ade5");
-    expect(cuerpo.trabajador.ultimo_resultado).toEqual(resultado);
+    expect(cuerpo.trabajador.ultimo_resultado).toEqual({ ...resultado, categoria: "ok" });
+  });
+
+  // cam-ac4: el error crudo puede llevar el destino del viaje.
+  it("publica el último error del tick como categoría y nunca como texto", async () => {
+    const resultado = {
+      ok: false,
+      trabajos_procesados: 0,
+      planes_mirados: 1,
+      paradas_intentadas: 0,
+      error: "Error: Nominatim 503 al buscar Lisboa",
+    };
+    await supabase.from("salud").insert({ origen: "trabajador-vps1", commit_sha: "c66ade5", resultado });
+
+    const respuesta = await GET(new NextRequest("http://localhost/api/salud"));
+    const texto = await respuesta.text();
+
+    expect(JSON.parse(texto).trabajador.ultimo_resultado.categoria).toBe("fuente-externa");
+    expect(texto).not.toContain("Lisboa");
+    expect(texto).not.toContain("Nominatim 503");
   });
 
   // cliente-ac3(a): al borrar SUPABASE_SCHEMA del entorno, la respuesta lo

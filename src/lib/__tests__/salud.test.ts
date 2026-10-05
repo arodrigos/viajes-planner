@@ -117,7 +117,8 @@ describe("construirSalud", () => {
     expect(salud.trabajador).toEqual({
       visto_hace_seg: 42,
       commit_sha: "c66ade5",
-      ultimo_resultado: ultimoResultado,
+      // cam-ac4: el texto del error ya no sale, solo su categoría.
+      ultimo_resultado: { ok: false, trabajos_procesados: 0, planes_mirados: 3, paradas_intentadas: 0, categoria: "desconocido" },
     });
   });
 });

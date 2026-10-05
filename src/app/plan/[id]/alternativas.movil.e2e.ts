@@ -105,7 +105,7 @@ test("cambiar una parada por una alternativa crea una versión nueva y la antigu
   const { count: versionesAntes } = await supabase.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planId);
 
   const tarjetaConAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Catedral de Sevilla" });
-  await tarjetaConAlternativas.getByRole("button", { name: "Cambiar" }).click();
+  await tarjetaConAlternativas.getByRole("button", { name: "Cambiar por una alternativa" }).click();
   await expect(tarjetaConAlternativas.getByText("Real Alcázar")).toBeVisible();
   // Acotado a los metadatos de la alternativa: desde encaje-y-paseo, la propia
   // parada también muestra "a N m de la siguiente parada" (etiquetas de encaje),
@@ -125,7 +125,7 @@ test("cambiar una parada por una alternativa crea una versión nueva y la antigu
 
   await pagina.reload();
   await expect(pagina.locator(".tarjeta-parada", { hasText: "Real Alcázar" })).toBeVisible();
-  await pagina.locator(".tarjeta-parada", { hasText: "Real Alcázar" }).getByRole("button", { name: "Cambiar" }).click();
+  await pagina.locator(".tarjeta-parada", { hasText: "Real Alcázar" }).getByRole("button", { name: "Cambiar por una alternativa" }).click();
   await expect(pagina.getByText("Catedral de Sevilla").last()).toBeVisible();
 
   await contexto.close();
@@ -156,11 +156,14 @@ test("usabilidad: parada sin alternativas, ayuda y objetivos táctiles (alt-ac7)
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const tarjetaSinAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Torre del Oro" });
-  const botonCambiar = tarjetaSinAlternativas.getByRole("button", { name: "Cambiar" });
-  await botonCambiar.click();
-  await expect(tarjetaSinAlternativas.getByText("No hay alternativas comprobadas para esta parada.")).toBeVisible();
-  await expect(tarjetaSinAlternativas.getByText(/Puedes regenerar este viaje/)).toBeVisible();
-  await expect(tarjetaSinAlternativas.getByText(/crea una nueva versión del plan/)).toBeVisible();
+  // cam-ac1: sin alternativas no hay ningún botón de cambio.
+  await expect(tarjetaSinAlternativas.getByRole("button", { name: /Cambiar/ })).toHaveCount(0);
+
+  // El botón de una tarjeta CON alternativas mide al menos 44×44 y su texto cabe.
+  const tarjetaConAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Catedral de Sevilla" });
+  await expect(tarjetaConAlternativas.getByRole("button", { name: "Cambiar por una alternativa" })).toHaveCount(1);
+  await tarjetaConAlternativas.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await expect(tarjetaConAlternativas.getByText(/crea una nueva versión del plan/)).toBeVisible();
 
   const resultados = await medirObjetivosTactiles(pagina);
   const botonMedido = resultados.find((r) => r.descripcion.includes("Cambiar"));
