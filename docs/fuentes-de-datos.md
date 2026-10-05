@@ -45,25 +45,37 @@ resolver las paradas, el trabajador calcula la **ciudad efectiva** del
 plan (`src/lib/lugares/ciudad.ts`) en tres pasos, siempre contra Nominatim
 y con la misma política de ritmo/caché/`User-Agent` de más arriba:
 
+Las paradas que se usan como muestra de validación (pasos 1 y 2) y las que
+se consultan en la deducción (paso 3) se eligen con el mismo orden
+determinista: **pocos tokens primero, luego el nombre más corto, luego
+alfabético** -- no "más tokens primero" como en una versión anterior de
+este documento. Medido contra Nominatim real (feedback del gatekeeper,
+2026-10-04): los nombres de SITIO que de verdad geocodifican ("Hyde Park")
+son casi siempre más cortos que las paradas descriptivas de un plan
+("Tarde libre en familia por el centro de la ciudad"); con el orden
+antiguo, un plan mixto llenaba la muestra con las descriptivas y nunca
+llegaba a los monumentos.
+
 1. **Caja del destino**: geocodifica el destino tal cual y comprueba una
-   muestra determinista de hasta 5 paradas contra esa caja; si al menos 2
-   resuelven y la caja no es desmesurada ni degenerada (0 grados de span),
-   la ciudad efectiva es el propio destino.
+   muestra de al menos 5 paradas (si no llega a 2 aceptadas, sigue
+   recorriendo paradas hasta un tope de 12 antes de rendirse) contra esa
+   caja; si al menos 2 resuelven y la caja no es desmesurada ni degenerada
+   (0 grados de span), la ciudad efectiva es el propio destino.
 2. **Candidato de nombre extraído del destino**: si el paso anterior no
    resuelve, prueba hasta 3 nombres de ciudad derivados del propio texto
    del destino (quitando colas cualificadoras conocidas como "en familia
    con niños" o "de fin de semana", y los primeros tokens del texto),
    geocodificando cada uno por separado y validándolo contra la misma
-   muestra de hasta 5 paradas -- un nombre de ciudad sin ninguna parada que
-   lo confirme no se acepta, aunque Nominatim devuelva una caja real para
-   él.
+   muestra creciente (5 a 12 paradas) -- un nombre de ciudad sin ninguna
+   parada que lo confirme no se acepta, aunque Nominatim devuelva una caja
+   real para él.
 3. **Deducción por paradas**: si ningún candidato anterior resuelve, busca
-   libremente (sin acotar por caja) hasta 8 nombres de parada distintos y
-   vota la ciudad por los niveles de dirección que devuelve Nominatim
-   (ciudad → distrito → región), verificando geográficamente a quien gana
-   antes de aceptarlo. Sin un ganador claro, el plan queda
-   `sin-ciudad-identificable` con el motivo y no se vuelve a reintentar en
-   cada tick.
+   libremente (sin acotar por caja) hasta 8 nombres de parada distintos (en
+   el mismo orden de pocos tokens primero) y vota la ciudad por los
+   niveles de dirección que devuelve Nominatim (ciudad → distrito →
+   región), verificando geográficamente a quien gana antes de aceptarlo.
+   Sin un ganador claro, el plan queda `sin-ciudad-identificable` con el
+   motivo y no se vuelve a reintentar en cada tick.
 
 A partir de ahí, **todo** cualificador geográfico y toda clave de caché de
 ese plan usan el nombre de la ciudad efectiva, nunca el texto crudo del
