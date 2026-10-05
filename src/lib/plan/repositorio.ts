@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { idsExternosVisitados } from "./visitas";
 import type { Alternativa, AnclaAlojamiento, Dia, Franja, Lugar, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
+import { fotoSegura } from "@/lib/lugares/urlFoto";
 
 // Forma en la que se guardan los días dentro de plan_versiones.dias: todo
 // menos las paradas, que tienen su propia tabla porque procedencias y
@@ -87,7 +88,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
           procedencia_id: procedenciaInsertada.id,
           categoria: parada.categoria ?? null,
           lugar: parada.lugar ?? null,
-          foto: parada.foto ?? null,
+          foto: fotoSegura(parada.foto) ?? null,
           resolucion: parada.resolucion ?? null,
           foto_intentada_en: parada.foto_intentada_en ?? null,
         })
@@ -114,7 +115,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
           lat: alternativa.coordenadas?.lat ?? null,
           lon: alternativa.coordenadas?.lon ?? null,
           lugar: alternativa.lugar ?? null,
-          foto: alternativa.foto ?? null,
+          foto: fotoSegura(alternativa.foto) ?? null,
         });
         if (errorAlternativa) {
           throw new Error(`No se pudo guardar la alternativa '${alternativa.nombre}' de la parada '${parada.id}': ${errorAlternativa.message}`);
@@ -193,7 +194,7 @@ export async function recuperarPlan(
       origen: fila.origen as Alternativa["origen"],
       ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
       ...(fila.lugar ? { lugar: fila.lugar as Lugar } : {}),
-      ...(fila.foto ? { foto: fila.foto as Alternativa["foto"] } : {}),
+      ...(fotoSegura(fila.foto as Alternativa["foto"]) ? { foto: fila.foto as Alternativa["foto"] } : {}),
     };
     const listaExistente = alternativasPorParadaId.get(fila.parada_id as string) ?? [];
     listaExistente.push(alternativa);
@@ -238,7 +239,7 @@ export async function recuperarPlan(
           ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
           ...(fila.categoria ? { categoria: fila.categoria as Parada["categoria"] } : {}),
           ...(lugar ? { lugar } : {}),
-          ...(fila.foto ? { foto: fila.foto as Parada["foto"] } : {}),
+          ...(fotoSegura(fila.foto as Parada["foto"]) ? { foto: fila.foto as Parada["foto"] } : {}),
           ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
           ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
           ...(idsVisitados.has(fila.id_externo as string) ? { visitada: true } : {}),

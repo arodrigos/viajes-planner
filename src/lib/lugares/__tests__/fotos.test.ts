@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
+import { esUrlFotoValida, fotoSegura, normalizarUrlFoto } from "../urlFoto";
 import { crearFuenteFotosAbierta } from "../fuenteFotosAbierta";
 import { crearFuenteFotosGrabada } from "../fuenteFotosGrabada";
 import { resolverFoto } from "../resolverFotos";
@@ -45,7 +47,7 @@ describe("crearFuenteFotosAbierta (fot-ac1)", () => {
     expect(resumen?.fichero).toBe("Museo_del_Prado_2016_(25185969599).jpg");
 
     const foto = await fuente.infoImagen(resumen!.fichero!);
-    expect(foto?.url).toMatch(/^https:\/\/thumb\.wikimedia\.org\//);
+    expect(foto?.url).toMatch(/^https:\/\/upload\.wikimedia\.org\//);
     expect(foto?.autor).toBe("Emilio J. Rodríguez Posada");
     expect(foto?.licencia).toBe("CC BY-SA 2.0");
     expect(foto?.licencia_url).toBe("https://creativecommons.org/licenses/by-sa/2.0");
@@ -173,5 +175,55 @@ describe("resolverFoto (fot-ac3): nunca una foto de otro sitio", () => {
     await resolverFoto(fuente, undefined, "museo", undefined);
 
     expect(llamadasGeosearch).toBe(0);
+  });
+});
+
+// alc-ac5: una URL de foto solo se guarda y se pinta si es del CDN de Wikimedia por https.
+describe("urlFoto (alc-ac5)", () => {
+  it.each([
+    ["https://upload.wikimedia.org/wikipedia/commons/a/ab/Foto.jpg", true],
+    ["https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Foto.jpg/640px-Foto.jpg?utm_source=x", true],
+    ["http://upload.wikimedia.org/wikipedia/commons/a/ab/Foto.jpg", false],
+    ["https://upload.wikimedia.org.evil.com/Foto.jpg", false],
+    ["https://upload.wikimedia.org@evil.com/Foto.jpg", false],
+    ["https://evil.com/https://upload.wikimedia.org/Foto.jpg", false],
+    ["https://commons.wikimedia.org/Foto.jpg", false],
+    ["javascript:alert(1)", false],
+    ["data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=", false],
+    ["//upload.wikimedia.org/Foto.jpg", false],
+    ["", false],
+  ])("%s -> %s", (url, esperado) => {
+    expect(esUrlFotoValida(url)).toBe(esperado);
+  });
+
+  it("fotoSegura conserva autor y licencia de una URL válida y descarta la hostil", () => {
+    const base = { fichero: "F.jpg", autor: "Ana", licencia: "CC BY 4.0", licencia_url: "https://creativecommons.org/licenses/by/4.0", pagina_url: "https://commons.wikimedia.org/wiki/File:F.jpg", fuente: "commons" as const };
+    const buena = { ...base, url: "https://upload.wikimedia.org/wikipedia/commons/a/ab/F.jpg" };
+    expect(fotoSegura(buena)).toEqual(buena);
+    expect(fotoSegura({ ...base, url: "http://upload.wikimedia.org/F.jpg" })).toBeUndefined();
+    expect(fotoSegura(null)).toBeUndefined();
+  });
+
+  it("normalizarUrlFoto lleva las miniaturas de thumb.wikimedia.org al host aceptado", () => {
+    const url = normalizarUrlFoto("https://thumb.wikimedia.org/wikipedia/commons/thumb/6/68/F.jpg/960px-F.jpg");
+    expect(url).toBe("https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/F.jpg/960px-F.jpg");
+    expect(esUrlFotoValida(url)).toBe(true);
+  });
+
+  it("invariante 4: sobre cadenas arbitrarias, lo aceptado empieza siempre por https://upload.wikimedia.org/", () => {
+    fc.assert(
+      fc.property(fc.oneof(fc.string(), fc.string().map((resto) => `https://upload.wikimedia.org/${resto}`), fc.webUrl()), (url) => {
+        if (esUrlFotoValida(url)) expect(url.startsWith("https://upload.wikimedia.org/")).toBe(true);
+      }),
+    );
+  });
+
+  it("infoImagen no devuelve una foto cuya URL no es de Wikimedia", async () => {
+    const hostil = JSON.parse(JSON.stringify(IMAGEINFO_PRADO));
+    const pagina = Object.values(hostil.query.pages)[0] as { imageinfo: Array<{ url: string; thumburl: string }> };
+    pagina.imageinfo[0].thumburl = "http://evil.example/foto.jpg";
+    pagina.imageinfo[0].url = "javascript:alert(1)";
+    const fuente = crearFuenteFotosAbierta({ fetch: (async () => respuestaJson(hostil)) as typeof fetch, reloj: crearRelojFalso() });
+    expect(await fuente.infoImagen("Museo del Prado 2016 (25185969599).jpg")).toBeNull();
   });
 });

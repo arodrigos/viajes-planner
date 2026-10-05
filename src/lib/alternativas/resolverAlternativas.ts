@@ -6,10 +6,12 @@
 import "server-only";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
 import { resolverNombre, type CualificadorCiudad } from "@/lib/lugares/resolverPlan";
-import type { FuenteLugares } from "@/lib/lugares/tipos";
+import { resolverFoto } from "@/lib/lugares/resolverFotos";
+import type { FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import type { Alternativa, Parada, Plan } from "@/lib/plan/tipos";
 import { ETIQUETA_OSM_POR_CATEGORIA, type FuenteCercanos } from "./cercanos";
-import { distanciaMetros, esEquivalente } from "./equivalencia";
+import { duracionParaCercano } from "./duraciones";
+import { distanciaMetros, esEquivalente, mismasCoordenadas } from "./equivalencia";
 
 const MINIMO_ALTERNATIVAS_SIN_COMPLEMENTO = 2;
 const MAXIMO_CERCANOS = 3;
@@ -46,6 +48,7 @@ export async function resolverAlternativasPlan(
   plan: Plan,
   perfil: string,
   ciudad?: CualificadorCiudad,
+  fuenteFotos?: FuenteFotos,
 ): Promise<Plan> {
   const bbox = ciudad?.caja ?? (await fuenteLugares.geocodificarDestino(plan.destino));
   const cualificador = ciudad?.nombre ?? plan.destino;
@@ -56,7 +59,7 @@ export async function resolverAlternativasPlan(
       ...dia,
       paradas: await Promise.all(
         dia.paradas.map((parada) =>
-          resolverAlternativasParada(fuenteLugares, fuenteCercanos, parada, cualificador, bbox, perfil, identidades),
+          resolverAlternativasParada(fuenteLugares, fuenteCercanos, parada, cualificador, bbox, perfil, identidades, fuenteFotos),
         ),
       ),
     })),
@@ -73,6 +76,7 @@ async function resolverAlternativasParada(
   bbox: Awaited<ReturnType<FuenteLugares["geocodificarDestino"]>>,
   perfil: string,
   identidades: Set<string>,
+  fuenteFotos?: FuenteFotos,
 ): Promise<Parada> {
   const propuestas = parada.alternativas ?? [];
   // Sin categoria no hay con qué comparar equivalencia ni qué pedir a
@@ -97,14 +101,18 @@ async function resolverAlternativasParada(
   if (resueltas.length < MINIMO_ALTERNATIVAS_SIN_COMPLEMENTO && parada.coordenadas) {
     const cercanos = await fuenteCercanos.buscar(parada.categoria, parada.coordenadas.lat, parada.coordenadas.lon);
     const etiqueta = ETIQUETA_OSM_POR_CATEGORIA[parada.categoria];
-    const cercanosAjenos = cercanos.filter((cercano) => !esLaMismaParadaDelPlan({ nombre: cercano.nombre, lugar: { id: cercano.id } }, identidades));
+    const cercanosAjenos = cercanos.filter(
+      (cercano) =>
+        !esLaMismaParadaDelPlan({ nombre: cercano.nombre, lugar: { id: cercano.id } }, identidades) &&
+        !mismasCoordenadas(parada.coordenadas as { lat: number; lon: number }, cercano),
+    );
     for (const cercano of cercanosAjenos.slice(0, MAXIMO_CERCANOS)) {
       const distanciaM = distanciaMetros(parada.coordenadas, cercano);
       resueltas.push({
         nombre: cercano.nombre,
         descripcion: `Sitio cercano de la categoría '${parada.categoria}' según OpenStreetMap.`,
         motivo: `A ${Math.round(distanciaM)} m, misma categoría (${etiqueta}) según OpenStreetMap.`,
-        duracion_min: parada.duracion_min,
+        duracion_min: duracionParaCercano(parada.categoria, parada.duracion_min),
         categoria: parada.categoria,
         origen: "cercano",
         coordenadas: { lat: cercano.lat, lon: cercano.lon },
@@ -120,5 +128,21 @@ async function resolverAlternativasParada(
     }
   }
 
-  return { ...parada, alternativas: resueltas.length > 0 ? resueltas : undefined };
+  // alc-ac4: misma resolución de foto que las paradas. Un fallo de red de
+  // Wikipedia/Commons deja esa alternativa sin foto, nunca sin alternativa.
+  const conFoto = fuenteFotos
+    ? await Promise.all(
+        resueltas.map(async (alternativa) => {
+          if (alternativa.foto) return alternativa;
+          try {
+            const foto = await resolverFoto(fuenteFotos, alternativa.lugar, alternativa.categoria, alternativa.coordenadas);
+            return foto ? { ...alternativa, foto } : alternativa;
+          } catch {
+            return alternativa;
+          }
+        }),
+      )
+    : resueltas;
+
+  return { ...parada, alternativas: conFoto.length > 0 ? conFoto : undefined };
 }
