@@ -9,7 +9,7 @@ import { resolverNombre, type CualificadorCiudad } from "@/lib/lugares/resolverP
 import { resolverFoto } from "@/lib/lugares/resolverFotos";
 import type { FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import type { Alternativa, Parada, Plan } from "@/lib/plan/tipos";
-import { ETIQUETA_OSM_POR_CATEGORIA, type FuenteCercanos } from "./cercanos";
+import { ETIQUETA_OSM_POR_CATEGORIA, FalloFuenteCercanos, type FuenteCercanos } from "./cercanos";
 import { duracionParaCercano } from "./duraciones";
 import { distanciaMetros, esEquivalente, mismasCoordenadas } from "./equivalencia";
 
@@ -99,7 +99,14 @@ async function resolverAlternativasParada(
   }
 
   if (resueltas.length < MINIMO_ALTERNATIVAS_SIN_COMPLEMENTO && parada.coordenadas) {
-    const cercanos = await fuenteCercanos.buscar(parada.categoria, parada.coordenadas.lat, parada.coordenadas.lon);
+    // En la generación un fallo de Overpass solo deja la parada sin
+    // complemento; el barrido posterior lo reintenta porque no se marca.
+    const cercanos = await fuenteCercanos
+      .buscar(parada.categoria, parada.coordenadas.lat, parada.coordenadas.lon)
+      .catch((error: unknown) => {
+        if (error instanceof FalloFuenteCercanos) return [];
+        throw error;
+      });
     const etiqueta = ETIQUETA_OSM_POR_CATEGORIA[parada.categoria];
     const cercanosAjenos = cercanos.filter(
       (cercano) =>

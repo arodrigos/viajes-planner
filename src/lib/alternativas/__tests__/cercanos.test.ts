@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { construirConsultaOverpass, crearFuenteCercanosAbierta } from "../cercanos";
+import { construirConsultaOverpass, crearFuenteCercanosAbierta, FalloFuenteCercanos } from "../cercanos";
 import { cacheSitiosMemoria } from "@/lib/lugares/cacheSitios";
 import type { Reloj } from "@/lib/lugares/limitador";
 
@@ -78,5 +78,28 @@ describe("crearFuenteCercanosAbierta (alt-ac4)", () => {
       { id: "osm:node/1", nombre: "Museo A", lat: 40.1, lon: -3.1 },
       { id: "osm:way/2", nombre: "Museo B", lat: 40.2, lon: -3.2 },
     ]);
+  });
+
+  it("un 503 persistente lanza FalloFuenteCercanos y no se cachea como «sin cercanos»", async () => {
+    const fetchFalso = vi
+      .fn()
+      .mockResolvedValueOnce(respuestaFetch(null, 503))
+      .mockResolvedValueOnce(respuestaFetch(null, 503))
+      .mockResolvedValue(respuestaFetch({ elements: [{ type: "node", id: 1, lat: 40.41, lon: -3.69, tags: { name: "Museo Cercano" } }] }));
+    const fuente = crearFuenteCercanosAbierta({ fetch: fetchFalso, reloj: RELOJ_FALSO, cache: cacheSitiosMemoria() });
+
+    await expect(fuente.buscar("museo", 40.41, -3.69)).rejects.toBeInstanceOf(FalloFuenteCercanos);
+    // La siguiente llamada vuelve a preguntar y ya obtiene el resultado real.
+    const cercanos = await fuente.buscar("museo", 40.41, -3.69);
+    expect(cercanos.map((c) => c.nombre)).toEqual(["Museo Cercano"]);
+  });
+
+  it("un error de red lanza FalloFuenteCercanos y no se cachea", async () => {
+    const fetchFalso = vi.fn().mockRejectedValueOnce(new TypeError("fetch failed")).mockResolvedValue(respuestaFetch({ elements: [] }));
+    const fuente = crearFuenteCercanosAbierta({ fetch: fetchFalso, reloj: RELOJ_FALSO, cache: cacheSitiosMemoria() });
+
+    await expect(fuente.buscar("museo", 10, 10)).rejects.toBeInstanceOf(FalloFuenteCercanos);
+    await expect(fuente.buscar("museo", 10, 10)).resolves.toEqual([]);
+    expect(fetchFalso).toHaveBeenCalledTimes(2);
   });
 });

@@ -7,7 +7,7 @@ import { relojReal, type Reloj } from "@/lib/lugares/limitador";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
 import type { CajaDelimitadora, FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
-import { ETIQUETA_OSM_POR_CATEGORIA, type FuenteCercanos } from "@/lib/alternativas/cercanos";
+import { ETIQUETA_OSM_POR_CATEGORIA, FalloFuenteCercanos, type FuenteCercanos } from "@/lib/alternativas/cercanos";
 import { distanciaMetros, mismasCoordenadas } from "@/lib/alternativas/equivalencia";
 import { duracionParaCercano } from "@/lib/alternativas/duraciones";
 import { esLaMismaParadaDelPlan } from "@/lib/alternativas/resolverAlternativas";
@@ -17,8 +17,10 @@ const MAXIMO_CERCANOS = 3;
 // alc-ac2: pasada única. Las paradas cuyo último intento de alternativas es
 // anterior a este instante se reintentan UNA vez con el filtro nuevo; al
 // terminar se marcan con un instante posterior, así que no vuelven a entrar.
-// Es la fecha del merge del bloque alternativas-completas.
-export const CORTE_ALTERNATIVAS = new Date("2026-10-05T09:00:00Z");
+// Se movió del merge de alternativas-completas (09:00Z) al del arreglo de
+// Overpass: hasta entonces un fallo transitorio se tomaba por «0 cercanos» y
+// marcaba el intento, así que las paradas ya marcadas debían volver a entrar.
+export const CORTE_ALTERNATIVAS = new Date("2026-10-05T11:00:00Z");
 
 // bar-ac3: 120 paradas o 180 s de reloj (lo que ocurra primero), para vaciar
 // las 467 pendientes en ~4 ticks sin solaparse con el cron de 5 min.
@@ -471,14 +473,15 @@ export async function completarParadasPendientes(
   // Todo intento de alternativas se marca con max(ahora, corte): así ni el
   // tercer barrido ni la pasada única de abajo vuelven a una parada ya
   // intentada, aunque el reloj aún no haya alcanzado el corte.
+  let overpassCaido = false;
   const marcaIntento = () => new Date(Math.max(Date.now(), corteAlternativas.getTime())).toISOString();
 
   // alt-ac1: tercer barrido, después del de ubicación y del de fotos y
   // dentro del mismo tope -- paradas YA resueltas (de este barrido, de uno
   // anterior o de una generación reciente), sin alternativas intentadas
   // todavía, para las que se pide a Overpass hasta 3 cercanos de origen
-  // 'cercano'. El intento se marca SIEMPRE (éxito, 0 resultados o fallo de
-  // Overpass) para no volver a preguntar en el siguiente tick. Consulta
+  // 'cercano'. El intento se marca con éxito o 0 resultados, no con un fallo de
+  // Overpass para no volver a preguntar en el siguiente tick. Consulta
   // fresca a la BD, igual que el barrido de fotos de arriba, para que una
   // parada recién resuelta en ESTE mismo tick entre también.
   if (fuenteCercanos) {
@@ -492,6 +495,7 @@ export async function completarParadasPendientes(
     if (errorAlternativas) throw new Error(`No se pudieron leer las paradas sin alternativas: ${errorAlternativas.message}`);
 
     for (const fila of (paradasSinAlternativas as FilaParadaParaAlternativas[] | null) ?? []) {
+      if (overpassCaido) break;
       const identidades = identidadesPorVersion.get(fila.plan_version_id) ?? new Set<string>();
       try {
         if (!fila.categoria || fila.lat === null || fila.lon === null) {
@@ -500,7 +504,13 @@ export async function completarParadasPendientes(
         }
         await insertarCercanos(supabase, { ...fila, categoria: fila.categoria, lat: fila.lat, lon: fila.lon }, identidades, fuenteCercanos, fuenteFotos);
         await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
-      } catch {
+      } catch (error) {
+        // Un fallo de Overpass no consume el intento (la parada vuelve en
+        // el siguiente tick) y corta el resto del tick para no martillear.
+        if (error instanceof FalloFuenteCercanos) {
+          overpassCaido = true;
+          continue;
+        }
         await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
       }
     }
@@ -545,6 +555,7 @@ export async function completarParadasPendientes(
       await marcar(candidatas.filter((fila) => !necesitaTrabajo(fila)).map((fila) => fila.id));
 
       for (const fila of candidatas.filter(necesitaTrabajo).slice(0, limite)) {
+        if (overpassCaido) break;
         try {
           const guardadas = porParada.get(fila.id) ?? [];
           if (guardadas.length === 0) {
@@ -570,8 +581,13 @@ export async function completarParadasPendientes(
               if (foto) await supabase.from("paradas_alternativas").update({ foto }).eq("id", alternativa.id);
             }
           }
-        } catch {
-          // El intento se marca igual: una pasada única no reintenta.
+        } catch (error) {
+          // Solo un fallo de la fuente deja el intento sin gastar; cualquier
+          // otro error se marca igual para que la pasada sea única.
+          if (error instanceof FalloFuenteCercanos) {
+            overpassCaido = true;
+            continue;
+          }
         }
         await marcar([fila.id]);
       }
