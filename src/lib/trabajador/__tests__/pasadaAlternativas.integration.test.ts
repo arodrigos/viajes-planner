@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { completarParadasPendientes } from "@/lib/trabajador/barrido";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
-import type { CandidatoCercano, FuenteCercanos } from "@/lib/alternativas/cercanos";
+import { FalloFuenteCercanos, type CandidatoCercano, type FuenteCercanos } from "@/lib/alternativas/cercanos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { crearFuenteFotosGrabada } from "@/lib/lugares/fuenteFotosGrabada";
 import type { FuenteCiudad, FuenteLugares } from "@/lib/lugares/tipos";
@@ -171,5 +171,53 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("pasada única de alternativas (a
       .select("id")
       .eq("parada_id", idPorNombre.get("Natural History Museum"));
     expect(trasSegunda?.length).toBe(alternativasMuseo?.length);
+  });
+
+  it("alc-ac2: un fallo de Overpass no gasta la única oportunidad de la parada", async () => {
+    const plan: Plan = {
+      id: "plan-alc-pasada-fallo",
+      version: 1,
+      destino: DESTINO,
+      personas: 2,
+      ciudad: CIUDAD_RESUELTA,
+      dias: [
+        {
+          fecha: "2026-11-01",
+          franjas: [{ id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" }],
+          paradas: [
+            {
+              id: "Natural History Museum-id",
+              franja_id: "manana",
+              nombre: "Natural History Museum",
+              descripcion: "",
+              duracion_min: 60,
+              prioridad: 50,
+              procedencia: { fuente: "propuesto-sin-verificar" as const },
+              categoria: "museo" as const,
+            },
+          ],
+        },
+      ],
+    };
+    await guardarPlan(supabase, plan);
+    const { data: fila } = await supabase.from("paradas").select("id").eq("nombre", "Natural History Museum").single();
+    await supabase
+      .from("paradas")
+      .update({ lat: 51.1, lon: -0.5, resolucion: { estado: "resuelta", intentado_en: "2026-10-01T00:00:00Z" }, alternativas_intentadas_en: ANTES_DEL_CORTE })
+      .eq("id", fila?.id);
+
+    const caida: FuenteCercanos = {
+      async buscar() {
+        throw new FalloFuenteCercanos("estado 504");
+      },
+    };
+    await completarParadasPendientes(supabase, FUENTE_LUGARES_SIN_RED, 120, FUENTE_FOTOS, undefined, undefined, caida, CORTE);
+    const { data: tras } = await supabase.from("paradas").select("alternativas_intentadas_en").eq("id", fila?.id).single();
+    expect(new Date(tras?.alternativas_intentadas_en as string).toISOString()).toBe(new Date(ANTES_DEL_CORTE).toISOString());
+
+    // Overpass vuelve: la parada gana alternativas en el tick siguiente.
+    await completarParadasPendientes(supabase, FUENTE_LUGARES_SIN_RED, 120, FUENTE_FOTOS, undefined, undefined, fuenteCercanosContada(), CORTE);
+    const { data: alternativas } = await supabase.from("paradas_alternativas").select("id").eq("parada_id", fila?.id);
+    expect(alternativas?.length).toBeGreaterThanOrEqual(1);
   });
 });

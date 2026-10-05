@@ -45,6 +45,17 @@ export interface CandidatoCercano {
   lon: number;
 }
 
+// Un 429, un 5xx o un fallo de red de Overpass NO es «cero cercanos»: quien
+// llama decide no gastar el intento. Antes se cacheaba [] durante 30 días y
+// el barrido lo daba por respuesta definitiva, así que un corte transitorio
+// dejaba a la parada sin alternativas para siempre.
+export class FalloFuenteCercanos extends Error {
+  constructor(motivo: string) {
+    super(`Overpass no respondió: ${motivo}`);
+    this.name = "FalloFuenteCercanos";
+  }
+}
+
 export interface FuenteCercanos {
   buscar(categoria: CategoriaParada, lat: number, lon: number, radioM?: number): Promise<CandidatoCercano[]>;
 }
@@ -62,8 +73,10 @@ interface RespuestaOverpass {
   elements?: ElementoOverpass[];
 }
 
+// Prefijo «overpass2»: descarta los [] guardados por error cuando un fallo
+// transitorio se cacheaba como respuesta vacía.
 function claveCache(categoria: CategoriaParada, lat: number, lon: number, radioM: number): string {
-  return `overpass:${categoria}:${lat.toFixed(3)}:${lon.toFixed(3)}:${radioM}`;
+  return `overpass2:${categoria}:${lat.toFixed(3)}:${lon.toFixed(3)}:${radioM}`;
 }
 
 export interface OpcionesFuenteCercanos {
@@ -84,7 +97,7 @@ export function crearFuenteCercanosAbierta(opciones: OpcionesFuenteCercanos = {}
   const cache = opciones.cache ?? cacheSitiosMemoria();
   const limitar = crearLimitador(opciones.intervaloMinMs ?? 1100, reloj);
 
-  async function peticionConReintento(consulta: string): Promise<Response | null> {
+  async function peticionConReintento(consulta: string): Promise<Response> {
     const hacer = () =>
       fetchImpl(OVERPASS_URL, {
         method: "POST",
@@ -97,9 +110,11 @@ export function crearFuenteCercanosAbierta(opciones: OpcionesFuenteCercanos = {}
         await reloj.dormir(30_000);
         respuesta = await hacer();
       }
-      return respuesta.ok ? respuesta : null;
-    } catch {
-      return null;
+      if (!respuesta.ok) throw new FalloFuenteCercanos(`estado ${respuesta.status}`);
+      return respuesta;
+    } catch (error) {
+      if (error instanceof FalloFuenteCercanos) throw error;
+      throw new FalloFuenteCercanos("fallo de red");
     }
   }
 
@@ -113,10 +128,6 @@ export function crearFuenteCercanosAbierta(opciones: OpcionesFuenteCercanos = {}
       if (!esFalloDeCache(enCache)) return enCache as CandidatoCercano[];
 
       const respuesta = await limitar(() => peticionConReintento(consulta));
-      if (!respuesta) {
-        await cache.guardar(clave, []);
-        return [];
-      }
       const datos = (await respuesta.json()) as RespuestaOverpass;
       const candidatos = (datos.elements ?? [])
         .map((elemento) => {
