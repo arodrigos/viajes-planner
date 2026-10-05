@@ -390,12 +390,23 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                           Cambiar por una alternativa
                         </button>
                       )}
-                      {paradaConPanelAbiertoId === parada.id && (parada.alternativas ?? []).length > 0 && (
+                      {paradaConPanelAbiertoId === parada.id && (
                         <div className="panel-alternativas" role="region" aria-label={`Alternativas a ${parada.nombre}`}>
                           <p className="ayuda-alternativas">
                             Cambiar una parada crea una nueva versión del plan; podrás volver a la anterior desde esta
                             misma lista.
                           </p>
+                          {/* El panel también se abre desde «Ver sus alternativas» del paseo
+                              del día, sin botón de cambio: el estado vacío sigue siendo alcanzable. */}
+                          {(parada.alternativas ?? []).length === 0 ? (
+                            <div className="alternativas-vacio">
+                              <p>No hay alternativas comprobadas para esta parada.</p>
+                              <p className="ayuda-alternativas">
+                                Las alternativas salen al generar el plan; los viajes anteriores no las tienen. Puedes
+                                regenerar este viaje desde el menú del plan para obtenerlas.
+                              </p>
+                            </div>
+                          ) : (
                             <ul className="pila lista-alternativas">
                               {(parada.alternativas ?? []).map((alternativa, indice) => (
                                 <li key={alternativa.id ?? `${parada.id}-${indice}`} className="tarjeta-alternativa">
@@ -435,6 +446,7 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                                 </li>
                               ))}
                             </ul>
+                          )}
                         </div>
                       )}
                     </div>
