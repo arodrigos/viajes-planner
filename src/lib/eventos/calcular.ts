@@ -60,7 +60,12 @@ export function filtrarFestivos(candidatos: EventoFuente[], s: SegmentoEventos, 
   for (const c of candidatos) {
     if (c.tipo === "fiesta") continue;
     const rango = recortar(c.fecha, c.fecha_fin, s);
-    if (rango) salida.push({ ...c, ...rango, etapa: s.etapa, pais });
+    // El spread de `c` arrastraría su fecha_fin original cuando el recorte deja un solo día.
+    if (rango) {
+      const evento: Evento = { ...c, ...rango, etapa: s.etapa, pais };
+      if (!rango.fecha_fin) delete evento.fecha_fin;
+      salida.push(evento);
+    }
   }
   return salida;
 }
