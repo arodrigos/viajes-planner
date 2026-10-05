@@ -135,8 +135,10 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   await expect(pagina.getByRole("link", { name: "Ver en OpenStreetMap: Museo del Prado" })).toBeVisible();
   await expect(pagina.getByRole("link", { name: "Ver en Wikipedia: Templo de Debod" })).toBeVisible();
   const nombresMalos = await pagina.evaluate(() =>
-    Array.from(document.querySelectorAll("a, button"))
-      .map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim() ?? "")
+    // Solo dentro de las tarjetas: el resto de la página (mapa, cabecera) trae
+    // controles de terceros cuyo nombre no depende de este bloque.
+    Array.from(document.querySelectorAll(".tarjeta-parada a, .tarjeta-parada button"))
+      .map((el) => el.getAttribute("aria-label") || el.textContent?.trim() || "")
       .filter((nombre) => nombre === "" || /flecha|→|↗/.test(nombre)),
   );
   expect(nombresMalos).toEqual([]);
