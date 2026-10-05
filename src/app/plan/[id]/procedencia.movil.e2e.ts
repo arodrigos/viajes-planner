@@ -131,6 +131,16 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   await expect(tarjetaWikipedia.getByText(/Ubicación comprobada en Wikipedia/)).toBeVisible();
   await expect(tarjetaWikipedia.getByRole("link")).toHaveAttribute("href", "https://es.wikipedia.org/wiki/Templo_de_Debod");
 
+  // cam-ac3: el nombre accesible dice fuente y sitio, no «flecha».
+  await expect(pagina.getByRole("link", { name: "Ver en OpenStreetMap: Museo del Prado" })).toBeVisible();
+  await expect(pagina.getByRole("link", { name: "Ver en Wikipedia: Templo de Debod" })).toBeVisible();
+  const nombresMalos = await pagina.evaluate(() =>
+    Array.from(document.querySelectorAll("a, button"))
+      .map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim() ?? "")
+      .filter((nombre) => nombre === "" || /flecha|→|↗/.test(nombre)),
+  );
+  expect(nombresMalos).toEqual([]);
+
   // (b) la que no resolvió dice "Sin comprobar" con su ayuda, sin enlace.
   const tarjetaSinResolver = pagina.locator(".tarjeta-parada", { hasText: "Sitio Inventado Que No Existe" });
   await expect(tarjetaSinResolver.getByText(/Sin comprobar/)).toBeVisible();

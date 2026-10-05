@@ -122,7 +122,7 @@ test("una alternativa muestra sus etiquetas de encaje calculadas (enc-ac1)", asy
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo del Prado" });
-  await tarjeta.getByRole("button", { name: "Cambiar" }).click();
+  await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
   await expect(tarjeta.getByText("Museo Thyssen")).toBeVisible();
 
   const etiquetas = tarjeta.locator(".etiquetas-encaje");
