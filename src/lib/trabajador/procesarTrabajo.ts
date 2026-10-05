@@ -18,6 +18,7 @@ import { resolverAlternativasPlan } from "@/lib/alternativas/resolverAlternativa
 import { familiaDeModelo, registrarLecturaCuota } from "./cuota";
 import { LimiteDeUsoAlcanzado, type EjecutorModelo, type ResultadoInvocacion } from "./ejecutorModelo";
 import { construirPrompt, construirPromptReintento } from "./prompt";
+import { ensamblarCoste, ensamblarMotivo } from "@/lib/presupuesto/ensamblar";
 import { generarIdParada, generarIdPlan } from "./id";
 import { MODELO_GENERACION } from "./config";
 
@@ -131,6 +132,8 @@ function ensamblarParada(paradaCruda: Record<string, unknown> | null): Parada {
   const categoriaCruda = paradaCruda?.categoria;
   const categoria = typeof categoriaCruda === "string" && CATEGORIAS_VALIDAS.has(categoriaCruda) ? categoriaCruda : undefined;
   const alternativas = ensamblarAlternativas(paradaCruda?.alternativas);
+  const motivo = ensamblarMotivo(paradaCruda?.motivo);
+  const coste = ensamblarCoste(paradaCruda?.coste_eur_persona, new Date());
   return {
     id: generarIdParada(),
     franja_id: paradaCruda?.franja_id as string,
@@ -141,6 +144,8 @@ function ensamblarParada(paradaCruda: Record<string, unknown> | null): Parada {
     procedencia: { fuente: "propuesto-sin-verificar" },
     ...(categoria ? { categoria: categoria as Parada["categoria"] } : {}),
     ...(alternativas.length > 0 ? { alternativas } : {}),
+    ...(motivo ? { motivo } : {}),
+    ...(coste ? { coste } : {}),
   };
 }
 

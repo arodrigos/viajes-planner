@@ -91,6 +91,8 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
           foto: fotoSegura(parada.foto) ?? null,
           resolucion: parada.resolucion ?? null,
           foto_intentada_en: parada.foto_intentada_en ?? null,
+          motivo: parada.motivo ?? null,
+          coste: parada.coste ?? null,
         })
         .select("id")
         .single();
@@ -156,7 +158,7 @@ export async function recuperarPlan(
   const { data: paradaRows, error: errorParadas } = await supabase
     .from("paradas")
     .select(
-      "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, procedencias(fuente)",
+      "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, procedencias(fuente)",
     )
     .eq("plan_version_id", versionRow.id)
     .order("dia_index", { ascending: true });
@@ -241,6 +243,8 @@ export async function recuperarPlan(
           ...(lugar ? { lugar } : {}),
           ...(fotoSegura(fila.foto as Parada["foto"]) ? { foto: fila.foto as Parada["foto"] } : {}),
           ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
+          ...(fila.motivo ? { motivo: fila.motivo as string } : {}),
+          ...(fila.coste ? { coste: fila.coste as Parada["coste"] } : {}),
           ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
           ...(idsVisitados.has(fila.id_externo as string) ? { visitada: true } : {}),
         };

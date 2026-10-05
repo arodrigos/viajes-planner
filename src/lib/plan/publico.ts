@@ -6,6 +6,8 @@ import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./pa
 import type { AnclaAlojamiento, Dia, Foto, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
+import { calcularPresupuesto } from "@/lib/presupuesto/calcular";
+import type { PresupuestoPublico } from "@/lib/presupuesto/texto";
 import { fotoSegura } from "@/lib/lugares/urlFoto";
 
 // Serialización hacia el cliente. hora_inicio/hora_fin son internas (costura
@@ -72,6 +74,9 @@ export interface PlanPublico {
   // para que el script de verificación del modelo real pueda comprobarla
   // sin depender de un acceso directo a la base de datos.
   ciudad?: CiudadEfectiva;
+  // mot-ac1: suma de las visitas con coste, calculada aquí y no en el
+  // cliente.
+  presupuesto: PresupuestoPublico;
 }
 
 function textoApertura(resultado: ReturnType<typeof calcularApertura>): string {
@@ -165,7 +170,8 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
 // ausente en una llamada que no lo conoce (p. ej. un script sin trabajo
 // detrás), en cuyo caso el paseo usa el umbral no familiar, el más
 // permisivo.
-export function aPlanPublico(plan: Plan, perfil: string | null = null): PlanPublico {
+export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null): PlanPublico {
+  const { total_eur, total_estimado_eur, total_de_fuente_eur } = calcularPresupuesto(plan);
   return {
     id: plan.id,
     version: plan.version,
@@ -184,5 +190,6 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null): PlanPubl
     avisos: plan.avisos ?? [],
     recomendaciones: plan.recomendaciones ?? [],
     ...(plan.ciudad ? { ciudad: plan.ciudad } : {}),
+    presupuesto: { total_eur, total_estimado_eur, total_de_fuente_eur, ...(presupuestoEur !== null ? { tu_presupuesto_eur: presupuestoEur } : {}) },
   };
 }

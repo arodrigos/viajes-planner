@@ -286,6 +286,26 @@ h3 {
   margin: 0;
 }
 
+/* bloque motivo-y-presupuesto: el motivo largo (300 caracteres) tiene que
+   partirse dentro de los 390 px en vez de desbordar. */
+.motivo-parada,
+.texto-motivo,
+.precio-parada {
+  font-size: var(--texto-pequeno);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.etiqueta-modelo {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.presupuesto-plan p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 /* bloque encaje-y-paseo (enc-ac1/enc-ac2) */
 .paseo-dia {
   font-size: var(--texto-pequeno);

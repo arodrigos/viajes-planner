@@ -41,6 +41,21 @@ export const CATEGORIAS_PARADA = [
 
 export type CategoriaParada = (typeof CATEGORIAS_PARADA)[number];
 
+// motivo-y-presupuesto: precio orientativo de una parada. `por` decide cómo
+// se multiplica (persona x personas, grupo tal cual, gratis = 0);
+// `procedencia` separa lo que el modelo estima de lo que viene de una fuente
+// (Wikivoyage, en bloques posteriores) para que el presupuesto no presente
+// una estimación como un dato.
+export type PorCoste = "persona" | "grupo" | "gratis";
+export type ProcedenciaCoste = "estimado" | "wikivoyage";
+
+export interface CosteParada {
+  importe_eur: number;
+  por: PorCoste;
+  procedencia: ProcedenciaCoste;
+  fecha: string;
+}
+
 export interface EtiquetasLugar {
   opening_hours?: string;
   wikipedia?: string;
@@ -125,6 +140,11 @@ export interface Parada {
   // explícito) cuando no está visitada, mismo patrón que el resto de
   // campos derivados de este fichero.
   visitada?: boolean;
+  // motivo-y-presupuesto: ausentes en planes anteriores y cuando el modelo
+  // no los dio o los dio mal formados (el ensamblador los descarta sin
+  // invalidar el plan).
+  motivo?: string;
+  coste?: CosteParada;
 }
 
 // bloque alternativas-equivalentes: de dónde sale una alternativa -- el
