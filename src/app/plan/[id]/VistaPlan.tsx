@@ -116,6 +116,7 @@ interface RecomendacionPublica {
 
 interface PlanPublico {
   id: string;
+  version: number;
   destino: string;
   dias: DiaPublico[];
   avisos: string[];
@@ -619,7 +620,7 @@ export function VistaPlan({ id }: { id: string }) {
           <p id="ayuda-calendario" className="ayuda">
             Descarga un fichero .ics que puedes abrir en Google Calendar o en el calendario del móvil
           </p>
-          <BotonInfografia planId={id} />
+          <BotonInfografia planId={id} version={plan.version} />
           <button type="button" aria-describedby="ayuda-regenerar" onClick={() => setDialogoRegenerarAbierto(true)}>
             Regenerar este viaje
           </button>
