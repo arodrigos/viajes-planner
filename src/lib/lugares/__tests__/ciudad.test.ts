@@ -355,6 +355,53 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     expect(conteos.libres).toBe(0);
   });
 
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 8): reproduce EXACTO
+  // el sondeo real que hizo el gatekeeper contra Nominatim (plan mixto de 8
+  // paradas, 4 descriptivas largas + 4 monumentos) y que medía
+  // "sin-ciudad-identificable" / categoría "zona-grande" con la lógica
+  // anterior: `ordenDeterminista` elegía la muestra de 5 empezando por las
+  // 4 descriptivas (más tokens), así que solo 1 de los 4 monumentos entraba
+  // en la muestra y "Londres" se descartaba por 1 de 5 aceptadas. Con el
+  // orden nuevo (pocos tokens primero) los 4 monumentos entran en la
+  // muestra y "Londres" resuelve.
+  it("resuelve un plan mixto (paradas descriptivas + monumentos) que antes se sellaba por el sesgo de orden de la muestra", async () => {
+    const descriptivas = [
+      "Tarde libre en familia por el centro de la ciudad",
+      "Cena tranquila cerca del alojamiento con los niños",
+      "Traslado desde el aeropuerto hasta el hotel",
+      "Paseo sin prisa antes de volver al hotel",
+    ];
+    const monumentos = ["British Museum", "London Eye", "Hyde Park", "Tower Bridge"];
+    const monumentosConDatos: Array<{ nombre: string; lat: number; lon: number; direccion: CandidatoLugar["direccion"] }> = [
+      { nombre: "British Museum", lat: 51.5193118, lon: -0.1267051, direccion: direccionLondres({ city: "Gran Londres" }) },
+      { nombre: "London Eye", lat: 51.5028274, lon: -0.1174123, direccion: direccionLondres({ city: "Gran Londres" }) },
+      { nombre: "Hyde Park", lat: 51.5074889, lon: -0.1622074, direccion: direccionLondres({ city: "City of Westminster" }) },
+      { nombre: "Tower Bridge", lat: 51.5055, lon: -0.0754, direccion: direccionLondres({ city: "Gran Londres" }) },
+    ];
+    const nominatim: Record<string, CandidatoLugar[]> = {};
+    for (const m of monumentosConDatos) {
+      nominatim[`${m.nombre}::Londres`] = [candidato({ nombreFuente: m.nombre, lat: m.lat, lon: m.lon, direccion: m.direccion })];
+    }
+    const c = contador();
+    const fuente = c.envolver(
+      crearFuenteLugaresGrabada({
+        destinos: {},
+        nominatim,
+        libres: {},
+        ciudades: { Londres: CAJA_GRAN_LONDRES },
+      }),
+    );
+    const resultado = await resolverCiudadEfectiva(fuente, "Londres en familia con niños", [...descriptivas, ...monumentos]);
+    expect(resultado?.estado).toBe("resuelta");
+    expect(resultado?.metodo).toBe("destino");
+    expect(resultado?.nombre).toBe("Londres");
+    // Los 4 monumentos entran en la muestra (pocos tokens primero) y
+    // aceptan; la 5ª posición de la muestra base se consulta igual (una
+    // descriptiva, que falla) antes de aceptar la caja.
+    expect(c.conteos().nominatim).toBe(5);
+    expect(c.conteos().libres).toBe(0);
+  });
+
   // La validación no es opcional: geocodificarCiudad("Ciudad") también
   // devuelve una caja real para un lugar que de verdad se llama así, pero
   // sin ninguna parada que la confirme no hay que aceptarla -- sería peor

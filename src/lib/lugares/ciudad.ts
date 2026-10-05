@@ -47,7 +47,19 @@ export interface CandidatoCiudad {
 // gastado: sin esta subida, la clave de caché `ciudad:v4:...` del nivel de
 // deducción seguiría siendo válida y el plan ni siquiera llegaría a probar
 // el escalón nuevo con una pregunta real a Nominatim.
-export const VERSION_RESOLUTOR_ACTUAL = 5;
+//
+// Subida a 6 (bar-ac4, feedback del gatekeeper, 2026-10-04, ronda 8): medido
+// contra el despliegue real por el gatekeeper, `ordenDeterminista` elegía la
+// muestra de validación empezando por los nombres con MÁS tokens -- en un
+// plan mixto eso llena la muestra con paradas descriptivas ("Tarde libre en
+// familia por el centro de la ciudad") y nunca llega a los nombres de sitio
+// cortos (monumentos), así que "Londres" se descartaba por 1 de 5 aceptadas
+// en vez de 2. Ahora el orden prioriza POCOS tokens primero (más corto,
+// luego alfabético) y la muestra de validación crece hasta encontrar 2
+// aceptadas en vez de cortar siempre en 5 -- otra vez IMPRESCINDIBLE subir
+// la versión en el mismo commit: el reintento único de la versión 5 para los
+// 3 planes sellados por este mismo sesgo ya está gastado.
+export const VERSION_RESOLUTOR_ACTUAL = 6;
 
 // bar-ac4: categoría cerrada del motivo de sellado, para poder contar por
 // tipo en /api/salud.relleno sin tener que hacer coincidir texto libre
@@ -100,6 +112,7 @@ export interface CiudadEfectiva {
 }
 
 const TAMANO_MUESTRA_DESTINO = 5;
+const MUESTRA_MAXIMA_DESTINO = 12;
 const MINIMO_ACEPTADAS_DESTINO = 2;
 const MAXIMO_PARADAS_DEDUCCION = 8;
 const MINIMO_PARADAS_DEDUCCION = 3;
@@ -111,11 +124,18 @@ const MINIMO_PARADAS_VOTANTES_EN_CAJA = 2;
 
 type NivelDireccion = "ciudad" | "distrito" | "region";
 
-// ciu-ac2/invariante de orden: deduplica por nombre normalizado (se queda
-// con la primera grafía original encontrada) y ordena por más tokens,
-// luego más largo, luego alfabético -- un orden total que no depende de la
-// posición de entrada, así que permutar la lista de origen nunca cambia el
-// resultado.
+// ciu-ac2/invariante de orden -- reordenado en bar-ac4 (feedback del
+// gatekeeper, 2026-10-04, ronda 8): deduplica por nombre normalizado (se
+// queda con la primera grafía original encontrada) y ordena por MENOS
+// tokens primero, luego más CORTO, luego alfabético. Es un orden total que
+// no depende de la posición de entrada (el invariante de permutación sigue
+// cumpliéndose), pero ya no es el de ciu-ac2 ("más tokens, luego más
+// largo"): esa letra se escribió asumiendo que un nombre largo y
+// descriptivo era tan buen candidato de muestra como uno corto, y medido
+// contra Nominatim real no lo es -- los nombres de SITIO (los que de verdad
+// geocodifican) son casi siempre los más cortos ("Hyde Park" frente a
+// "Tarde libre en familia por el centro de la ciudad"). Desviación
+// declarada en `desviaciones` del entregable de esta pasada.
 function ordenDeterminista(nombres: string[]): string[] {
   const vistos = new Map<string, string>();
   for (const nombre of nombres) {
@@ -126,8 +146,8 @@ function ordenDeterminista(nombres: string[]): string[] {
   distintos.sort(([claveA], [claveB]) => {
     const tokensA = claveA.split(" ").filter(Boolean).length;
     const tokensB = claveB.split(" ").filter(Boolean).length;
-    if (tokensA !== tokensB) return tokensB - tokensA;
-    if (claveA.length !== claveB.length) return claveB.length - claveA.length;
+    if (tokensA !== tokensB) return tokensA - tokensB;
+    if (claveA.length !== claveB.length) return claveA.length - claveB.length;
     return claveA < claveB ? -1 : claveA > claveB ? 1 : 0;
   });
   return distintos.map(([, original]) => original);
@@ -291,12 +311,21 @@ async function intentarCajaDelDestino(
   const bbox = await fuente.geocodificarDestino(destino);
   if (!bbox) return { descartado: "" };
 
-  const muestra = nombresOrdenados.slice(0, TAMANO_MUESTRA_DESTINO);
+  // bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 8): no cortar
+  // siempre en TAMANO_MUESTRA_DESTINO -- con el nuevo orden (pocos tokens
+  // primero) la mayoría de los planes aceptan ya en la muestra pequeña,
+  // pero si no llega a las 2 aceptadas se sigue recorriendo hasta
+  // MUESTRA_MAXIMA_DESTINO antes de rendirse. El presupuesto de 180 s por
+  // tick lo permite y evita sellar un plan que sí tenía la información.
+  const muestra = nombresOrdenados.slice(0, MUESTRA_MAXIMA_DESTINO);
   let aceptadas = 0;
+  let intentadas = 0;
   for (const nombre of muestra) {
+    intentadas++;
     const candidatos = await fuente.buscarNominatim(limpiarNombreBusqueda(nombre), destino, bbox);
     const elegido = elegirMejorCandidato(nombre, candidatos, bbox);
     if (elegido.candidato) aceptadas++;
+    if (aceptadas >= MINIMO_ACEPTADAS_DESTINO && intentadas >= TAMANO_MUESTRA_DESTINO) break;
   }
 
   if (aceptadas >= MINIMO_ACEPTADAS_DESTINO && spanValido(bbox)) {
@@ -305,7 +334,7 @@ async function intentarCajaDelDestino(
   if (aceptadas >= MINIMO_ACEPTADAS_DESTINO) {
     return { descartado: `la caja del destino «${destino}» abarca una zona demasiado grande` };
   }
-  return { descartado: `la caja del destino no resolvió ninguna parada (${aceptadas} de ${muestra.length})` };
+  return { descartado: `la caja del destino no resolvió ninguna parada (${aceptadas} de ${intentadas})` };
 }
 
 // bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): colas
@@ -381,16 +410,21 @@ async function intentarCandidatosDesdeTexto(
   destino: string,
   nombresOrdenados: string[],
 ): Promise<{ nombre: string; caja: CajaDelimitadora } | null> {
-  const muestra = nombresOrdenados.slice(0, TAMANO_MUESTRA_DESTINO);
+  // bar-ac4 (ronda 8): mismo crecimiento de muestra que intentarCajaDelDestino
+  // -- ver su comentario.
+  const muestra = nombresOrdenados.slice(0, MUESTRA_MAXIMA_DESTINO);
 
   for (const candidato of candidatosDesdeTextoDestino(destino)) {
     const caja = await fuente.geocodificarCiudad(candidato);
     if (!caja || !spanValido(caja)) continue;
 
     let aceptadas = 0;
+    let intentadas = 0;
     for (const nombre of muestra) {
+      intentadas++;
       const candidatosLugar = await fuente.buscarNominatim(limpiarNombreBusqueda(nombre), candidato, caja);
       if (elegirMejorCandidato(nombre, candidatosLugar, caja).candidato) aceptadas++;
+      if (aceptadas >= MINIMO_ACEPTADAS_DESTINO && intentadas >= TAMANO_MUESTRA_DESTINO) break;
     }
     if (aceptadas >= MINIMO_ACEPTADAS_DESTINO) return { nombre: candidato, caja };
   }
