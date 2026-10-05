@@ -87,7 +87,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("eventos en plan_versiones (eve-a
     await guardarPlan(supabase, plan("plan-eve-429"));
     await sembrarTrabajo(supabase, "plan-eve-429", "fechas");
     const r = await enriquecerEventosDePlan(supabase, { fuenteEventos: fuentes([], 429), reloj }, "plan-eve-429");
-    expect(r.intentadas).toBe(0);
+    expect(r).toMatchObject({ intentadas: 1, fallos: 1 });
     const { data } = await supabase.from("plan_versiones").select("eventos_intentados_en").eq("plan_id", "plan-eve-429").single();
     expect(data?.eventos_intentados_en).toBeNull();
   });
