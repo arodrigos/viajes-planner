@@ -70,7 +70,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     await supabase.from("planes").delete().like("id", `${PREFIJO}%`);
   });
 
-  it("cuadra el total, usa solo las veinte claves numéricas, y no publica ningún dato personal", async () => {
+  it("cuadra el total, usa solo las veinticinco claves numéricas, y no publica ningún dato personal", async () => {
     // Plan 1: destino descriptivo real de Adrián, trabajo vivo, parada sin
     // intentar, ciudad efectiva ya resuelta (ciu-ac6).
     const plan1: Plan = {
@@ -162,7 +162,10 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
         "paradas_con_alternativas",
         "paradas_con_categoria",
         "paradas_con_guia",
+        "paradas_con_motivo",
         "versiones_con_eventos",
+        "versiones_multiciudad",
+        "trabajos_inviables",
         "planes_total",
         "planes_sin_version",
         "planes_sin_trabajo_vivo",
@@ -212,6 +215,80 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     }
     expect(textoRespuesta).not.toMatch(/@/);
     expect(textoRespuesta).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
+  });
+
+  // cp-sco-01: los tres contadores nuevos cuentan exactamente lo que dicen.
+  it("cuenta versiones multiciudad, trabajos inviables y paradas con motivo (cp-sco-01)", async () => {
+    const vacio = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(vacio.relleno.versiones_multiciudad).toBe(0);
+    expect(vacio.relleno.trabajos_inviables).toBe(0);
+    expect(vacio.relleno.paradas_con_motivo).toBe(0);
+
+    const etapa = (nombre: string, diaInicio: number) => ({
+      ciudad: { estado: "resuelta", nombre },
+      pais: "España",
+      dias: 1,
+      dia_inicio: diaInicio,
+      alojamiento_noche_eur: 80,
+      zona: 1,
+      ajustes: [],
+    });
+    const multiciudad: Plan = {
+      id: `${PREFIJO}multi`,
+      version: 1,
+      destino: "Ruta de dos ciudades",
+      personas: 2,
+      dias: [diaConParadas(["Parada uno"])],
+      etapas: [etapa("Toledo", 0), etapa("Segovia", 1)] as unknown as Plan["etapas"],
+    };
+    await guardarPlan(supabase, multiciudad);
+    const unaCiudad: Plan = { id: `${PREFIJO}una`, version: 1, destino: "Una ciudad", personas: 2, dias: [diaConParadas(["Parada dos"])] };
+    await guardarPlan(supabase, unaCiudad);
+    // guardarPlan escribe null cuando no hay etapas; el [] solo puede venir de un insert directo.
+    const { error: errorVacia } = await supabase
+      .from("plan_versiones")
+      .insert({ plan_id: unaCiudad.id, version: 2, personas: 2, dias: [], etapas: [] });
+    if (errorVacia) throw new Error(`No se pudo sembrar la versión con etapas vacías: ${errorVacia.message}`);
+
+    await sembrarTrabajo(supabase, multiciudad.id, multiciudad.destino);
+    await sembrarTrabajo(supabase, unaCiudad.id, unaCiudad.destino);
+    const { error: errorInviable } = await supabase
+      .from("trabajos")
+      .update({ inviable: { razones: ["No caben en tres días"], sugerencias: [] } })
+      .eq("plan_id", multiciudad.id);
+    if (errorInviable) throw new Error(`No se pudo marcar el trabajo como inviable: ${errorInviable.message}`);
+
+    const motivos: Array<[string, string | null]> = [
+      ["Con motivo uno", "Ideal con niños"],
+      ["Con motivo dos", "Vistas al río"],
+      ["Motivo vacío", ""],
+      ["Sin motivo", null],
+    ];
+    const conMotivos: Plan = {
+      id: `${PREFIJO}motivos`,
+      version: 1,
+      destino: "Con motivos",
+      personas: 2,
+      dias: [diaConParadas(motivos.map(([nombre]) => nombre))],
+    };
+    await guardarPlan(supabase, conMotivos);
+    for (const [nombre, motivo] of motivos) await marcarParada(supabase, `${nombre}-id`, { motivo });
+
+    _reiniciarCacheRellenoParaTests();
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    const relleno = cuerpo.relleno;
+    expect(relleno.versiones_multiciudad).toBe(1);
+    expect(relleno.trabajos_inviables).toBe(1);
+    expect(relleno.paradas_con_motivo).toBe(2);
+    expect(Object.keys(relleno)).toHaveLength(25);
+    expect(new Set(Object.values(relleno).map((v) => typeof v))).toEqual(new Set(["number"]));
+
+    const texto = JSON.stringify(relleno).toLowerCase();
+    for (const literal of ["ruta de dos", "una ciudad", "con motivos", "parada uno", "ideal con niños", "toledo"]) {
+      expect(texto).not.toContain(literal);
+    }
+    expect(texto).not.toMatch(/@/);
+    expect(texto).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
   });
 
   it("si una consulta de recuento falla, la respuesta omite relleno entero y conserva el resto", async () => {
