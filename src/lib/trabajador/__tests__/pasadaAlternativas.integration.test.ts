@@ -137,7 +137,10 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("pasada única de alternativas (a
     expect(errorAlternativa).toBeNull();
 
     const fuenteCercanos = fuenteCercanosContada();
-    await completarParadasPendientes(supabase, FUENTE_LUGARES_SIN_RED, 120, FUENTE_FOTOS, undefined, undefined, fuenteCercanos, CORTE);
+    const primera = await completarParadasPendientes(supabase, FUENTE_LUGARES_SIN_RED, 120, FUENTE_FOTOS, undefined, undefined, fuenteCercanos, CORTE);
+    // Los contadores explican el resultado: 2 candidatas antes del corte, 1
+    // consulta a Overpass (la otra ya tiene alternativa) y 1 con cercanos.
+    expect(primera.alternativas).toMatchObject({ candidatas: 2, intentadas: 1, conCercanos: 1, falloFuente: 0, errorInterno: 0 });
 
     const { data: alternativasMuseo } = await supabase
       .from("paradas_alternativas")

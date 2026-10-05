@@ -36,3 +36,31 @@ describe("categorizarResultado", () => {
     );
   });
 });
+
+// alc-ac2: los contadores de la pasada de alternativas salen enteros y nada más.
+describe("resumirResultadoPublico con contadores de alternativas", () => {
+  it("publica solo los contadores enteros de la lista blanca", () => {
+    const publico = resumirResultadoPublico({
+      ok: true,
+      trabajos_procesados: 0,
+      planes_mirados: 0,
+      paradas_intentadas: 0,
+      alternativas_candidatas: 16,
+      alternativas_intentadas: 12,
+      alternativas_con_cercanos: 0,
+      alternativas_sin_datos: 4,
+      alternativas_fallo_fuente: 1,
+      alternativas_error_interno: 0,
+      alternativas_texto: "Lisboa",
+    } as never);
+    expect(publico).toMatchObject({
+      alternativas_candidatas: 16,
+      alternativas_intentadas: 12,
+      alternativas_con_cercanos: 0,
+      alternativas_sin_datos: 4,
+      alternativas_fallo_fuente: 1,
+      alternativas_error_interno: 0,
+    });
+    expect(JSON.stringify(publico)).not.toContain("Lisboa");
+  });
+});
