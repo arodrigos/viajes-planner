@@ -1,7 +1,16 @@
 import "server-only";
 import { elegirMejorCandidato } from "./aceptacion";
 import { limpiarNombreBusqueda, normalizarNombre } from "./normalizar";
-import { FalloRedCiudad, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares } from "./tipos";
+import {
+  crearPresupuestoPeticiones,
+  FalloRedCiudad,
+  PresupuestoAgotado,
+  type CajaDelimitadora,
+  type CandidatoLugar,
+  type FuenteCiudad,
+  type FuenteLugares,
+  type PresupuestoPeticiones,
+} from "./tipos";
 
 export type EstadoCiudad = "resuelta" | "pendiente-manual" | "sin-ciudad-identificable";
 export type MetodoCiudad = "destino" | "paradas" | "manual";
@@ -121,6 +130,13 @@ const PROPORCION_MINIMA = 0.5;
 const VENTAJA_MINIMA = 2;
 const SPAN_MAXIMO_GRADOS = 2;
 const MINIMO_PARADAS_VOTANTES_EN_CAJA = 2;
+// cpn-ac1: peticiones de red a Nominatim por plan, compartidas por todos los
+// peldaños de la escalera. La deducción antigua llegaba a 61 en un plan de
+// 24 paradas; con la caché llena lo que no cupo se completa en el siguiente
+// intento sin gastar nada, así que el tope solo reparte el trabajo en ticks.
+export const PETICIONES_MAXIMAS_POR_PLAN = 12;
+// Con menos votos que esto un tope agotado no basta para nombrar una ciudad.
+const MINIMO_VOTOS_PRESUPUESTO_AGOTADO = 3;
 
 type NivelDireccion = "ciudad" | "distrito" | "region";
 
@@ -320,9 +336,17 @@ async function intentarCajaDelDestino(
   const muestra = nombresOrdenados.slice(0, MUESTRA_MAXIMA_DESTINO);
   let aceptadas = 0;
   let intentadas = 0;
+  let sinPresupuesto = false;
   for (const nombre of muestra) {
+    let candidatos: CandidatoLugar[];
+    try {
+      candidatos = await fuente.buscarNominatim(limpiarNombreBusqueda(nombre), destino, bbox);
+    } catch (error) {
+      if (!(error instanceof PresupuestoAgotado)) throw error;
+      sinPresupuesto = true;
+      break;
+    }
     intentadas++;
-    const candidatos = await fuente.buscarNominatim(limpiarNombreBusqueda(nombre), destino, bbox);
     const elegido = elegirMejorCandidato(nombre, candidatos, bbox);
     if (elegido.candidato) aceptadas++;
     if (aceptadas >= MINIMO_ACEPTADAS_DESTINO && intentadas >= TAMANO_MUESTRA_DESTINO) break;
@@ -334,6 +358,9 @@ async function intentarCajaDelDestino(
   if (aceptadas >= MINIMO_ACEPTADAS_DESTINO) {
     return { descartado: `la caja del destino «${destino}» abarca una zona demasiado grande` };
   }
+  // Un «no resolvió ninguna parada» por haberse quedado sin presupuesto no es
+  // una conclusión sobre el destino: se pasa al siguiente peldaño.
+  if (sinPresupuesto) throw new PresupuestoAgotado("la muestra del destino no cabe en el presupuesto");
   return { descartado: `la caja del destino no resolvió ninguna parada (${aceptadas} de ${intentadas})` };
 }
 
@@ -452,10 +479,24 @@ async function deducirPorParadas(
 
   const consultadas = nombresOrdenados.slice(0, MAXIMO_PARADAS_DEDUCCION);
   const votosPorParada: VotoParada[][] = [];
+  let sinPresupuesto = false;
   for (const nombre of consultadas) {
-    const candidatos = await fuente.buscarLibre(limpiarNombreBusqueda(nombre));
+    let candidatos: CandidatoLugar[];
+    try {
+      candidatos = await fuente.buscarLibre(limpiarNombreBusqueda(nombre));
+    } catch (error) {
+      if (!(error instanceof PresupuestoAgotado)) throw error;
+      sinPresupuesto = true;
+      break;
+    }
     votosPorParada.push(candidatos.slice(0, 3).map((candidato, indice) => ({ indice, claves: new Set<string>(), candidato })));
   }
+  if (sinPresupuesto && votosPorParada.length < MINIMO_VOTOS_PRESUPUESTO_AGOTADO) {
+    throw new PresupuestoAgotado("menos de 3 paradas votadas dentro del presupuesto");
+  }
+  // Con el presupuesto agotado se decide con las paradas que sí votaron:
+  // el umbral de proporción se mide contra ellas, no contra las 8 previstas.
+  const nConsultadas = votosPorParada.length;
 
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): un ganador RECHAZADO en
   // un nivel no cancela los dos siguientes -- la arquitectura describe una
@@ -466,7 +507,7 @@ async function deducirPorParadas(
   // que llegó a tener un ganador, aunque no se pudiera aceptar).
   let ultimoRechazo: GanadorRechazado | undefined;
   for (const nivel of ["ciudad", "distrito", "region"] as const) {
-    const escrutinio = escrutar(votosPorParada, nivel, consultadas.length);
+    const escrutinio = escrutar(votosPorParada, nivel, nConsultadas);
     const resultado = await elegirGanador(fuente, escrutinio);
     if (resultado === null) continue;
 
@@ -487,6 +528,10 @@ async function deducirPorParadas(
     };
   }
 
+  // Un negativo con votos a medias no es un veredicto: sin presupuesto no se
+  // sella el plan como «sin ciudad identificable», se reintenta con la caché.
+  if (sinPresupuesto) throw new PresupuestoAgotado("deducción por paradas sin conclusión dentro del presupuesto");
+
   if (ultimoRechazo) {
     return {
       estado: "sin-ciudad-identificable",
@@ -498,7 +543,7 @@ async function deducirPorParadas(
     };
   }
 
-  const escrutinioCiudad = escrutar(votosPorParada, "ciudad", consultadas.length);
+  const escrutinioCiudad = escrutar(votosPorParada, "ciudad", nConsultadas);
   const candidatos = escrutinioCiudad.ordenados.slice(0, 3);
   const resumen = candidatos.map((c) => `${c.nombre} ${c.apoyo}`).join(", ");
   return {
@@ -516,18 +561,38 @@ async function deducirPorParadas(
 // no debe persistir nada ni marcar el plan como "sin ciudad identificable"
 // en ese caso, solo reintentar más tarde (ciu-ac7).
 export async function resolverCiudadEfectiva(
-  fuente: FuenteLugares & FuenteCiudad,
+  fuenteBase: FuenteLugares & FuenteCiudad,
   destino: string,
   nombresParadas: string[],
+  presupuesto: PresupuestoPeticiones = crearPresupuestoPeticiones(PETICIONES_MAXIMAS_POR_PLAN),
 ): Promise<CiudadEfectiva | null> {
   const ahora = new Date().toISOString();
   const nombresOrdenados = ordenDeterminista(nombresParadas);
+  // Una fuente sin caché ni red (los dobles de test) no tiene nada que
+  // descontar y se usa tal cual.
+  const fuente = fuenteBase.conPresupuesto ? fuenteBase.conPresupuesto(presupuesto) : fuenteBase;
+  // Un peldaño que se queda sin presupuesto cede al siguiente; si ninguno
+  // concluye algo positivo, el resultado es «inconcluso» (null), igual que un
+  // fallo de red: el siguiente intento parte de una caché ya más llena.
+  let sinPresupuesto = false;
 
   try {
-    const porDestino = await intentarCajaDelDestino(fuente, destino, nombresOrdenados, ahora);
-    if ("estado" in porDestino) return { ...porDestino, version_resolutor: VERSION_RESOLUTOR_ACTUAL };
+    let porDestino: CiudadEfectiva | { descartado: string } | undefined;
+    try {
+      porDestino = await intentarCajaDelDestino(fuente, destino, nombresOrdenados, ahora);
+    } catch (error) {
+      if (!(error instanceof PresupuestoAgotado)) throw error;
+      sinPresupuesto = true;
+    }
+    if (porDestino && "estado" in porDestino) return { ...porDestino, version_resolutor: VERSION_RESOLUTOR_ACTUAL };
 
-    const porCandidatoDeTexto = await intentarCandidatosDesdeTexto(fuente, destino, nombresOrdenados);
+    let porCandidatoDeTexto: { nombre: string; caja: CajaDelimitadora } | null = null;
+    try {
+      porCandidatoDeTexto = await intentarCandidatosDesdeTexto(fuente, destino, nombresOrdenados);
+    } catch (error) {
+      if (!(error instanceof PresupuestoAgotado)) throw error;
+      sinPresupuesto = true;
+    }
     if (porCandidatoDeTexto) {
       return {
         estado: "resuelta",
@@ -539,11 +604,14 @@ export async function resolverCiudadEfectiva(
       };
     }
 
-    const motivoDestinoDescartado = porDestino.descartado.length > 0 ? porDestino.descartado : undefined;
+    const motivoDestinoDescartado = porDestino && porDestino.descartado.length > 0 ? porDestino.descartado : undefined;
     const resultado = await deducirPorParadas(fuente, nombresOrdenados, ahora, motivoDestinoDescartado);
+    // Los peldaños anteriores no llegaron a probarse del todo: un negativo
+    // ahora sería un veredicto sobre información incompleta.
+    if (sinPresupuesto && resultado.estado !== "resuelta") return null;
     return { ...resultado, version_resolutor: VERSION_RESOLUTOR_ACTUAL };
   } catch (error) {
-    if (error instanceof FalloRedCiudad) return null;
+    if (error instanceof FalloRedCiudad || error instanceof PresupuestoAgotado) return null;
     throw error;
   }
 }

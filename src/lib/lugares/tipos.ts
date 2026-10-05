@@ -65,6 +65,31 @@ export interface CandidatoLugar {
 // ciudad", que son conclusiones completamente distintas sobre el plan.
 export class FalloRedCiudad extends Error {}
 
+// cpn-ac1: tope de peticiones de RED a Nominatim que puede gastar la
+// deducción de la ciudad de UN plan. Lo descuenta la propia fuente justo
+// antes de salir a la red, así que una respuesta servida desde cache_sitios
+// nunca lo consume. Es una clase distinta de FalloRedCiudad: «no me dejan
+// preguntar más» no es «Nominatim no contestó».
+export class PresupuestoAgotado extends Error {}
+
+export interface PresupuestoPeticiones {
+  // Reserva una petición de red; false si el presupuesto ya está agotado.
+  consumir(): boolean;
+  consumidas(): number;
+}
+
+export function crearPresupuestoPeticiones(maximo: number): PresupuestoPeticiones {
+  let gastadas = 0;
+  return {
+    consumir() {
+      if (gastadas >= maximo) return false;
+      gastadas++;
+      return true;
+    },
+    consumidas: () => gastadas,
+  };
+}
+
 // ciu-ac1/ciu-ac2/ciu-ac7: las dos operaciones nuevas que resolverCiudadEfectiva
 // necesita. Deliberadamente separada de FuenteLugares -- añadir estos dos
 // métodos a esa interfaz obligaría a todos los dobles de test existentes
@@ -73,6 +98,11 @@ export class FalloRedCiudad extends Error {}
 export interface FuenteCiudad {
   buscarLibre(nombre: string): Promise<CandidatoLugar[]>;
   geocodificarCiudad(nombre: string): Promise<CajaDelimitadora | null>;
+  // cpn-ac1: la misma fuente (misma caché y mismo limitador) con sus
+  // peticiones de red descontadas de este presupuesto. Opcional para que los
+  // dobles de test que no hablan con red no tengan que implementarlo, y una
+  // vista aparte para no cambiar la firma de los métodos existentes.
+  conPresupuesto?(presupuesto: PresupuestoPeticiones): FuenteLugares & FuenteCiudad;
 }
 
 // La única forma en que resolverPlan habla con un proveedor de lugares.
