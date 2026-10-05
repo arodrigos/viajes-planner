@@ -1,8 +1,8 @@
 import "server-only";
-import { crearLimitador, relojReal, type Reloj } from "./limitador";
-import { cacheSitiosMemoria, claveNominatim, esFalloDeCache, normalizarClaveNombre, slugDestino, type CacheSitios } from "./cacheSitios";
+import { crearLimitador, relojReal, type Limitador, type Reloj } from "./limitador";
+import { cacheSitiosMemoria, claveDestino, claveNominatim, esFalloDeCache, normalizarClaveNombre, slugDestino, type CacheSitios } from "./cacheSitios";
 import { normalizarNombre } from "./normalizar";
-import { FalloRedCiudad, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares } from "./tipos";
+import { FalloRedCiudad, PresupuestoAgotado, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares, type PresupuestoPeticiones } from "./tipos";
 import { VERSION_RESOLUTOR_ACTUAL } from "./ciudad";
 
 // lug-ac3: identifica la APLICACIÓN y el repo, nunca a Adrián ni a la
@@ -24,6 +24,9 @@ export interface OpcionesFuenteAbierta {
   reloj?: Reloj;
   cache?: CacheSitios;
   intervaloMinMs?: number;
+  // Solo para conPresupuesto: la vista con presupuesto tiene que compartir el
+  // MISMO limitador (una sola petición en vuelo y 1.100 ms entre ellas).
+  limitador?: Limitador;
 }
 
 interface ResultadoNominatim {
@@ -93,14 +96,20 @@ interface ResultadoCoordenadasWikipedia {
   };
 }
 
-export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): FuenteLugares & FuenteCiudad {
+export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}, presupuesto?: PresupuestoPeticiones): FuenteLugares & FuenteCiudad {
   const fetchImpl = opciones.fetch ?? fetch;
   const reloj = opciones.reloj ?? relojReal;
   const cache = opciones.cache ?? cacheSitiosMemoria();
   // El límite de ritmo cubre Nominatim; Wikipedia no tiene la misma
   // política estricta de 1 req/s, pero comparte el mismo User-Agent
   // honesto y el mismo único reintento ante 429/5xx (lug-ac3).
-  const limitarNominatim = crearLimitador(opciones.intervaloMinMs ?? 1100, reloj);
+  const limitarNominatim = opciones.limitador ?? crearLimitador(opciones.intervaloMinMs ?? 1100, reloj);
+
+  // cpn-ac1: se llama justo antes de limitarNominatim, es decir, DESPUÉS de
+  // mirar la caché -- así lo servido desde cache_sitios no gasta presupuesto.
+  function reservarPeticion(): void {
+    if (presupuesto && !presupuesto.consumir()) throw new PresupuestoAgotado("presupuesto de peticiones a Nominatim agotado");
+  }
 
   async function peticionConReintento(url: string): Promise<Response | null> {
     const hacer = () => fetchImpl(url, { headers: { "User-Agent": userAgent() } });
@@ -116,15 +125,30 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
     }
   }
 
-  async function geocodificarDestino(destino: string): Promise<CajaDelimitadora | null> {
-    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(destino)}&format=jsonv2&limit=1`;
+  async function geocodificarDestino(texto: string): Promise<CajaDelimitadora | null> {
+    // cpn-ac1: sin caché, cada reintento de un plan repetía esta petición y
+    // se comía presupuesto sin aportar nada. Solo se cachea una respuesta
+    // real (con o sin resultado), nunca un fallo de red. Esta clave (espacio
+    // `claveDestino`) es la del texto geocodificado, distinta de las claves
+    // por ciudad efectiva que vigila ciu-ac3; el parámetro se llama `texto`
+    // para que esa vigilancia siga buscando solo claves por ciudad.
+    const clave = claveDestino(`v${VERSION_RESOLUTOR_ACTUAL}:${slugDestino(texto)}`);
+    const enCache = await cache.obtener(clave);
+    if (!esFalloDeCache(enCache)) return enCache as CajaDelimitadora | null;
+
+    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(texto)}&format=jsonv2&limit=1`;
+    reservarPeticion();
     const respuesta = await limitarNominatim(() => peticionConReintento(url));
     if (!respuesta) return null;
     const datos = (await respuesta.json()) as ResultadoNominatim[];
     const primero = datos[0];
-    if (!primero) return null;
-    const [minLat, maxLat, minLon, maxLon] = primero.boundingbox.map(Number);
-    return { minLat, maxLat, minLon, maxLon };
+    let resultado: CajaDelimitadora | null = null;
+    if (primero) {
+      const [minLat, maxLat, minLon, maxLon] = primero.boundingbox.map(Number);
+      resultado = { minLat, maxLat, minLon, maxLon };
+    }
+    await cache.guardar(clave, resultado);
+    return resultado;
   }
 
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): un fallo de red (429/5xx
@@ -144,6 +168,7 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
     const url =
       `${NOMINATIM_URL}?q=${encodeURIComponent(`${nombre}, ${cualificador}`)}&format=jsonv2&limit=5` +
       `&viewbox=${viewbox}&bounded=1&extratags=1&namedetails=1&addressdetails=1&accept-language=es`;
+    reservarPeticion();
     const respuesta = await limitarNominatim(() => peticionConReintento(url));
     if (!respuesta) throw new FalloRedCiudad(`no se pudo buscar «${nombre}, ${cualificador}»`);
     const candidatos = ((await respuesta.json()) as ResultadoNominatim[]).map(aCandidatoNominatim);
@@ -212,6 +237,7 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
     const url =
       `${NOMINATIM_URL}?q=${encodeURIComponent(nombre)}&format=jsonv2&limit=3` +
       `&addressdetails=1&accept-language=es`;
+    reservarPeticion();
     const respuesta = await limitarNominatim(() => peticionConReintento(url));
     if (!respuesta) throw new FalloRedCiudad(`no se pudo buscar libremente «${nombre}»`);
     const candidatos = ((await respuesta.json()) as ResultadoNominatim[]).map(aCandidatoNominatim);
@@ -234,6 +260,7 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
     // podía devolver un nombre en otro idioma que luego no empataba con el
     // texto del destino al verificar la caja.
     const url = `${NOMINATIM_URL}?q=${encodeURIComponent(nombre)}&format=jsonv2&limit=1&featureType=settlement&accept-language=es`;
+    reservarPeticion();
     const respuesta = await limitarNominatim(() => peticionConReintento(url));
     if (!respuesta) throw new FalloRedCiudad(`no se pudo geocodificar la ciudad candidata «${nombre}»`);
     const datos = (await respuesta.json()) as ResultadoNominatim[];
@@ -245,7 +272,9 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}): Fuente
     return resultado;
   }
 
-  return { geocodificarDestino, buscarNominatim, buscarWikipedia, buscarLibre, geocodificarCiudad };
+  const conPresupuesto = (nuevo: PresupuestoPeticiones) =>
+    crearFuenteAbierta({ ...opciones, fetch: fetchImpl, reloj, cache, limitador: limitarNominatim }, nuevo);
+  return { geocodificarDestino, buscarNominatim, buscarWikipedia, buscarLibre, geocodificarCiudad, conPresupuesto };
 }
 
 // Expuesto para que resolverPlan y los tests puedan derivar la clave de

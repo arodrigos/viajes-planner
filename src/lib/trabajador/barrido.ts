@@ -2,10 +2,10 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
 import { resolverFoto } from "@/lib/lugares/resolverFotos";
-import { resolverCiudadEfectiva, VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
+import { PETICIONES_MAXIMAS_POR_PLAN, resolverCiudadEfectiva, VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { relojReal, type Reloj } from "@/lib/lugares/limitador";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
-import type { CajaDelimitadora, FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
+import { crearPresupuestoPeticiones, type CajaDelimitadora, type FuenteCiudad, type FuenteFotos, type FuenteLugares } from "@/lib/lugares/tipos";
 import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
 import { inferirCategoria } from "@/lib/alternativas/categorizar";
 import { ETIQUETA_OSM_POR_CATEGORIA, FalloFuenteCercanos, type FuenteCercanos } from "@/lib/alternativas/cercanos";
@@ -252,6 +252,10 @@ export async function resolverPuertaDeCiudad(
   version: VersionDePlan,
   nombresTodasLasParadas: string[],
   contadores?: ContadoresCiudad,
+  // cpn-ac1: peticiones de red a Nominatim gastadas deduciendo ciudades en
+  // el tick (solo el entero, para salud.resultado). Aparte de `contadores`
+  // porque ese objeto se compara entero en los tests de bar-ac2.
+  peticionesNominatim?: { total: number },
 ): Promise<{ nombre: string; caja: CajaDelimitadora } | null> {
   let ciudad = version.ciudad;
 
@@ -272,7 +276,9 @@ export async function resolverPuertaDeCiudad(
 
   if (ciudad === null || marcadoPorVersionAnterior) {
     if (contadores) contadores.reintentados++;
-    const resultado = await resolverCiudadEfectiva(fuente, version.destino, nombresTodasLasParadas);
+    const presupuesto = crearPresupuestoPeticiones(PETICIONES_MAXIMAS_POR_PLAN);
+    const resultado = await resolverCiudadEfectiva(fuente, version.destino, nombresTodasLasParadas, presupuesto);
+    if (peticionesNominatim) peticionesNominatim.total += presupuesto.consumidas();
     if (resultado === null) {
       if (contadores) contadores.saltadosPorRed++;
       return null; // fallo de red: se reintenta en el siguiente tick
@@ -318,6 +324,7 @@ export interface ResultadoBarrido {
   planesReintentados: number;
   planesSaltadosSellados: number;
   planesSaltadosPorRed: number;
+  peticionesNominatimCiudad: number;
   alternativas: ContadoresAlternativas;
 }
 
@@ -409,6 +416,7 @@ export async function completarParadasPendientes(
       planesReintentados: 0,
       planesSaltadosSellados: 0,
       planesSaltadosPorRed: 0,
+      peticionesNominatimCiudad: 0,
       alternativas: contadoresAlternativasVacios(),
     };
   }
@@ -452,6 +460,7 @@ export async function completarParadasPendientes(
   const candidatos: CandidatoBarrido[] = [];
   let planesMirados = 0;
   const contadoresCiudad = crearContadoresCiudad();
+  const peticionesCiudad = { total: 0 };
   for (const [versionId, pendientes] of pendientesPorVersion) {
     if (pendientes.length === 0) continue;
     const version = versionPorId.get(versionId);
@@ -464,6 +473,7 @@ export async function completarParadasPendientes(
       version,
       nombresPorVersion.get(versionId) ?? [],
       contadoresCiudad,
+      peticionesCiudad,
     );
     if (!cualificador) continue;
 
@@ -692,6 +702,7 @@ export async function completarParadasPendientes(
     planesReintentados: contadoresCiudad.reintentados,
     planesSaltadosSellados: contadoresCiudad.saltadosSellados,
     planesSaltadosPorRed: contadoresCiudad.saltadosPorRed,
+    peticionesNominatimCiudad: peticionesCiudad.total,
     alternativas: contadoresAlt,
   };
 }

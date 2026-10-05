@@ -86,6 +86,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   let planesReintentados = 0;
   let planesSaltadosSellados = 0;
   let planesSaltadosPorRed = 0;
+  let peticionesNominatimCiudad = 0;
   let alternativas: ContadoresAlternativas | null = null;
   let errorTick: unknown;
   try {
@@ -121,6 +122,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         planesReintentados = resultadoBarrido.planesReintentados;
         planesSaltadosSellados = resultadoBarrido.planesSaltadosSellados;
         planesSaltadosPorRed = resultadoBarrido.planesSaltadosPorRed;
+        peticionesNominatimCiudad = resultadoBarrido.peticionesNominatimCiudad;
         alternativas = resultadoBarrido.alternativas;
       }
 
@@ -143,6 +145,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         planes_reintentados: planesReintentados,
         planes_saltados_sellados: planesSaltadosSellados,
         planes_saltados_por_red: planesSaltadosPorRed,
+        peticiones_nominatim_ciudad: peticionesNominatimCiudad,
         ...(alternativas
           ? {
               alternativas_candidatas: alternativas.candidatas,
