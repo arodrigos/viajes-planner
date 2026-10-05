@@ -1,3 +1,5 @@
+import { enriquecerGuiaDePlan } from "@/lib/guia/enriquecer";
+import type { FuenteGuia } from "@/lib/guia/wikivoyage";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
@@ -49,6 +51,9 @@ interface DependenciasProcesarTrabajo {
   // alt-ac4: mismo motivo que fuenteLugares, para el complemento de
   // Overpass.
   fuenteCercanos?: FuenteCercanos;
+  // guia-abierta: ausente, el plan se guarda sin consejos (la tarea del
+  // barrido los rellena). Solo el trabajador real la pasa.
+  fuenteGuia?: FuenteGuia;
 }
 
 type IntentoEnsamblado = { valido: true; plan: Plan } | { valido: false; errores: ErrorValidacion[] };
@@ -264,7 +269,7 @@ async function invocarOPausar(
 export async function procesarTrabajo(
   supabase: SupabaseClient,
   trabajo: TrabajoAProcesar,
-  { ejecutor, directorio, fuenteLugares, fuenteFotos, fuenteCercanos }: DependenciasProcesarTrabajo,
+  { ejecutor, directorio, fuenteLugares, fuenteFotos, fuenteCercanos, fuenteGuia }: DependenciasProcesarTrabajo,
 ): Promise<{ estado: "completado" | "fallido" | "pausado-por-cuota" }> {
   const familia = familiaDeModelo(MODELO_GENERACION);
 
@@ -413,5 +418,9 @@ export async function procesarTrabajo(
     .from("trabajos")
     .update({ estado: "completado", plan_id: planId, etapa: "guardando", actualizado_en: new Date().toISOString() })
     .eq("id", trabajo.id);
+  // guia-abierta: después de «completado» -el viajero ya puede abrir su
+  // plan- y sin lanzar nunca: la guía es un extra. Lo que no dé tiempo lo
+  // recoge el barrido.
+  if (fuenteGuia) await enriquecerGuiaDePlan(supabase, { fuenteGuia, fuenteFotos: fotos }, planId);
   return { estado: "completado" };
 }

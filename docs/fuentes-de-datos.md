@@ -32,6 +32,16 @@ mapas, lugares o fotos puede usarse sin su aprobación explícita.
   con la consulta QL construida exclusivamente desde el enum cerrado de
   categorías y números (nunca desde texto libre).
 
+- **Wikivoyage** (`es.wikivoyage.org`, `en.wikivoyage.org`, CC BY-SA): una
+  página por ciudad vía la API de MediaWiki (primero es, si no tiene
+  fichas, en), con el `User-Agent` de la aplicación. De ella solo se leen
+  las fichas `see/do/eat/drink` (`ver/hacer/comer/beber` en es) para dar
+  consejo y precio a cada parada. Ritmo propio: una página cada 30 s como
+  mínimo y caché de 30 días en `cache_sitios` (también la ausencia de
+  página). Llamado SOLO desde el trabajador de VPS1
+  (`src/lib/guia/wikivoyage.ts`). Las curiosidades salen del extracto de
+  Wikipedia que ya se pide para la foto, sin petición nueva.
+
 Límites de ritmo comunes a Nominatim, Wikipedia/Commons y Overpass: pausa
 de 30 s y un único reintento ante HTTP 429/5xx; ninguna de estas URLs se
 llama desde `src/app` (la mitad web), solo desde el trabajador.
@@ -96,6 +106,10 @@ búsquedas.
   la tarjeta de la parada. Solo se aceptan licencias de una lista blanca
   (CC0, dominio público, CC BY 1.0–4.0, CC BY-SA 1.0–4.0); si la licencia
   no está en esa lista, no hay foto.
+- Los consejos de la guía se rotulan «Wikivoyage · CC BY-SA» y las
+  curiosidades «Wikipedia · CC BY-SA», cada uno con enlace a la página de
+  origen. Las opiniones de visitantes no existen en ninguna fuente abierta
+  aprobada: la tarjeta dice «Sin opiniones de visitantes».
 - Cada parada comprobada enlaza a su fuente real (OpenStreetMap o
   Wikipedia) para que cualquiera pueda verificarla.
 
@@ -107,7 +121,8 @@ Nominatim y Wikipedia, además de un `User-Agent` que identifica la
 aplicación y el repositorio (`viajes-planner/<versión>
 (+https://github.com/arodrigos/viajes-planner)`), nunca a una persona.
 Hacia Overpass solo salen coordenadas (redondeadas a 3 decimales), un
-radio y la etiqueta OSM de la categoría. La deducción de la ciudad
+radio y la etiqueta OSM de la categoría. Hacia Wikivoyage solo sale el
+nombre de la ciudad. La deducción de la ciudad
 efectiva manda solo el nombre de cada parada, sin el destino -nunca
 construye una consulta con datos personales del plan.
 

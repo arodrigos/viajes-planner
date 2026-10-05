@@ -11,6 +11,8 @@ import { join } from "node:path";
 import { clienteServicio } from "../src/lib/db/cliente";
 import { ejecutorClaudeCode } from "../src/lib/trabajador/ejecutorClaudeCode";
 import { tick } from "../src/lib/trabajador/tick";
+import { crearFuenteGuiaAbierta } from "../src/lib/guia/wikivoyage";
+import { cacheSitiosSupabase } from "../src/lib/lugares/cacheSitios";
 
 // bar-ac4: el SHA que de verdad corre aquí, no el que Vercel informa --
 // git pull --ff-only (el propio wrapper del cron) ya deja el checkout en
@@ -29,7 +31,14 @@ async function main() {
 
   const directorio = mkdtempSync(join(tmpdir(), "viajes-trabajo-"));
   try {
-    const resultado = await tick(supabase, { ejecutor: ejecutorClaudeCode, directorio, commitSha });
+    const resultado = await tick(supabase, {
+      ejecutor: ejecutorClaudeCode,
+      directorio,
+      commitSha,
+      // Solo el trabajador de verdad habla con Wikivoyage: los tests de tick
+      // no pasan fuenteGuia y quedan sin red.
+      fuenteGuia: crearFuenteGuiaAbierta({ cache: cacheSitiosSupabase(supabase) }),
+    });
     console.log(`[trabajador] cerrojo=${resultado.cerrojoAdquirido} procesados=${resultado.trabajosProcesados} sha=${commitSha}`);
   } finally {
     rmSync(directorio, { recursive: true, force: true });

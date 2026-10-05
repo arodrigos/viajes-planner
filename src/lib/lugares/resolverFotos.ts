@@ -32,7 +32,7 @@ function paginaDesdeEtiquetaOsm(etiqueta: string): { lang: string; titulo: strin
 // fot-ac3: la página "propia" de un lugar resuelto -nunca una de otro
 // sitio-: o bien resolvió por Wikipedia (lugar.nombre_fuente ES el
 // título), o bien trae la etiqueta `wikipedia` de OSM.
-function paginaPropiaDe(lugar: Lugar | undefined): { lang: string; titulo: string } | undefined {
+export function paginaPropiaDe(lugar: Lugar | undefined): { lang: string; titulo: string } | undefined {
   if (!lugar) return undefined;
   if (lugar.fuente === "wikipedia") return { lang: "es", titulo: lugar.nombre_fuente };
   if (lugar.etiquetas.wikipedia) return paginaDesdeEtiquetaOsm(lugar.etiquetas.wikipedia) ?? undefined;

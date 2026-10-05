@@ -9,7 +9,7 @@ export function formatearEuros(importe: number): string {
 export function textoPrecioParada(coste: CosteParada | undefined): string {
   if (!coste) return "Sin precio orientativo";
   if (coste.por === "gratis") return "Gratis";
-  const origen = coste.procedencia === "estimado" ? "estimado" : "Wikivoyage";
+  const origen = coste.procedencia === "estimado" ? "estimado" : "según Wikivoyage";
   const unidad = coste.por === "persona" ? "/persona" : " el grupo";
   const importe = Number.isInteger(coste.importe_eur) ? String(coste.importe_eur) : coste.importe_eur.toFixed(2).replace(".", ",");
   return `Precio orientativo: ${importe} €${unidad} · ${origen}`;

@@ -1,3 +1,5 @@
+import { enriquecerGuiaPendientes, type ResultadoGuia } from "@/lib/guia/enriquecer";
+import type { FuenteGuia } from "@/lib/guia/wikivoyage";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
@@ -35,6 +37,7 @@ export const CORTE_ALTERNATIVAS = new Date("2026-10-05T18:00:00Z");
 // las 467 pendientes en ~4 ticks sin solaparse con el cron de 5 min.
 export const LIMITE_BARRIDO_DEFECTO = 120;
 export const PRESUPUESTO_BARRIDO_MS_DEFECTO = 180_000;
+const PRESUPUESTO_GUIA_MS = 60_000;
 const DIAS_CADUCIDAD_NO_RESUELTA = 30;
 
 export interface CandidatoPendiente {
@@ -330,6 +333,8 @@ export interface ResultadoBarrido {
   planesSaltadosPorRed: number;
   peticionesNominatimCiudad: number;
   alternativas: ContadoresAlternativas;
+  // guia-abierta: ausente si el barrido no recibió fuente de guía.
+  guia?: ResultadoGuia;
 }
 
 // alc-ac2: lo que hicieron los dos barridos de alternativas en ESTE tick.
@@ -381,6 +386,7 @@ export async function completarParadasPendientes(
   presupuestoMs: number = PRESUPUESTO_BARRIDO_MS_DEFECTO,
   fuenteCercanos?: FuenteCercanos,
   corteAlternativas: Date = CORTE_ALTERNATIVAS,
+  fuenteGuia?: FuenteGuia,
 ): Promise<ResultadoBarrido> {
   // bar-ac1: el alcance ya no parte de `trabajos` -- parte de TODO plan con
   // al menos una versión, viva o no. Un plan sin ninguna fila en
@@ -720,6 +726,20 @@ export async function completarParadasPendientes(
     }
   }
 
+  // guia-abierta: el último paso porque es el único con una espera de ritmo
+  // de 30 s entre páginas; hasta un minuto más, y lo que no quepa queda sin
+  // marcar para el siguiente tick.
+  const guia =
+    fuenteGuia && fuenteFotos
+      ? await enriquecerGuiaPendientes(
+          supabase,
+          { fuenteGuia, fuenteFotos, reloj },
+          [...versionPorId.values()].map((v) => ({ id: v.id, ciudad: v.ciudad, etapas: v.etapas })),
+          limite,
+          reloj.ahora() + PRESUPUESTO_GUIA_MS,
+        )
+      : undefined;
+
   return {
     planesMirados,
     paradasIntentadas: procesados,
@@ -729,5 +749,6 @@ export async function completarParadasPendientes(
     planesSaltadosPorRed: contadoresCiudad.saltadosPorRed,
     peticionesNominatimCiudad: peticionesCiudad.total,
     alternativas: contadoresAlt,
+    ...(guia ? { guia } : {}),
   };
 }

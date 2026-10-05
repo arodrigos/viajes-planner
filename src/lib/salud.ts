@@ -171,6 +171,7 @@ export interface EstadoRelleno {
   paradas_con_foto: number;
   paradas_con_alternativas: number;
   paradas_con_categoria: number;
+  paradas_con_guia: number;
   planes_total: number;
   planes_sin_version: number;
   planes_sin_trabajo_vivo: number;

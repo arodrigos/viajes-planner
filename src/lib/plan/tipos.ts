@@ -146,6 +146,28 @@ export interface Parada {
   // invalidar el plan).
   motivo?: string;
   coste?: CosteParada;
+  // guia-abierta: texto de fuentes abiertas que el trabajador escribe en la
+  // base de datos, nunca el modelo ni la vista. `guia_intentada_en` separa
+  // «aún no se ha mirado» de «se miró y no había nada».
+  guia?: GuiaParada;
+  curiosidades?: CuriosidadesParada;
+  guia_intentada_en?: string;
+}
+
+// guia-abierta: la ficha de Wikivoyage asignada a la parada. `precio_eur`
+// solo existe si el precio de la ficha es un importe claro; si no, la vista
+// enseña `precio_texto` literal y nada se suma al presupuesto.
+export interface GuiaParada {
+  consejo: string;
+  precio_texto?: string;
+  precio_eur?: number;
+  url: string;
+  licencia: "CC BY-SA";
+}
+
+export interface CuriosidadesParada {
+  frases: string[];
+  url: string;
 }
 
 // bloque alternativas-equivalentes: de dónde sale una alternativa -- el
