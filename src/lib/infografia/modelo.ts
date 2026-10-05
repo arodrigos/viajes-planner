@@ -7,6 +7,7 @@ import { calcularRuta, formatearFechaCorta } from "@/lib/etapas/ruta";
 import type { Evento } from "@/lib/eventos/tipos";
 import type { Dia, Parada, Plan } from "@/lib/plan/tipos";
 import type { Punto } from "./proyeccion";
+import { limpiarTexto, recortar } from "./texto";
 
 export interface BloqueLamina {
   titulo: string;
@@ -30,19 +31,26 @@ export interface ModeloInfografia {
   bloques: BloqueLamina[];
   totales: TotalesLamina;
   eventos: string[];
+  // lam-ac2: «y N días más» cuando una ciudad pasa de MAX_BLOQUES_UNA_CIUDAD.
+  resto?: string;
   multiciudad: boolean;
 }
 
 const MAX_PARADAS = 2;
 const MAX_BLOQUES_UNA_CIUDAD = 7;
 const MAX_EVENTOS = 4;
+// Máximos en grafemas, medidos para que quepan en la maqueta de Lamina.tsx.
+export const MAX_TITULO = 56;
+export const MAX_CIUDAD = 24;
+export const MAX_PARADA = 44;
+export const MAX_EVENTO = 60;
 
 function destacadas(dias: Dia[]): string[] {
   return dias
     .flatMap((d) => d.paradas)
     .sort((a: Parada, b: Parada) => b.prioridad - a.prioridad)
     .slice(0, MAX_PARADAS)
-    .map((p) => p.nombre);
+    .map((p) => recortar(p.nombre, MAX_PARADA));
 }
 
 function textoFechas(plan: Plan): string {
@@ -52,7 +60,7 @@ function textoFechas(plan: Plan): string {
 }
 
 function textoEvento(e: Evento): string {
-  return `${formatearFechaCorta(e.fecha)} · ${e.nombre}`;
+  return recortar(`${formatearFechaCorta(e.fecha)} · ${e.nombre}`, MAX_EVENTO);
 }
 
 export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number): ModeloInfografia {
@@ -70,7 +78,7 @@ export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number)
       const coords = diasEtapa.flatMap((d) => d.paradas).find((p) => p.coordenadas)?.coordenadas;
       const caja = etapas[i].ciudad.caja;
       return {
-        titulo: e.ciudad,
+        titulo: recortar(e.ciudad, MAX_CIUDAD),
         detalle: `${e.noches} ${e.noches === 1 ? "noche" : "noches"}`,
         paradas: destacadas(diasEtapa),
         punto: caja ? { lat: (caja.minLat + caja.maxLat) / 2, lon: (caja.minLon + caja.maxLon) / 2 } : coords,
@@ -84,6 +92,7 @@ export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number)
     }));
   }
 
+  const ocultos = multiciudad ? 0 : Math.max(0, plan.dias.length - MAX_BLOQUES_UNA_CIUDAD);
   const eventos = (plan.eventos?.eventos ?? []).slice(0, MAX_EVENTOS).map(textoEvento);
   const textoPresupuesto =
     tuPresupuestoEur === undefined
@@ -91,8 +100,8 @@ export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number)
       : `~${formatearEuros(presupuesto.total_eur)} de ${formatearEuros(tuPresupuestoEur)}`;
 
   return {
-    titulo: plan.destino,
-    subtitulo: `${textoFechas(plan)} · ${plan.personas} ${plan.personas === 1 ? "persona" : "personas"}`,
+    titulo: recortar(plan.destino, MAX_TITULO),
+    subtitulo: limpiarTexto(`${textoFechas(plan)} · ${plan.personas} ${plan.personas === 1 ? "persona" : "personas"}`),
     bloques,
     totales: {
       dias: plan.dias.length,
@@ -103,6 +112,7 @@ export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number)
       texto_presupuesto: textoPresupuesto,
     },
     eventos,
+    ...(ocultos > 0 ? { resto: `y ${ocultos} ${ocultos === 1 ? "día" : "días"} más` } : {}),
     multiciudad,
   };
 }

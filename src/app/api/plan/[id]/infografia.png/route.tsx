@@ -2,8 +2,9 @@ import { ImageResponse } from "next/og";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
-import { ALTO_LAMINA, ANCHO_LAMINA, Lamina } from "@/lib/infografia/Lamina";
+import { Lamina } from "@/lib/infografia/Lamina";
 import { construirModeloInfografia } from "@/lib/infografia/modelo";
+import { opcionesLamina } from "@/lib/infografia/opciones";
 import { trabajoDelPlan } from "@/lib/plan/propiedad";
 import { recuperarPlan } from "@/lib/plan/repositorio";
 
@@ -26,5 +27,5 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   if (!plan) return noEncontrado();
 
   const modelo = construirModeloInfografia(plan, trabajo.presupuesto_eur ?? undefined);
-  return new ImageResponse(<Lamina modelo={modelo} />, { width: ANCHO_LAMINA, height: ALTO_LAMINA, headers: CABECERAS });
+  return new ImageResponse(<Lamina modelo={modelo} />, { ...opcionesLamina(), headers: CABECERAS });
 }
