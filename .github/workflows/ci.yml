@@ -5,6 +5,21 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+    # Ahorro de minutos de Actions (2026-10-05, aviso del 90 % del mes): un
+    # PR que solo toca documentación no lanza el CI. El push a dev/main lo
+    # sigue lanzando siempre: ese es el CI del commit que queda.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "README*"
+
+# Un push nuevo a la rama de un PR deja obsoleto el CI que estaba corriendo:
+# se cancela. En dev/main, un grupo por ejecución: GitHub solo deja un run
+# pendiente por grupo y descartaría el CI de un commit de merge intermedio,
+# que el runner verifica y del que depende aplicar-migraciones.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || format('ci-run-{0}', github.run_id) }}
+  cancel-in-progress: true
 
 # CORREOS_PERMITIDOS no es un secreto de producto (lo es la lista real de
 # Adrián, que vive solo en Vercel); es el valor de prueba que necesita

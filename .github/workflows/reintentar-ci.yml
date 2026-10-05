@@ -5,6 +5,11 @@ name: Reintentar CI una vez
 # mano. Un solo reintento de los jobs fallidos: un fallo real sale rojo otra
 # vez y se queda rojo; tapar más de uno escondería tests inestables, que se
 # arreglan en el test, no aquí.
+#
+# Solo cuando lo único que falló es el e2e (2026-10-05): el segundo intento
+# de lint, persistencia o esqueleto volvía a fallar casi siempre (fallos
+# reales) y costaba ~19 % de los minutos del mes. El e2e es el que tiene
+# fallos ajenos al código (navegador, tiempos).
 on:
   workflow_run:
     workflows: ["CI"]
@@ -20,7 +25,15 @@ jobs:
     steps:
       # Sin checkout: workflow_run corre con token de escritura, así que no
       # ejecuta nada del código que disparó el fallo.
-      - run: gh run rerun "$RUN_ID" --failed --repo "$GITHUB_REPOSITORY"
+      - run: |
+          fallidos="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name] | unique | join(",")')"
+          echo "jobs fallidos: ${fallidos:-ninguno}"
+          if [ "$fallidos" != "e2e" ]; then
+            echo "No se reintenta: solo se reintenta cuando el único job fallido es e2e."
+            exit 0
+          fi
+          gh run rerun "$RUN_ID" --failed --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
