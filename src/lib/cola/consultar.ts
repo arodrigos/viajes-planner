@@ -18,6 +18,13 @@ export interface EstadoTrabajo {
   // progreso pudiera enlazar al plan. Nulo en cualquier estado que no sea
   // "completado", y también en un "completado" escrito antes de esta tanda.
   plan_id: string | null;
+  // Medios elegidos para el resumen de la espera; vacío = cualquier medio.
+  transporte: string[];
+}
+
+function transporteDe(criterios: unknown): string[] {
+  const t = (criterios as { transporte?: unknown } | null)?.transporte;
+  return Array.isArray(t) ? t.filter((m): m is string => typeof m === "string") : [];
 }
 
 const MOTIVO_CADUCADO = "el trabajador no ha recogido el trabajo a tiempo";
@@ -36,7 +43,7 @@ export async function obtenerTrabajo(
 ): Promise<EstadoTrabajo | null> {
   const { data, error } = await supabase
     .from("trabajos")
-    .select("id, estado, etapa, motivo, creado_en, reintento_no_antes_de, plan_id")
+    .select("id, estado, etapa, motivo, creado_en, reintento_no_antes_de, plan_id, criterios")
     .eq("id", id)
     .eq("usuario_id", usuarioId)
     .is("eliminado_en", null)
@@ -57,6 +64,7 @@ export async function obtenerTrabajo(
         creado_en: data.creado_en,
         reintento_no_antes_de: null,
         plan_id: null,
+        transporte: transporteDe(data.criterios),
       };
     }
   }
@@ -70,5 +78,6 @@ export async function obtenerTrabajo(
     creado_en: data.creado_en,
     reintento_no_antes_de: data.reintento_no_antes_de,
     plan_id: data.plan_id,
+    transporte: transporteDe(data.criterios),
   };
 }

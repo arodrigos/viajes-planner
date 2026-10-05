@@ -135,3 +135,35 @@ describe("FormularioCriterios: invariante de errores del servidor (cam-ac2)", ()
     );
   });
 });
+
+describe("FormularioCriterios: transporte (tra-ac1, tra-ac2)", () => {
+  it("cada casilla tiene su etiqueta, la ayuda está junto a ellas y sin marcar no hay clave", async () => {
+    const usuario = userEvent.setup();
+    render(<FormularioCriterios />);
+
+    for (const nombre of ["Coche", "Avión", "Tren", "Autobús"]) {
+      expect(screen.getByRole("checkbox", { name: nombre })).not.toBeChecked();
+    }
+    expect(screen.getByRole("group", { name: "¿Cómo te moverías entre ciudades?" })).toHaveAccessibleDescription(
+      /Solo cuenta si el destino es un país, una región o varios países[\s\S]*vale cualquiera/,
+    );
+
+    await usuario.type(screen.getByLabelText("Destino o tipo de viaje"), "Portugal");
+    await usuario.type(screen.getByLabelText("Época del año"), "verano");
+    await usuario.click(screen.getByRole("checkbox", { name: "Tren" }));
+    await usuario.click(screen.getByRole("checkbox", { name: "Tren" }));
+    await usuario.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(leerBorrador()).not.toHaveProperty("transporte");
+  });
+
+  it("marcar en cualquier orden guarda los medios en orden fijo y sin repetir", async () => {
+    const usuario = userEvent.setup();
+    render(<FormularioCriterios />);
+    await usuario.type(screen.getByLabelText("Destino o tipo de viaje"), "Portugal");
+    await usuario.type(screen.getByLabelText("Época del año"), "verano");
+    await usuario.click(screen.getByRole("checkbox", { name: "Autobús" }));
+    await usuario.click(screen.getByRole("checkbox", { name: "Tren" }));
+    await usuario.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(leerBorrador()?.transporte).toEqual(["tren", "autobus"]);
+  });
+});

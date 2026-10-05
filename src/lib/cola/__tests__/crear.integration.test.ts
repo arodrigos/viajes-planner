@@ -26,6 +26,17 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("crearTrabajoGeneracion (acceso-a
     usuarioId = data.user.id;
   });
 
+  it("tra-ac1: el transporte elegido llega a la fila; un medio desconocido da 400 y no encola", async () => {
+    const resultado = await crearTrabajoGeneracion(supabase, usuarioId, { ...CRITERIOS_VALIDOS, transporte: ["tren", "autobus"] });
+    expect(resultado.estado).toBe("creado");
+    if (resultado.estado !== "creado") return;
+    const { data } = await supabase.from("trabajos").select("criterios").eq("id", resultado.id).single();
+    expect(data?.criterios).toMatchObject({ transporte: ["tren", "autobus"] });
+
+    const invalido = await crearTrabajoGeneracion(supabase, usuarioId, { ...CRITERIOS_VALIDOS, transporte: ["barco"] });
+    expect(invalido).toEqual({ estado: "criterios-invalidos", errores: ["Medio de transporte no válido"] });
+  });
+
   it("con criterios válidos encola el trabajo y devuelve su id al instante", async () => {
     const antes = Date.now();
     const resultado = await crearTrabajoGeneracion(supabase, usuarioId, CRITERIOS_VALIDOS);
