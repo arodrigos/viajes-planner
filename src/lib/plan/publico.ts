@@ -3,6 +3,7 @@ import { distanciaMetros } from "@/lib/alternativas/equivalencia";
 import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./paseo";
 import type { AnclaAlojamiento, Dia, Foto, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
+import { fotoSegura } from "@/lib/lugares/urlFoto";
 
 // Serialización hacia el cliente. hora_inicio/hora_fin son internas (costura
 // con VROOM en fase 2) y no se envían nunca: que no se envíen es lo que
@@ -99,7 +100,7 @@ function aAlternativaPublica(
     ...(parada.coordenadas && alternativa.coordenadas
       ? { distancia_m: Math.round(distanciaMetros(parada.coordenadas, alternativa.coordenadas)) }
       : {}),
-    foto: alternativa.foto,
+    foto: fotoSegura(alternativa.foto),
     coordenadas: alternativa.coordenadas,
     procedencia,
     etiquetasEncaje,
@@ -119,6 +120,7 @@ function aParadaPublica(dia: Dia, parada: Parada): ParadaPublica {
     : { fuente: "propuesto-sin-verificar" };
   return {
     ...parada,
+    foto: fotoSegura(parada.foto),
     procedencia,
     alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(dia, parada, alternativa)),
   };

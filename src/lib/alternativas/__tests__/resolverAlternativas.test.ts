@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { resolverAlternativasPlan } from "../resolverAlternativas";
 import type { FuenteCercanos } from "../cercanos";
 import type { CajaDelimitadora, CandidatoLugar, FuenteLugares } from "@/lib/lugares/tipos";
-import type { Plan } from "@/lib/plan/tipos";
+import { crearFuenteFotosGrabada } from "@/lib/lugares/fuenteFotosGrabada";
+import type { Foto, Plan } from "@/lib/plan/tipos";
 
 const BBOX: CajaDelimitadora = { minLat: 40, maxLat: 41, minLon: -4, maxLon: -3 };
 
@@ -69,7 +70,7 @@ function planConUnaParada(
 
 describe("resolverAlternativasPlan (alt-ac3/alt-ac4)", () => {
   it("guarda las alternativas del modelo que resuelven y son equivalentes", async () => {
-    const lugares = fuenteLugares({ "Museo Thyssen": [candidato("Museo Thyssen", 40.5, -3.5, "tourism")] });
+    const lugares = fuenteLugares({ "Museo Thyssen": [candidato("Museo Thyssen", 40.501, -3.501, "tourism")] });
     const sinCercanos: FuenteCercanos = { async buscar() { return []; } };
     const plan = planConUnaParada("museo", { lat: 40.5, lon: -3.5 }, [
       { nombre: "Museo Thyssen", descripcion: "d", motivo: "mismo tipo", duracion_min: 90 },
@@ -203,5 +204,53 @@ describe("resolverAlternativasPlan (alt-ac3/alt-ac4)", () => {
     const resultado = await resolverAlternativasPlan(lugares, sinCercanos, plan, "familiar");
 
     expect(resultado.dias[0].paradas[0].alternativas).toBeUndefined();
+  });
+
+  // alc-ac4: las alternativas llevan foto con el mismo resolverFoto que las paradas.
+  describe("fotos de las alternativas (alc-ac4)", () => {
+    const FOTO: Foto = {
+      url: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Thyssen.jpg/640px-Thyssen.jpg",
+      fichero: "Thyssen.jpg",
+      autor: "Autora",
+      licencia: "CC BY-SA 4.0",
+      licencia_url: "https://creativecommons.org/licenses/by-sa/4.0",
+      pagina_url: "https://commons.wikimedia.org/wiki/File:Thyssen.jpg",
+      fuente: "commons",
+    };
+    const lugares = fuenteLugares({ "Museo Thyssen": [candidato("Museo Thyssen", 40.501, -3.501, "tourism")] });
+    const sinCercanos: FuenteCercanos = { async buscar() { return []; } };
+    const plan = () =>
+      planConUnaParada("museo", { lat: 40.5, lon: -3.5 }, [{ nombre: "Museo Thyssen", descripcion: "d", motivo: "m", duracion_min: 120 }]);
+
+    it("una alternativa con artículo propio recibe su foto con autor y licencia", async () => {
+      const fotos = crearFuenteFotosGrabada({
+        paginas: { "es:Museo Thyssen": { fichero: "Thyssen.jpg" } },
+        imagenes: { "Thyssen.jpg": FOTO },
+      });
+      // El candidato resuelve por OSM: la página propia sale de la etiqueta wikipedia.
+      const conWiki = fuenteLugares({
+        "Museo Thyssen": [{ ...candidato("Museo Thyssen", 40.501, -3.501, "tourism"), etiquetas: { wikipedia: "es:Museo Thyssen" } }],
+      });
+      const resultado = await resolverAlternativasPlan(conWiki, sinCercanos, plan(), "familiar", undefined, fotos);
+      expect(resultado.dias[0].paradas[0].alternativas?.[0].foto).toEqual(FOTO);
+    });
+
+    it("sin foto en ninguna fuente la alternativa se guarda igual, sin foto", async () => {
+      const fotos = crearFuenteFotosGrabada({ paginas: {}, imagenes: {} });
+      const resultado = await resolverAlternativasPlan(lugares, sinCercanos, plan(), "familiar", undefined, fotos);
+      const alternativa = resultado.dias[0].paradas[0].alternativas?.[0];
+      expect(alternativa?.nombre).toBe("Museo Thyssen");
+      expect(alternativa?.foto).toBeUndefined();
+    });
+
+    it("un fallo de la fuente de fotos no tumba la alternativa", async () => {
+      const rota = {
+        async resumenPagina(): Promise<never> { throw new Error("red caída"); },
+        async infoImagen(): Promise<never> { throw new Error("red caída"); },
+        async geosearch(): Promise<never> { throw new Error("red caída"); },
+      };
+      const resultado = await resolverAlternativasPlan(lugares, sinCercanos, plan(), "familiar", undefined, rota);
+      expect(resultado.dias[0].paradas[0].alternativas).toHaveLength(1);
+    });
   });
 });

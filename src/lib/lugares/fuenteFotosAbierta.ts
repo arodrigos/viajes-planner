@@ -3,6 +3,7 @@ import { relojReal, type Reloj } from "./limitador";
 import { userAgent } from "./fuenteAbierta";
 import type { CandidatoGeosearch, FuenteFotos, ResumenPaginaWikipedia } from "./tipos";
 import type { Foto } from "@/lib/plan/tipos";
+import { esUrlFotoValida, normalizarUrlFoto } from "./urlFoto";
 
 // fot-ac1: lista blanca de licencias -- se compara contra LicenseShortName
 // tal cual lo devuelve Commons (p. ej. "CC BY-SA 4.0", "CC0 1.0", "Public
@@ -108,9 +109,13 @@ export function crearFuenteFotosAbierta(opciones: OpcionesFuenteFotosAbierta = {
       const licencia = info.extmetadata?.LicenseShortName?.value?.trim();
       if (!licencia || !LICENCIA_PERMITIDA.test(licencia)) return null;
 
+      // alc-ac5: una URL fuera del CDN de Wikimedia deja la foto sin guardar.
+      const urlFoto = normalizarUrlFoto(info.thumburl ?? info.url);
+      if (!esUrlFotoValida(urlFoto)) return null;
+
       const ficheroNormalizado = fichero.replace(/ /g, "_");
       return {
-        url: info.thumburl ?? info.url,
+        url: urlFoto,
         fichero,
         autor: limpiarHtml(info.extmetadata?.Artist?.value ?? "Wikimedia Commons"),
         licencia,

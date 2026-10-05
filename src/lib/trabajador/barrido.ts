@@ -8,10 +8,17 @@ import { normalizarNombre } from "@/lib/lugares/normalizar";
 import type { CajaDelimitadora, FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
 import { ETIQUETA_OSM_POR_CATEGORIA, type FuenteCercanos } from "@/lib/alternativas/cercanos";
-import { distanciaMetros } from "@/lib/alternativas/equivalencia";
+import { distanciaMetros, mismasCoordenadas } from "@/lib/alternativas/equivalencia";
+import { duracionParaCercano } from "@/lib/alternativas/duraciones";
 import { esLaMismaParadaDelPlan } from "@/lib/alternativas/resolverAlternativas";
 
 const MAXIMO_CERCANOS = 3;
+
+// alc-ac2: pasada única. Las paradas cuyo último intento de alternativas es
+// anterior a este instante se reintentan UNA vez con el filtro nuevo; al
+// terminar se marcan con un instante posterior, así que no vuelven a entrar.
+// Es la fecha del merge del bloque alternativas-completas.
+export const CORTE_ALTERNATIVAS = new Date("2026-10-05T09:00:00Z");
 
 // bar-ac3: 120 paradas o 180 s de reloj (lo que ocurra primero), para vaciar
 // las 467 pendientes en ~4 ticks sin solaparse con el cron de 5 min.
@@ -59,6 +66,87 @@ export async function procesarDentroDePresupuesto<T>(
     procesados++;
   }
   return procesados;
+}
+
+interface FilaParadaParaAlternativas {
+  id: string;
+  categoria: CategoriaParada | null;
+  lat: number | null;
+  lon: number | null;
+  plan_version_id: string;
+  duracion_min: number;
+}
+
+// Inserta hasta 3 cercanos de Overpass como alternativas de la parada, con
+// foto cuando Wikipedia/Commons la tienen. Lanza si falla la inserción: el
+// llamador decide qué hacer (siempre marcar el intento).
+async function insertarCercanos(
+  supabase: SupabaseClient,
+  fila: FilaParadaParaAlternativas & { categoria: CategoriaParada; lat: number; lon: number },
+  identidades: Set<string>,
+  fuenteCercanos: FuenteCercanos,
+  fuenteFotos: FuenteFotos | undefined,
+): Promise<void> {
+  const { categoria, lat, lon } = fila;
+  const cercanos = await fuenteCercanos.buscar(categoria, lat, lon);
+  const ajenos = cercanos.filter(
+    (cercano) =>
+      !esLaMismaParadaDelPlan({ nombre: cercano.nombre, lugar: { id: cercano.id } }, identidades) &&
+      !mismasCoordenadas({ lat, lon }, cercano),
+  );
+  const etiqueta = ETIQUETA_OSM_POR_CATEGORIA[categoria];
+  for (const cercano of ajenos.slice(0, MAXIMO_CERCANOS)) {
+    const distanciaM = distanciaMetros({ lat, lon }, cercano);
+    const lugar: Lugar = {
+      fuente: "osm",
+      id: cercano.id,
+      url: `https://www.openstreetmap.org/${cercano.id.replace("osm:", "")}`,
+      nombre_fuente: cercano.nombre,
+      etiquetas: {},
+      resuelto_en: new Date().toISOString(),
+    };
+    const foto = await fotoDeAlternativa(fuenteFotos, lugar, categoria, { lat: cercano.lat, lon: cercano.lon });
+    const { error: errorInsert } = await supabase.from("paradas_alternativas").insert({
+      parada_id: fila.id,
+      origen: "cercano",
+      nombre: cercano.nombre,
+      descripcion: `Sitio cercano de la categoría '${categoria}' según OpenStreetMap.`,
+      motivo: `A ${Math.round(distanciaM)} m, misma categoría (${etiqueta}) según OpenStreetMap.`,
+      duracion_min: duracionParaCercano(categoria, fila.duracion_min),
+      categoria,
+      lat: cercano.lat,
+      lon: cercano.lon,
+      lugar,
+      foto: foto ?? null,
+    });
+    if (errorInsert) throw new Error(errorInsert.message);
+  }
+}
+
+// Un fallo de Wikipedia/Commons deja la alternativa sin foto, nunca sin
+// alternativa ni tumba el tick.
+async function fotoDeAlternativa(
+  fuenteFotos: FuenteFotos | undefined,
+  lugar: Lugar | undefined,
+  categoria: CategoriaParada,
+  coordenadas: { lat: number; lon: number },
+) {
+  if (!fuenteFotos) return undefined;
+  try {
+    return await resolverFoto(fuenteFotos, lugar, categoria, coordenadas);
+  } catch {
+    return undefined;
+  }
+}
+
+interface FilaAlternativaGuardada {
+  id: string;
+  parada_id: string;
+  categoria: CategoriaParada;
+  lat: number | null;
+  lon: number | null;
+  lugar: Lugar | null;
+  foto: unknown;
 }
 
 interface FilaParada {
@@ -215,6 +303,7 @@ export async function completarParadasPendientes(
   reloj: Reloj = relojReal,
   presupuestoMs: number = PRESUPUESTO_BARRIDO_MS_DEFECTO,
   fuenteCercanos?: FuenteCercanos,
+  corteAlternativas: Date = CORTE_ALTERNATIVAS,
 ): Promise<ResultadoBarrido> {
   // bar-ac1: el alcance ya no parte de `trabajos` -- parte de TODO plan con
   // al menos una versión, viva o no. Un plan sin ninguna fila en
@@ -379,6 +468,11 @@ export async function completarParadasPendientes(
     }
   }
 
+  // Todo intento de alternativas se marca con max(ahora, corte): así ni el
+  // tercer barrido ni la pasada única de abajo vuelven a una parada ya
+  // intentada, aunque el reloj aún no haya alcanzado el corte.
+  const marcaIntento = () => new Date(Math.max(Date.now(), corteAlternativas.getTime())).toISOString();
+
   // alt-ac1: tercer barrido, después del de ubicación y del de fotos y
   // dentro del mismo tope -- paradas YA resueltas (de este barrido, de uno
   // anterior o de una generación reciente), sin alternativas intentadas
@@ -388,15 +482,6 @@ export async function completarParadasPendientes(
   // fresca a la BD, igual que el barrido de fotos de arriba, para que una
   // parada recién resuelta en ESTE mismo tick entre también.
   if (fuenteCercanos) {
-    interface FilaParadaSinAlternativas {
-      id: string;
-      categoria: CategoriaParada | null;
-      lat: number | null;
-      lon: number | null;
-      plan_version_id: string;
-      duracion_min: number;
-    }
-
     const { data: paradasSinAlternativas, error: errorAlternativas } = await supabase
       .from("paradas")
       .select("id, categoria, lat, lon, plan_version_id, duracion_min")
@@ -406,47 +491,89 @@ export async function completarParadasPendientes(
       .limit(limite);
     if (errorAlternativas) throw new Error(`No se pudieron leer las paradas sin alternativas: ${errorAlternativas.message}`);
 
-    for (const fila of (paradasSinAlternativas as FilaParadaSinAlternativas[] | null) ?? []) {
+    for (const fila of (paradasSinAlternativas as FilaParadaParaAlternativas[] | null) ?? []) {
       const identidades = identidadesPorVersion.get(fila.plan_version_id) ?? new Set<string>();
       try {
         if (!fila.categoria || fila.lat === null || fila.lon === null) {
-          await supabase.from("paradas").update({ alternativas_intentadas_en: new Date().toISOString() }).eq("id", fila.id);
+          await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
           continue;
         }
-        const categoria = fila.categoria;
-        const lat = fila.lat;
-        const lon = fila.lon;
-        const cercanos = await fuenteCercanos.buscar(categoria, lat, lon);
-        const ajenos = cercanos.filter(
-          (cercano) => !esLaMismaParadaDelPlan({ nombre: cercano.nombre, lugar: { id: cercano.id } }, identidades),
-        );
-        const etiqueta = ETIQUETA_OSM_POR_CATEGORIA[categoria];
-        for (const cercano of ajenos.slice(0, MAXIMO_CERCANOS)) {
-          const distanciaM = distanciaMetros({ lat, lon }, cercano);
-          const { error: errorInsert } = await supabase.from("paradas_alternativas").insert({
-            parada_id: fila.id,
-            origen: "cercano",
-            nombre: cercano.nombre,
-            descripcion: `Sitio cercano de la categoría '${fila.categoria}' según OpenStreetMap.`,
-            motivo: `A ${Math.round(distanciaM)} m, misma categoría (${etiqueta}) según OpenStreetMap.`,
-            duracion_min: fila.duracion_min,
-            categoria: fila.categoria,
-            lat: cercano.lat,
-            lon: cercano.lon,
-            lugar: {
-              fuente: "osm",
-              id: cercano.id,
-              url: `https://www.openstreetmap.org/${cercano.id.replace("osm:", "")}`,
-              nombre_fuente: cercano.nombre,
-              etiquetas: {},
-              resuelto_en: new Date().toISOString(),
-            },
-          });
-          if (errorInsert) throw new Error(errorInsert.message);
-        }
-        await supabase.from("paradas").update({ alternativas_intentadas_en: new Date().toISOString() }).eq("id", fila.id);
+        await insertarCercanos(supabase, { ...fila, categoria: fila.categoria, lat: fila.lat, lon: fila.lon }, identidades, fuenteCercanos, fuenteFotos);
+        await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
       } catch {
-        await supabase.from("paradas").update({ alternativas_intentadas_en: new Date().toISOString() }).eq("id", fila.id);
+        await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
+      }
+    }
+  }
+
+  // alc-ac2: pasada única sobre los planes ya guardados. Paradas resueltas
+  // cuyo intento es anterior al corte: sin alternativas, se reintenta con el
+  // filtro nuevo; con alternativas sin foto, se busca su foto. El marcado
+  // usa max(ahora, corte) para que la parada no vuelva a entrar aunque el
+  // reloj aún no haya alcanzado el corte (invariante: como mucho una vez).
+  if (fuenteCercanos) {
+    const { data: antiguas, error: errorAntiguas } = await supabase
+      .from("paradas")
+      .select("id, categoria, lat, lon, plan_version_id, duracion_min")
+      .in("plan_version_id", versionIds)
+      .eq("resolucion->>estado", "resuelta")
+      .lt("alternativas_intentadas_en", corteAlternativas.toISOString());
+    if (errorAntiguas) throw new Error(`No se pudieron leer las paradas anteriores al corte: ${errorAntiguas.message}`);
+
+    const candidatas = (antiguas as FilaParadaParaAlternativas[] | null) ?? [];
+    if (candidatas.length > 0) {
+      const { data: existentes, error: errorExistentes } = await supabase
+        .from("paradas_alternativas")
+        .select("id, parada_id, categoria, lat, lon, lugar, foto")
+        .in("parada_id", candidatas.map((fila) => fila.id));
+      if (errorExistentes) throw new Error(`No se pudieron leer las alternativas guardadas: ${errorExistentes.message}`);
+
+      const porParada = new Map<string, FilaAlternativaGuardada[]>();
+      for (const alternativa of (existentes as FilaAlternativaGuardada[] | null) ?? []) {
+        porParada.set(alternativa.parada_id, [...(porParada.get(alternativa.parada_id) ?? []), alternativa]);
+      }
+      const necesitaTrabajo = (fila: FilaParadaParaAlternativas) => {
+        const guardadas = porParada.get(fila.id) ?? [];
+        return guardadas.length === 0 || guardadas.some((alternativa) => !alternativa.foto);
+      };
+
+      const marcar = async (ids: string[]) => {
+        if (ids.length === 0) return;
+        await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).in("id", ids);
+      };
+      // Las que ya están completas no necesitan nada: se marcan de golpe.
+      await marcar(candidatas.filter((fila) => !necesitaTrabajo(fila)).map((fila) => fila.id));
+
+      for (const fila of candidatas.filter(necesitaTrabajo).slice(0, limite)) {
+        try {
+          const guardadas = porParada.get(fila.id) ?? [];
+          if (guardadas.length === 0) {
+            if (fila.categoria && fila.lat !== null && fila.lon !== null) {
+              const identidades = identidadesPorVersion.get(fila.plan_version_id) ?? new Set<string>();
+              await insertarCercanos(
+                supabase,
+                { ...fila, categoria: fila.categoria, lat: fila.lat, lon: fila.lon },
+                identidades,
+                fuenteCercanos,
+                fuenteFotos,
+              );
+            }
+          } else {
+            for (const alternativa of guardadas.filter((a) => !a.foto)) {
+              if (alternativa.lat === null || alternativa.lon === null) continue;
+              const foto = await fotoDeAlternativa(
+                fuenteFotos,
+                alternativa.lugar ?? undefined,
+                alternativa.categoria,
+                { lat: alternativa.lat, lon: alternativa.lon },
+              );
+              if (foto) await supabase.from("paradas_alternativas").update({ foto }).eq("id", alternativa.id);
+            }
+          }
+        } catch {
+          // El intento se marca igual: una pasada única no reintenta.
+        }
+        await marcar([fila.id]);
       }
     }
   }

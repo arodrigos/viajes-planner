@@ -326,7 +326,7 @@ export async function procesarTrabajo(
   // en memoria se evaporaba en cada tick del trabajador (un proceso nuevo
   // por tick), así que nunca evitaba una segunda petición real a Overpass.
   const cercanos = fuenteCercanos ?? crearFuenteCercanosAbierta({ cache: cacheSitiosSupabase(supabase) });
-  const planFinal = await resolverAlternativasPlan(fuente, cercanos, planConFotos, trabajo.criterios.perfil, cualificadorCiudad);
+  const planFinal = await resolverAlternativasPlan(fuente, cercanos, planConFotos, trabajo.criterios.perfil, cualificadorCiudad, fotos);
 
   await publicarEtapa(supabase, trabajo.id, "guardando");
   await guardarPlan(supabase, planFinal);

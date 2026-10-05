@@ -9,6 +9,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { guardarPlan, recuperarPlan } from "./repositorio";
 import type { Alternativa } from "./tipos";
 
+const MAXIMO_ALTERNATIVAS = 3;
+
+// alc-ac1: la parada nueva conserva las alternativas no elegidas (en su
+// orden) y la sustituida va al final; el tope es el mismo de siempre, así
+// que con 3 alternativas se recorta la última, nunca se llega a 4.
+export function heredarAlternativas(actuales: Alternativa[], elegida: Alternativa, sustituida: Alternativa): Alternativa[] {
+  return [...actuales.filter((alternativa) => alternativa !== elegida), sustituida].slice(0, MAXIMO_ALTERNATIVAS);
+}
+
 export type ResultadoSustitucion =
   | { estado: "sustituida"; version: number }
   | { estado: "no-encontrado" }
@@ -55,6 +64,8 @@ export async function sustituirParada(
     foto: paradaActual.foto,
   };
 
+  const alternativasHeredadas = heredarAlternativas(paradaActual.alternativas ?? [], alternativaElegida, paradaAnteriorComoAlternativa);
+
   const paradaNueva = {
     ...paradaActual,
     nombre: alternativaElegida.nombre,
@@ -65,7 +76,7 @@ export async function sustituirParada(
     lugar: alternativaElegida.lugar,
     foto: alternativaElegida.foto,
     resolucion: alternativaElegida.coordenadas ? { estado: "resuelta" as const, intentado_en: new Date().toISOString() } : undefined,
-    alternativas: [paradaAnteriorComoAlternativa],
+    alternativas: alternativasHeredadas,
   };
 
   const diasNuevos = plan.dias.map((dia, iDia) => {
