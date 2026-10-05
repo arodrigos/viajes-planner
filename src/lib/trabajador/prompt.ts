@@ -113,8 +113,26 @@ categorías, explica en tu respuesta que se ha excluido por seguridad en
 vez de omitirlo en silencio.`;
 }
 
-export function construirPrompt(criterios: CriteriosViaje): string {
-  return `${instruccionesFormato(criterios)}\n\n${instruccionesGeneracion(criterios)}\n\n<criterios-usuario>\n${JSON.stringify(criterios)}\n</criterios-usuario>`;
+// etapas-pais: el destino es un país, una región o varios países. El modelo
+// propone el reparto; las reglas de descanso y los traslados los comprueba y
+// repara el sistema después, así que aquí solo se le pide el contrato.
+function instruccionesEtapas(criterios: CriteriosViaje, zonas: readonly string[]): string {
+  const maximo = Math.min(6, Math.max(1, Math.ceil(criterios.dias / 3)));
+  return `El destino es un viaje de VARIAS CIUDADES por: ${zonas.join(", ")}. Añade al objeto JSON el campo
+"etapas", en el orden del viaje: [ { "ciudad": "...", "pais": "...", "dias": <entero>, "motivo": "...", "alojamiento_noche_eur": <número> } ].
+"ciudad" es el nombre real de una ciudad, sin países ni frases; "pais" su país; "dias" los días que se pasan en ella;
+"motivo" una frase sobre por qué esa ciudad; "alojamiento_noche_eur" el precio orientativo de una noche de alojamiento
+para el grupo entero. Reglas: como máximo ${maximo} etapas, al menos 2 días en cada una, ninguna ciudad repetida, todas las
+zonas pedidas con al menos una etapa, dos ciudades consecutivas a menos de 4 horas por tierra con los medios elegidos
+(o a menos de 7 horas en avión si lo permiten), y el total de alojamiento, traslados y visitas dentro del presupuesto.
+Los "dias" de las etapas suman exactamente ${criterios.dias}. Cada elemento de "dias" lleva además "etapa": el índice
+(desde 0) de su etapa; los días de una etapa son contiguos. La mañana del día de llegada a una ciudad nueva se deja libre.
+Todas las paradas de un día son de la ciudad de su etapa.`;
+}
+
+export function construirPrompt(criterios: CriteriosViaje, zonas?: readonly string[]): string {
+  const etapas = zonas && zonas.length > 0 ? `\n\n${instruccionesEtapas(criterios, zonas)}` : "";
+  return `${instruccionesFormato(criterios)}\n\n${instruccionesGeneracion(criterios)}${etapas}\n\n<criterios-usuario>\n${JSON.stringify(criterios)}\n</criterios-usuario>`;
 }
 
 export function construirPromptReintento(promptOriginal: string, errores: ErrorValidacion[]): string {

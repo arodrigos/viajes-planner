@@ -21,8 +21,11 @@ import { construirPrompt, construirPromptReintento } from "./prompt";
 import { ensamblarCoste, ensamblarMotivo } from "@/lib/presupuesto/ensamblar";
 import { generarIdParada, generarIdPlan } from "./id";
 import { MODELO_GENERACION } from "./config";
-import { clasificarDestino } from "@/lib/etapas/clasificar";
+import { clasificarDestino, type Zona } from "@/lib/etapas/clasificar";
 import { comprobarViabilidad } from "@/lib/etapas/viabilidad";
+import { cerrarEtapas, erroresDeDias, erroresParaReintento, extraerEtapasPropuestas, situarEtapas, validarPropuesta, type EtapaSituada } from "@/lib/etapas/multiciudad";
+import { porEtapas } from "@/lib/etapas/porEtapa";
+import type { ErrorEtapa } from "@/lib/etapas/validar";
 
 const CATEGORIAS_VALIDAS = new Set<string>(CATEGORIAS_PARADA);
 
@@ -57,7 +60,7 @@ type IntentoEnsamblado = { valido: true; plan: Plan } | { valido: false; errores
 // (```json ... ```) pese a la instrucción explícita, dos veces seguidas
 // (intento y reintento). La red real contra ese comportamiento conocido de
 // los modelos es esta extracción, no el texto del prompt.
-function extraerJson(texto: string): string {
+export function extraerJson(texto: string): string {
   const conValla = texto.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (conValla) return conValla[1];
   const inicio = texto.indexOf("{");
@@ -275,6 +278,7 @@ export async function procesarTrabajo(
   // dmc-ac2: un viaje de varias ciudades que no cabe en días, distancia o
   // presupuesto se descarta aquí, SIN invocar al modelo: lo que cuesta una
   // invocación no se gasta en un plan que luego habría que tirar.
+  let zonasMulticiudad: Zona[] | null = null;
   if (tieneFuenteCiudad(fuente)) {
     const clasificacion = await clasificarDestino(fuente, trabajo.criterios.destino_o_tipo);
     if (clasificacion.modo === "multiciudad") {
@@ -291,20 +295,43 @@ export async function procesarTrabajo(
           .eq("id", trabajo.id);
         return { estado: "fallido" };
       }
+      zonasMulticiudad = clasificacion.zonas;
     }
   }
 
+  // eta-ac1: en un viaje de varias ciudades, además del esquema del plan se
+  // comprueban las etapas (geocodificadas, 1 petición por etapa). Un fallo
+  // de cualquiera de las dos gasta el único reintento señalado.
+  const modos = trabajo.criterios.transporte ?? [];
+  const ctxEtapas = zonasMulticiudad ? { zonas: zonasMulticiudad, modos, personas: trabajo.criterios.personas.length, presupuestoEur: trabajo.criterios.presupuesto_eur } : null;
+  let situadas: EtapaSituada[] = [];
+  let erroresEtapas: ErrorEtapa[] = [];
+  const analizar = async (texto: string): Promise<IntentoEnsamblado> => {
+    const resultado = ensamblarYValidar(trabajo.criterios, planId, texto);
+    if (!ctxEtapas || !resultado.valido || !tieneFuenteCiudad(fuente)) return resultado;
+    let datos: unknown = null;
+    try {
+      datos = JSON.parse(extraerJson(texto));
+    } catch {
+      datos = null;
+    }
+    situadas = await situarEtapas(fuente, extraerEtapasPropuestas(datos, ctxEtapas.personas), ctxEtapas.zonas);
+    erroresEtapas = [...erroresDeDias(datos), ...validarPropuesta(situadas, ctxEtapas, resultado.plan)];
+    return resultado;
+  };
+
   await publicarEtapa(supabase, trabajo.id, "generando el plan");
-  const prompt = construirPrompt(trabajo.criterios);
+  const prompt = construirPrompt(trabajo.criterios, zonasMulticiudad?.map((z) => z.nombre));
   const primeraRespuesta = await invocarOPausar(supabase, trabajo.id, familia, ejecutor, prompt, directorio);
   if ("limitado" in primeraRespuesta) return { estado: "pausado-por-cuota" };
-  let intento = ensamblarYValidar(trabajo.criterios, planId, primeraRespuesta.texto);
+  let intento = await analizar(primeraRespuesta.texto);
 
-  if (!intento.valido) {
-    const promptReintento = construirPromptReintento(prompt, intento.errores);
+  if (!intento.valido || erroresEtapas.length > 0) {
+    const errores = [...(intento.valido ? [] : intento.errores), ...erroresParaReintento(erroresEtapas)];
+    const promptReintento = construirPromptReintento(prompt, errores);
     const segundaRespuesta = await invocarOPausar(supabase, trabajo.id, familia, ejecutor, promptReintento, directorio);
     if ("limitado" in segundaRespuesta) return { estado: "pausado-por-cuota" };
-    intento = ensamblarYValidar(trabajo.criterios, planId, segundaRespuesta.texto);
+    intento = await analizar(segundaRespuesta.texto);
   }
 
   if (!intento.valido) {
@@ -319,7 +346,21 @@ export async function procesarTrabajo(
   // generacion-ac1/ac2: red de seguridad determinista sobre el plan ya
   // validado estructuralmente, no una confianza ciega en que el modelo
   // obedeció el tope y la exclusión de categorías pedidos en el prompt.
-  const { plan: planPostProcesado } = postProcesarPlan(intento.plan, trabajo.criterios);
+  let { plan: planPostProcesado } = postProcesarPlan(intento.plan, trabajo.criterios);
+
+  // eta-ac1: reparación determinista y, si ni así cabe, descarte explicado
+  // sin guardar ningún plan.
+  if (ctxEtapas) {
+    const cierre = cerrarEtapas(planPostProcesado, situadas, ctxEtapas);
+    if (cierre.inviable) {
+      await supabase
+        .from("trabajos")
+        .update({ estado: "fallido", motivo: "inviable", inviable: cierre.descarte, actualizado_en: new Date().toISOString() })
+        .eq("id", trabajo.id);
+      return { estado: "fallido" };
+    }
+    planPostProcesado = cierre.plan;
+  }
 
   // lug-ac1: resolución real contra las fuentes abiertas (Nominatim +
   // respaldo Wikipedia), con caché y límite de ritmo en cacheSitios.ts y
@@ -335,7 +376,7 @@ export async function procesarTrabajo(
   // conclusión negativa): en ese caso el plan se guarda sin ciudad, para
   // reintentarlo más tarde, en vez de marcarlo "sin ciudad identificable".
   let ciudad: Awaited<ReturnType<typeof resolverCiudadEfectiva>> | undefined;
-  if (tieneFuenteCiudad(fuente)) {
+  if (!ctxEtapas && tieneFuenteCiudad(fuente)) {
     await publicarEtapa(supabase, trabajo.id, "identificando la ciudad");
     const nombresParadas = planPostProcesado.dias.flatMap((dia) => dia.paradas.map((parada) => parada.nombre));
     ciudad = (await resolverCiudadEfectiva(fuente, planPostProcesado.destino, nombresParadas)) ?? undefined;
@@ -344,7 +385,10 @@ export async function procesarTrabajo(
   const cualificadorCiudad = ciudad?.estado === "resuelta" && ciudad.nombre && ciudad.caja ? { nombre: ciudad.nombre, caja: ciudad.caja } : undefined;
 
   await publicarEtapa(supabase, trabajo.id, "ubicando las paradas");
-  const planConLugares = await resolverPlan(fuente, planConCiudad, cualificadorCiudad);
+  // eta-ac3: en varias ciudades, cada etapa resuelve contra su propia caja.
+  const planConLugares = planConCiudad.etapas
+    ? await porEtapas(planConCiudad, (sub, cualificador) => resolverPlan(fuente, sub, cualificador))
+    : await resolverPlan(fuente, planConCiudad, cualificadorCiudad);
 
   // fot-ac1: fotos de las paradas ya resueltas, en el mismo paso visible
   // "ubicando las paradas" -- no se anuncia una etapa nueva para no
@@ -359,7 +403,9 @@ export async function procesarTrabajo(
   // en memoria se evaporaba en cada tick del trabajador (un proceso nuevo
   // por tick), así que nunca evitaba una segunda petición real a Overpass.
   const cercanos = fuenteCercanos ?? crearFuenteCercanosAbierta({ cache: cacheSitiosSupabase(supabase) });
-  const planFinal = await resolverAlternativasPlan(fuente, cercanos, planConFotos, trabajo.criterios.perfil, cualificadorCiudad, fotos);
+  const planFinal = planConFotos.etapas
+    ? await porEtapas(planConFotos, (sub, cualificador) => resolverAlternativasPlan(fuente, cercanos, sub, trabajo.criterios.perfil, cualificador, fotos))
+    : await resolverAlternativasPlan(fuente, cercanos, planConFotos, trabajo.criterios.perfil, cualificadorCiudad, fotos);
 
   await publicarEtapa(supabase, trabajo.id, "guardando");
   await guardarPlan(supabase, planFinal);

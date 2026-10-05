@@ -10,7 +10,12 @@ export interface PresupuestoDia {
 
 export interface Presupuesto {
   por_dia: PresupuestoDia[];
+  // total = alojamiento + traslados + actividades. Sin etapas (una sola
+  // ciudad), alojamiento y traslados son 0 y el total son las visitas.
   total_eur: number;
+  alojamiento_eur: number;
+  traslados_eur: number;
+  actividades_eur: number;
   total_estimado_eur: number;
   total_de_fuente_eur: number;
 }
@@ -22,7 +27,7 @@ function aCentimos(euros: number): number {
   return Math.round(euros * 100);
 }
 
-export function calcularPresupuesto(plan: Pick<Plan, "personas" | "dias">): Presupuesto {
+export function calcularPresupuesto(plan: Pick<Plan, "personas" | "dias" | "etapas" | "traslados">): Presupuesto {
   let totalCentimos = 0;
   let estimadoCentimos = 0;
   const porDia: PresupuestoDia[] = [];
@@ -41,10 +46,21 @@ export function calcularPresupuesto(plan: Pick<Plan, "personas" | "dias">): Pres
     porDia.push({ fecha: dia.fecha, total_eur: diaCentimos / 100 });
   }
 
+  // Alojamiento y traslados son siempre estimaciones del sistema; se duerme
+  // una noche menos que días de viaje (la última etapa no pernocta el último día).
+  const etapas = plan.etapas ?? [];
+  const alojamientoCentimos = etapas.reduce((suma, e, i) => suma + (i === etapas.length - 1 ? Math.max(0, e.dias - 1) : e.dias) * aCentimos(e.alojamiento_noche_eur), 0);
+  const trasladosCentimos = (plan.traslados ?? []).reduce((suma, t) => suma + aCentimos(t.coste_eur), 0);
+  const total = totalCentimos + alojamientoCentimos + trasladosCentimos;
+  const estimado = estimadoCentimos + alojamientoCentimos + trasladosCentimos;
+
   return {
     por_dia: porDia,
-    total_eur: totalCentimos / 100,
-    total_estimado_eur: estimadoCentimos / 100,
-    total_de_fuente_eur: (totalCentimos - estimadoCentimos) / 100,
+    total_eur: total / 100,
+    alojamiento_eur: alojamientoCentimos / 100,
+    traslados_eur: trasladosCentimos / 100,
+    actividades_eur: totalCentimos / 100,
+    total_estimado_eur: estimado / 100,
+    total_de_fuente_eur: (total - estimado) / 100,
   };
 }
