@@ -16,6 +16,7 @@
     "verificar:esqueleto": "bash scripts/verificar-esqueleto.sh",
     "trabajador:tick": "tsx --conditions=react-server scripts/trabajador-tick.ts",
     "generar:infografia-ejemplo": "tsx --conditions=react-server scripts/generar-infografia-ejemplo.ts",
+    "medir:lamina": "tsx --conditions=react-server scripts/medir-lamina.ts",
     "generar:plan-real": "tsx --conditions=react-server scripts/generar-plan-real.ts"
   },
   "dependencies": {
@@ -40,6 +41,7 @@
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.1",
@@ -47,6 +49,7 @@
     "eslint-config-next": "16.3.6",
     "fast-check": "^4.10.2",
     "jsdom": "^30.1.0",
+    "pngjs": "^7.0.0",
     "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^5.0.1"

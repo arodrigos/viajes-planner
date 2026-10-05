@@ -6,6 +6,10 @@ import type { NextConfig } from "next";
 // dato personal (guia-ac7.d). Va aquí y no en middleware.ts porque el
 // matcher de éste excluye a propósito /guia de su procesamiento.
 const nextConfig: NextConfig = {
+  // lam-ac4: las fuentes se leen con fs, que el trazado de Vercel no ve solo.
+  outputFileTracingIncludes: {
+    "/api/plan/[id]/infografia.png": ["./assets/fuentes/**"],
+  },
   async headers() {
     return [
       {

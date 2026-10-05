@@ -147,6 +147,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run medir:lamina
 
   verificar-esqueleto:
     runs-on: ubuntu-latest
