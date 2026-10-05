@@ -9,7 +9,9 @@ import { franjasComoArray } from "@/lib/plan/config-franjas";
 // formulario con «Portugal» ya lo cubre transporte.movil.e2e.ts.
 test.use({ viewport: { width: 390, height: 844 } });
 
-const EMAIL = "ci-test-ruta@example.com";
+// Un correo por sesión: fullyParallel ejecuta los tests a la vez y leerCodigo
+// toma el último mensaje del correo, así que compartirlo cruzaría los códigos.
+const correo = (sufijo: string) => `ci-test-ruta-${sufijo}@example.com`;
 const CAJA_LISBOA = { minLat: 38.6, maxLat: 38.9, minLon: -9.35, maxLon: -9.0 };
 const CAJA_OPORTO = { minLat: 41.0, maxLat: 41.3, minLon: -8.8, maxLon: -8.45 };
 
@@ -68,7 +70,8 @@ async function sembrarPlan(supabase: SupabaseClient, planId: string, modo: "tren
   }
 }
 
-async function abrirPlan(browser: import("@playwright/test").Browser, supabase: SupabaseClient, modo: "tren" | "avion" | "coche") {
+async function abrirPlan(browser: import("@playwright/test").Browser, supabase: SupabaseClient, modo: "tren" | "avion" | "coche", sufijo: string) {
+  const EMAIL = correo(sufijo);
   const { data: usuario } = await supabase.auth.admin.listUsers();
   let usuarioId = usuario?.users.find((u) => u.email === EMAIL)?.id;
   if (!usuarioId) {
@@ -92,7 +95,7 @@ async function abrirPlan(browser: import("@playwright/test").Browser, supabase: 
 }
 
 test("Ruta del viaje: etapas, traslado, presupuesto y ajustes, sin aviso de ciudad (etv-ac1, etv-ac3)", async ({ browser }) => {
-  const { contexto, pagina } = await abrirPlan(browser, clienteDePrueba("servicio"), "tren");
+  const { contexto, pagina } = await abrirPlan(browser, clienteDePrueba("servicio"), "tren", "etapas");
   const ruta = pagina.getByTestId("ruta-viaje");
   await expect(ruta).toBeVisible();
 
@@ -116,7 +119,7 @@ test("Ruta del viaje: etapas, traslado, presupuesto y ajustes, sin aviso de ciud
 });
 
 test("cada día nombra su ciudad y su mapa se centra en ella (etv-ac2)", async ({ browser }) => {
-  const { contexto, pagina } = await abrirPlan(browser, clienteDePrueba("servicio"), "coche");
+  const { contexto, pagina } = await abrirPlan(browser, clienteDePrueba("servicio"), "coche", "dias");
   await expect(pagina.getByRole("heading", { name: "Día 1 · Lisboa" })).toBeVisible();
   await expect(pagina.getByRole("heading", { name: "Día 5 · Oporto" })).toBeVisible();
 
@@ -133,7 +136,7 @@ test("cada día nombra su ciudad y su mapa se centra en ella (etv-ac2)", async (
 
 test("enlaces de transporte: tren con 2, coche con ninguno (etv-ac4)", async ({ browser }) => {
   const supabase = clienteDePrueba("servicio");
-  const tren = await abrirPlan(browser, supabase, "tren");
+  const tren = await abrirPlan(browser, supabase, "tren", "tren");
   const busqueda = tren.pagina.getByRole("link", { name: "Buscar tren Lisboa → Oporto" });
   await expect(busqueda).toHaveCount(1);
   const url = new URL((await busqueda.getAttribute("href")) ?? "");
@@ -152,7 +155,7 @@ test("enlaces de transporte: tren con 2, coche con ninguno (etv-ac4)", async ({ 
   }
   await tren.contexto.close();
 
-  const coche = await abrirPlan(browser, supabase, "coche");
+  const coche = await abrirPlan(browser, supabase, "coche", "coche");
   await expect(coche.pagina.getByTestId("traslado-ruta").getByRole("link")).toHaveCount(0);
   await coche.contexto.close();
 });
