@@ -124,15 +124,18 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}, presupu
     }
   }
 
-  async function geocodificarDestino(destino: string): Promise<CajaDelimitadora | null> {
+  async function geocodificarDestino(texto: string): Promise<CajaDelimitadora | null> {
     // cpn-ac1: sin caché, cada reintento de un plan repetía esta petición y
     // se comía presupuesto sin aportar nada. Solo se cachea una respuesta
-    // real (con o sin resultado), nunca un fallo de red.
-    const clave = claveDestino(`v${VERSION_RESOLUTOR_ACTUAL}:${slugDestino(destino)}`);
+    // real (con o sin resultado), nunca un fallo de red. Esta clave (espacio
+    // `claveDestino`) es la del texto geocodificado, distinta de las claves
+    // por ciudad efectiva que vigila ciu-ac3; el parámetro se llama `texto`
+    // para que esa vigilancia siga buscando solo claves por ciudad.
+    const clave = claveDestino(`v${VERSION_RESOLUTOR_ACTUAL}:${slugDestino(texto)}`);
     const enCache = await cache.obtener(clave);
     if (!esFalloDeCache(enCache)) return enCache as CajaDelimitadora | null;
 
-    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(destino)}&format=jsonv2&limit=1`;
+    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(texto)}&format=jsonv2&limit=1`;
     reservarPeticion();
     const respuesta = await limitarNominatim(() => peticionConReintento(url));
     if (!respuesta) return null;
