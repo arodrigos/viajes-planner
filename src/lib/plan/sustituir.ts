@@ -81,6 +81,11 @@ export async function sustituirParada(
     // una razón y un coste que no corresponden al sitio nuevo.
     motivo: undefined,
     coste: undefined,
+    // Lo mismo con la guía: es la ficha del sitio anterior. Sin
+    // guia_intentada_en el barrido vuelve a mirar el sitio nuevo.
+    guia: undefined,
+    curiosidades: undefined,
+    guia_intentada_en: undefined,
   };
 
   const diasNuevos = plan.dias.map((dia, iDia) => {

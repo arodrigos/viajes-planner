@@ -9,7 +9,8 @@ import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
 import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
-import type { CosteParada } from "@/lib/plan/tipos";
+import type { CosteParada, CuriosidadesParada, GuiaParada } from "@/lib/plan/tipos";
+import { SeccionesGuia } from "./SeccionesGuia";
 import { textoCabeceraPresupuesto, textoPrecioParada, type PresupuestoPublico } from "@/lib/presupuesto/texto";
 import { AccionesVisita } from "./AccionesVisita";
 import { AvisoCiudad } from "./AvisoCiudad";
@@ -85,6 +86,10 @@ interface ParadaPublica {
   // motivo-y-presupuesto (mot-ac1): ausentes en planes anteriores.
   motivo?: string;
   coste?: CosteParada;
+  // guia-abierta: texto de fuentes abiertas que escribe el trabajador.
+  guia?: GuiaParada;
+  curiosidades?: CuriosidadesParada;
+  guia_intentada_en?: string;
 }
 
 interface DiaPublico {
@@ -355,6 +360,7 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                       <p className="precio-parada" data-testid="precio-parada">
                         {textoPrecioParada(parada.coste)}
                       </p>
+                      <SeccionesGuia nombre={parada.nombre} guia={parada.guia} curiosidades={parada.curiosidades} intentada={Boolean(parada.guia_intentada_en)} />
                       {/* fot-ac2/fot-ac3: la foto nunca viene de otro
                           sitio -procede de resolverFotos.ts, server-only-;
                           sin ella, el marcador de posición es digno, nunca

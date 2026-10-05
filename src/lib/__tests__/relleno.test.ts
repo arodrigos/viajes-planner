@@ -35,7 +35,7 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
     for (let i = 0; i < 10; i++) {
       await leerEstadoRelleno(cliente, inicio + i * 1_000);
     }
-    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(20);
+    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(21);
   });
 
   it("tras 61 s desde la última tanda, se vuelve a consultar", async () => {
@@ -43,7 +43,7 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
     const inicio = 2_000_000;
     await leerEstadoRelleno(cliente, inicio);
     await leerEstadoRelleno(cliente, inicio + 61_000);
-    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(40);
+    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(42);
   });
 
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): la lista crece de 12 a 19
@@ -62,6 +62,7 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
         "paradas_con_foto",
         "paradas_con_alternativas",
         "paradas_con_categoria",
+        "paradas_con_guia",
         "planes_total",
         "planes_sin_version",
         "planes_sin_trabajo_vivo",

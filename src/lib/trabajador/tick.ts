@@ -10,6 +10,7 @@ import type { EjecutorModelo } from "./ejecutorModelo";
 import { procesarTrabajo } from "./procesarTrabajo";
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
+import type { FuenteGuia } from "@/lib/guia/wikivoyage";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
 import { crearFuenteCercanosAbierta, type FuenteCercanos } from "@/lib/alternativas/cercanos";
 import { ORIGEN_PASADA_ALTERNATIVAS } from "@/lib/salud";
@@ -32,6 +33,8 @@ export interface OpcionesTick {
   fuenteLugares?: FuenteLugares & FuenteCiudad;
   fuenteFotos?: FuenteFotos;
   fuenteCercanos?: FuenteCercanos;
+  // guia-abierta: ausente, no se enriquece con la guía (los tests no usan red).
+  fuenteGuia?: FuenteGuia;
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): el SHA que de verdad
   // ejecuta este tick en VPS1, distinto del commit que Vercel informa en
   // /api/salud -- scripts/trabajador-tick.ts lo calcula con `git rev-parse`.
@@ -99,7 +102,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         await procesarTrabajo(
           supabase,
           { id: trabajo.id, plan_id: trabajo.plan_id, criterios: trabajo.criterios as CriteriosViaje },
-          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares, fuenteFotos },
+          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares, fuenteFotos, fuenteGuia: opciones.fuenteGuia },
         );
         trabajosProcesados += 1;
         continue;
@@ -115,6 +118,8 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
           relojReal,
           PRESUPUESTO_BARRIDO_MS_DEFECTO,
           fuenteCercanos,
+          undefined,
+          opciones.fuenteGuia,
         );
         planesMirados = resultadoBarrido.planesMirados;
         paradasIntentadas = resultadoBarrido.paradasIntentadas;

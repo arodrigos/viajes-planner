@@ -141,6 +141,9 @@ export interface FuenteLugares {
 // imagen original en Commons, si tiene una-.
 export interface ResumenPaginaWikipedia {
   fichero?: string;
+  // guia-abierta: el extracto que ya devuelve el mismo endpoint, para las
+  // curiosidades; sin petición nueva.
+  extracto?: string;
 }
 
 export interface CandidatoGeosearch {

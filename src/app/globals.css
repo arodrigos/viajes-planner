@@ -609,3 +609,21 @@ footer a,
 .enlaces-recorrido a {
   font-size: var(--texto-pequeno);
 }
+
+/* guia-abierta: consejos y curiosidades de fuentes abiertas. */
+.guia-parada {
+  margin-top: 0.5rem;
+  font-size: var(--texto-pequeno);
+}
+.guia-parada .texto-guia,
+.guia-parada ul {
+  margin: 0.15rem 0 0.4rem;
+  overflow-wrap: anywhere;
+}
+.guia-parada ul {
+  padding-left: 1.1rem;
+}
+.atribucion-guia {
+  color: var(--muted, #555);
+  font-size: var(--texto-pequeno);
+}

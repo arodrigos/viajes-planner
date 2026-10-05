@@ -1,3 +1,4 @@
+import { curiosidadesSeguras, guiaSegura } from "@/lib/guia/seguridad";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { idsExternosVisitados } from "./visitas";
@@ -98,6 +99,9 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
           foto_intentada_en: parada.foto_intentada_en ?? null,
           motivo: parada.motivo ?? null,
           coste: parada.coste ?? null,
+          guia: parada.guia ?? null,
+          curiosidades: parada.curiosidades ?? null,
+          guia_intentada_en: parada.guia_intentada_en ?? null,
         })
         .select("id")
         .single();
@@ -163,7 +167,7 @@ export async function recuperarPlan(
   const { data: paradaRows, error: errorParadas } = await supabase
     .from("paradas")
     .select(
-      "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, procedencias(fuente)",
+      "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, procedencias(fuente)",
     )
     .eq("plan_version_id", versionRow.id)
     .order("dia_index", { ascending: true });
@@ -250,6 +254,9 @@ export async function recuperarPlan(
           ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
           ...(fila.motivo ? { motivo: fila.motivo as string } : {}),
           ...(fila.coste ? { coste: fila.coste as Parada["coste"] } : {}),
+          ...(guiaSegura(fila.guia as Parada["guia"]) ? { guia: fila.guia as Parada["guia"] } : {}),
+          ...(fila.guia_intentada_en ? { guia_intentada_en: fila.guia_intentada_en as string } : {}),
+          ...(curiosidadesSeguras(fila.curiosidades as Parada["curiosidades"]) ? { curiosidades: fila.curiosidades as Parada["curiosidades"] } : {}),
           ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
           ...(idsVisitados.has(fila.id_externo as string) ? { visitada: true } : {}),
         };

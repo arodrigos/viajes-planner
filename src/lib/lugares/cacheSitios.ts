@@ -55,6 +55,12 @@ export function claveNominatim(destinoSlug: string, nombreNormalizado: string): 
   return `nominatim:${destinoSlug}:${nombreNormalizado}`;
 }
 
+// guia-abierta: una entrada por idioma y ciudad, también la negativa, para
+// no volver a pedir a Wikivoyage una página que ya se sabe que no sirve.
+export function claveGuia(idioma: string, ciudad: string): string {
+  return `guia:${idioma}:${slugDestino(ciudad)}`;
+}
+
 // ciu-ac3: slugDestino es un slugger genérico -- lo usa tanto el texto del
 // destino en bruto (geocodificarDestino, respaldo sin ciudad efectiva)
 // como la ciudad efectiva del plan, que es lo que de verdad recibe en el

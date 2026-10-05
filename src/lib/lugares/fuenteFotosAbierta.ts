@@ -29,6 +29,7 @@ function aUrlAbsoluta(url: string): string {
 
 interface RespuestaResumenWikipedia {
   originalimage?: { source: string };
+  extract?: string;
 }
 
 // El CDN de Wikimedia sirve "originalimage" a veces directo
@@ -93,7 +94,7 @@ export function crearFuenteFotosAbierta(opciones: OpcionesFuenteFotosAbierta = {
       if (!respuesta) return null;
       const datos = (await respuesta.json()) as RespuestaResumenWikipedia;
       const fichero = datos.originalimage ? ficheroDesdeUrlImagen(datos.originalimage.source) : undefined;
-      return { fichero };
+      return { fichero, ...(typeof datos.extract === "string" && datos.extract ? { extracto: datos.extract } : {}) };
     },
 
     async infoImagen(fichero): Promise<Foto | null> {

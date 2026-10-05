@@ -1,0 +1,204 @@
+import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
+import type { FuenteFotos } from "@/lib/lugares/tipos";
+import { paginaPropiaDe } from "@/lib/lugares/resolverFotos";
+import { relojReal, type Reloj } from "@/lib/lugares/limitador";
+import type { CosteParada, EtapaPlan, Lugar } from "@/lib/plan/tipos";
+import { asignarFichas } from "./asignar";
+import { extraerCuriosidades } from "./curiosidades";
+import type { FichaGuia } from "./wikitexto";
+import { EsperaExcedida, FalloFuenteGuia, type FuenteGuia } from "./wikivoyage";
+
+export interface DependenciasGuia {
+  fuenteGuia: FuenteGuia;
+  fuenteFotos: FuenteFotos;
+  reloj?: Reloj;
+}
+
+export interface ResultadoGuia {
+  intentadas: number;
+  con_guia: number;
+  con_curiosidades: number;
+  // Quedan para el siguiente tick: la fuente falló o no cabía su ritmo.
+  pospuestas: number;
+}
+
+export const resultadoGuiaVacio = (): ResultadoGuia => ({ intentadas: 0, con_guia: 0, con_curiosidades: 0, pospuestas: 0 });
+
+export interface VersionParaGuia {
+  id: string;
+  ciudad: CiudadEfectiva | null;
+  etapas?: EtapaPlan[] | null;
+}
+
+interface FilaParadaGuia {
+  id: string;
+  nombre: string;
+  lat: number | null;
+  lon: number | null;
+  lugar: Lugar | null;
+  coste: CosteParada | null;
+  dia_index: number;
+  plan_version_id: string;
+}
+
+// La ciudad cuya guía se pide: la de la etapa del día en un viaje de varias
+// ciudades, la efectiva del plan en uno de una.
+export function ciudadDeParada(version: VersionParaGuia, diaIndex: number): string | null {
+  const etapa = version.etapas?.find((e) => diaIndex >= e.dia_inicio && diaIndex < e.dia_inicio + e.dias);
+  const ciudad = etapa ? etapa.ciudad : version.ciudad;
+  return ciudad?.estado === "resuelta" && ciudad.nombre ? ciudad.nombre : null;
+}
+
+function urlWikipedia(lang: string, titulo: string): string | null {
+  return /^[a-z]{2,3}$/.test(lang) ? `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(titulo.replace(/ /g, "_"))}` : null;
+}
+
+async function curiosidadesDe(fuente: FuenteFotos, fila: FilaParadaGuia): Promise<{ frases: string[]; url: string } | null> {
+  const pagina = paginaPropiaDe(fila.lugar ?? undefined);
+  if (!pagina) return null;
+  const resumen = await fuente.resumenPagina(pagina.lang, pagina.titulo);
+  const url = urlWikipedia(pagina.lang, pagina.titulo);
+  if (!resumen?.extracto || !url) return null;
+  const compacto = resumen.extracto.replace(/\s+/g, " ");
+  // Cada frase tiene que aparecer tal cual en el extracto: es lo que
+  // permite rotularla «de Wikipedia».
+  const frases = extraerCuriosidades(resumen.extracto).filter((f) => compacto.includes(f));
+  return frases.length > 0 ? { frases, url } : null;
+}
+
+export async function enriquecerParadas(
+  supabase: SupabaseClient,
+  deps: DependenciasGuia,
+  filas: Array<FilaParadaGuia & { ciudad: string | null }>,
+  hasta?: number,
+): Promise<ResultadoGuia> {
+  const resultado = resultadoGuiaVacio();
+  const grupos = new Map<string, Array<FilaParadaGuia & { ciudad: string | null }>>();
+  for (const fila of filas) {
+    const clave = fila.ciudad ?? "";
+    grupos.set(clave, [...(grupos.get(clave) ?? []), fila]);
+  }
+
+  for (const [ciudad, grupo] of grupos) {
+    let fichas = new Map<string, FichaGuia>();
+    let urlGuia = "";
+    if (ciudad) {
+      try {
+        const pagina = await deps.fuenteGuia.paginaCiudad(ciudad, hasta);
+        if (pagina) {
+          urlGuia = pagina.url;
+          fichas = asignarFichas(
+            pagina.fichas,
+            grupo.map((f) => ({ id: f.id, nombre: f.nombre, ...(f.lat !== null && f.lon !== null ? { coordenadas: { lat: f.lat, lon: f.lon } } : {}) })),
+          );
+        }
+      } catch (error) {
+        // Ni un fallo de la fuente ni quedarse sin hueco de ritmo gastan el
+        // intento: se reintenta en el siguiente tick.
+        if (error instanceof FalloFuenteGuia || error instanceof EsperaExcedida) {
+          resultado.pospuestas += grupo.length;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    for (const fila of grupo) {
+      const ficha = fichas.get(fila.id);
+      let curiosidades: { frases: string[]; url: string } | null = null;
+      try {
+        curiosidades = await curiosidadesDe(deps.fuenteFotos, fila);
+      } catch {
+        curiosidades = null;
+      }
+      const ahora = new Date((deps.reloj ?? relojReal).ahora());
+      const precioDeFuente = ficha?.precio_eur;
+      const coste: CosteParada | undefined =
+        precioDeFuente !== undefined
+          ? {
+              importe_eur: precioDeFuente,
+              por: precioDeFuente === 0 ? "gratis" : "persona",
+              procedencia: "wikivoyage",
+              fecha: ahora.toISOString().slice(0, 10),
+            }
+          : undefined;
+      const { error } = await supabase
+        .from("paradas")
+        .update({
+          guia: ficha
+            ? {
+                consejo: ficha.contenido,
+                ...(ficha.precio_texto ? { precio_texto: ficha.precio_texto } : {}),
+                ...(precioDeFuente !== undefined ? { precio_eur: precioDeFuente } : {}),
+                url: urlGuia,
+                licencia: "CC BY-SA",
+              }
+            : null,
+          curiosidades,
+          ...(coste ? { coste } : {}),
+          guia_intentada_en: ahora.toISOString(),
+        })
+        .eq("id", fila.id);
+      if (error) throw new Error(`No se pudo guardar la guía de la parada: ${error.message}`);
+      resultado.intentadas += 1;
+      if (ficha) resultado.con_guia += 1;
+      if (curiosidades) resultado.con_curiosidades += 1;
+    }
+  }
+  return resultado;
+}
+
+// Paradas ya resueltas, de las versiones dadas, a las que aún no se ha
+// mirado la guía. Las que no tienen coordenadas no se piden: sin ubicación
+// comprobada no hay forma fiable de asignar ficha.
+export async function enriquecerGuiaPendientes(
+  supabase: SupabaseClient,
+  deps: DependenciasGuia,
+  versiones: VersionParaGuia[],
+  limite: number,
+  hasta?: number,
+): Promise<ResultadoGuia> {
+  if (versiones.length === 0) return resultadoGuiaVacio();
+  const { data, error } = await supabase
+    .from("paradas")
+    .select("id, nombre, lat, lon, lugar, coste, dia_index, plan_version_id")
+    .in("plan_version_id", versiones.map((v) => v.id))
+    .eq("resolucion->>estado", "resuelta")
+    .is("guia_intentada_en", null)
+    .limit(limite);
+  if (error) throw new Error(`No se pudieron leer las paradas sin guía: ${error.message}`);
+  const porId = new Map(versiones.map((v) => [v.id, v]));
+  const filas = ((data as FilaParadaGuia[] | null) ?? []).map((f) => {
+    const version = porId.get(f.plan_version_id);
+    return { ...f, ciudad: version ? ciudadDeParada(version, f.dia_index) : null };
+  });
+  return enriquecerParadas(supabase, deps, filas, hasta);
+}
+
+// Tras guardar un plan nuevo: misma lógica que el barrido, sobre su última
+// versión. Nunca lanza: la guía no puede tumbar un plan ya completado.
+export async function enriquecerGuiaDePlan(
+  supabase: SupabaseClient,
+  deps: DependenciasGuia,
+  planId: string,
+  limite = 120,
+  presupuestoMs = 90_000,
+): Promise<ResultadoGuia> {
+  try {
+    const { data } = await supabase
+      .from("plan_versiones")
+      .select("id, etapas, planes(ciudad)")
+      .eq("plan_id", planId)
+      .order("version", { ascending: false })
+      .limit(1);
+    const fila = data?.[0] as { id: string; etapas: EtapaPlan[] | null; planes: { ciudad: CiudadEfectiva | null } | Array<{ ciudad: CiudadEfectiva | null }> | null } | undefined;
+    if (!fila) return resultadoGuiaVacio();
+    const plan = Array.isArray(fila.planes) ? fila.planes[0] : fila.planes;
+    const reloj = deps.reloj ?? relojReal;
+    return await enriquecerGuiaPendientes(supabase, deps, [{ id: fila.id, ciudad: plan?.ciudad ?? null, etapas: fila.etapas }], limite, reloj.ahora() + presupuestoMs);
+  } catch {
+    return resultadoGuiaVacio();
+  }
+}
