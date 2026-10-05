@@ -79,7 +79,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("enriquecimiento de la guía (gui
 
     const { data } = await supabase.from("paradas").select("nombre, guia, curiosidades, coste, guia_intentada_en").in("nombre", ["Real Alcázar de Sevilla", "Bar sin ficha"]);
     const alcazar = data?.find((f) => f.nombre === "Real Alcázar de Sevilla");
-    expect(alcazar?.guia).toMatchObject({ consejo: "Patios y jardines.", precio_eur: 10, licencia: "CC BY-SA", url: "https://en.wikivoyage.org/wiki/Seville" });
+    expect(alcazar?.guia).toMatchObject({ consejo: "Patios y jardines.", precio_eur: 10, licencia: "CC BY-SA", url: "https://es.wikivoyage.org/wiki/Seville" });
     expect(alcazar?.coste).toMatchObject({ importe_eur: 10, por: "persona", procedencia: "wikivoyage" });
     expect((alcazar?.curiosidades as { frases: string[] }).frases).toHaveLength(2);
     const bar = data?.find((f) => f.nombre === "Bar sin ficha");
