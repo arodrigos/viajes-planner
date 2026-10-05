@@ -11,9 +11,13 @@ describe("BotonInfografia (inf-ac3)", () => {
     vi.stubGlobal("fetch", vi.fn(async () => png()));
     URL.createObjectURL = vi.fn(() => "blob:x");
     URL.revokeObjectURL = vi.fn();
+    // jsdom no implementa la navegación del enlace de descarga: sin esto el clic
+    // depende de cómo cada entorno trate ese aviso.
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   });
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     // @ts-expect-error limpieza de lo que el test define
     delete navigator.share;
@@ -46,7 +50,8 @@ describe("BotonInfografia (inf-ac3)", () => {
   it("sin navigator.share descarga el fichero", async () => {
     render(<BotonInfografia planId="p1" />);
     await userEvent.click(screen.getByRole("button", { name: "Descargar infografía" }));
-    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1), { timeout: 5000 });
+    expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
