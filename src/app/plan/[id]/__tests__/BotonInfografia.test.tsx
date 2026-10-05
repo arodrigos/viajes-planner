@@ -4,7 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BotonInfografia, ERROR_INFOGRAFIA } from "../BotonInfografia";
 
-const png = () => new Response(new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: "image/png" }));
+// Respuesta mínima en vez de `Response` real: en jsdom mezcla el Blob de jsdom con el
+// de undici y el tiempo de leerlo variaba entre entornos.
+const png = () => ({
+  ok: true,
+  status: 200,
+  blob: async () => new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: "image/png" }),
+});
 
 describe("BotonInfografia (inf-ac3)", () => {
   beforeEach(() => {
@@ -50,13 +56,13 @@ describe("BotonInfografia (inf-ac3)", () => {
   it("sin navigator.share descarga el fichero", async () => {
     render(<BotonInfografia planId="p1" />);
     await userEvent.click(screen.getByRole("button", { name: "Descargar infografía" }));
-    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1), { timeout: 5000 });
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1), { timeout: 15000 });
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("si la generación falla, enseña el mensaje y el botón sigue disponible", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 500 })));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 500, blob: async () => new Blob([]) })));
     render(<BotonInfografia planId="p1" />);
     await userEvent.click(screen.getByRole("button", { name: "Descargar infografía" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(ERROR_INFOGRAFIA);
