@@ -112,3 +112,60 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("sustituirParada (alt-ac3, alt-ac
     expect(resultado).toEqual({ estado: "no-encontrado" });
   });
 });
+
+// alc-ac1: contra la pila real -- la versión nueva hereda las alternativas
+// no elegidas y la sustituida, y se puede volver con otro «Usar esta».
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("sustituirParada conserva las alternativas (alc-ac1)", () => {
+  const supabase = clienteDePrueba();
+  const planId = `plan-sustituir-alc-${Date.now()}`;
+
+  function planConDosAlternativas(): Plan {
+    const base = planConAlternativa(planId);
+    const parada = base.dias[0].paradas[0];
+    return {
+      ...base,
+      dias: [
+        {
+          ...base.dias[0],
+          paradas: [
+            {
+              ...parada,
+              nombre: "Real Alcázar",
+              alternativas: [
+                { nombre: "Casa de Pilatos", descripcion: "d", motivo: "m", duracion_min: 90, categoria: "monumento", origen: "modelo", coordenadas: { lat: 37.3925, lon: -5.9906 } },
+                { nombre: "Palacio de las Dueñas", descripcion: "d", motivo: "m", duracion_min: 60, categoria: "monumento", origen: "cercano", coordenadas: { lat: 37.3989, lon: -5.9902 } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  const nombresDeAlternativas = (plan: Plan | null) => (plan?.dias[0].paradas[0].alternativas ?? []).map((a) => a.nombre).sort();
+
+  beforeAll(async () => {
+    await guardarPlan(supabase, planConDosAlternativas());
+  });
+
+  it("ida y vuelta: ninguna versión pierde alternativas y la parada nueva nunca pasa de 3", async () => {
+    const v1 = await recuperarPlan(supabase, planId);
+    const pilatos = v1?.dias[0].paradas[0].alternativas?.find((a) => a.nombre === "Casa de Pilatos");
+    expect((await sustituirParada(supabase, planId, "parada-sustituir-1", pilatos?.id as string)).estado).toBe("sustituida");
+
+    const v2 = await recuperarPlan(supabase, planId);
+    expect(v2?.dias[0].paradas[0].nombre).toBe("Casa de Pilatos");
+    expect(nombresDeAlternativas(v2)).toEqual(["Palacio de las Dueñas", "Real Alcázar"]);
+
+    const alcazar = v2?.dias[0].paradas[0].alternativas?.find((a) => a.nombre === "Real Alcázar");
+    expect((await sustituirParada(supabase, planId, "parada-sustituir-1", alcazar?.id as string)).estado).toBe("sustituida");
+
+    const v3 = await recuperarPlan(supabase, planId);
+    expect(v3?.dias[0].paradas[0].nombre).toBe("Real Alcázar");
+    expect(nombresDeAlternativas(v3)).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
+
+    // Las versiones anteriores siguen intactas.
+    expect(nombresDeAlternativas(await recuperarPlan(supabase, planId, 1))).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
+    expect(nombresDeAlternativas(await recuperarPlan(supabase, planId, 2))).toEqual(["Palacio de las Dueñas", "Real Alcázar"]);
+  });
+});
