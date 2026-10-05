@@ -1,4 +1,4 @@
-import { FalloRedCiudad, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares } from "./tipos";
+import { FalloRedCiudad, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares, type ZonaGeocodificada } from "./tipos";
 
 // Doble de test: respuestas grabadas de verdad (fixtures/lugares/*.json,
 // leídas por quien construye el fixture), indexadas por el texto exacto de
@@ -14,6 +14,10 @@ export interface FixturesFuenteGrabada {
   ciudades?: Record<string, CajaDelimitadora | null>;
   // ciu-ac7: nombres para los que la fuente debe lanzar FalloRedCiudad en
   // vez de devolver una respuesta -- simula el fallo de red persistente.
+  // dmc-ac1: zonas geocodificadas por el texto exacto del destino; ausente
+  // o sin entrada = Nominatim no conoce el texto.
+  zonas?: Record<string, ZonaGeocodificada | null>;
+  fallosZonas?: Set<string>;
   fallosLibres?: Set<string>;
   fallosCiudades?: Set<string>;
 }
@@ -46,6 +50,10 @@ export function crearFuenteLugaresGrabada(fixtures: FixturesFuenteGrabada): Fuen
     async buscarLibre(nombre: string): Promise<CandidatoLugar[]> {
       if (fixtures.fallosLibres?.has(nombre)) throw new FalloRedCiudad(`fallo de red simulado para «${nombre}»`);
       return buscarEnDiccionario(fixtures.libres, nombre) ?? [];
+    },
+    async geocodificarZona(texto: string): Promise<ZonaGeocodificada | null> {
+      if (fixtures.fallosZonas?.has(texto)) throw new FalloRedCiudad(`fallo de red simulado para «${texto}»`);
+      return buscarEnDiccionario(fixtures.zonas, texto) ?? null;
     },
     async geocodificarCiudad(nombre: string): Promise<CajaDelimitadora | null> {
       if (fixtures.fallosCiudades?.has(nombre)) throw new FalloRedCiudad(`fallo de red simulado para «${nombre}»`);

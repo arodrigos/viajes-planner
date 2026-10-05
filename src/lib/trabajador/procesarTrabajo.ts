@@ -21,6 +21,8 @@ import { construirPrompt, construirPromptReintento } from "./prompt";
 import { ensamblarCoste, ensamblarMotivo } from "@/lib/presupuesto/ensamblar";
 import { generarIdParada, generarIdPlan } from "./id";
 import { MODELO_GENERACION } from "./config";
+import { clasificarDestino } from "@/lib/etapas/clasificar";
+import { comprobarViabilidad } from "@/lib/etapas/viabilidad";
 
 const CATEGORIAS_VALIDAS = new Set<string>(CATEGORIAS_PARADA);
 
@@ -266,6 +268,32 @@ export async function procesarTrabajo(
   await publicarEtapa(supabase, trabajo.id, "preparando la petición");
   const planId = trabajo.plan_id ?? generarIdPlan();
 
+  // lug-ac3: la fuente se crea antes del prompt porque la clasificación del
+  // destino ya habla con Nominatim, antes de gastar una invocación del modelo.
+  const fuente = fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
+
+  // dmc-ac2: un viaje de varias ciudades que no cabe en días, distancia o
+  // presupuesto se descarta aquí, SIN invocar al modelo: lo que cuesta una
+  // invocación no se gasta en un plan que luego habría que tirar.
+  if (tieneFuenteCiudad(fuente)) {
+    const clasificacion = await clasificarDestino(fuente, trabajo.criterios.destino_o_tipo);
+    if (clasificacion.modo === "multiciudad") {
+      const viabilidad = comprobarViabilidad(clasificacion.zonas, trabajo.criterios, clasificacion.pedidas);
+      if (!viabilidad.viable) {
+        await supabase
+          .from("trabajos")
+          .update({
+            estado: "fallido",
+            motivo: "inviable",
+            inviable: { razones: viabilidad.razones, sugerencias: viabilidad.sugerencias },
+            actualizado_en: new Date().toISOString(),
+          })
+          .eq("id", trabajo.id);
+        return { estado: "fallido" };
+      }
+    }
+  }
+
   await publicarEtapa(supabase, trabajo.id, "generando el plan");
   const prompt = construirPrompt(trabajo.criterios);
   const primeraRespuesta = await invocarOPausar(supabase, trabajo.id, familia, ejecutor, prompt, directorio);
@@ -297,7 +325,7 @@ export async function procesarTrabajo(
   // respaldo Wikipedia), con caché y límite de ritmo en cacheSitios.ts y
   // limitador.ts. Una parada que no resuelve nunca hace fallar el trabajo
   // -resolverPlan la deja con resolucion.estado y el plan se guarda igual.
-  const fuente = fuenteLugares ?? crearFuenteAbierta({ cache: cacheSitiosSupabase(supabase) });
+  // (`fuente` ya está creada arriba, junto a la clasificación del destino.)
 
   // ciu-ac1/ciu-ac5: la ciudad efectiva se resuelve ANTES de las paradas --
   // un destino descriptivo ("Londres en familia con niños") nunca

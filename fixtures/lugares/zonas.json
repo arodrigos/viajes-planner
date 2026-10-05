@@ -1,0 +1,449 @@
+{
+ "Portugal": [
+  {
+   "place_id": 284562769,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 295480,
+   "lat": "39.6621648",
+   "lon": "-8.1353519",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 4,
+   "importance": 0.8666415768245299,
+   "addresstype": "country",
+   "name": "Portugal",
+   "display_name": "Portugal",
+   "address": {
+    "country": "Portugal",
+    "country_code": "pt"
+   },
+   "boundingbox": [
+    "29.8282470",
+    "42.1543112",
+    "-31.5575303",
+    "-6.1891593"
+   ]
+  }
+ ],
+ "Andalucía": [
+  {
+   "place_id": 293575555,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 349044,
+   "lat": "37.3399964",
+   "lon": "-4.5811614",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 8,
+   "importance": 0.7218901785353077,
+   "addresstype": "state",
+   "name": "Andalucía",
+   "display_name": "Andalucía, España",
+   "address": {
+    "state": "Andalucía",
+    "ISO3166-2-lvl4": "ES-AN",
+    "country": "España",
+    "country_code": "es"
+   },
+   "boundingbox": [
+    "35.9376398",
+    "38.7290874",
+    "-7.5226854",
+    "-1.6298000"
+   ]
+  }
+ ],
+ "España": [
+  {
+   "place_id": 297953282,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 1311341,
+   "lat": "39.3260685",
+   "lon": "-4.8379791",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 4,
+   "importance": 0.9295913704622313,
+   "addresstype": "country",
+   "name": "España",
+   "display_name": "España",
+   "address": {
+    "country": "España",
+    "country_code": "es"
+   },
+   "boundingbox": [
+    "27.4335426",
+    "43.9933088",
+    "-18.3936845",
+    "4.5918885"
+   ]
+  }
+ ],
+ "Grecia": [
+  {
+   "place_id": 55083915,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 192307,
+   "lat": "38.9953683",
+   "lon": "21.9877132",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 4,
+   "importance": 0.856400375987068,
+   "addresstype": "country",
+   "name": "Grecia",
+   "display_name": "Grecia",
+   "address": {
+    "country": "Grecia",
+    "country_code": "gr"
+   },
+   "boundingbox": [
+    "34.7188863",
+    "41.7488889",
+    "19.1127535",
+    "29.6838100"
+   ]
+  }
+ ],
+ "Italia": [
+  {
+   "place_id": 80933336,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 365331,
+   "lat": "42.6384261",
+   "lon": "12.6742970",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 4,
+   "importance": 0.9472892328660153,
+   "addresstype": "country",
+   "name": "Italia",
+   "display_name": "Italia",
+   "address": {
+    "country": "Italia",
+    "country_code": "it"
+   },
+   "boundingbox": [
+    "35.2889616",
+    "47.0921485",
+    "6.6272658",
+    "18.7844746"
+   ]
+  }
+ ],
+ "Bosnia y Herzegovina": [
+  {
+   "place_id": 56600081,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 2528142,
+   "lat": "44.3053476",
+   "lon": "17.5961467",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 4,
+   "importance": 0.7950314422048292,
+   "addresstype": "country",
+   "name": "Bosnia y Herzegovina",
+   "display_name": "Bosnia y Herzegovina",
+   "address": {
+    "country": "Bosnia y Herzegovina",
+    "country_code": "ba"
+   },
+   "boundingbox": [
+    "42.5553114",
+    "45.2764141",
+    "15.7286823",
+    "19.6237311"
+   ]
+  }
+ ],
+ "Portugal y España": [
+  {
+   "place_id": 293087218,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "node",
+   "osm_id": 1242663396,
+   "lat": "42.4910891",
+   "lon": "-5.9738573",
+   "category": "place",
+   "type": "locality",
+   "place_rank": 25,
+   "importance": 0.06672617151140611,
+   "addresstype": "locality",
+   "name": "Portugal",
+   "display_name": "Portugal, San Justo de la Vega, León, Castilla y León, 24288, España",
+   "address": {
+    "locality": "Portugal",
+    "village": "San Justo de la Vega",
+    "state_district": "León",
+    "ISO3166-2-lvl6": "ES-LE",
+    "state": "Castilla y León",
+    "ISO3166-2-lvl4": "ES-CL",
+    "postcode": "24288",
+    "country": "España",
+    "country_code": "es"
+   },
+   "boundingbox": [
+    "42.4810891",
+    "42.5010891",
+    "-5.9838573",
+    "-5.9638573"
+   ]
+  }
+ ],
+ "Portugal y Grecia": [
+  {
+   "place_id": 295289723,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "way",
+   "osm_id": 409624480,
+   "lat": "38.7671789",
+   "lon": "-9.2722558",
+   "category": "highway",
+   "type": "residential",
+   "place_rank": 26,
+   "importance": 0.05339491950865946,
+   "addresstype": "road",
+   "name": "Impasse da Grécia",
+   "display_name": "Impasse da Grécia, Bairro da Xetaria, Idanha, Belas, Sintra, Lisboa, 2745-254, Portugal",
+   "address": {
+    "road": "Impasse da Grécia",
+    "neighbourhood": "Bairro da Xetaria",
+    "hamlet": "Idanha",
+    "town": "Belas",
+    "city": "Belas",
+    "municipality": "Sintra",
+    "county": "Lisboa",
+    "ISO3166-2-lvl6": "PT-11",
+    "postcode": "2745-254",
+    "country": "Portugal",
+    "country_code": "pt"
+   },
+   "boundingbox": [
+    "38.7669844",
+    "38.7673734",
+    "-9.2722847",
+    "-9.2722269"
+   ]
+  }
+ ],
+ "Portugal, España e Italia": [],
+ "Sevilla": [
+  {
+   "place_id": 295081508,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 342563,
+   "lat": "37.3886303",
+   "lon": "-5.9953403",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 16,
+   "importance": 0.7297329708417591,
+   "addresstype": "city",
+   "name": "Sevilla",
+   "display_name": "Sevilla, Andalucía, España",
+   "address": {
+    "city": "Sevilla",
+    "province": "Sevilla",
+    "ISO3166-2-lvl6": "ES-SE",
+    "state": "Andalucía",
+    "ISO3166-2-lvl4": "ES-AN",
+    "country": "España",
+    "country_code": "es"
+   },
+   "boundingbox": [
+    "37.3002036",
+    "37.4529579",
+    "-6.0329183",
+    "-5.8191571"
+   ]
+  }
+ ],
+ "Londres en familia con niños": [],
+ "Lisboa y Oporto": [
+  {
+   "place_id": 283405103,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "way",
+   "osm_id": 215298424,
+   "lat": "41.1462272",
+   "lon": "-8.6149808",
+   "category": "place",
+   "type": "square",
+   "place_rank": 25,
+   "importance": 0.0667391859311818,
+   "addresstype": "square",
+   "name": "Praça de Lisboa",
+   "display_name": "Praça de Lisboa, Baixa do Porto, Conjunto Urbano da Ribeira, Zona Histórica do Porto, Cedofeita, Santo Ildefonso, Sé, Miragaia, São Nicolau e Vitória, Oporto, Portugal",
+   "address": {
+    "square": "Praça de Lisboa",
+    "neighbourhood": "Baixa do Porto",
+    "quarter": "Conjunto Urbano da Ribeira",
+    "suburb": "Zona Histórica do Porto",
+    "city_district": "Cedofeita, Santo Ildefonso, Sé, Miragaia, São Nicolau e Vitória",
+    "city": "Oporto",
+    "county": "Oporto",
+    "ISO3166-2-lvl6": "PT-13",
+    "country": "Portugal",
+    "country_code": "pt"
+   },
+   "boundingbox": [
+    "41.1458131",
+    "41.1466144",
+    "-8.6152848",
+    "-8.6149204"
+   ]
+  }
+ ],
+ "Lisboa": [
+  {
+   "place_id": 296753359,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 5400890,
+   "lat": "38.7077507",
+   "lon": "-9.1365919",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 14,
+   "importance": 0.7635036148306796,
+   "addresstype": "city",
+   "name": "Lisboa",
+   "display_name": "Lisboa, Portugal",
+   "address": {
+    "city": "Lisboa",
+    "county": "Lisboa",
+    "ISO3166-2-lvl6": "PT-11",
+    "country": "Portugal",
+    "country_code": "pt"
+   },
+   "boundingbox": [
+    "38.6913994",
+    "38.7967584",
+    "-9.2298356",
+    "-9.0863328"
+   ]
+  }
+ ],
+ "Oporto": [
+  {
+   "place_id": 426374674,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 3372453,
+   "lat": "41.1502195",
+   "lon": "-8.6103497",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 14,
+   "importance": 0.6846704595358304,
+   "addresstype": "city",
+   "name": "Oporto",
+   "display_name": "Oporto, Portugal",
+   "address": {
+    "city": "Oporto",
+    "county": "Oporto",
+    "ISO3166-2-lvl6": "PT-13",
+    "country": "Portugal",
+    "country_code": "pt"
+   },
+   "boundingbox": [
+    "41.1383507",
+    "41.1859353",
+    "-8.6912890",
+    "-8.5520792"
+   ]
+  }
+ ],
+ "Francia": [
+  {
+   "place_id": 301336104,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 2202162,
+   "lat": "46.6033540",
+   "lon": "1.8883335",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 4,
+   "importance": 0.9781609870055644,
+   "addresstype": "country",
+   "name": "Francia",
+   "display_name": "Francia",
+   "address": {
+    "country": "Francia",
+    "country_code": "fr"
+   },
+   "boundingbox": [
+    "-50.2187169",
+    "51.3055721",
+    "-178.3873749",
+    "172.3057152"
+   ]
+  }
+ ],
+ "Alemania": [
+  {
+   "place_id": 136043259,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 51477,
+   "lat": "51.1638175",
+   "lon": "10.4478313",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 4,
+   "importance": 0.9528343247777981,
+   "addresstype": "country",
+   "name": "Alemania",
+   "display_name": "Alemania",
+   "address": {
+    "country": "Alemania",
+    "country_code": "de"
+   },
+   "boundingbox": [
+    "47.2701114",
+    "55.0991610",
+    "5.8663153",
+    "15.0419309"
+   ]
+  }
+ ],
+ "Madrid": [
+  {
+   "place_id": 293902131,
+   "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+   "osm_type": "relation",
+   "osm_id": 5326784,
+   "lat": "40.4167820",
+   "lon": "-3.7035070",
+   "category": "boundary",
+   "type": "administrative",
+   "place_rank": 16,
+   "importance": 0.8186903991321961,
+   "addresstype": "city",
+   "name": "Madrid",
+   "display_name": "Madrid, Comunidad de Madrid, España",
+   "address": {
+    "city": "Madrid",
+    "state": "Comunidad de Madrid",
+    "ISO3166-2-lvl4": "ES-MD",
+    "country": "España",
+    "country_code": "es"
+   },
+   "boundingbox": [
+    "40.3119774",
+    "40.6437293",
+    "-3.8889539",
+    "-3.5183264"
+   ]
+  }
+ ]
+}

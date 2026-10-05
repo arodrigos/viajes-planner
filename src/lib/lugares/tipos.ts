@@ -93,6 +93,17 @@ export function crearPresupuestoPeticiones(maximo: number): PresupuestoPeticione
   };
 }
 
+// dmc-ac1: lo que clasificarDestino necesita saber de un texto geocodificado
+// entero: si es un país o una región y cuánto ocupa.
+export interface ZonaGeocodificada {
+  nombre: string;
+  // `addresstype` de Nominatim: country, state, region, province, city...
+  tipo: string;
+  codigo_pais: string | null;
+  caja: CajaDelimitadora;
+  punto: { lat: number; lon: number };
+}
+
 // ciu-ac1/ciu-ac2/ciu-ac7: las dos operaciones nuevas que resolverCiudadEfectiva
 // necesita. Deliberadamente separada de FuenteLugares -- añadir estos dos
 // métodos a esa interfaz obligaría a todos los dobles de test existentes
@@ -105,6 +116,10 @@ export interface FuenteCiudad {
   // peticiones de red descontadas de este presupuesto. Opcional para que los
   // dobles de test que no hablan con red no tengan que implementarlo, y una
   // vista aparte para no cambiar la firma de los métodos existentes.
+  // dmc-ac1: opcional por la misma razón que conPresupuesto. Lanza
+  // FalloRedCiudad si no se pudo preguntar; null es «Nominatim no conoce ese
+  // texto».
+  geocodificarZona?(texto: string): Promise<ZonaGeocodificada | null>;
   conPresupuesto?(presupuesto: PresupuestoPeticiones): FuenteLugares & FuenteCiudad;
 }
 

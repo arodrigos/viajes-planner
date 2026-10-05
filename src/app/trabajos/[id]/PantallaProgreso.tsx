@@ -1,6 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { guardarBorrador } from "@/lib/criterios/borrador";
+import type { CriteriosViaje } from "@/lib/criterios/tipos";
 
 interface EstadoTrabajo {
   estado: string;
@@ -14,6 +17,9 @@ interface EstadoTrabajo {
   plan_id: string | null;
   // Ausente en respuestas anteriores a este campo.
   transporte?: string[];
+  // dmc-ac3: presente solo en un trabajo descartado antes de invocar al modelo.
+  inviable?: { razones: { codigo: string; texto: string }[]; sugerencias: string[] } | null;
+  criterios_inviable?: CriteriosViaje | null;
 }
 
 const NOMBRE_MODO: Record<string, string> = { coche: "coche", avion: "avión", tren: "tren", autobus: "autobús" };
@@ -36,6 +42,7 @@ function formatearFecha(iso: string): string {
 // estado que no es éxito se explica con su motivo y, cuando lo hay, con su
 // hora de reanudación, en vez de seguir girando en silencio.
 export function PantallaProgreso({ id }: { id: string }) {
+  const router = useRouter();
   const [trabajo, setTrabajo] = useState<EstadoTrabajo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sesionCaducada, setSesionCaducada] = useState(false);
@@ -167,6 +174,45 @@ export function PantallaProgreso({ id }: { id: string }) {
           <p>{trabajo.motivo}</p>
           {trabajo.reintento_no_antes_de && <p>Se retomará a partir de {formatearFecha(trabajo.reintento_no_antes_de)}.</p>}
           {avisoDireccion}
+        </div>
+      </>
+    );
+  }
+
+  // dmc-ac3: un descarte previo no es un fallo nuestro, es una respuesta: se
+  // explica con cifras y se ofrece volver al formulario con lo pedido. El
+  // borrador es lo que /criterios ya lee al abrirse, así que precargar es
+  // escribirlo antes de navegar.
+  if (trabajo.estado === "fallido" && trabajo.inviable) {
+    const { razones, sugerencias } = trabajo.inviable;
+    const criterios = trabajo.criterios_inviable;
+    return (
+      <>
+        <h1>No hemos generado tu plan</h1>
+        <div className="pila" data-testid="viaje-inviable">
+          <ul data-testid="razones-inviable">
+            {razones.map((r) => (
+              <li key={r.codigo}>{r.texto}</li>
+            ))}
+          </ul>
+          <h2>Qué puedes hacer</h2>
+          <ul data-testid="sugerencias-inviable">
+            {sugerencias.map((texto) => (
+              <li key={texto}>{texto}</li>
+            ))}
+          </ul>
+          <p>
+            <button
+              type="button"
+              className="boton boton-principal"
+              onClick={() => {
+                if (criterios) guardarBorrador(criterios);
+                router.push("/criterios");
+              }}
+            >
+              Cambiar el viaje
+            </button>
+          </p>
         </div>
       </>
     );

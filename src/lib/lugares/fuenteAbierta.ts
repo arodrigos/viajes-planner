@@ -2,7 +2,7 @@ import "server-only";
 import { crearLimitador, relojReal, type Limitador, type Reloj } from "./limitador";
 import { cacheSitiosMemoria, claveDestino, claveNominatim, esFalloDeCache, normalizarClaveNombre, slugDestino, type CacheSitios } from "./cacheSitios";
 import { normalizarNombre } from "./normalizar";
-import { FalloRedCiudad, PresupuestoAgotado, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares, type PresupuestoPeticiones } from "./tipos";
+import { FalloRedCiudad, PresupuestoAgotado, type ZonaGeocodificada, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares, type PresupuestoPeticiones } from "./tipos";
 import { VERSION_RESOLUTOR_ACTUAL } from "./ciudad";
 
 // lug-ac3: identifica la APLICACIÓN y el repo, nunca a Adrián ni a la
@@ -37,6 +37,7 @@ interface ResultadoNominatim {
   category?: string;
   class?: string;
   type: string;
+  addresstype?: string;
   name?: string;
   display_name: string;
   namedetails?: Record<string, string>;
@@ -53,6 +54,7 @@ interface ResultadoNominatim {
     suburb?: string;
     state?: string;
     region?: string;
+    country_code?: string;
   };
   boundingbox: [string, string, string, string];
 }
@@ -272,9 +274,40 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}, presupu
     return resultado;
   }
 
+  // dmc-ac1: el texto entero del destino, con tipo, país y caja, para saber
+  // si es un país o una región. Mismo trato de fallo de red que
+  // geocodificarCiudad: nunca se cachea.
+  async function geocodificarZona(texto: string): Promise<ZonaGeocodificada | null> {
+    const clave = `zona:v${VERSION_RESOLUTOR_ACTUAL}:${normalizarClaveNombre(texto)}`;
+    const enCache = await cache.obtener(clave);
+    if (!esFalloDeCache(enCache)) return enCache as ZonaGeocodificada | null;
+
+    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(texto)}&format=jsonv2&limit=1&addressdetails=1&accept-language=es`;
+    reservarPeticion();
+    const respuesta = await limitarNominatim(() => peticionConReintento(url));
+    if (!respuesta) throw new FalloRedCiudad(`no se pudo clasificar el destino «${texto}»`);
+    const primero = ((await respuesta.json()) as ResultadoNominatim[])[0];
+    const resultado: ZonaGeocodificada | null = primero
+      ? {
+          nombre: primero.name ?? primero.display_name.split(",")[0].trim(),
+          tipo: primero.addresstype ?? primero.type,
+          codigo_pais: primero.address?.country_code ?? null,
+          caja: {
+            minLat: Number(primero.boundingbox[0]),
+            maxLat: Number(primero.boundingbox[1]),
+            minLon: Number(primero.boundingbox[2]),
+            maxLon: Number(primero.boundingbox[3]),
+          },
+          punto: { lat: Number(primero.lat), lon: Number(primero.lon) },
+        }
+      : null;
+    await cache.guardar(clave, resultado);
+    return resultado;
+  }
+
   const conPresupuesto = (nuevo: PresupuestoPeticiones) =>
     crearFuenteAbierta({ ...opciones, fetch: fetchImpl, reloj, cache, limitador: limitarNominatim }, nuevo);
-  return { geocodificarDestino, buscarNominatim, buscarWikipedia, buscarLibre, geocodificarCiudad, conPresupuesto };
+  return { geocodificarDestino, buscarNominatim, buscarWikipedia, buscarLibre, geocodificarCiudad, geocodificarZona, conPresupuesto };
 }
 
 // Expuesto para que resolverPlan y los tests puedan derivar la clave de

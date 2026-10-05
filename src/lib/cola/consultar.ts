@@ -20,6 +20,12 @@ export interface EstadoTrabajo {
   plan_id: string | null;
   // Medios elegidos para el resumen de la espera; vacío = cualquier medio.
   transporte: string[];
+  // dmc-ac5: las razones de un trabajo descartado y los criterios con los que
+  // se pidió, para que «Cambiar el viaje» los precargue. Solo salen aquí, de
+  // la ruta ya filtrada por dueño: otro usuario recibe el mismo 404 que ante un
+  // trabajo inexistente.
+  inviable: { razones: { codigo: string; texto: string }[]; sugerencias: string[] } | null;
+  criterios_inviable: unknown | null;
 }
 
 function transporteDe(criterios: unknown): string[] {
@@ -43,7 +49,7 @@ export async function obtenerTrabajo(
 ): Promise<EstadoTrabajo | null> {
   const { data, error } = await supabase
     .from("trabajos")
-    .select("id, estado, etapa, motivo, creado_en, reintento_no_antes_de, plan_id, criterios")
+    .select("id, estado, etapa, motivo, creado_en, reintento_no_antes_de, plan_id, criterios, inviable")
     .eq("id", id)
     .eq("usuario_id", usuarioId)
     .is("eliminado_en", null)
@@ -65,6 +71,8 @@ export async function obtenerTrabajo(
         reintento_no_antes_de: null,
         plan_id: null,
         transporte: transporteDe(data.criterios),
+        inviable: null,
+        criterios_inviable: null,
       };
     }
   }
@@ -79,5 +87,7 @@ export async function obtenerTrabajo(
     reintento_no_antes_de: data.reintento_no_antes_de,
     plan_id: data.plan_id,
     transporte: transporteDe(data.criterios),
+    inviable: data.inviable ?? null,
+    criterios_inviable: data.inviable ? data.criterios : null,
   };
 }
