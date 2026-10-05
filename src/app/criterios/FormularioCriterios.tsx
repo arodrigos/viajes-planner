@@ -177,7 +177,7 @@ export function FormularioCriterios() {
           onChange={(e) => setCriterios((c) => ({ ...c, destino_o_tipo: e.target.value }))}
         />
         <p id="ayuda-destino_o_tipo" className="ayuda">
-          Un destino concreto («Roma») o un tipo de viaje («playa tranquila», «ciudad con niños»).
+          Un destino concreto («Roma») o un tipo de viaje («playa tranquila», «ciudad con niños»). Puedes escribir un país, una región o varios países (p. ej. «Portugal y España»): te propondremos varias ciudades.
         </p>
       </div>
 
