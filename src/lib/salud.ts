@@ -105,7 +105,41 @@ export function resumirResultadoPublico(resultado: ResultadoTickTrabajador): Pub
 
 export type PublicoResultadoTick = Omit<ResultadoTickTrabajador, "error"> & { categoria: CategoriaResultado };
 
+// Fila de `salud` que deja un tick con candidatas de alternativas: sobrevive
+// al pisado del resultado del tick siguiente.
+export const ORIGEN_PASADA_ALTERNATIVAS = "pasada-alternativas";
+
+export interface PasadaAlternativas {
+  registrada_hace_seg: number;
+  commit_sha: string | null;
+  // Solo enteros y el mensaje acotado del último error de inserción: sin
+  // nombres de parada ni destinos (el endpoint es público).
+  contadores: Record<string, number>;
+  ultimo_error: string | null;
+}
+
+export function resumirPasadaAlternativas(
+  resultado: unknown,
+  registradaHaceSeg: number,
+  commitSha: string | null,
+): PasadaAlternativas {
+  const origen = (typeof resultado === "object" && resultado !== null ? resultado : {}) as Record<string, unknown>;
+  const contadores: Record<string, number> = {};
+  for (const clave of CONTADORES_PUBLICOS) {
+    const valor = origen[clave];
+    if (clave.startsWith("alternativas_") && typeof valor === "number" && Number.isInteger(valor)) contadores[clave] = valor;
+  }
+  const error = origen.ultimo_error;
+  return {
+    registrada_hace_seg: registradaHaceSeg,
+    commit_sha: commitSha,
+    contadores,
+    ultimo_error: typeof error === "string" ? error.slice(0, 160) : null,
+  };
+}
+
 export interface EstadoTrabajador {
+  pasada_alternativas?: PasadaAlternativas | null;
   visto_hace_seg: number | null;
   commit_sha?: string | null;
   ultimo_resultado?: PublicoResultadoTick | null;
@@ -193,6 +227,7 @@ export interface OpcionesSalud {
   trabajadorVistoHaceSeg?: number | null;
   trabajadorCommitSha?: string | null;
   trabajadorUltimoResultado?: ResultadoTickTrabajador | null;
+  pasadaAlternativas?: PasadaAlternativas | null;
   secretosFaltantes?: string[];
   credencialesModeloEnWeb?: boolean;
   fuentes?: Fuentes;
@@ -223,6 +258,7 @@ export function construirSalud(opciones: OpcionesSalud = {}): RespuestaSalud {
           trabajador: {
             visto_hace_seg: opciones.trabajadorVistoHaceSeg,
             ...(opciones.trabajadorCommitSha === undefined ? {} : { commit_sha: opciones.trabajadorCommitSha }),
+            ...(opciones.pasadaAlternativas === undefined ? {} : { pasada_alternativas: opciones.pasadaAlternativas }),
             ...(opciones.trabajadorUltimoResultado === undefined
               ? {}
               : {

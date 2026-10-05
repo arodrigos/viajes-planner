@@ -12,6 +12,7 @@ import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
 import { crearFuenteCercanosAbierta, type FuenteCercanos } from "@/lib/alternativas/cercanos";
+import { ORIGEN_PASADA_ALTERNATIVAS } from "@/lib/salud";
 import type { FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 
 export interface ResultadoTick {
@@ -157,6 +158,24 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
           : { error: errorTick instanceof Error ? errorTick.message : "fallo desconocido en el tick" }),
       };
       await supabase.from("salud").update({ resultado }).eq("id", filaSalud.id);
+      // El resultado del tick se pisa a los 5 min con el siguiente (casi
+      // siempre en cero). Un tick que SÍ tuvo candidatas deja además su fila
+      // propia, para que /api/salud lo siga mostrando y un 0 se pueda explicar.
+      if (alternativas && alternativas.candidatas > 0) {
+        await supabase.from("salud").insert({
+          origen: ORIGEN_PASADA_ALTERNATIVAS,
+          commit_sha: opciones.commitSha ?? null,
+          resultado: {
+            alternativas_candidatas: alternativas.candidatas,
+            alternativas_intentadas: alternativas.intentadas,
+            alternativas_con_cercanos: alternativas.conCercanos,
+            alternativas_sin_datos: alternativas.sinDatos,
+            alternativas_fallo_fuente: alternativas.falloFuente,
+            alternativas_error_interno: alternativas.errorInterno,
+            ultimo_error: alternativas.ultimoError,
+          },
+        });
+      }
     }
     await liberarCerrojo(supabase, tomadoPor);
   }
