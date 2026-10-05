@@ -649,3 +649,18 @@ footer a,
   list-style: none;
   padding: 0;
 }
+
+/* eventos: festivos y fiestas del viaje. Aditivo; los nombres largos parten línea. */
+.eventos-viaje li,
+.eventos-viaje p,
+.eventos-dia li,
+.eventos-dia p {
+  overflow-wrap: anywhere;
+}
+.eventos-viaje,
+.eventos-dia {
+  border: 1px solid var(--borde, #ccc);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+}

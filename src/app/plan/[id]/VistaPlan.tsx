@@ -15,6 +15,8 @@ import { textoCabeceraPresupuesto, textoPrecioParada, type PresupuestoPublico } 
 import { AccionesVisita } from "./AccionesVisita";
 import { AvisoCiudad } from "./AvisoCiudad";
 import { RutaViaje } from "./RutaViaje";
+import { EventosDia, eventosDelDia, SeccionEventos } from "./SeccionEventos";
+import type { Evento, EventosVersion } from "@/lib/eventos/tipos";
 import { calcularRuta } from "@/lib/etapas/ruta";
 import type { EtapaPlan, TrasladoPlan } from "@/lib/plan/tipos";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
@@ -132,6 +134,8 @@ interface PlanPublico {
   // etapas-vista: solo en viajes de varias ciudades.
   etapas?: EtapaPlan[];
   traslados?: TrasladoPlan[];
+  // eventos: ausente mientras el trabajador no los haya consultado.
+  eventos?: EventosVersion;
   personas?: number;
 }
 
@@ -199,7 +203,7 @@ function calcularComoLlegar(puntos: PuntoMapaDia[], siguiente: PuntoMapaDia | nu
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-function SeccionDia({ dia, indice, etapa, planId, onPlanActualizado }: { dia: DiaPublico; indice: number; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; onPlanActualizado: () => void }) {
+function SeccionDia({ dia, indice, etapa, eventos, planId, onPlanActualizado }: { dia: DiaPublico; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; onPlanActualizado: () => void }) {
   const tieneAlgunaParada = dia.paradas.length > 0;
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
@@ -272,6 +276,7 @@ function SeccionDia({ dia, indice, etapa, planId, onPlanActualizado }: { dia: Di
       ) : (
         <h2>{dia.fecha}</h2>
       )}
+      <EventosDia eventos={eventos} />
       {/* enc-ac2: ausente cuando el día tiene menos de dos paradas
           resueltas -- nunca un paseo a medias. */}
       {dia.paseo && (
@@ -687,6 +692,8 @@ export function VistaPlan({ id }: { id: string }) {
         />
       )}
 
+      {plan && <SeccionEventos eventos={plan.eventos} />}
+
       {plan?.dias.map((dia, indice) => {
         const etapa = dia.etapa !== undefined ? plan.etapas?.[dia.etapa] : undefined;
         return (
@@ -694,6 +701,7 @@ export function VistaPlan({ id }: { id: string }) {
             key={dia.fecha}
             dia={dia}
             indice={indice}
+            eventos={eventosDelDia(plan.eventos?.eventos, dia.fecha).filter((e) => dia.etapa === undefined || e.etapa === dia.etapa)}
             etapa={etapa ? { ciudad: etapa.ciudad.nombre ?? etapa.pais, caja: etapa.ciudad.caja } : undefined}
             planId={id}
             onPlanActualizado={() => setRecargarContador((n) => n + 1)}

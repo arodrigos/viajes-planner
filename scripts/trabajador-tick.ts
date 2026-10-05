@@ -12,6 +12,8 @@ import { clienteServicio } from "../src/lib/db/cliente";
 import { ejecutorClaudeCode } from "../src/lib/trabajador/ejecutorClaudeCode";
 import { tick } from "../src/lib/trabajador/tick";
 import { crearFuenteGuiaAbierta } from "../src/lib/guia/wikivoyage";
+import { crearFuenteFestivos } from "../src/lib/eventos/festivos";
+import { crearFuenteWikidata } from "../src/lib/eventos/wikidata";
 import { cacheSitiosSupabase } from "../src/lib/lugares/cacheSitios";
 
 // bar-ac4: el SHA que de verdad corre aquí, no el que Vercel informa --
@@ -38,6 +40,10 @@ async function main() {
       // Solo el trabajador de verdad habla con Wikivoyage: los tests de tick
       // no pasan fuenteGuia y quedan sin red.
       fuenteGuia: crearFuenteGuiaAbierta({ cache: cacheSitiosSupabase(supabase) }),
+      fuenteEventos: {
+        festivos: crearFuenteFestivos({ cache: cacheSitiosSupabase(supabase) }),
+        wikidata: crearFuenteWikidata({ cache: cacheSitiosSupabase(supabase) }),
+      },
     });
     console.log(`[trabajador] cerrojo=${resultado.cerrojoAdquirido} procesados=${resultado.trabajosProcesados} sha=${commitSha}`);
   } finally {

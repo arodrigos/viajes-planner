@@ -157,6 +157,9 @@ export interface EstadoTrabajador {
 export interface Fuentes {
   lugares: string;
   mapa: string;
+  // Opcionales: los consumidores anteriores no las traen.
+  guia?: string;
+  eventos?: string;
 }
 
 // sal-ac1/sal-ac3: contadores AGREGADOS del relleno real en DEV, todos
@@ -172,6 +175,7 @@ export interface EstadoRelleno {
   paradas_con_alternativas: number;
   paradas_con_categoria: number;
   paradas_con_guia: number;
+  versiones_con_eventos: number;
   planes_total: number;
   planes_sin_version: number;
   planes_sin_trabajo_vivo: number;

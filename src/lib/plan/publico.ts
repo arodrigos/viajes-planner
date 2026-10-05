@@ -6,6 +6,7 @@ import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./pa
 import type { AnclaAlojamiento, Dia, EtapaPlan, Foto, TrasladoPlan, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
+import type { EventosVersion } from "@/lib/eventos/tipos";
 import { calcularPresupuesto } from "@/lib/presupuesto/calcular";
 import type { PresupuestoPublico } from "@/lib/presupuesto/texto";
 import { fotoSegura } from "@/lib/lugares/urlFoto";
@@ -79,6 +80,8 @@ export interface PlanPublico {
   // etapas-pais: solo en viajes de varias ciudades.
   etapas?: EtapaPlan[];
   traslados?: TrasladoPlan[];
+  // eventos: ausente hasta que el trabajador los consulta.
+  eventos?: EventosVersion;
   // mot-ac1: suma de las visitas con coste, calculada aquí y no en el
   // cliente.
   presupuesto: PresupuestoPublico;
@@ -198,6 +201,7 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
     ...(plan.ciudad ? { ciudad: plan.ciudad } : {}),
     ...(plan.etapas ? { etapas: plan.etapas } : {}),
     ...(plan.traslados ? { traslados: plan.traslados } : {}),
+    ...(plan.eventos ? { eventos: plan.eventos } : {}),
     presupuesto: { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur, ...(presupuestoEur !== null ? { tu_presupuesto_eur: presupuestoEur } : {}) },
   };
 }

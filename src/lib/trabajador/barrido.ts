@@ -1,5 +1,7 @@
 import { enriquecerGuiaPendientes, type ResultadoGuia } from "@/lib/guia/enriquecer";
 import type { FuenteGuia } from "@/lib/guia/wikivoyage";
+import { enriquecerEventosPendientes, type ResultadoEventos } from "@/lib/eventos/enriquecer";
+import type { FuenteEventos } from "@/lib/eventos/calcular";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
@@ -38,6 +40,9 @@ export const CORTE_ALTERNATIVAS = new Date("2026-10-05T18:00:00Z");
 export const LIMITE_BARRIDO_DEFECTO = 120;
 export const PRESUPUESTO_BARRIDO_MS_DEFECTO = 180_000;
 const PRESUPUESTO_GUIA_MS = 60_000;
+// Cada versión pide unas 4 peticiones a ritmo de 1 s: diez caben de sobra.
+const LIMITE_EVENTOS = 10;
+const PRESUPUESTO_EVENTOS_MS = 60_000;
 const DIAS_CADUCIDAD_NO_RESUELTA = 30;
 
 export interface CandidatoPendiente {
@@ -335,6 +340,8 @@ export interface ResultadoBarrido {
   alternativas: ContadoresAlternativas;
   // guia-abierta: ausente si el barrido no recibió fuente de guía.
   guia?: ResultadoGuia;
+  // eventos: ausente si el barrido no recibió fuentes de eventos.
+  eventos?: ResultadoEventos;
 }
 
 // alc-ac2: lo que hicieron los dos barridos de alternativas en ESTE tick.
@@ -387,6 +394,7 @@ export async function completarParadasPendientes(
   fuenteCercanos?: FuenteCercanos,
   corteAlternativas: Date = CORTE_ALTERNATIVAS,
   fuenteGuia?: FuenteGuia,
+  fuenteEventos?: FuenteEventos,
 ): Promise<ResultadoBarrido> {
   // bar-ac1: el alcance ya no parte de `trabajos` -- parte de TODO plan con
   // al menos una versión, viva o no. Un plan sin ninguna fila en
@@ -740,6 +748,18 @@ export async function completarParadasPendientes(
         )
       : undefined;
 
+  // eventos: después de la guía y con su propio presupuesto de tiempo; lo que
+  // no quepa queda sin marcar para el siguiente tick.
+  const eventos = fuenteEventos
+    ? await enriquecerEventosPendientes(
+        supabase,
+        { fuenteEventos, reloj },
+        [...versionPorId.values()].map((v) => ({ id: v.id, planId: v.planId, ciudad: v.ciudad, dias: v.dias, etapas: v.etapas })),
+        LIMITE_EVENTOS,
+        reloj.ahora() + PRESUPUESTO_EVENTOS_MS,
+      )
+    : undefined;
+
   return {
     planesMirados,
     paradasIntentadas: procesados,
@@ -750,5 +770,6 @@ export async function completarParadasPendientes(
     peticionesNominatimCiudad: peticionesCiudad.total,
     alternativas: contadoresAlt,
     ...(guia ? { guia } : {}),
+    ...(eventos ? { eventos } : {}),
   };
 }

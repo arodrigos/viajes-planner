@@ -1,0 +1,27 @@
+{
+  "head" : {
+    "vars" : [ "e", "eLabel", "ini", "fin", "diaEn", "art", "iso" ]
+  },
+  "results" : {
+    "bindings" : [ {
+      "iso" : {
+        "type" : "literal",
+        "value" : "PT"
+      },
+      "e" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q112059989"
+      },
+      "diaEn" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "June 13"
+      },
+      "eLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Saint Anthony's Day"
+      }
+    } ]
+  }
+}

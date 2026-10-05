@@ -4,6 +4,7 @@
 // (costura con la fase 2) y no deben llegar nunca al cliente.
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { Modo } from "@/lib/criterios/tipos";
+import type { EventosVersion } from "@/lib/eventos/tipos";
 
 // Hasta el bloque lugares-resolucion, "propuesto-sin-verificar" era el
 // único valor posible (no había ficha contra la que resolver). Ahora una
@@ -279,4 +280,7 @@ export interface Plan {
   // menos que etapas.
   etapas?: EtapaPlan[];
   traslados?: TrasladoPlan[];
+  // eventos: ausente hasta que el trabajador los consulta.
+  eventos?: EventosVersion;
+  eventos_intentados_en?: string;
 }

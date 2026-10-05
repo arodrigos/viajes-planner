@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
     pasadaAlternativas,
     secretosFaltantes: SECRETOS_REQUERIDOS.filter((nombre) => !process.env[nombre]),
     credencialesModeloEnWeb: VARIABLES_CREDENCIAL_MODELO.some((nombre) => Boolean(process.env[nombre])),
-    fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap" },
+    fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap", guia: "wikivoyage+wikipedia", eventos: "openholidays+nager+wikidata" },
     relleno,
   });
   return NextResponse.json(salud, { status: salud.ok ? 200 : 503 });

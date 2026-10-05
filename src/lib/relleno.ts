@@ -36,6 +36,7 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     paradasConAlternativas,
     paradasConCategoria,
     paradasConGuia,
+    versionesConEventos,
     planesTotal,
     planesConVersion,
     planesConTrabajoVivo,
@@ -62,6 +63,7 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     ),
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true }).not("categoria", "is", null)),
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true }).not("guia", "is", null)),
+    contar(() => supabase.from("plan_versiones").select("id", { count: "exact", head: true }).not("eventos_intentados_en", "is", null)),
     contar(() => supabase.from("planes").select("id", { count: "exact", head: true })),
     contar(() => supabase.from("planes").select("id, plan_versiones!inner(id)", { count: "exact", head: true })),
     contar(() =>
@@ -95,6 +97,7 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     paradas_con_alternativas: paradasConAlternativas,
     paradas_con_categoria: paradasConCategoria,
     paradas_con_guia: paradasConGuia,
+    versiones_con_eventos: versionesConEventos,
     planes_total: planesTotal,
     planes_sin_version: planesTotal - planesConVersion,
     planes_sin_trabajo_vivo: planesTotal - planesConTrabajoVivo,
