@@ -14,6 +14,7 @@ import { SeccionesGuia } from "./SeccionesGuia";
 import { textoCabeceraPresupuesto, textoPrecioParada, type PresupuestoPublico } from "@/lib/presupuesto/texto";
 import { AccionesVisita } from "./AccionesVisita";
 import { AvisoCiudad } from "./AvisoCiudad";
+import { BotonInfografia } from "./BotonInfografia";
 import { RutaViaje } from "./RutaViaje";
 import { EventosDia, eventosDelDia, SeccionEventos } from "./SeccionEventos";
 import type { Evento, EventosVersion } from "@/lib/eventos/tipos";
@@ -618,6 +619,7 @@ export function VistaPlan({ id }: { id: string }) {
           <p id="ayuda-calendario" className="ayuda">
             Descarga un fichero .ics que puedes abrir en Google Calendar o en el calendario del móvil
           </p>
+          <BotonInfografia planId={id} />
           <button type="button" aria-describedby="ayuda-regenerar" onClick={() => setDialogoRegenerarAbierto(true)}>
             Regenerar este viaje
           </button>
