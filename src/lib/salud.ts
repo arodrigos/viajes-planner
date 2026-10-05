@@ -31,6 +31,9 @@ export interface ResultadoTickTrabajador {
   alternativas_intentadas?: number;
   alternativas_con_cercanos?: number;
   alternativas_sin_datos?: number;
+  alternativas_sin_categoria?: number;
+  alternativas_sin_coordenadas?: number;
+  alternativas_categorizadas?: number;
   alternativas_fallo_fuente?: number;
   alternativas_error_interno?: number;
   error?: string;
@@ -82,6 +85,9 @@ const CONTADORES_PUBLICOS = [
   "alternativas_intentadas",
   "alternativas_con_cercanos",
   "alternativas_sin_datos",
+  "alternativas_sin_categoria",
+  "alternativas_sin_coordenadas",
+  "alternativas_categorizadas",
   "alternativas_fallo_fuente",
   "alternativas_error_interno",
 ] as const;
@@ -164,6 +170,7 @@ export interface EstadoRelleno {
   paradas_sin_intentar: number;
   paradas_con_foto: number;
   paradas_con_alternativas: number;
+  paradas_con_categoria: number;
   planes_total: number;
   planes_sin_version: number;
   planes_sin_trabajo_vivo: number;

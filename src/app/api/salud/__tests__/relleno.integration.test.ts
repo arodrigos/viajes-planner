@@ -70,7 +70,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     await supabase.from("planes").delete().like("id", `${PREFIJO}%`);
   });
 
-  it("cuadra el total, usa solo las diecinueve claves numéricas, y no publica ningún dato personal", async () => {
+  it("cuadra el total, usa solo las veinte claves numéricas, y no publica ningún dato personal", async () => {
     // Plan 1: destino descriptivo real de Adrián, trabajo vivo, parada sin
     // intentar, ciudad efectiva ya resuelta (ciu-ac6).
     const plan1: Plan = {
@@ -160,6 +160,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
         "paradas_sin_intentar",
         "paradas_con_foto",
         "paradas_con_alternativas",
+        "paradas_con_categoria",
         "planes_total",
         "planes_sin_version",
         "planes_sin_trabajo_vivo",

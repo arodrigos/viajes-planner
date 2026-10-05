@@ -7,6 +7,7 @@ import { relojReal, type Reloj } from "@/lib/lugares/limitador";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
 import type { CajaDelimitadora, FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
+import { inferirCategoria } from "@/lib/alternativas/categorizar";
 import { ETIQUETA_OSM_POR_CATEGORIA, FalloFuenteCercanos, type FuenteCercanos } from "@/lib/alternativas/cercanos";
 import { distanciaMetros, mismasCoordenadas } from "@/lib/alternativas/equivalencia";
 import { duracionParaCercano } from "@/lib/alternativas/duraciones";
@@ -24,7 +25,9 @@ const MAXIMO_CERCANOS = 3;
 // nuevo (15:00Z): el tick que ejecutó la pasada de 12:30Z se pisó a los 5 min
 // sin que nadie viera sus contadores; ahora la pasada deja su propia fila de
 // salud (tick.ts) con el último error, así que un 0 vuelve a poder explicarse.
-export const CORTE_ALTERNATIVAS = new Date("2026-10-05T15:00:00Z");
+// Y de nuevo (18:00Z): la causa del 0 era que las 16 paradas de dev no tenían
+// categoría y se sellaban sin consultar Overpass; ahora se categorizan antes.
+export const CORTE_ALTERNATIVAS = new Date("2026-10-05T18:00:00Z");
 
 // bar-ac3: 120 paradas o 180 s de reloj (lo que ocurra primero), para vaciar
 // las 467 pendientes en ~4 ticks sin solaparse con el cron de 5 min.
@@ -76,11 +79,30 @@ export async function procesarDentroDePresupuesto<T>(
 
 interface FilaParadaParaAlternativas {
   id: string;
+  nombre: string;
+  lugar: Lugar | null;
   categoria: CategoriaParada | null;
   lat: number | null;
   lon: number | null;
   plan_version_id: string;
   duracion_min: number;
+}
+
+// Las paradas anteriores a lug-ac4 no tienen categoría y sin ella no hay
+// consulta a Overpass: se deduce sin red y se guarda en la parada, que sirve
+// también para fotos y equivalencias. Devuelve null si no hay forma de saberla.
+async function asegurarCategoria(
+  supabase: SupabaseClient,
+  fila: FilaParadaParaAlternativas,
+  contadores: ContadoresAlternativas,
+): Promise<CategoriaParada | null> {
+  if (fila.categoria) return fila.categoria;
+  const deducida = inferirCategoria(fila.nombre, fila.lugar?.etiquetas);
+  if (!deducida) return null;
+  const { error } = await supabase.from("paradas").update({ categoria: deducida }).eq("id", fila.id);
+  if (error) throw new Error(error.message);
+  contadores.categorizadas += 1;
+  return deducida;
 }
 
 // Inserta hasta 3 cercanos de Overpass como alternativas de la parada, con
@@ -307,7 +329,12 @@ export interface ContadoresAlternativas {
   candidatas: number;
   intentadas: number;
   conCercanos: number;
+  // sinDatos = sinCategoria + sinCoordenadas: se separan porque «no se supo
+  // qué es» y «no se supo dónde está» tienen arreglos distintos.
   sinDatos: number;
+  sinCategoria: number;
+  sinCoordenadas: number;
+  categorizadas: number;
   falloFuente: number;
   errorInterno: number;
   // Mensaje (acotado) del último error interno: es lo que dice POR QUÉ una
@@ -319,8 +346,14 @@ function mensajeAcotado(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 160);
 }
 
+function contarSinDatos(contadores: ContadoresAlternativas, categoria: CategoriaParada | null, lat: number | null): void {
+  contadores.sinDatos += 1;
+  if (!categoria) contadores.sinCategoria += 1;
+  if (lat === null) contadores.sinCoordenadas += 1;
+}
+
 function contadoresAlternativasVacios(): ContadoresAlternativas {
-  return { candidatas: 0, intentadas: 0, conCercanos: 0, sinDatos: 0, falloFuente: 0, errorInterno: 0, ultimoError: null };
+  return { candidatas: 0, intentadas: 0, conCercanos: 0, sinDatos: 0, sinCategoria: 0, sinCoordenadas: 0, categorizadas: 0, falloFuente: 0, errorInterno: 0, ultimoError: null };
 }
 
 // rel-ac1/rel-ac2/bar-ac1: cumple la decisión de Adrián -- coordenadas (y
@@ -527,7 +560,7 @@ export async function completarParadasPendientes(
   if (fuenteCercanos) {
     const { data: paradasSinAlternativas, error: errorAlternativas } = await supabase
       .from("paradas")
-      .select("id, categoria, lat, lon, plan_version_id, duracion_min")
+      .select("id, nombre, lugar, categoria, lat, lon, plan_version_id, duracion_min")
       .in("plan_version_id", versionIds)
       .eq("resolucion->>estado", "resuelta")
       .is("alternativas_intentadas_en", null)
@@ -540,13 +573,14 @@ export async function completarParadasPendientes(
       if (overpassCaido) break;
       const identidades = identidadesPorVersion.get(fila.plan_version_id) ?? new Set<string>();
       try {
-        if (!fila.categoria || fila.lat === null || fila.lon === null) {
-          contadoresAlt.sinDatos += 1;
+        const categoria = await asegurarCategoria(supabase, fila, contadoresAlt);
+        if (!categoria || fila.lat === null || fila.lon === null) {
+          contarSinDatos(contadoresAlt, categoria, fila.lat);
           await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
           continue;
         }
         contadoresAlt.intentadas += 1;
-        const insertadas = await insertarCercanos(supabase, { ...fila, categoria: fila.categoria, lat: fila.lat, lon: fila.lon }, identidades, fuenteCercanos, fuenteFotos);
+        const insertadas = await insertarCercanos(supabase, { ...fila, categoria, lat: fila.lat, lon: fila.lon }, identidades, fuenteCercanos, fuenteFotos);
         if (insertadas > 0) contadoresAlt.conCercanos += 1;
         await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
       } catch (error) {
@@ -572,7 +606,7 @@ export async function completarParadasPendientes(
   if (fuenteCercanos) {
     const { data: antiguas, error: errorAntiguas } = await supabase
       .from("paradas")
-      .select("id, categoria, lat, lon, plan_version_id, duracion_min")
+      .select("id, nombre, lugar, categoria, lat, lon, plan_version_id, duracion_min")
       .in("plan_version_id", versionIds)
       .eq("resolucion->>estado", "resuelta")
       .lt("alternativas_intentadas_en", corteAlternativas.toISOString());
@@ -608,19 +642,20 @@ export async function completarParadasPendientes(
         try {
           const guardadas = porParada.get(fila.id) ?? [];
           if (guardadas.length === 0) {
-            if (fila.categoria && fila.lat !== null && fila.lon !== null) {
+            const categoria = await asegurarCategoria(supabase, fila, contadoresAlt);
+            if (categoria && fila.lat !== null && fila.lon !== null) {
               const identidades = identidadesPorVersion.get(fila.plan_version_id) ?? new Set<string>();
               contadoresAlt.intentadas += 1;
               const insertadas = await insertarCercanos(
                 supabase,
-                { ...fila, categoria: fila.categoria, lat: fila.lat, lon: fila.lon },
+                { ...fila, categoria, lat: fila.lat, lon: fila.lon },
                 identidades,
                 fuenteCercanos,
                 fuenteFotos,
               );
               if (insertadas > 0) contadoresAlt.conCercanos += 1;
             } else {
-              contadoresAlt.sinDatos += 1;
+              contarSinDatos(contadoresAlt, categoria, fila.lat);
             }
           } else {
             for (const alternativa of guardadas.filter((a) => !a.foto)) {

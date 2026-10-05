@@ -223,4 +223,48 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("pasada única de alternativas (a
     const { data: alternativas } = await supabase.from("paradas_alternativas").select("id").eq("parada_id", fila?.id);
     expect(alternativas?.length).toBeGreaterThanOrEqual(1);
   });
+
+  // Causa real del 0 en dev: paradas anteriores a lug-ac4, sin categoría,
+  // que la pasada sellaba sin llegar a consultar Overpass.
+  it("alc-ac2: una parada sin categoría la gana por su nombre, se guarda y consulta Overpass", async () => {
+    const plan: Plan = {
+      id: "plan-alc-pasada-sincategoria",
+      version: 1,
+      destino: DESTINO,
+      personas: 2,
+      ciudad: CIUDAD_RESUELTA,
+      dias: [
+        {
+          fecha: "2026-11-01",
+          franjas: [{ id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" }],
+          paradas: ["Natural History Museum", "Knightsbridge"].map((nombre) => ({
+            id: `${nombre}-id`,
+            franja_id: "manana",
+            nombre,
+            descripcion: "",
+            duracion_min: 60,
+            prioridad: 50,
+            procedencia: { fuente: "propuesto-sin-verificar" as const },
+          })),
+        },
+      ],
+    };
+    await guardarPlan(supabase, plan);
+    const { data: filas } = await supabase.from("paradas").select("id, nombre").in("nombre", ["Natural History Museum", "Knightsbridge"]);
+    for (const fila of filas ?? []) {
+      await supabase
+        .from("paradas")
+        .update({ lat: 51.1, lon: -0.5, resolucion: { estado: "resuelta", intentado_en: "2026-10-01T00:00:00Z" }, alternativas_intentadas_en: ANTES_DEL_CORTE })
+        .eq("id", fila.id);
+    }
+
+    const fuenteCercanos = fuenteCercanosContada();
+    const resultado = await completarParadasPendientes(supabase, FUENTE_LUGARES_SIN_RED, 120, FUENTE_FOTOS, undefined, undefined, fuenteCercanos, CORTE);
+    expect(resultado.alternativas).toMatchObject({ candidatas: 2, categorizadas: 1, intentadas: 1, conCercanos: 1, sinCategoria: 1, sinCoordenadas: 0 });
+    expect(fuenteCercanos.consultas).toBe(1);
+
+    const { data: tras } = await supabase.from("paradas").select("nombre, categoria").in("nombre", ["Natural History Museum", "Knightsbridge"]);
+    expect(tras?.find((f) => f.nombre === "Natural History Museum")?.categoria).toBe("museo");
+    expect(tras?.find((f) => f.nombre === "Knightsbridge")?.categoria).toBeNull();
+  });
 });
