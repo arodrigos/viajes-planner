@@ -149,6 +149,20 @@ export const esquemaPlan = {
         // El ensamblador ya descartó cualquier otro campo y recortó a 3
         // antes de que esto se valide.
         alternativas: { type: "array", maxItems: 3, items: { $ref: "#/$defs/alternativaCruda" } },
+        // mot-ac2: opcionales; mismos límites que aplica el ensamblador
+        // (300 caracteres, 0 a 2.000 €), esta es la segunda red.
+        motivo: { type: "string", minLength: 1, maxLength: 300 },
+        coste: {
+          type: "object",
+          additionalProperties: false,
+          required: ["importe_eur", "por", "procedencia", "fecha"],
+          properties: {
+            importe_eur: { type: "number", minimum: 0, maximum: 2000 },
+            por: { enum: ["persona", "grupo", "gratis"] },
+            procedencia: { enum: ["estimado", "wikivoyage"] },
+            fecha: { type: "string", minLength: 1 },
+          },
+        },
       },
     },
     alternativaCruda: {

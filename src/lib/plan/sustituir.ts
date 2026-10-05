@@ -77,6 +77,10 @@ export async function sustituirParada(
     foto: alternativaElegida.foto,
     resolucion: alternativaElegida.coordenadas ? { estado: "resuelta" as const, intentado_en: new Date().toISOString() } : undefined,
     alternativas: alternativasHeredadas,
+    // El motivo y el precio eran del sitio anterior: heredarlos presentaría
+    // una razón y un coste que no corresponden al sitio nuevo.
+    motivo: undefined,
+    coste: undefined,
   };
 
   const diasNuevos = plan.dias.map((dia, iDia) => {

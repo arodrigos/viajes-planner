@@ -9,6 +9,8 @@ import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
 import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
+import type { CosteParada } from "@/lib/plan/tipos";
+import { textoCabeceraPresupuesto, textoPrecioParada, type PresupuestoPublico } from "@/lib/presupuesto/texto";
 import { AccionesVisita } from "./AccionesVisita";
 import { AvisoCiudad } from "./AvisoCiudad";
 import type { PuntoMapaDia } from "./MapaDia";
@@ -80,6 +82,9 @@ interface ParadaPublica {
   // bloque uso-en-destino (dest-ac1/dest-ac4): ausente cuando no está
   // visitada, mismo patrón que el resto de este tipo.
   visitada?: boolean;
+  // motivo-y-presupuesto (mot-ac1): ausentes en planes anteriores.
+  motivo?: string;
+  coste?: CosteParada;
 }
 
 interface DiaPublico {
@@ -110,6 +115,9 @@ interface PlanPublico {
   // intentado -- mismo patrón que el resto de campos opcionales de este
   // tipo (ver aPlanPublico en publico.ts).
   ciudad?: CiudadEfectiva;
+  // Opcional en el cliente: los dobles de test y una respuesta cacheada de
+  // antes de este bloque no lo traen y la cabecera simplemente no aparece.
+  presupuesto?: PresupuestoPublico;
 }
 
 const TEXTO_CONFIRMACION_REGENERAR =
@@ -332,6 +340,21 @@ function SeccionDia({ dia, planId, onPlanActualizado }: { dia: DiaPublico; planI
                         </p>
                       )}
                       <p>{parada.descripcion}</p>
+                      {/* mot-ac1: el motivo va rotulado como del modelo -es
+                          su opinión, no un dato comprobado-; sin motivo (plan
+                          anterior) la sección no aparece, el precio sí dice
+                          que no hay. */}
+                      {parada.motivo && (
+                        <div className="motivo-parada" data-testid="motivo-parada">
+                          <p>
+                            <strong>Por qué te lo proponemos</strong> <span className="etiqueta-modelo">Lo dice el planificador</span>
+                          </p>
+                          <p className="texto-motivo">{parada.motivo}</p>
+                        </div>
+                      )}
+                      <p className="precio-parada" data-testid="precio-parada">
+                        {textoPrecioParada(parada.coste)}
+                      </p>
                       {/* fot-ac2/fot-ac3: la foto nunca viene de otro
                           sitio -procede de resolverFotos.ts, server-only-;
                           sin ella, el marcador de posición es digno, nunca
@@ -610,6 +633,17 @@ export function VistaPlan({ id }: { id: string }) {
             </button>
           </div>
           {errorRegenerar && <p role="alert">{errorRegenerar}</p>}
+        </div>
+      )}
+
+      {plan?.presupuesto && (
+        <div className="presupuesto-plan" data-testid="presupuesto-plan">
+          <p>{textoCabeceraPresupuesto(plan.presupuesto).resumen}</p>
+          {textoCabeceraPresupuesto(plan.presupuesto).aviso && (
+            <p role="note" className="aviso">
+              {textoCabeceraPresupuesto(plan.presupuesto).aviso}
+            </p>
+          )}
         </div>
       )}
 

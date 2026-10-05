@@ -35,6 +35,9 @@ export interface TrabajoDelPlan {
   // trabajo sin perfil (no debería darse, es obligatorio en el esquema)
   // cae al umbral no familiar, el más permisivo.
   perfil: string | null;
+  // mot-ac1: la cabecera compara las visitas con el presupuesto del usuario,
+  // que vive en los criterios del trabajo, nunca en el Plan.
+  presupuesto_eur: number | null;
 }
 
 // reg-ac4: el aviso "se está regenerando" en la vista del plan necesita el
@@ -55,6 +58,8 @@ export async function trabajoDelPlan(
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer el trabajo del plan: ${error.message}`);
   if (!data) return null;
-  const criterios = data.criterios as { perfil?: string } | null;
-  return { id: data.id, estado: data.estado, regenerado_en: data.regenerado_en, perfil: criterios?.perfil ?? null };
+  const criterios = data.criterios as { perfil?: string; presupuesto_eur?: number } | null;
+  return { id: data.id, estado: data.estado, regenerado_en: data.regenerado_en, perfil: criterios?.perfil ?? null,
+    presupuesto_eur: typeof criterios?.presupuesto_eur === "number" ? criterios.presupuesto_eur : null,
+  };
 }

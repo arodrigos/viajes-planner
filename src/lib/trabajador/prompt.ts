@@ -31,7 +31,7 @@ backticks, ni explicación antes o después, solo el objeto JSON empezando
 por "{" y terminando por "}".
 
 Cada elemento de "dias" tiene esta forma exacta, sin más campos que estos:
-{ "fecha": "YYYY-MM-DD", "paradas": [ { "nombre": "...", "descripcion": "...", "duracion_min": <número>, "prioridad": <0-100>, "franja_id": "...", "categoria": "...", "alternativas": [...] } ] }
+{ "fecha": "YYYY-MM-DD", "paradas": [ { "nombre": "...", "descripcion": "...", "duracion_min": <número>, "prioridad": <0-100>, "franja_id": "...", "categoria": "...", "motivo": "...", "coste_eur_persona": <número>, "alternativas": [...] } ] }
 
 "nombre" tiene que ser el NOMBRE REAL Y BUSCABLE de un sitio que existe de
 verdad (un monumento, un museo, un parque, una plaza, un mercado, un
@@ -61,6 +61,12 @@ qué encaja igual", "duracion_min": <número> }. NO incluyas "categoria",
 "url" ni coordenadas en una alternativa: se asume la misma categoría que la
 parada que sustituye, y el sistema la resuelve contra fuentes reales
 después.
+
+"motivo" es UNA frase (máximo 300 caracteres) que dice por qué este sitio
+encaja con ESTE viaje (las edades, el perfil, la época), no una descripción
+genérica del sitio. "coste_eur_persona" es el precio orientativo de la
+entrada o la actividad por persona, en euros, como número (0 si es gratis);
+si no sabes el precio de verdad, omite el campo en vez de inventarlo.
 
 "franja_id" tiene que ser exactamente uno de estos valores, nunca uno
 inventado: ${franjaIds}.
