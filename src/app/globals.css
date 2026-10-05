@@ -609,3 +609,25 @@ footer a,
 .enlaces-recorrido a {
   font-size: var(--texto-pequeno);
 }
+
+/* etapas-vista: «Ruta del viaje». Aditivo; los textos largos (ciudades, ajustes)
+   parten línea para no desbordar a 390 px. */
+.ruta-viaje li,
+.ruta-viaje p {
+  overflow-wrap: anywhere;
+}
+.ruta-viaje .tarjeta-etapa,
+.ruta-viaje .traslado-ruta,
+.ruta-viaje .ajustes-planificador {
+  border: 1px solid var(--borde, #ccc);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+.ruta-viaje .traslado-ruta {
+  border-style: dashed;
+  margin-bottom: 0.5rem;
+}
+.ruta-viaje ol {
+  list-style: none;
+  padding: 0;
+}
