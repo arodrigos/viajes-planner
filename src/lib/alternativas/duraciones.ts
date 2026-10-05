@@ -31,5 +31,8 @@ export const DURACION_POR_CATEGORIA: Record<CategoriaParada, RangoDuracion> = {
 // alternativa que pasó por esEquivalente.
 export function duracionParaCercano(categoria: CategoriaParada, duracionParada: number): number {
   const { min, max } = DURACION_POR_CATEGORIA[categoria];
-  return Math.min(max, Math.max(min, duracionParada));
+  // Una parada antigua sin duración daba NaN, y el INSERT fallaba en silencio
+  // dejando la parada sellada sin alternativas.
+  const base = Number.isFinite(duracionParada) ? duracionParada : min;
+  return Math.min(max, Math.max(min, base));
 }

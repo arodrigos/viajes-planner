@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tomarSiguienteTrabajo } from "@/lib/cola/tomar";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
-import { completarParadasPendientes, LIMITE_BARRIDO_DEFECTO, PRESUPUESTO_BARRIDO_MS_DEFECTO } from "./barrido";
+import { completarParadasPendientes, type ContadoresAlternativas, LIMITE_BARRIDO_DEFECTO, PRESUPUESTO_BARRIDO_MS_DEFECTO } from "./barrido";
 import { relojReal } from "@/lib/lugares/limitador";
 import { adquirirCerrojo, liberarCerrojo } from "./cerrojo";
 import { ESPERA_OCIOSA_MS, INTERVALO_REINTENTO_OCIOSO_MS } from "./config";
@@ -85,6 +85,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   let planesReintentados = 0;
   let planesSaltadosSellados = 0;
   let planesSaltadosPorRed = 0;
+  let alternativas: ContadoresAlternativas | null = null;
   let errorTick: unknown;
   try {
     let ociosoDesde: number | null = null;
@@ -119,6 +120,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         planesReintentados = resultadoBarrido.planesReintentados;
         planesSaltadosSellados = resultadoBarrido.planesSaltadosSellados;
         planesSaltadosPorRed = resultadoBarrido.planesSaltadosPorRed;
+        alternativas = resultadoBarrido.alternativas;
       }
 
       if (trabajosProcesados === 0) break;
@@ -140,6 +142,16 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         planes_reintentados: planesReintentados,
         planes_saltados_sellados: planesSaltadosSellados,
         planes_saltados_por_red: planesSaltadosPorRed,
+        ...(alternativas
+          ? {
+              alternativas_candidatas: alternativas.candidatas,
+              alternativas_intentadas: alternativas.intentadas,
+              alternativas_con_cercanos: alternativas.conCercanos,
+              alternativas_sin_datos: alternativas.sinDatos,
+              alternativas_fallo_fuente: alternativas.falloFuente,
+              alternativas_error_interno: alternativas.errorInterno,
+            }
+          : {}),
         ...(errorTick === undefined
           ? {}
           : { error: errorTick instanceof Error ? errorTick.message : "fallo desconocido en el tick" }),

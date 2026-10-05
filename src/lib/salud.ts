@@ -26,6 +26,13 @@ export interface ResultadoTickTrabajador {
   planes_reintentados?: number;
   planes_saltados_sellados?: number;
   planes_saltados_por_red?: number;
+  // alc-ac2: lo que hicieron los barridos de alternativas en ese tick.
+  alternativas_candidatas?: number;
+  alternativas_intentadas?: number;
+  alternativas_con_cercanos?: number;
+  alternativas_sin_datos?: number;
+  alternativas_fallo_fuente?: number;
+  alternativas_error_interno?: number;
   error?: string;
 }
 
@@ -71,6 +78,12 @@ const CONTADORES_PUBLICOS = [
   "planes_reintentados",
   "planes_saltados_sellados",
   "planes_saltados_por_red",
+  "alternativas_candidatas",
+  "alternativas_intentadas",
+  "alternativas_con_cercanos",
+  "alternativas_sin_datos",
+  "alternativas_fallo_fuente",
+  "alternativas_error_interno",
 ] as const;
 
 export function resumirResultadoPublico(resultado: ResultadoTickTrabajador): PublicoResultadoTick {
