@@ -81,3 +81,8 @@ export function slugDestino(texto: string): string {
 export function normalizarClaveNombre(nombre: string): string {
   return slugDestino(nombre);
 }
+
+// eventos: una entrada por consulta, también la negativa o vacía.
+export function claveEventos(...partes: string[]): string {
+  return `eventos:${partes.map((p) => slugDestino(p)).join(":")}`;
+}

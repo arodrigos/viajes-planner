@@ -1,3 +1,4 @@
+import { eventosSeguros } from "@/lib/eventos/seguridad";
 import { curiosidadesSeguras, guiaSegura } from "@/lib/guia/seguridad";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -53,6 +54,9 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
       // etapas-pais: null en los viajes de una sola ciudad.
       etapas: plan.etapas ?? null,
       traslados: plan.traslados ?? null,
+      // eventos: una versión nueva (p. ej. tras sustituir una parada) conserva los de la anterior.
+      eventos: plan.eventos ?? null,
+      eventos_intentados_en: plan.eventos_intentados_en ?? null,
     })
     .select("id")
     .single();
@@ -153,7 +157,7 @@ export async function recuperarPlan(
 
   let consultaVersion = supabase
     .from("plan_versiones")
-    .select("id, version, personas, dias, avisos, recomendaciones, etapas, traslados")
+    .select("id, version, personas, dias, avisos, recomendaciones, etapas, traslados, eventos, eventos_intentados_en")
     .eq("plan_id", planId);
   consultaVersion =
     version === undefined
@@ -281,5 +285,7 @@ export async function recuperarPlan(
     ...(planRow.ciudad ? { ciudad: planRow.ciudad as CiudadEfectiva } : {}),
     ...(versionRow.etapas ? { etapas: versionRow.etapas as EtapaPlan[] } : {}),
     ...(versionRow.traslados ? { traslados: versionRow.traslados as TrasladoPlan[] } : {}),
+    ...(eventosSeguros(versionRow.eventos) ? { eventos: eventosSeguros(versionRow.eventos) } : {}),
+    ...(versionRow.eventos_intentados_en ? { eventos_intentados_en: versionRow.eventos_intentados_en as string } : {}),
   };
 }

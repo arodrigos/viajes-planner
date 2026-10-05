@@ -1,5 +1,7 @@
 import { enriquecerGuiaDePlan } from "@/lib/guia/enriquecer";
 import type { FuenteGuia } from "@/lib/guia/wikivoyage";
+import { enriquecerEventosDePlan } from "@/lib/eventos/enriquecer";
+import type { FuenteEventos } from "@/lib/eventos/calcular";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
@@ -54,6 +56,8 @@ interface DependenciasProcesarTrabajo {
   // guia-abierta: ausente, el plan se guarda sin consejos (la tarea del
   // barrido los rellena). Solo el trabajador real la pasa.
   fuenteGuia?: FuenteGuia;
+  // eventos: igual que fuenteGuia, solo la pasa el trabajador real.
+  fuenteEventos?: FuenteEventos;
 }
 
 type IntentoEnsamblado = { valido: true; plan: Plan } | { valido: false; errores: ErrorValidacion[] };
@@ -269,7 +273,7 @@ async function invocarOPausar(
 export async function procesarTrabajo(
   supabase: SupabaseClient,
   trabajo: TrabajoAProcesar,
-  { ejecutor, directorio, fuenteLugares, fuenteFotos, fuenteCercanos, fuenteGuia }: DependenciasProcesarTrabajo,
+  { ejecutor, directorio, fuenteLugares, fuenteFotos, fuenteCercanos, fuenteGuia, fuenteEventos }: DependenciasProcesarTrabajo,
 ): Promise<{ estado: "completado" | "fallido" | "pausado-por-cuota" }> {
   const familia = familiaDeModelo(MODELO_GENERACION);
 
@@ -422,5 +426,6 @@ export async function procesarTrabajo(
   // plan- y sin lanzar nunca: la guía es un extra. Lo que no dé tiempo lo
   // recoge el barrido.
   if (fuenteGuia) await enriquecerGuiaDePlan(supabase, { fuenteGuia, fuenteFotos: fotos }, planId);
+  if (fuenteEventos) await enriquecerEventosDePlan(supabase, { fuenteEventos }, planId);
   return { estado: "completado" };
 }

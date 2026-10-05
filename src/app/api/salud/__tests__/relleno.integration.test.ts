@@ -162,6 +162,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
         "paradas_con_alternativas",
         "paradas_con_categoria",
         "paradas_con_guia",
+        "versiones_con_eventos",
         "planes_total",
         "planes_sin_version",
         "planes_sin_trabajo_vivo",

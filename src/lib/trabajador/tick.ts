@@ -10,6 +10,7 @@ import type { EjecutorModelo } from "./ejecutorModelo";
 import { procesarTrabajo } from "./procesarTrabajo";
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
 import { cacheSitiosSupabase } from "@/lib/lugares/cacheSitios";
+import type { FuenteEventos } from "@/lib/eventos/calcular";
 import type { FuenteGuia } from "@/lib/guia/wikivoyage";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
 import { crearFuenteCercanosAbierta, type FuenteCercanos } from "@/lib/alternativas/cercanos";
@@ -35,6 +36,8 @@ export interface OpcionesTick {
   fuenteCercanos?: FuenteCercanos;
   // guia-abierta: ausente, no se enriquece con la guía (los tests no usan red).
   fuenteGuia?: FuenteGuia;
+  // eventos: ausente, no se consultan festivos ni fiestas (los tests no usan red).
+  fuenteEventos?: FuenteEventos;
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): el SHA que de verdad
   // ejecuta este tick en VPS1, distinto del commit que Vercel informa en
   // /api/salud -- scripts/trabajador-tick.ts lo calcula con `git rev-parse`.
@@ -102,7 +105,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         await procesarTrabajo(
           supabase,
           { id: trabajo.id, plan_id: trabajo.plan_id, criterios: trabajo.criterios as CriteriosViaje },
-          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares, fuenteFotos, fuenteGuia: opciones.fuenteGuia },
+          { ejecutor: opciones.ejecutor, directorio: opciones.directorio, fuenteLugares, fuenteFotos, fuenteGuia: opciones.fuenteGuia, fuenteEventos: opciones.fuenteEventos },
         );
         trabajosProcesados += 1;
         continue;
@@ -120,6 +123,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
           fuenteCercanos,
           undefined,
           opciones.fuenteGuia,
+          opciones.fuenteEventos,
         );
         planesMirados = resultadoBarrido.planesMirados;
         paradasIntentadas = resultadoBarrido.paradasIntentadas;
