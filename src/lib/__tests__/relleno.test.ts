@@ -11,6 +11,7 @@ function clienteFalso() {
     eq: () => builder,
     is: () => builder,
     not: () => builder,
+    neq: () => builder,
     then(resolve: (valor: { count: number; error: null }) => void) {
       consultas += 1;
       resolve({ count: 1, error: null });
@@ -35,7 +36,7 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
     for (let i = 0; i < 10; i++) {
       await leerEstadoRelleno(cliente, inicio + i * 1_000);
     }
-    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(22);
+    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(25);
   });
 
   it("tras 61 s desde la última tanda, se vuelve a consultar", async () => {
@@ -43,13 +44,13 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
     const inicio = 2_000_000;
     await leerEstadoRelleno(cliente, inicio);
     await leerEstadoRelleno(cliente, inicio + 61_000);
-    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(44);
+    expect((cliente as ReturnType<typeof clienteFalso>).consultas()).toBe(50);
   });
 
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): la lista crece de 12 a 19
   // claves con el desglose por categoría de los planes sellados -- sigue
   // siendo una lista CERRADA, solo con siete miembros más.
-  it("el resultado cacheado tiene las veinte claves del objeto relleno", async () => {
+  it("el resultado cacheado tiene las veinticinco claves del objeto relleno", async () => {
     const cliente = clienteFalso() as never;
     const relleno = await leerEstadoRelleno(cliente, 3_000_000);
     expect(Object.keys(relleno).sort()).toEqual(
@@ -63,7 +64,10 @@ describe("leerEstadoRelleno (sal-ac2)", () => {
         "paradas_con_alternativas",
         "paradas_con_categoria",
         "paradas_con_guia",
+        "paradas_con_motivo",
         "versiones_con_eventos",
+        "versiones_multiciudad",
+        "trabajos_inviables",
         "planes_total",
         "planes_sin_version",
         "planes_sin_trabajo_vivo",

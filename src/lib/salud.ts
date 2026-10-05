@@ -177,7 +177,14 @@ export interface EstadoRelleno {
   paradas_con_alternativas: number;
   paradas_con_categoria: number;
   paradas_con_guia: number;
+  // Motivo no nulo y no vacío: la razón por la que se propuso la parada.
+  paradas_con_motivo: number;
   versiones_con_eventos: number;
+  // Versiones con `etapas` no vacío (viaje de varias ciudades) y trabajos
+  // que el planificador dio por inviables: sin ellos no se ve si el
+  // producto está usando las dos ramas nuevas.
+  versiones_multiciudad: number;
+  trabajos_inviables: number;
   planes_total: number;
   planes_sin_version: number;
   planes_sin_trabajo_vivo: number;

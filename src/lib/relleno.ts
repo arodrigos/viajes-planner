@@ -19,6 +19,67 @@ async function contar(
   return count ?? 0;
 }
 
+export interface RecuentosRelleno {
+  paradasTotal: number;
+  paradasResueltas: number;
+  paradasNoResueltas: number;
+  paradasEnError: number;
+  paradasSinIntentar: number;
+  paradasConFoto: number;
+  paradasConAlternativas: number;
+  paradasConCategoria: number;
+  paradasConGuia: number;
+  paradasConMotivo: number;
+  versionesConEventos: number;
+  versionesMulticiudad: number;
+  trabajosInviables: number;
+  planesTotal: number;
+  planesConVersion: number;
+  planesConTrabajoVivo: number;
+  planesConCiudad: number;
+  planesSinCiudadIdentificable: number;
+  planesSelladosPocasParadas: number;
+  planesSelladosSinCaja: number;
+  planesSelladosZonaGrande: number;
+  planesSelladosSinContencion: number;
+  planesSelladosSinVentaja: number;
+  planesSelladosSinCandidatoClaro: number;
+  planesSelladosCiudadNoEncontrada: number;
+}
+
+// Pura y aparte de las consultas para poder comprobar con propiedades que
+// la forma del objeto no depende de los datos: las dos cuentas «sin X» son
+// una resta, y es lo único que aquí se calcula.
+export function armarEstadoRelleno(r: RecuentosRelleno): EstadoRelleno {
+  return {
+    paradas_total: r.paradasTotal,
+    paradas_resueltas: r.paradasResueltas,
+    paradas_no_resueltas: r.paradasNoResueltas,
+    paradas_en_error: r.paradasEnError,
+    paradas_sin_intentar: r.paradasSinIntentar,
+    paradas_con_foto: r.paradasConFoto,
+    paradas_con_alternativas: r.paradasConAlternativas,
+    paradas_con_categoria: r.paradasConCategoria,
+    paradas_con_guia: r.paradasConGuia,
+    paradas_con_motivo: r.paradasConMotivo,
+    versiones_con_eventos: r.versionesConEventos,
+    versiones_multiciudad: r.versionesMulticiudad,
+    trabajos_inviables: r.trabajosInviables,
+    planes_total: r.planesTotal,
+    planes_sin_version: r.planesTotal - r.planesConVersion,
+    planes_sin_trabajo_vivo: r.planesTotal - r.planesConTrabajoVivo,
+    planes_con_ciudad: r.planesConCiudad,
+    planes_sin_ciudad_identificable: r.planesSinCiudadIdentificable,
+    planes_sellados_pocas_paradas: r.planesSelladosPocasParadas,
+    planes_sellados_sin_caja: r.planesSelladosSinCaja,
+    planes_sellados_zona_grande: r.planesSelladosZonaGrande,
+    planes_sellados_sin_contencion: r.planesSelladosSinContencion,
+    planes_sellados_sin_ventaja: r.planesSelladosSinVentaja,
+    planes_sellados_sin_candidato_claro: r.planesSelladosSinCandidatoClaro,
+    planes_sellados_ciudad_no_encontrada: r.planesSelladosCiudadNoEncontrada,
+  };
+}
+
 // sal-ac1/sal-ac2: cada número sale de una consulta de SOLO RECUENTO
 // (`head: true, count: 'exact'`), sin traer ni una fila de datos. Las dos
 // cuentas "sin X" se derivan por resta sobre el total en vez de un left
@@ -49,6 +110,9 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     planesSelladosSinVentaja,
     planesSelladosSinCandidatoClaro,
     planesSelladosCiudadNoEncontrada,
+    versionesMulticiudad,
+    trabajosInviables,
+    paradasConMotivo,
   ] = await Promise.all([
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true })),
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true }).eq("resolucion->>estado", "resuelta")),
@@ -85,32 +149,44 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "sin-ventaja")),
     contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "sin-candidato-claro")),
     contar(() => supabase.from("planes").select("id", { count: "exact", head: true }).eq("ciudad->>categoria_motivo", "ciudad-no-encontrada")),
+    // `etapas` es jsonb: «no nulo y no vacío» son dos filtros porque un
+    // viaje de una ciudad puede haberse guardado como null o como [].
+    contar(() =>
+      supabase.from("plan_versiones").select("id", { count: "exact", head: true }).not("etapas", "is", null).neq("etapas", "[]"),
+    ),
+    contar(() => supabase.from("trabajos").select("id", { count: "exact", head: true }).not("inviable", "is", null)),
+    contar(() =>
+      supabase.from("paradas").select("id", { count: "exact", head: true }).not("motivo", "is", null).neq("motivo", ""),
+    ),
   ]);
 
-  return {
-    paradas_total: paradasTotal,
-    paradas_resueltas: paradasResueltas,
-    paradas_no_resueltas: paradasNoResueltas,
-    paradas_en_error: paradasEnError,
-    paradas_sin_intentar: paradasSinIntentar,
-    paradas_con_foto: paradasConFoto,
-    paradas_con_alternativas: paradasConAlternativas,
-    paradas_con_categoria: paradasConCategoria,
-    paradas_con_guia: paradasConGuia,
-    versiones_con_eventos: versionesConEventos,
-    planes_total: planesTotal,
-    planes_sin_version: planesTotal - planesConVersion,
-    planes_sin_trabajo_vivo: planesTotal - planesConTrabajoVivo,
-    planes_con_ciudad: planesConCiudad,
-    planes_sin_ciudad_identificable: planesSinCiudadIdentificable,
-    planes_sellados_pocas_paradas: planesSelladosPocasParadas,
-    planes_sellados_sin_caja: planesSelladosSinCaja,
-    planes_sellados_zona_grande: planesSelladosZonaGrande,
-    planes_sellados_sin_contencion: planesSelladosSinContencion,
-    planes_sellados_sin_ventaja: planesSelladosSinVentaja,
-    planes_sellados_sin_candidato_claro: planesSelladosSinCandidatoClaro,
-    planes_sellados_ciudad_no_encontrada: planesSelladosCiudadNoEncontrada,
-  };
+  return armarEstadoRelleno({
+    paradasTotal,
+    paradasResueltas,
+    paradasNoResueltas,
+    paradasEnError,
+    paradasSinIntentar,
+    paradasConFoto,
+    paradasConAlternativas,
+    paradasConCategoria,
+    paradasConGuia,
+    paradasConMotivo,
+    versionesConEventos,
+    versionesMulticiudad,
+    trabajosInviables,
+    planesTotal,
+    planesConVersion,
+    planesConTrabajoVivo,
+    planesConCiudad,
+    planesSinCiudadIdentificable,
+    planesSelladosPocasParadas,
+    planesSelladosSinCaja,
+    planesSelladosZonaGrande,
+    planesSelladosSinContencion,
+    planesSelladosSinVentaja,
+    planesSelladosSinCandidatoClaro,
+    planesSelladosCiudadNoEncontrada,
+  });
 }
 
 // sal-ac1: si cualquiera de las consultas falla, se propaga el error al
