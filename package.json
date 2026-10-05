@@ -18,6 +18,7 @@
     "generar:plan-real": "tsx --conditions=react-server scripts/generar-plan-real.ts"
   },
   "dependencies": {
+    "@photostructure/tz-lookup": "^11.7.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
     "@turf/distance": "^7.4.0",

@@ -1,8 +1,11 @@
-import { calcularEtiquetasEncaje, formatearEtiquetasEncaje, vecinosResueltos } from "@/lib/alternativas/encaje";
+import { calcularApertura, calcularEtiquetasEncaje, formatearEtiquetasEncaje, vecinosResueltos } from "@/lib/alternativas/encaje";
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
+import { avisoRecortada, calcularHorarioDia, horaDeMinutos, minutosDeHora, type HorarioParada } from "./horario";
+import { zonaDeParada } from "./zona";
 import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./paseo";
 import type { AnclaAlojamiento, Dia, Foto, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
+import type { CajaDelimitadora } from "@/lib/lugares/tipos";
 import { fotoSegura } from "@/lib/lugares/urlFoto";
 
 // Serialización hacia el cliente. hora_inicio/hora_fin son internas (costura
@@ -34,8 +37,17 @@ export interface AlternativaPublica {
   etiquetasEncaje: string[];
 }
 
+// hor-ac1/hor-ac2: el rango ya viene resuelto en hora local del lugar (el
+// cliente no recibe las horas de franja ni la zona) y la apertura ya
+// redactada, para que la tarjeta no calcule nada.
+export interface HorarioPublico extends HorarioParada {
+  aviso?: string;
+  apertura: string;
+}
+
 export interface ParadaPublica extends Omit<Parada, "alternativas"> {
   alternativas?: AlternativaPublica[];
+  horario?: HorarioPublico;
 }
 
 export interface DiaPublico {
@@ -62,30 +74,41 @@ export interface PlanPublico {
   ciudad?: CiudadEfectiva;
 }
 
+function textoApertura(resultado: ReturnType<typeof calcularApertura>): string {
+  if (resultado.estado === "abierta") return "Abierto durante la visita";
+  if (resultado.estado === "desconocida") return "Horario no disponible";
+  return resultado.cierre ? `Cierra a las ${resultado.cierre}, antes de que acabe la visita` : "Cerrado a esa hora";
+}
+
 function aAlternativaPublica(
   dia: Dia,
   parada: Parada,
   alternativa: NonNullable<Parada["alternativas"]>[number],
+  horario: HorarioParada | undefined,
+  zona: string | null,
 ): AlternativaPublica {
   const procedencia: Procedencia = alternativa.lugar
     ? { fuente: alternativa.lugar.fuente, url: alternativa.lugar.url }
     : { fuente: "propuesto-sin-verificar" };
 
-  // enc-ac1: sin la franja de la parada (no debería faltar: franja_id
-  // siempre referencia una de las franjas del propio día) no hay ventana
-  // horaria con la que evaluar la apertura -- la alternativa se sirve
-  // igual, solo sin esa etiqueta concreta.
-  const franja = dia.franjas.find((f) => f.id === parada.franja_id);
+  // enc-ac1: sin horario de la parada (su franja_id siempre referencia una
+  // franja del día, así que no debería faltar) no hay intervalo con el que
+  // evaluar la apertura -- la alternativa se sirve igual, sin esa etiqueta.
+  // La alternativa ocupa el hueco de la parada, con su propia duración.
   const vecinos = vecinosResueltos(dia, parada.id);
-  const etiquetasEncaje = franja
+  const etiquetasEncaje = horario
     ? formatearEtiquetasEncaje(
         calcularEtiquetasEncaje({
           parada,
           alternativa,
           coordenadasAnterior: vecinos.anterior,
           coordenadasSiguiente: vecinos.siguiente,
-          fecha: dia.fecha,
-          horaInicioFranja: franja.hora_inicio,
+          intervalo: {
+            fecha: dia.fecha,
+            inicio: horario.inicio,
+            fin: horaDeMinutos(Math.min(minutosDeHora(horario.inicio) + alternativa.duracion_min, 24 * 60 - 1)),
+          },
+          zona,
         }),
       )
     : [];
@@ -114,15 +137,27 @@ function aAlternativaPublica(
 // de datos (como el de `scripts/generar-plan-real.ts --resolver`) se
 // serializaba siempre con `propuesto-sin-verificar` aunque `lugar` ya
 // tuviera coordenadas reales.
-function aParadaPublica(dia: Dia, parada: Parada): ParadaPublica {
+function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, HorarioParada>, caja?: CajaDelimitadora): ParadaPublica {
   const procedencia: Procedencia = parada.lugar
     ? { fuente: parada.lugar.fuente, url: parada.lugar.url }
     : { fuente: "propuesto-sin-verificar" };
+  const horario = horarios[parada.id];
+  const zona = zonaDeParada(parada, caja);
+  const etiquetaFranja = dia.franjas.find((f) => f.id === parada.franja_id)?.etiqueta ?? "";
   return {
     ...parada,
     foto: fotoSegura(parada.foto),
     procedencia,
-    alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(dia, parada, alternativa)),
+    alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(dia, parada, alternativa, horario, zona)),
+    ...(horario
+      ? {
+          horario: {
+            ...horario,
+            ...(horario.recortada ? { aviso: avisoRecortada(etiquetaFranja) } : {}),
+            apertura: textoApertura(calcularApertura(parada.lugar?.etiquetas.opening_hours, { fecha: dia.fecha, inicio: horario.inicio, fin: horario.fin }, zona)),
+          },
+        }
+      : {}),
   };
 }
 
@@ -136,13 +171,16 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null): PlanPubl
     version: plan.version,
     destino: plan.destino,
     personas: plan.personas,
-    dias: plan.dias.map((dia) => ({
-      fecha: dia.fecha,
-      ancla_alojamiento: dia.ancla_alojamiento,
-      franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
-      paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada)),
-      paseo: calcularPaseoDia(ordenarParadasResueltas(dia.franjas, dia.paradas), perfil) ?? undefined,
-    })),
+    dias: plan.dias.map((dia) => {
+      const horarios = calcularHorarioDia(dia);
+      return {
+        fecha: dia.fecha,
+        ancla_alojamiento: dia.ancla_alojamiento,
+        franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
+        paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja)),
+        paseo: calcularPaseoDia(ordenarParadasResueltas(dia.franjas, dia.paradas), perfil) ?? undefined,
+      };
+    }),
     avisos: plan.avisos ?? [],
     recomendaciones: plan.recomendaciones ?? [],
     ...(plan.ciudad ? { ciudad: plan.ciudad } : {}),
