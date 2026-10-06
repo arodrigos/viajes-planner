@@ -169,3 +169,104 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("sustituirParada conserva las alt
     expect(nombresDeAlternativas(await recuperarPlan(supabase, planId, 2))).toEqual(["Palacio de las Dueñas", "Real Alcázar"]);
   });
 });
+
+// alg-ac1 (cp-alg-01): contra la pila real, la guía y las curiosidades viajan
+// con el sitio en los dos sentidos y se pasan por guiaSegura/curiosidadesSeguras.
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("sustituirParada hereda la guía (alg-ac1)", () => {
+  const supabase = clienteDePrueba();
+  const planId = `plan-sustituir-guia-${Date.now()}`;
+  const FECHA = "2026-10-02T10:00:00.000Z";
+  const guia = (consejo: string, url: string) => ({ consejo, url, licencia: "CC BY-SA" as const });
+
+  function plan(): Plan {
+    return {
+      id: planId,
+      version: 1,
+      destino: "Londres",
+      personas: 2,
+      dias: [
+        {
+          fecha: "2026-11-07",
+          franjas: [{ id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" }],
+          paradas: [
+            {
+              id: "parada-guia-1",
+              franja_id: "manana",
+              nombre: "Torre de Londres",
+              descripcion: "Fortaleza",
+              duracion_min: 120,
+              prioridad: 80,
+              procedencia: { fuente: "osm", url: "https://www.openstreetmap.org/way/1" },
+              categoria: "monumento",
+              coordenadas: { lat: 51.508, lon: -0.076 },
+              motivo: "Ideal con niños",
+              guia: guia("Consejo T", "https://es.wikivoyage.org/wiki/Londres"),
+              curiosidades: { frases: ["T1", "T2"], url: "https://es.wikipedia.org/wiki/Torre_de_Londres" },
+              guia_intentada_en: FECHA,
+              guia_formato: 2,
+              alternativas: [
+                {
+                  nombre: "Museo de Ciencias",
+                  descripcion: "Museo",
+                  motivo: "mismo tipo",
+                  duracion_min: 120,
+                  categoria: "monumento",
+                  origen: "modelo",
+                  coordenadas: { lat: 51.497, lon: -0.174 },
+                  guia: guia("Consejo M", "https://es.wikivoyage.org/wiki/Londres"),
+                  curiosidades: { frases: ["M1", "M2", "M3"], url: "https://es.wikipedia.org/wiki/Museo_de_Ciencias" },
+                  guia_intentada_en: FECHA,
+                  guia_formato: 2,
+                },
+                { nombre: "Sin guía aún", descripcion: "d", motivo: "m", duracion_min: 60, categoria: "monumento", origen: "cercano", coordenadas: { lat: 51.5, lon: -0.1 } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  const parada = (p: Plan | null) => p?.dias[0].paradas[0];
+  const fecha = (iso: string | undefined) => (iso ? new Date(iso).getTime() : undefined);
+
+  beforeAll(async () => {
+    await guardarPlan(supabase, plan());
+  });
+
+  it("cp-alg-01: la parada nueva sale con la guía de la alternativa, y al deshacer vuelve la original", async () => {
+    const v1 = await recuperarPlan(supabase, planId);
+    const museo = parada(v1)?.alternativas?.find((a) => a.nombre === "Museo de Ciencias");
+    expect(museo?.guia?.consejo).toBe("Consejo M");
+    expect((await sustituirParada(supabase, planId, "parada-guia-1", museo?.id as string)).estado).toBe("sustituida");
+
+    const v2 = parada(await recuperarPlan(supabase, planId));
+    expect(v2?.nombre).toBe("Museo de Ciencias");
+    expect(v2?.guia?.consejo).toBe("Consejo M");
+    expect(v2?.curiosidades?.frases).toEqual(["M1", "M2", "M3"]);
+    expect(v2?.curiosidades?.url).toBe("https://es.wikipedia.org/wiki/Museo_de_Ciencias");
+    expect(v2?.guia_intentada_en).toBeDefined();
+    expect(v2?.motivo).toBeUndefined();
+    const torre = v2?.alternativas?.find((a) => a.nombre === "Torre de Londres");
+    expect(torre?.guia?.consejo).toBe("Consejo T");
+    expect(torre?.curiosidades?.frases).toEqual(["T1", "T2"]);
+
+    expect((await sustituirParada(supabase, planId, "parada-guia-1", torre?.id as string)).estado).toBe("sustituida");
+    const v3 = parada(await recuperarPlan(supabase, planId));
+    expect(v3?.nombre).toBe("Torre de Londres");
+    expect(v3?.guia?.consejo).toBe("Consejo T");
+    expect(v3?.curiosidades?.frases).toEqual(["T1", "T2"]);
+    expect(v3?.curiosidades?.url).toBe("https://es.wikipedia.org/wiki/Torre_de_Londres");
+    expect(fecha(v3?.guia_intentada_en)).toBe(fecha(FECHA));
+  });
+
+  it("límite de cp-alg-01: una alternativa sin guía deja la parada nueva pendiente, sin guia", async () => {
+    const actual = parada(await recuperarPlan(supabase, planId));
+    const sinGuia = actual?.alternativas?.find((a) => a.nombre === "Sin guía aún");
+    expect((await sustituirParada(supabase, planId, "parada-guia-1", sinGuia?.id as string)).estado).toBe("sustituida");
+    const nueva = parada(await recuperarPlan(supabase, planId));
+    expect(nueva?.nombre).toBe("Sin guía aún");
+    expect(nueva?.guia).toBeUndefined();
+    expect(nueva?.guia_intentada_en).toBeUndefined();
+  });
+});

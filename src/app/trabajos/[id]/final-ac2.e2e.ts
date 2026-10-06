@@ -99,7 +99,8 @@ test("desde la pantalla de progreso de un trabajo terminado, un toque lleva al i
   await enlacePlan.click();
   await expect(pagina).toHaveURL(`/plan/${planId}`);
   await expect(pagina.getByRole("heading", { name: planFixture.destino })).toBeVisible();
-  await expect(pagina.getByText(planFixture.dias[0].paradas[0].nombre)).toBeVisible();
+  // exact: el aviso «Buscando consejos y curiosidades de <nombre>» de una parada sin guía también nombra la parada.
+  await expect(pagina.getByText(planFixture.dias[0].paradas[0].nombre, { exact: true })).toBeVisible();
 
   await contexto.close();
 });

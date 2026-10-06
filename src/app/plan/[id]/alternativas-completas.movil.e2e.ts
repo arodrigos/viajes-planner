@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Browser } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
@@ -153,5 +153,112 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
   await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
   await expect.poll(async () => (await nombresDelPanel()).sort()).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
 
+  await contexto.close();
+});
+
+// alg-ac2 (cp-alg-02): la parada nueva trae la guía de su alternativa sin que
+// el trabajador intervenga (en la pila de CI no corre ningún tick durante el test).
+async function sembrarPlanConGuia(supabase: SupabaseClient, planId: string, alternativaConGuia: boolean) {
+  const { error: errorPlan } = await supabase.from("planes").insert({ id: planId, destino: "Londres" });
+  if (errorPlan) throw new Error(`No se pudo sembrar el plan: ${errorPlan.message}`);
+  const { data: version, error: errorVersion } = await supabase
+    .from("plan_versiones")
+    .insert({ plan_id: planId, version: 1, personas: 2, dias: [{ fecha: "2026-11-07", franjas: franjasComoArray("Londres") }], avisos: [] })
+    .select("id")
+    .single();
+  if (errorVersion || !version) throw new Error(`No se pudo sembrar la versión: ${errorVersion?.message}`);
+  const { data: procedencia } = await supabase.from("procedencias").insert({ fuente: "propuesto-sin-verificar" }).select("id").single();
+  const guia = (consejo: string) => ({ consejo, url: "https://es.wikivoyage.org/wiki/Londres", licencia: "CC BY-SA" });
+  const { data: parada, error: errorParada } = await supabase
+    .from("paradas")
+    .insert({
+      id_externo: "p-torre",
+      plan_version_id: version.id,
+      dia_index: 0,
+      franja_id: "manana",
+      nombre: "Torre de Londres",
+      descripcion: "Fortaleza",
+      lat: 51.508,
+      lon: -0.076,
+      duracion_min: 120,
+      prioridad: 60,
+      procedencia_id: procedencia?.id,
+      categoria: "monumento",
+      lugar: { fuente: "osm", id: "osm:way/2", url: "https://www.openstreetmap.org/way/2", nombre_fuente: "Torre de Londres", etiquetas: {}, resuelto_en: RESUELTO_EN },
+      resolucion: { estado: "resuelta", intentado_en: RESUELTO_EN },
+      guia: guia("Consejo T"),
+      curiosidades: { frases: ["Frase T1", "Frase T2"], url: "https://es.wikipedia.org/wiki/Torre_de_Londres" },
+      guia_intentada_en: RESUELTO_EN,
+      guia_formato: 2,
+    })
+    .select("id")
+    .single();
+  if (errorParada || !parada) throw new Error(`No se pudo sembrar la parada: ${errorParada?.message}`);
+  const { error: errorAlternativa } = await supabase.from("paradas_alternativas").insert({
+    parada_id: parada.id,
+    origen: "modelo",
+    nombre: "Museo de Ciencias",
+    descripcion: "Museo",
+    motivo: "mismo tipo, misma franja",
+    duracion_min: 120,
+    categoria: "monumento",
+    lat: 51.497,
+    lon: -0.174,
+    ...(alternativaConGuia
+      ? {
+          guia: guia("Consejo M"),
+          curiosidades: { frases: ["Frase M1", "Frase M2", "Frase M3"], url: "https://es.wikipedia.org/wiki/Museo_de_Ciencias" },
+          guia_intentada_en: RESUELTO_EN,
+          guia_formato: 2,
+        }
+      : {}),
+  });
+  if (errorAlternativa) throw new Error(`No se pudo sembrar la alternativa: ${errorAlternativa.message}`);
+}
+
+async function entrarYAbrirAlternativas(browser: Browser, supabase: SupabaseClient, email: string, planId: string) {
+  const { data: usuario, error } = await supabase.auth.admin.createUser({ email, email_confirm: true });
+  if (error || !usuario.user) throw new Error(`No se pudo crear el usuario de prueba: ${error?.message}`);
+  const { error: errorTrabajo } = await supabase
+    .from("trabajos")
+    .insert({ usuario_id: usuario.user.id, tipo: "generacion", criterios: {}, estado: "completado", plan_id: planId });
+  if (errorTrabajo) throw new Error(`No se pudo sembrar el trabajo: ${errorTrabajo.message}`);
+  const contexto = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const pagina = await contexto.newPage();
+  expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } })).ok()).toBe(true);
+  const codigo = await leerCodigo(email);
+  expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
+  await pagina.goto(`/plan/${planId}`);
+  await expect(pagina.getByRole("heading", { name: "Londres" })).toBeVisible();
+  const tarjeta = pagina.locator(".tarjeta-parada");
+  await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await tarjeta.locator(".tarjeta-alternativa", { hasText: "Museo de Ciencias" }).getByRole("button", { name: "Usar esta" }).click();
+  await expect(pagina.getByText(/^Hecho: ahora vas a Museo de Ciencias/)).toBeVisible();
+  return { contexto, pagina, tarjeta };
+}
+
+test("«Usar esta» enseña la guía y las curiosidades de la alternativa sin esperar al trabajador (alg-ac2)", async ({ browser }) => {
+  const supabase = clienteDePrueba("servicio");
+  const planId = `plan-alternativas-guia-${Date.now()}`;
+  await sembrarPlanConGuia(supabase, planId, true);
+  const { contexto, pagina } = await entrarYAbrirAlternativas(browser, supabase, "ci-test-alternativas-guia@example.com", planId);
+
+  const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo de Ciencias" });
+  await expect(tarjeta.getByTestId("guia-parada")).toContainText("Consejo M");
+  await expect(tarjeta.getByTestId("guia-parada").getByRole("link", { name: /Ver en Wikivoyage/ })).toBeVisible();
+  await expect(tarjeta.getByTestId("curiosidades-parada").locator("li")).toHaveText(["Frase M1", "Frase M2", "Frase M3"]);
+  await expect(tarjeta).not.toContainText("Todavía no hemos consultado la guía");
+  await expect(tarjeta).not.toContainText("Buscando consejos");
+  await contexto.close();
+});
+
+test("«Usar esta» sobre una alternativa sin guía todavía dice que la busca, no deja un hueco (alg-ac2, límite)", async ({ browser }) => {
+  const supabase = clienteDePrueba("servicio");
+  const planId = `plan-alternativas-singuia-${Date.now()}`;
+  await sembrarPlanConGuia(supabase, planId, false);
+  const { contexto, pagina } = await entrarYAbrirAlternativas(browser, supabase, "ci-test-alternativas-singuia@example.com", planId);
+
+  const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo de Ciencias" });
+  await expect(tarjeta.getByTestId("guia-parada")).toContainText("Buscando consejos y curiosidades de Museo de Ciencias; aparecerán en unos minutos");
   await contexto.close();
 });

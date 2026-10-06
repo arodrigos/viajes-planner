@@ -144,6 +144,10 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
           lon: alternativa.coordenadas?.lon ?? null,
           lugar: alternativa.lugar ?? null,
           foto: fotoSegura(alternativa.foto) ?? null,
+          guia: alternativa.guia ?? null,
+          curiosidades: alternativa.curiosidades ?? null,
+          guia_intentada_en: alternativa.guia_intentada_en ?? null,
+          guia_formato: alternativa.guia_formato ?? null,
         });
       }
     }
@@ -218,7 +222,7 @@ export async function recuperarPlan(
     idsParadas.length > 0
       ? await supabase
           .from("paradas_alternativas")
-          .select("id, parada_id, origen, nombre, descripcion, motivo, duracion_min, categoria, lat, lon, lugar, foto")
+          .select("id, parada_id, origen, nombre, descripcion, motivo, duracion_min, categoria, lat, lon, lugar, foto, guia, curiosidades, guia_intentada_en, guia_formato")
           .in("parada_id", idsParadas)
       : { data: [] as never[], error: null };
   if (errorAlternativas) throw new Error(`No se pudieron leer las alternativas: ${errorAlternativas.message}`);
@@ -243,6 +247,10 @@ export async function recuperarPlan(
       ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
       ...(fila.lugar ? { lugar: fila.lugar as Lugar } : {}),
       ...(fotoSegura(fila.foto as Alternativa["foto"]) ? { foto: fila.foto as Alternativa["foto"] } : {}),
+      ...(guiaSegura(fila.guia as Alternativa["guia"]) ? { guia: fila.guia as Alternativa["guia"] } : {}),
+      ...(curiosidadesSeguras(fila.curiosidades as Alternativa["curiosidades"]) ? { curiosidades: fila.curiosidades as Alternativa["curiosidades"] } : {}),
+      ...(fila.guia_intentada_en ? { guia_intentada_en: fila.guia_intentada_en as string } : {}),
+      ...(typeof fila.guia_formato === "number" ? { guia_formato: fila.guia_formato } : {}),
     };
     const listaExistente = alternativasPorParadaId.get(fila.parada_id as string) ?? [];
     listaExistente.push(alternativa);
