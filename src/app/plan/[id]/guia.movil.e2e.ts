@@ -66,6 +66,79 @@ async function sembrar(supabase: SupabaseClient, usuarioId: string, planId: stri
   if (error) throw new Error(`No se pudo sembrar el trabajo: ${error.message}`);
 }
 
+const ULTIMA_FRASE = "Última frase del consejo largo.";
+
+// cc-ac2 (cp-cc-02): A con un consejo de 900 caracteres que acaba en ULTIMA_FRASE; B con uno de 120.
+async function sembrarConsejos(supabase: SupabaseClient, usuarioId: string, planId: string) {
+  const { error: errorPlan } = await supabase.from("planes").insert({ id: planId, destino: "Lisboa" });
+  if (errorPlan) throw new Error(`No se pudo sembrar el plan: ${errorPlan.message}`);
+  const { data: version } = await supabase
+    .from("plan_versiones")
+    .insert({ plan_id: planId, version: 1, personas: 2, dias: [{ fecha: FECHA, franjas: franjasComoArray("Lisboa") }], avisos: [] })
+    .select("id")
+    .single();
+  const { data: procedencia } = await supabase.from("procedencias").insert({ fuente: "propuesto-sin-verificar" }).select("id").single();
+  if (!version || !procedencia) throw new Error("No se pudo sembrar la versión");
+  const relleno = "Texto de relleno del consejo que se repite para alargarlo. ";
+  const largo = `${relleno.repeat(20)}`.slice(0, 900 - ULTIMA_FRASE.length - 1) + ` ${ULTIMA_FRASE}`;
+  const corto = "Consejo corto de unas pocas palabras, que cabe entero sin necesidad de botón alguno.".padEnd(120, " ").trim();
+  const base = { plan_version_id: version.id, dia_index: 0, franja_id: "manana", descripcion: "Visita", duracion_min: 60, prioridad: 80, procedencia_id: procedencia.id };
+  const guia = (consejo: string) => ({ consejo, url: "https://en.wikivoyage.org/wiki/Lisbon", licencia: "CC BY-SA" });
+  for (const fila of [
+    { ...base, id_externo: "c-largo", nombre: "Parada consejo largo", guia: guia(largo), guia_intentada_en: "2026-10-05T10:00:00Z", guia_formato: 2 },
+    { ...base, id_externo: "c-corto", nombre: "Parada consejo corto", guia: guia(corto), guia_intentada_en: "2026-10-05T10:00:00Z", guia_formato: 2 },
+  ]) {
+    const { error } = await supabase.from("paradas").insert(fila);
+    if (error) throw new Error(`No se pudo sembrar '${fila.id_externo}': ${error.message}`);
+  }
+  const { error } = await supabase
+    .from("trabajos")
+    .insert({ usuario_id: usuarioId, tipo: "generacion", criterios: { perfil: "familiar", presupuesto_eur: 900 }, estado: "completado", plan_id: planId });
+  if (error) throw new Error(`No se pudo sembrar el trabajo: ${error.message}`);
+}
+
+test("cp-cc-02: «Ver más» despliega el consejo largo y el corto no tiene botón (cc-ac2)", async ({ browser }) => {
+  const supabase = clienteDePrueba("servicio");
+  const email = "ci-test-guia-consejo@example.com";
+  const { data: usuario, error } = await supabase.auth.admin.createUser({ email, email_confirm: true });
+  if (error || !usuario.user) throw new Error(`No se pudo crear el usuario de prueba: ${error?.message}`);
+  const planId = `plan-guia-consejo-${Date.now()}`;
+  await sembrarConsejos(supabase, usuario.user.id, planId);
+
+  const contexto = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const pagina = await contexto.newPage();
+  expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } })).ok()).toBe(true);
+  const codigo = await leerCodigo(email);
+  expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
+
+  await pagina.goto(`/plan/${planId}`);
+  const tarjetaA = pagina.locator("li.tarjeta-parada", { hasText: "Parada consejo largo" });
+  const tarjetaB = pagina.locator("li.tarjeta-parada", { hasText: "Parada consejo corto" });
+  const parrafoA = tarjetaA.getByTestId("consejo-guia");
+  const botonA = tarjetaA.getByRole("button", { name: "Ver más" });
+  const altoYLinea = () => parrafoA.evaluate((el) => ({ alto: el.getBoundingClientRect().height, linea: parseFloat(getComputedStyle(el).lineHeight) }));
+
+  await expect(botonA).toHaveAttribute("aria-expanded", "false");
+  // El texto completo está en el DOM aunque se vea recortado.
+  expect(await parrafoA.evaluate((el) => el.textContent)).toContain(ULTIMA_FRASE);
+  const plegado = await altoYLinea();
+  expect(plegado.alto).toBeLessThanOrEqual(plegado.linea * 4 + 1);
+
+  await botonA.click();
+  const botonAbierto = tarjetaA.getByRole("button", { name: "Ver menos" });
+  await expect(botonAbierto).toHaveAttribute("aria-expanded", "true");
+  await parrafoA.scrollIntoViewIfNeeded();
+  await expect(parrafoA).toContainText(ULTIMA_FRASE);
+  await expect(parrafoA).toBeInViewport();
+  const desplegado = await altoYLinea();
+  expect(desplegado.alto).toBeGreaterThan(desplegado.linea * 4);
+
+  await expect(tarjetaB.getByRole("button", { name: /Ver m[aá]s/ })).toHaveCount(0);
+  await expect(tarjetaB.getByTestId("consejo-guia")).toBeVisible();
+  expect(await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+  await contexto.close();
+});
+
 test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui-ac2)", async ({ browser }) => {
   const supabase = clienteDePrueba("servicio");
   const { data: usuario, error } = await supabase.auth.admin.createUser({ email: EMAIL, email_confirm: true });

@@ -1,4 +1,5 @@
 import type { CuriosidadesParada, GuiaParada } from "@/lib/plan/tipos";
+import { ConsejoGuia } from "./ConsejoGuia";
 
 interface Props {
   nombre: string;
@@ -20,7 +21,7 @@ export function SeccionesGuia({ nombre, guia, curiosidades, intentada }: Props) 
         </p>
         {guia ? (
           <>
-            <p className="texto-guia">{guia.consejo}</p>
+            <ConsejoGuia texto={guia.consejo} />
             {guia.precio_texto && guia.precio_eur === undefined && <p className="texto-guia">Precio según la guía: {guia.precio_texto}</p>}
             <p className="atribucion-guia">
               Wikivoyage · CC BY-SA{" "}
