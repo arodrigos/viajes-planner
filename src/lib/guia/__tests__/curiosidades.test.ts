@@ -3,6 +3,7 @@ import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { extraerCuriosidades, partirFrases } from "../curiosidades";
+import { terminaEnAbreviatura } from "../sanear";
 import { esUrlWikipedia, esUrlWikivoyage, curiosidadesSeguras, guiaSegura } from "../seguridad";
 import { MAX_CONSEJO, MAX_TEXTO } from "../wikitexto";
 
@@ -83,6 +84,32 @@ describe("invariante 2: URLs y licencia (lectura segura)", () => {
         },
       ),
       { numRuns: 300 },
+    );
+  });
+});
+
+describe("partirFrases con Intl.Segmenter (cur-ac1-a)", () => {
+  it("no corta «Warner Bros. Studio Tour»", () => {
+    const f = partirFrases("Warner Bros. Studio Tour London is a visitor attraction. It opened in 2012.", "en");
+    expect(f).toEqual(["Warner Bros. Studio Tour London is a visitor attraction.", "It opened in 2012."]);
+  });
+
+  it("separa tras «a. C.» y un texto sin punto final es una sola frase", () => {
+    const f = partirFrases("El templo se construyó en el 300 a. C. Después se amplió.");
+    expect(f).toEqual(["El templo se construyó en el 300 a. C.", "Después se amplió."]);
+    expect(partirFrases("Sin punto final")).toEqual(["Sin punto final"]);
+    expect(partirFrases("   ")).toEqual([]);
+  });
+
+  it("unidas con un espacio reproducen el texto normalizado y no acaban en abreviatura salvo al final (property)", () => {
+    const trozo = fc.constantFrom("Warner Bros.", "Dr. Who", "St. Paul", "Fue en 1857.", "Es grande!", "¿Quién?", "Abrió", "a. C.", "Co.", "x", "\n");
+    fc.assert(
+      fc.property(fc.array(trozo, { maxLength: 12 }), fc.constantFrom("es", "en"), (trozos, locale) => {
+        const texto = trozos.join(" ");
+        const frases = partirFrases(texto, locale);
+        expect(frases.join(" ")).toBe(texto.replace(/\s+/g, " ").trim());
+        for (const frase of frases.slice(0, -1)) expect(terminaEnAbreviatura(frase)).toBe(false);
+      }),
     );
   });
 });

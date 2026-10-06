@@ -1,20 +1,26 @@
 // guia-abierta: curiosidades = frases LITERALES del extracto de Wikipedia.
 // Nada se reescribe ni se resume: lo que se enseña como «de Wikipedia» tiene
 // que poder encontrarse tal cual en el artículo.
+import { terminaEnAbreviatura } from "./sanear";
 import { MAX_TEXTO } from "./wikitexto";
 
 const MAX_FRASES = 2;
 
-// Parte tras . ! ? solo si sigue un espacio y una mayúscula o cifra, para no
-// cortar abreviaturas con minúscula detrás («a. C. y», «S. XVI» sí corta, y
-// se acepta: una frase corta de más no es una frase inventada).
-export function partirFrases(extracto: string): string[] {
-  return extracto
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÜÑ¿¡0-9«"])/u)
-    .map((f) => f.trim())
-    .filter((f) => f.length > 0);
+// Intl.Segmenter conoce el idioma pero no todas las abreviaturas («Bros.»,
+// «Dr.»): sus segmentos se vuelven a unir con la lista propia de sanear.ts, y
+// «a. C.» / «d. C.» también, para no dejar la «C.» huérfana al principio de
+// la frase siguiente. Un «a. C.» al final de frase sigue cerrándola.
+export function partirFrases(extracto: string, locale: string = "es"): string[] {
+  const texto = extracto.replace(/\s+/g, " ").trim();
+  if (texto.length === 0) return [];
+  const segmentos = Array.from(new Intl.Segmenter(locale, { granularity: "sentence" }).segment(texto), (s) => s.segment.trim()).filter((s) => s.length > 0);
+  const frases: string[] = [];
+  for (const segmento of segmentos) {
+    const previa = frases[frases.length - 1];
+    if (previa !== undefined && (terminaEnAbreviatura(previa) || (/(?:^|\s)[ad]\.$/.test(previa) && /^C\./.test(segmento)))) frases[frases.length - 1] = `${previa} ${segmento}`;
+    else frases.push(segmento);
+  }
+  return frases;
 }
 
 // Con 3 o más frases se descarta la primera (suele ser la definición, que ya

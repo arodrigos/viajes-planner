@@ -29,13 +29,15 @@ interface SitioFixture {
   en?: string;
 }
 
-const compacto = (t: string) => t.replace(/\s+/g, " ").trim();
+// Mismo saneado que el trabajador: los invisibles de la fuente no cuentan.
+const compacto = (t: string) => t.replace(/[\u200b\u200c\u200d\u2060\u00ad\ufeff]/g, "").replace(/\s+/g, " ").trim();
 
 async function main() {
   const { construirCandidatas, textoDeHecho } = await import("../src/lib/guia/candidatas");
   type Idioma = "es" | "en";
   const { crearFuenteCuriosidadesWikimedia } = await import("../src/lib/guia/fuenteCuriosidades");
   const { seleccionarCuriosidades } = await import("../src/lib/guia/seleccionarCuriosidades");
+  const { sanearItems } = await import("../src/lib/guia/sanear");
   const { ejecutorClaudeCode } = await import("../src/lib/trabajador/ejecutorClaudeCode");
   const { MODELO_GENERACION } = await import("../src/lib/trabajador/config");
 
@@ -90,8 +92,8 @@ async function main() {
       ...(seleccion.error ? { error: seleccion.error } : {}),
       sitios: sitios.map((s) => {
         const entidad = entidadesVistas.get(s.qid);
-        const hechos = new Set((entidad?.hechos ?? []).map((h) => textoDeHecho(h)).filter(Boolean));
-        const items = seleccion.porSitio.get(s.clave)?.items ?? [];
+        const hechos = new Set((entidad?.hechos ?? []).map((h) => textoDeHecho(h, entidad?.clases)).filter(Boolean));
+        const items = sanearItems(seleccion.porSitio.get(s.clave)?.items ?? []);
         return {
           clave: s.clave,
           tipo: s.tipo,

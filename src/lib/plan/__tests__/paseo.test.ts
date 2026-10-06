@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { calcularPaseoDia, formatearKm, ordenarParadasPorFranja, ordenarParadasResueltas, type PuntoPaseo } from "../paseo";
+import { formatearKm } from "@/lib/formato/numeros";
+import { calcularPaseoDia, ordenarParadasPorFranja, ordenarParadasResueltas, type PuntoPaseo } from "../paseo";
 
 // enc-ac2
 describe("calcularPaseoDia (enc-ac2)", () => {

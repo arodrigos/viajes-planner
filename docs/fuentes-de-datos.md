@@ -153,8 +153,15 @@ código copia el texto literal de la candidata elegida.
 - **Wikipedia**: frases literales del artículo (completo en las paradas, solo la
   entradilla en las alternativas), en su idioma, sin traducir. Cada una enlaza
   con un URL Text Fragment (`#:~:text=`) que resalta la frase en la página.
-- **Wikidata**: hechos (año de fundación, arquitecto, altura…) con plantillas
-  fijas en castellano; el único texto de la fuente es el valor del hecho.
+- **Wikidata**: hechos (año de apertura, arquitecto, altura…) con plantillas
+  fijas en castellano; el único texto de la fuente es el valor del hecho. Con
+  apertura (P1619, «Se inauguró en…») no se pinta la fundación (P571), que es
+  la de la entidad y no la del edificio; con solo P571 en un museo, galería,
+  biblioteca, universidad o zoo se dice «La institución se fundó en…».
+- **Saneado**: al leer y antes de guardar, `sanearItems` quita los caracteres
+  invisibles y descarta las frases cortadas por una abreviatura («Bros.»,
+  «Dr.»…). Las curiosidades guardadas sin `formato` (anteriores) se reprocesan
+  una vez, de una versión por tick.
 - **Una invocación por versión** del plan, paradas y alternativas juntas. Si el
   modelo falla (límite de uso, respuesta inválida) se usa un respaldo
   determinista por puntuación y se permite **una** mejora con el modelo en un

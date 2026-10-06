@@ -56,8 +56,8 @@ describe("comprobarViabilidad (dmc-ac2 / cp-dmc-02)", () => {
     expect(r.viable).toBe(false);
     if (r.viable) return;
     expect(r.razones[0].codigo).toBe("presupuesto");
-    expect(r.razones[0].texto).toContain("7 noches × 4 personas × 20 € = 560 €");
-    expect(r.razones[0].texto).toContain("300 €");
+    expect(r.razones[0].texto).toContain("7 noches × 4 personas × 20 € = 560 €");
+    expect(r.razones[0].texto).toContain("300 €");
   });
 
   it("«Portugal y España», 8 días, tren, 3.000 €: viable", async () => {

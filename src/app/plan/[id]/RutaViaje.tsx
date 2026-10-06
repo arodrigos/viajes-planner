@@ -2,7 +2,7 @@
 
 import { enlacesTransporte } from "@/lib/etapas/enlaces";
 import { formatearFechaCorta, textoTraslado, type RutaViaje as Ruta } from "@/lib/etapas/ruta";
-import { formatearEuros } from "@/lib/presupuesto/texto";
+import { formatearEuros } from "@/lib/formato/numeros";
 import type { PresupuestoPublico } from "@/lib/presupuesto/texto";
 
 export const TEXTO_SIN_AJUSTES = "El reparto cumple las reglas de descanso sin ajustes";

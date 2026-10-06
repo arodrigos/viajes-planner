@@ -1,18 +1,19 @@
 // Redacción de la tarjeta y la cabecera, aquí y no en el componente para que
 // los textos exactos del criterio se comprueben sin montar la vista.
+import { formatearEuros } from "@/lib/formato/numeros";
 import type { CosteParada } from "@/lib/plan/tipos";
-
-export function formatearEuros(importe: number): string {
-  return `${Math.round(importe).toLocaleString("es-ES")} €`;
-}
 
 export function textoPrecioParada(coste: CosteParada | undefined): string {
   if (!coste) return "Sin precio orientativo";
   if (coste.por === "gratis") return "Gratis";
   const origen = coste.procedencia === "estimado" ? "estimado" : "según Wikivoyage";
   const unidad = coste.por === "persona" ? "/persona" : " el grupo";
-  const importe = Number.isInteger(coste.importe_eur) ? String(coste.importe_eur) : coste.importe_eur.toFixed(2).replace(".", ",");
-  return `Precio orientativo: ${importe} €${unidad} · ${origen}`;
+  // Los enteros pasan por el formateador único (punto de miles y espacio duro); los céntimos
+  // de Wikivoyage se mantienen con coma porque formatearEuros redondea.
+  const importe = Number.isInteger(coste.importe_eur)
+    ? formatearEuros(coste.importe_eur)
+    : `${coste.importe_eur.toFixed(2).replace(".", ",")}\u00a0€`;
+  return `Precio orientativo: ${importe}${unidad} · ${origen}`;
 }
 
 export interface PresupuestoPublico {

@@ -5,6 +5,7 @@
 // comprobar contra la fuente descargada.
 import type { Lugar } from "@/lib/plan/tipos";
 import { paginaPropiaDe } from "@/lib/lugares/resolverFotos";
+import { formatearAnio, formatearNumero } from "@/lib/formato/numeros";
 import { partirFrases } from "./curiosidades";
 
 export type IdiomaCuriosidad = "es" | "en";
@@ -33,6 +34,9 @@ export interface HechoWikidata {
 
 export interface EntidadWikidata {
   qid: string;
+  // QIDs de «instancia de» (P31): deciden si una fecha de fundación es la de
+  // una institución.
+  clases?: string[];
   titulos: { es?: string; en?: string };
   hechos: HechoWikidata[];
 }
@@ -84,7 +88,7 @@ export function puntuarFrase(frase: string): number {
   return puntos;
 }
 
-export function frasesDeTexto(texto: string): string[] {
+export function frasesDeTexto(texto: string, locale: string = "es"): string[] {
   const parrafos = texto
     .split(/\n+/)
     .map(normalizar)
@@ -94,7 +98,7 @@ export function frasesDeTexto(texto: string): string[] {
   parrafos.forEach((parrafo, indice) => {
     // La primera frase del artículo es la definición: la parada ya tiene su
     // descripción y no es una curiosidad.
-    const partidas = partirFrases(parrafo).slice(indice === 0 ? 1 : 0);
+    const partidas = partirFrases(parrafo, locale).slice(indice === 0 ? 1 : 0);
     for (const f of partidas) {
       if (f.length < MIN_FRASE || f.length > MAX_FRASE) continue;
       if (SIN_MARCADO.test(f) || f.includes("@") || UUID.test(f) || /==/.test(f) || RUIDO.test(f)) continue;
@@ -129,29 +133,31 @@ export function urlConFragmento(base: string, frase: string): string {
   return `${base}#:~:text=${codificar(palabras.slice(0, 4).join(" "))},${codificar(palabras.slice(-4).join(" "))}`;
 }
 
-function miles(n: number): string {
-  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
+// museo, museo de arte, galería de arte, biblioteca, universidad y zoo.
+const CLASES_INSTITUCION: ReadonlySet<string> = new Set(["Q33506", "Q207694", "Q1007870", "Q7075", "Q3918", "Q43501"]);
 
 const unir = (etiquetas: string[]) => (etiquetas.length > 1 ? `${etiquetas.slice(0, -1).join(", ")} y ${etiquetas[etiquetas.length - 1]}` : (etiquetas[0] ?? ""));
 
 // Plantillas fijas en castellano: ningún texto de la fuente se cuela salvo el
 // valor (año, número o etiqueta) del hecho.
-export function textoDeHecho(h: HechoWikidata): string | null {
+export function textoDeHecho(h: HechoWikidata, clases: readonly string[] = []): string | null {
   switch (h.propiedad) {
     case "P571":
-      return h.anio !== undefined ? `Se fundó en ${h.anio}.` : null;
+      if (h.anio === undefined) return null;
+      // En un museo o una universidad P571 es cuándo nació la entidad, no el
+      // edificio que se visita: se dice así para no confundir.
+      return clases.some((c) => CLASES_INSTITUCION.has(c)) ? `La institución se fundó en ${formatearAnio(h.anio)}.` : `Se fundó en ${formatearAnio(h.anio)}.`;
     case "P1619":
-      return h.anio !== undefined ? `Se abrió en ${h.anio}.` : null;
+      return h.anio !== undefined ? `Se inauguró en ${formatearAnio(h.anio)}.` : null;
     case "P84":
       return h.etiquetas?.length ? `Lo diseñó ${unir(h.etiquetas.slice(0, 2))}.` : null;
     case "P2048":
-      return h.numero !== undefined && h.numero > 0 ? `Mide ${miles(h.numero)} m de altura.` : null;
+      return h.numero !== undefined && h.numero > 0 ? `Mide ${formatearNumero(h.numero)} m de altura.` : null;
     case "P1435":
       return h.etiquetas?.length ? `Está protegido como ${h.etiquetas[0]}.` : null;
     case "P1174":
       return h.numero !== undefined && h.numero > 0
-        ? `Recibe unos ${miles(h.numero)} visitantes al año${h.anioMedida !== undefined ? ` (${h.anioMedida})` : ""}.`
+        ? `Recibe unos ${formatearNumero(h.numero)} visitantes al año${h.anioMedida !== undefined ? ` (${formatearAnio(h.anioMedida)})` : ""}.`
         : null;
   }
 }
@@ -161,8 +167,11 @@ function candidatasDeHechos(entidad: EntidadWikidata | undefined, max: number): 
   const url = `https://www.wikidata.org/wiki/${entidad.qid}`;
   const vistos = new Set<string>();
   const salida: Array<Omit<Candidata, "id">> = [];
+  // Con fecha de apertura, la de fundación de la entidad sobra.
+  const hayApertura = entidad.hechos.some((h) => h.propiedad === "P1619" && h.anio !== undefined);
   for (const hecho of entidad.hechos) {
-    const texto = textoDeHecho(hecho);
+    if (hayApertura && hecho.propiedad === "P571") continue;
+    const texto = textoDeHecho(hecho, entidad.clases);
     if (!texto || SIN_MARCADO.test(texto) || texto.includes("@") || vistos.has(texto)) continue;
     vistos.add(texto);
     salida.push({ texto, fuente: "wikidata", idioma: "es", url });

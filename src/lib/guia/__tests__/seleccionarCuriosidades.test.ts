@@ -59,7 +59,9 @@ describe("candidatas (cur-ac1)", () => {
   it("los hechos de Wikidata salen de plantillas fijas y de una propiedad con valor en la entidad", async () => {
     const [museo] = await construir();
     const hechos = museo.candidatas.filter((c) => c.fuente === "wikidata").map((c) => c.texto);
-    expect(hechos).toContain("Se fundó en 1753.");
+    // La entidad de fixture tiene P571 (1753) y P1619 (1759): solo sale la apertura.
+    expect(hechos).toContain("Se inauguró en 1759.");
+    expect(hechos.some((h) => h.includes("fund"))).toBe(false);
     expect(hechos.length).toBeLessThanOrEqual(3);
     expect(Object.keys(ENTIDADES)).toContain("Q6373");
   });

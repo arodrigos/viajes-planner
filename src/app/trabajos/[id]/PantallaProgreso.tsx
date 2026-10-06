@@ -34,7 +34,7 @@ export function textoTransporte(modos: string[] | undefined): string {
 const INTERVALO_MS = 3000;
 
 function formatearFecha(iso: string): string {
-  return new Date(iso).toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short" });
+  return new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeStyle: "short" }).format(new Date(iso));
 }
 
 // vista-ac1: el usuario ve el NOMBRE de la etapa en curso, no una barra

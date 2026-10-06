@@ -2,7 +2,7 @@
 // totales salen de calcularPresupuesto, la misma función que la vista, así
 // que no pueden divergir de ella.
 import { calcularPresupuesto } from "@/lib/presupuesto/calcular";
-import { formatearEuros } from "@/lib/presupuesto/texto";
+import { formatearEuros } from "@/lib/formato/numeros";
 import { calcularRuta, formatearFechaCorta } from "@/lib/etapas/ruta";
 import type { Evento } from "@/lib/eventos/tipos";
 import type { Dia, Parada, Plan } from "@/lib/plan/tipos";

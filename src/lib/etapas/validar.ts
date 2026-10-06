@@ -1,6 +1,7 @@
 // etapas-pais (eta-ac1): validación y reparación deterministas de las etapas
 // que propone el modelo. Puro: las ciudades ya vienen geocodificadas (punto y
 // zona) para que ninguna regla hable con la red.
+import { formatearEuros } from "@/lib/formato/numeros";
 import type { Modo } from "@/lib/criterios/tipos";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
 import type { Dia } from "@/lib/plan/tipos";
@@ -44,7 +45,7 @@ export interface ErrorEtapa {
 const MIN_DIAS_ETAPA = 2;
 const VIAJE_CORTO_DIAS = 3;
 
-const euros = (n: number): string => `${Math.round(n).toLocaleString("es-ES")} €`;
+const euros = formatearEuros;
 
 export function asignarZona(punto: Punto, zonas: readonly Zona[]): number | null {
   const i = zonas.findIndex((z) => punto.lat >= z.caja.minLat && punto.lat <= z.caja.maxLat && punto.lon >= z.caja.minLon && punto.lon <= z.caja.maxLon);

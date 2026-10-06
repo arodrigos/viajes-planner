@@ -1,6 +1,7 @@
 // etv-ac1: modelo de lo que pinta «Ruta del viaje». Puro: los importes salen
 // de las mismas funciones que calcularPresupuesto, así que la suma visible y
 // el total no pueden divergir.
+import { formatearEuros } from "@/lib/formato/numeros";
 import { calcularPresupuesto } from "@/lib/presupuesto/calcular";
 import type { CosteParada, Dia, EtapaPlan, TrasladoPlan } from "@/lib/plan/tipos";
 import { nochesDeEtapa } from "./validar";
@@ -52,7 +53,7 @@ export function formatearFechaCorta(iso: string): string {
 export const NOMBRE_MODO: Record<TrasladoPlan["modo"], string> = { coche: "coche", avion: "avión", tren: "tren", autobus: "autobús" };
 
 export function textoTraslado(t: TrasladoPlan): string {
-  return `${t.desde} → ${t.hasta} · ${NOMBRE_MODO[t.modo]} · ~${formatearDuracion(t.duracion_min)} · ~${Math.round(t.coste_eur).toLocaleString("es-ES")} € (estimado)`;
+  return `${t.desde} → ${t.hasta} · ${NOMBRE_MODO[t.modo]} · ~${formatearDuracion(t.duracion_min)} · ~${formatearEuros(t.coste_eur)} (estimado)`;
 }
 
 // Solo lo que la ruta lee del día: sirve igual al Dia del servidor y al DiaPublico del cliente.
