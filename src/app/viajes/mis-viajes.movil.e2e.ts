@@ -95,8 +95,8 @@ test("mis-viajes: el listado muestra exactamente los viajes propios, enlaza al p
 
   await expect(pagina.getByText(planFixture.destino)).toBeVisible();
   await expect(pagina.getByText("Oporto")).toBeVisible();
-  await expect(pagina.getByText("completado")).toBeVisible();
-  await expect(pagina.getByText("encolado")).toBeVisible();
+  await expect(pagina.getByText("Plan listo")).toBeVisible();
+  await expect(pagina.getByText("Preparando el plan…")).toBeVisible();
 
   // (b) nada de B aparece en el HTML servido: ni su trabajo ni su plan.
   const html = await pagina.content();

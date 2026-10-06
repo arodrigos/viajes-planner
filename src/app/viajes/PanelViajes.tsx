@@ -3,12 +3,22 @@
 import { useEffect, useState } from "react";
 import { TEXTOS_VIAJES as T } from "@/lib/textos/viajes";
 import { esViajePasado, hoyLocalISO } from "@/lib/viajes/clasificar";
+import {
+  esFechaISO,
+  etiquetaEstado,
+  formatearRangoViaje,
+  ordenarPasados,
+  ordenarProximos,
+  situacionViaje,
+  textoSituacion,
+} from "@/lib/viajes/presentar";
 import { PanelAcceso } from "../criterios/PanelAcceso";
 
 interface ViajeListado {
   id: string;
   destino: string;
   fecha: string;
+  fecha_inicio?: string | null;
   fecha_fin: string | null;
   estado: string;
   plan_id: string | null;
@@ -130,23 +140,39 @@ export function PanelViajes() {
   if (!viajes) return <p>{T.cargando.texto}</p>;
 
   const hoy = hoyLocalISO(new Date());
-  const proximos = viajes.filter((v) => !esViajePasado(v.fecha_fin, hoy));
-  const pasados = viajes.filter((v) => esViajePasado(v.fecha_fin, hoy));
+  const proximos = ordenarProximos(viajes.filter((v) => !esViajePasado(v.fecha_fin, hoy)));
+  const pasados = ordenarPasados(viajes.filter((v) => esViajePasado(v.fecha_fin, hoy)));
 
   const tarjetaViaje = (viaje: ViajeListado) => {
     // viajes-ac1: completado enlaza a su plan; cualquier otro estado
     // (encolado, en-curso, pausado, fallido, caducado) enlaza a la
     // pantalla de progreso, que ya sabe explicar cada uno de ellos.
-    const enlace =
-      viaje.estado === "completado" && viaje.plan_id
-        ? { href: `/plan/${viaje.plan_id}`, texto: T.verItinerario.texto }
-        : { href: `/trabajos/${viaje.id}`, texto: T.verProgreso.texto };
+    // El viaje en curso con plan listo abre «hoy»: sin parámetro dia, el plan
+    // ya arranca en el día de hoy.
+    const situacion = situacionViaje(viaje.fecha_inicio, viaje.fecha_fin, hoy);
+    const textoDeSituacion = textoSituacion(situacion);
+    const planListo = viaje.estado === "completado" && viaje.plan_id;
+    const enlace = planListo
+      ? {
+          href: `/plan/${viaje.plan_id}`,
+          texto: situacion.tipo === "en-curso" ? T.abrirHoy.texto : T.verItinerario.texto,
+        }
+      : { href: `/trabajos/${viaje.id}`, texto: T.verProgreso.texto };
     return (
       <li key={viaje.id} className="tarjeta-parada pila">
         <div>
           <strong>{viaje.destino}</strong>
-          <p>{viaje.fecha}</p>
-          <p className="ayuda">{viaje.estado}</p>
+          {/* Un <time> admite una sola fecha: lleva el inicio y el texto del
+              rango entero. Sin fechas exactas (una época) va como texto. */}
+          {esFechaISO(viaje.fecha_inicio) ? (
+            <p>
+              <time dateTime={viaje.fecha_inicio}>{formatearRangoViaje(viaje.fecha_inicio, viaje.fecha_fin)}</time>
+            </p>
+          ) : (
+            <p>{formatearRangoViaje(viaje.fecha, null)}</p>
+          )}
+          {textoDeSituacion && <p>{textoDeSituacion}</p>}
+          <p className="ayuda">{etiquetaEstado(viaje.estado)}</p>
         </div>
 
         {confirmandoId === viaje.id ? (
