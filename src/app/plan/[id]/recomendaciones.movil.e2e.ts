@@ -61,7 +61,7 @@ test("las recomendaciones se ven en la línea de tiempo, con enlace en pestaña 
 
   await pagina.goto(`/plan/${planId}`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
-  await expect(pagina.getByRole("heading", { name: "Recomendaciones" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Más sitios recomendados" })).toBeVisible();
 
   for (const reco of RECOMENDACIONES) {
     // El texto accesible del enlace es el nombre del sitio -nunca "aquí" ni

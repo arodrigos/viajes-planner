@@ -61,7 +61,7 @@ describe("VistaPlan con recomendación envenenada (reco-ac3(b))", () => {
     // recomendaciones -el resto de la página ya tiene el enlace fijo
     // "Añadir al calendario" (/api/plan/.../calendario.ics), que no es un
     // dominio incrustado y no debe contarse aquí.
-    const seccionRecomendaciones = container.querySelector('[aria-label="Recomendaciones"]');
+    const seccionRecomendaciones = container.querySelector('[aria-label="Más sitios recomendados"]');
     const urls = extraerUrls(seccionRecomendaciones?.innerHTML ?? "");
     expect(urls).toHaveLength(1);
     expect(new URL(urls[0]).hostname).toBe("www.google.com");

@@ -50,7 +50,7 @@ describe("VistaPlan sin recomendaciones (reco-ac7(b))", () => {
     // ics-ac2 (cambios_tests_justificados): se acota a la sección de
     // recomendaciones -el resto de la página ya tiene el enlace fijo
     // "Añadir al calendario", ajeno al estado vacío que este test comprueba.
-    const seccionRecomendaciones = screen.getByRole("region", { name: "Recomendaciones" });
+    const seccionRecomendaciones = screen.getByRole("region", { name: "Más sitios recomendados" });
     expect(within(seccionRecomendaciones).queryByRole("link")).not.toBeInTheDocument();
   });
 });
