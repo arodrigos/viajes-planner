@@ -109,6 +109,7 @@ export function VistaPlan({ id }: { id: string }) {
                   etapa={etapa ? { ciudad: etapa.ciudad.nombre ?? etapa.pais, caja: etapa.ciudad.caja } : undefined}
                   planId={id}
                   hoy={hoy}
+                  zona={plan.zona}
                   onPlanActualizado={() => setRecargarContador((n) => n + 1)}
                   onIrAResumen={() => elegir("resumen")}
                 />
