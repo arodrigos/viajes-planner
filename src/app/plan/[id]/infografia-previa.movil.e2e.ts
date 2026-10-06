@@ -65,7 +65,8 @@ test("«Ver infografía» enseña la lámina real en la página, sin descargar y
   const imagen = pagina.getByRole("img", { name: "Infografía del viaje" });
   await expect(imagen).toBeVisible();
   await expect(boton).toHaveAttribute("aria-expanded", "true");
-  await expect.poll(() => imagen.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth)).toBe(1080);
+  // El PNG se genera al pedirlo: en CI tarda más que los 5 s por defecto del poll.
+  await expect.poll(() => imagen.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth), { timeout: 30_000 }).toBe(1080);
   expect(await imagen.evaluate((i: HTMLImageElement) => i.naturalHeight)).toBe(1350);
   expect(pedidas).toBe(1);
   expect(peticiones).toEqual([{ status: 200, tipo: "image/png" }]);
