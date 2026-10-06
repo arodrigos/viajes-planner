@@ -1,4 +1,5 @@
 import { enriquecerGuiaPendientes, type ResultadoGuia } from "@/lib/guia/enriquecer";
+import { rellenarCuriosidadesPendientes, type DependenciasCuriosidades, type ResultadoCuriosidades } from "@/lib/guia/curiosidadesPlan";
 import type { FuenteGuia } from "@/lib/guia/wikivoyage";
 import { enriquecerEventosPendientes, type ResultadoEventos } from "@/lib/eventos/enriquecer";
 import type { FuenteEventos } from "@/lib/eventos/calcular";
@@ -340,6 +341,8 @@ export interface ResultadoBarrido {
   alternativas: ContadoresAlternativas;
   // guia-abierta: ausente si el barrido no recibió fuente de guía.
   guia?: ResultadoGuia;
+  // curiosidades-verificadas: ausente si el barrido no recibió su fuente.
+  curiosidades?: ResultadoCuriosidades;
   // eventos: ausente si el barrido no recibió fuentes de eventos.
   eventos?: ResultadoEventos;
 }
@@ -395,6 +398,7 @@ export async function completarParadasPendientes(
   corteAlternativas: Date = CORTE_ALTERNATIVAS,
   fuenteGuia?: FuenteGuia,
   fuenteEventos?: FuenteEventos,
+  curiosidadesDeps?: DependenciasCuriosidades,
 ): Promise<ResultadoBarrido> {
   // bar-ac1: el alcance ya no parte de `trabajos` -- parte de TODO plan con
   // al menos una versión, viva o no. Un plan sin ninguna fila en
@@ -741,12 +745,22 @@ export async function completarParadasPendientes(
     fuenteGuia && fuenteFotos
       ? await enriquecerGuiaPendientes(
           supabase,
-          { fuenteGuia, fuenteFotos, reloj },
+          { fuenteGuia, fuenteFotos, reloj, curiosidadesAparte: Boolean(curiosidadesDeps) },
           [...versionPorId.values()].map((v) => ({ id: v.id, ciudad: v.ciudad, etapas: v.etapas })),
           limite,
           reloj.ahora() + PRESUPUESTO_GUIA_MS,
         )
       : undefined;
+
+  // curiosidades-verificadas: tras la guía, que marca cada sitio con el
+  // formato actual. Una versión y una invocación al modelo por tick.
+  const curiosidades = curiosidadesDeps
+    ? await rellenarCuriosidadesPendientes(
+        supabase,
+        curiosidadesDeps,
+        [...versionPorId.values()].map((v) => ({ id: v.id, ciudad: v.ciudad, etapas: v.etapas })),
+      )
+    : undefined;
 
   // eventos: después de la guía y con su propio presupuesto de tiempo; lo que
   // no quepa queda sin marcar para el siguiente tick.
@@ -770,6 +784,7 @@ export async function completarParadasPendientes(
     peticionesNominatimCiudad: peticionesCiudad.total,
     alternativas: contadoresAlt,
     ...(guia ? { guia } : {}),
+    ...(curiosidades ? { curiosidades } : {}),
     ...(eventos ? { eventos } : {}),
   };
 }

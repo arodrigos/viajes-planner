@@ -40,7 +40,34 @@ export function SeccionesGuia({ nombre, guia, curiosidades, intentada }: Props) 
         <p>
           <strong>Curiosidades</strong>
         </p>
-        {curiosidades ? (
+        {curiosidades && curiosidades.items && curiosidades.items.length > 0 ? (
+          <>
+            <ul className="texto-guia">
+              {curiosidades.items.map((item) => (
+                <li key={item.texto}>
+                  {/* El texto en inglés se enseña tal cual (sin traducir); lang
+                      hace que el lector de pantalla lo pronuncie bien. */}
+                  <span lang={item.idioma === "en" ? "en" : undefined}>{item.texto}</span>{" "}
+                  <span className="atribucion-guia">
+                    {item.fuente === "wikidata" ? "Wikidata" : item.idioma === "en" ? "Wikipedia · en inglés" : "Wikipedia"}{" "}
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Ver en ${item.fuente === "wikidata" ? "Wikidata" : "Wikipedia"}: ${item.texto}`}
+                    >
+                      <span aria-hidden="true">↗</span>
+                    </a>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="atribucion-guia">
+              {curiosidades.items.some((i) => i.fuente === "wikipedia") ? "Wikipedia · CC BY-SA" : "Wikidata · CC0"}
+              {curiosidades.items.some((i) => i.fuente === "wikipedia") && curiosidades.items.some((i) => i.fuente === "wikidata") ? " · Wikidata · CC0" : ""}
+            </p>
+          </>
+        ) : curiosidades ? (
           <>
             <ul className="texto-guia">
               {curiosidades.frases.map((frase) => (

@@ -12,13 +12,17 @@ import { EsperaExcedida, FalloFuenteGuia, type FuenteGuia } from "./wikivoyage";
 
 // Sube cuando cambia lo que se guarda en `guia`: el barrido vuelve a pedir,
 // una vez, las paradas guardadas con un formato anterior. 2 = consejo hasta
-// MAX_CONSEJO (el 1 implícito, null, cortaba a 400).
-export const FORMATO_GUIA = 2;
+// MAX_CONSEJO (el 1 implícito, null, cortaba a 400). 3 = curiosidades
+// elegidas entre frases literales y hechos de Wikidata (curiosidadesPlan).
+export const FORMATO_GUIA = 3;
 
 export interface DependenciasGuia {
   fuenteGuia: FuenteGuia;
   fuenteFotos: FuenteFotos;
   reloj?: Reloj;
+  // Las curiosidades las escribe curiosidadesPlan (con su propia fuente y el
+  // modelo): este paso ya no toca la columna, para no pisar lo elegido.
+  curiosidadesAparte?: boolean;
 }
 
 export interface ResultadoGuia {
@@ -124,7 +128,7 @@ export async function enriquecerParadas(
       const ficha = fichas.get(fila.id);
       let curiosidades: { frases: string[]; url: string } | null = null;
       try {
-        curiosidades = await curiosidadesDe(deps.fuenteFotos, fila);
+        curiosidades = deps.curiosidadesAparte ? null : await curiosidadesDe(deps.fuenteFotos, fila);
       } catch {
         curiosidades = null;
       }
@@ -151,7 +155,7 @@ export async function enriquecerParadas(
                 licencia: "CC BY-SA",
               }
             : null,
-          curiosidades,
+          ...(deps.curiosidadesAparte ? {} : { curiosidades }),
           ...(coste && fila.tabla !== "paradas_alternativas" ? { coste } : {}),
           guia_intentada_en: ahora.toISOString(),
           guia_formato: FORMATO_GUIA,

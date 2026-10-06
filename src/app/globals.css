@@ -649,6 +649,15 @@ footer a,
   color: var(--muted, #555);
   font-size: var(--texto-pequeno);
 }
+/* curiosidades-verificadas: cada curiosidad lleva su enlace a la frase; el
+   objetivo táctil se conserva. */
+.guia-parada .atribucion-guia a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--objetivo-tactil);
+  min-width: var(--objetivo-tactil);
+}
 
 /* etapas-vista: «Ruta del viaje». Aditivo; los textos largos (ciudades, ajustes)
    parten línea para no desbordar a 390 px. */

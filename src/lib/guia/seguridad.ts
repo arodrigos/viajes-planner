@@ -1,7 +1,7 @@
 // guia-abierta: lo que sale de la base de datos hacia un href se vuelve a
 // comprobar al leerlo. El trabajador ya solo escribe URLs canónicas, pero un
 // dato manipulado en la tabla no debe acabar en un enlace de la vista.
-import type { CuriosidadesParada, GuiaParada } from "@/lib/plan/tipos";
+import type { CuriosidadesParada, GuiaParada, ItemCuriosidad } from "@/lib/plan/tipos";
 import { MAX_CONSEJO, MAX_TEXTO } from "./wikitexto";
 
 function esHttpsDe(url: unknown, sufijo: string): url is string {
@@ -20,6 +20,7 @@ function esHttpsDe(url: unknown, sufijo: string): url is string {
 }
 
 export const esUrlWikivoyage = (url: unknown): url is string => esHttpsDe(url, "wikivoyage.org");
+export const esUrlWikidata = (url: unknown): url is string => typeof url === "string" && /^https:\/\/www\.wikidata\.org\/wiki\/Q\d+$/.test(url);
 export const esUrlWikipedia = (url: unknown): url is string => esHttpsDe(url, "wikipedia.org");
 
 const SIN_MARCADO = /[{}[\]<>]/;
@@ -31,8 +32,30 @@ export function guiaSegura(guia: GuiaParada | null | undefined): GuiaParada | un
   return guia;
 }
 
+function itemSeguro(item: unknown): item is ItemCuriosidad {
+  if (typeof item !== "object" || item === null) return false;
+  const i = item as Record<string, unknown>;
+  if (typeof i.texto !== "string" || i.texto.length === 0 || i.texto.length > MAX_TEXTO || SIN_MARCADO.test(i.texto)) return false;
+  if (i.idioma !== "es" && i.idioma !== "en") return false;
+  if (i.seleccion !== "modelo" && i.seleccion !== "heuristica") return false;
+  if (i.fuente === "wikipedia") return esUrlWikipedia(i.url);
+  return i.fuente === "wikidata" && esUrlWikidata(i.url);
+}
+
+// Devuelve la versión saneada, no la original: un item manipulado en la tabla
+// se descarta sin tirar el resto, y el formato anterior ({frases, url}) sigue
+// pintándose como hasta ahora.
 export function curiosidadesSeguras(c: CuriosidadesParada | null | undefined): CuriosidadesParada | undefined {
-  if (!c || !Array.isArray(c.frases) || !esUrlWikipedia(c.url)) return undefined;
-  const frases = c.frases.filter((f) => typeof f === "string" && f.length > 0 && f.length <= MAX_TEXTO && !SIN_MARCADO.test(f));
-  return frases.length > 0 ? { frases, url: c.url } : undefined;
+  if (!c || !Array.isArray(c.frases)) return undefined;
+  const items = Array.isArray(c.items) ? c.items.filter(itemSeguro).slice(0, 4) : [];
+  const urlValida = esUrlWikipedia(c.url);
+  const frases = urlValida ? c.frases.filter((f) => typeof f === "string" && f.length > 0 && f.length <= MAX_TEXTO && !SIN_MARCADO.test(f)) : [];
+  if (items.length === 0 && frases.length === 0) return undefined;
+  return {
+    frases,
+    url: urlValida ? c.url : "",
+    ...(items.length > 0 ? { items } : {}),
+    ...(c.seleccion === "modelo" || c.seleccion === "heuristica" ? { seleccion: c.seleccion } : {}),
+    ...(c.mejora_intentada === true ? { mejora_intentada: true } : {}),
+  };
 }
