@@ -1,0 +1,10 @@
+{
+  "sitios": [
+    { "clave": "museo", "tipo": "parada", "nombre": "British Museum", "qid": "Q6373", "es": "Museo Británico", "en": "British Museum" },
+    { "clave": "torre", "tipo": "parada", "nombre": "Tower of London", "qid": "Q62378", "es": "Torre de Londres", "en": "Tower of London" },
+    { "clave": "historia", "tipo": "parada", "nombre": "Natural History Museum", "qid": "Q309388", "es": "Museo de Historia Natural de Londres", "en": "Natural History Museum, London" },
+    { "clave": "warner", "tipo": "parada", "nombre": "Warner Bros. Studio Tour London", "qid": "Q27924395", "es": "Warner Bros. Studio Tour London", "en": "Warner Bros. Studio Tour London" },
+    { "clave": "ciencia", "tipo": "alternativa", "nombre": "Science Museum", "qid": "Q674773", "es": "Museo de la Ciencia de Londres", "en": "Science Museum, London" },
+    { "clave": "tate", "tipo": "alternativa", "nombre": "Tate Modern", "qid": "Q193375", "es": "Tate Modern", "en": "Tate Modern" }
+  ]
+}
