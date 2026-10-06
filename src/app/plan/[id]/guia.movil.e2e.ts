@@ -177,3 +177,69 @@ test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui
   expect(await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
   await contexto.close();
 });
+
+// cur-ac3 (cp-cur-03): cada curiosidad dice de dónde sale, enlaza a su frase y
+// la inglesa se enseña tal cual, sin traducir.
+async function sembrarCuriosidades(supabase: SupabaseClient, planId: string) {
+  const { error: errorPlan } = await supabase.from("planes").insert({ id: planId, destino: "Londres" });
+  if (errorPlan) throw new Error(`No se pudo sembrar el plan: ${errorPlan.message}`);
+  const { data: version } = await supabase
+    .from("plan_versiones")
+    .insert({ plan_id: planId, version: 1, personas: 2, dias: [{ fecha: FECHA, franjas: franjasComoArray("Londres") }], avisos: [] })
+    .select("id")
+    .single();
+  const { data: procedencia } = await supabase.from("procedencias").insert({ fuente: "propuesto-sin-verificar" }).select("id").single();
+  if (!version || !procedencia) throw new Error("No se pudo sembrar la versión");
+  const base = { plan_version_id: version.id, dia_index: 0, franja_id: "manana", descripcion: "Visita", duracion_min: 60, prioridad: 80, procedencia_id: procedencia.id };
+  const es = "https://es.wikipedia.org/wiki/Museo_Brit%C3%A1nico";
+  const items = [
+    { texto: "Su colección reúne unos ocho millones de objetos.", idioma: "es", fuente: "wikipedia", url: `${es}#:~:text=Su%20colecci%C3%B3n%20re%C3%BAne%20unos%20ocho%20millones%20de%20objetos.`, seleccion: "modelo" },
+    { texto: "Fue el primer museo nacional público del mundo.", idioma: "es", fuente: "wikipedia", url: `${es}#:~:text=Fue%20el%20primer%20museo%20nacional%20p%C3%BAblico%20del%20mundo.`, seleccion: "modelo" },
+    { texto: "The museum was established in 1753.", idioma: "en", fuente: "wikipedia", url: "https://en.wikipedia.org/wiki/British_Museum#:~:text=The%20museum%20was%20established%20in%201753.", seleccion: "modelo" },
+    { texto: "Recibe unos 5.820.000 visitantes al año (2019).", idioma: "es", fuente: "wikidata", url: "https://www.wikidata.org/wiki/Q6373", seleccion: "modelo" },
+  ];
+  const curiosidades = { frases: items.filter((i) => i.idioma === "es" && i.fuente === "wikipedia").map((i) => i.texto), url: es, items, seleccion: "modelo", mejora_intentada: true };
+  const { error } = await supabase
+    .from("paradas")
+    .insert({ ...base, id_externo: "cur-1", nombre: "Parada con curiosidades", curiosidades, guia_intentada_en: "2026-10-05T10:00:00Z", guia_formato: 3 });
+  if (error) throw new Error(`No se pudo sembrar la parada: ${error.message}`);
+}
+
+test("cp-cur-03: cada curiosidad lleva su rótulo y enlace; la inglesa va sin traducir (cur-ac3)", async ({ browser }) => {
+  const supabase = clienteDePrueba("servicio");
+  const email = "ci-test-guia-curiosidades@example.com";
+  const { data: usuario, error } = await supabase.auth.admin.createUser({ email, email_confirm: true });
+  if (error || !usuario.user) throw new Error(`No se pudo crear el usuario de prueba: ${error?.message}`);
+  const planId = `plan-guia-curiosidades-${Date.now()}`;
+  await sembrarCuriosidades(supabase, planId);
+  const { error: errorTrabajo } = await supabase
+    .from("trabajos")
+    .insert({ usuario_id: usuario.user.id, tipo: "generacion", criterios: { perfil: "familiar", presupuesto_eur: 900 }, estado: "completado", plan_id: planId });
+  if (errorTrabajo) throw new Error(`No se pudo sembrar el trabajo: ${errorTrabajo.message}`);
+
+  const contexto = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const pagina = await contexto.newPage();
+  expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } })).ok()).toBe(true);
+  const codigo = await leerCodigo(email);
+  expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
+
+  await pagina.goto(`/plan/${planId}`);
+  const bloque = pagina.locator("li.tarjeta-parada", { hasText: "Parada con curiosidades" }).getByTestId("curiosidades-parada");
+  const elementos = bloque.locator("li");
+  await expect(elementos).toHaveCount(4);
+  await expect(elementos.nth(0)).toContainText("Wikipedia");
+  await expect(elementos.nth(0)).not.toContainText("en inglés");
+  await expect(elementos.nth(0).getByRole("link")).toHaveAttribute("href", /^https:\/\/es\.wikipedia\.org\/.*#:~:text=/);
+  await expect(elementos.nth(1).getByRole("link")).toHaveAttribute("href", /^https:\/\/es\.wikipedia\.org\/.*#:~:text=/);
+  await expect(elementos.nth(2)).toContainText("The museum was established in 1753.");
+  await expect(elementos.nth(2)).toContainText("Wikipedia · en inglés");
+  await expect(elementos.nth(2).locator('[lang="en"]')).toHaveText("The museum was established in 1753.");
+  await expect(elementos.nth(2).getByRole("link")).toHaveAttribute("href", /^https:\/\/en\.wikipedia\.org\/.*#:~:text=The%20museum/);
+  await expect(elementos.nth(3)).toContainText("Wikidata");
+  await expect(elementos.nth(3).getByRole("link")).toHaveAttribute("href", /^https:\/\/www\.wikidata\.org\/wiki\/Q\d+$/);
+  await expect(bloque).toContainText("CC BY-SA");
+  await expect(bloque).not.toContainText("traducido");
+  await expect(bloque.getByRole("button", { name: /Ver original/ })).toHaveCount(0);
+  expect(await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+  await contexto.close();
+});

@@ -6,6 +6,7 @@ import { completarParadasPendientes, type ContadoresAlternativas, LIMITE_BARRIDO
 import { relojReal } from "@/lib/lugares/limitador";
 import { adquirirCerrojo, liberarCerrojo } from "./cerrojo";
 import { ESPERA_OCIOSA_MS, INTERVALO_REINTENTO_OCIOSO_MS } from "./config";
+import type { FuenteCuriosidades } from "@/lib/guia/candidatas";
 import type { EjecutorModelo } from "./ejecutorModelo";
 import { procesarTrabajo } from "./procesarTrabajo";
 import { crearFuenteAbierta } from "@/lib/lugares/fuenteAbierta";
@@ -36,6 +37,8 @@ export interface OpcionesTick {
   fuenteCercanos?: FuenteCercanos;
   // guia-abierta: ausente, no se enriquece con la guía (los tests no usan red).
   fuenteGuia?: FuenteGuia;
+  // curiosidades-verificadas: ausente, el barrido no elige curiosidades (los tests no usan red).
+  fuenteCuriosidades?: FuenteCuriosidades;
   // eventos: ausente, no se consultan festivos ni fiestas (los tests no usan red).
   fuenteEventos?: FuenteEventos;
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): el SHA que de verdad
@@ -124,6 +127,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
           undefined,
           opciones.fuenteGuia,
           opciones.fuenteEventos,
+          opciones.fuenteCuriosidades ? { fuente: opciones.fuenteCuriosidades, ejecutor: opciones.ejecutor, directorio: opciones.directorio } : undefined,
         );
         planesMirados = resultadoBarrido.planesMirados;
         paradasIntentadas = resultadoBarrido.paradasIntentadas;

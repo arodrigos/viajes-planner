@@ -168,9 +168,25 @@ export interface GuiaParada {
   licencia: "CC BY-SA";
 }
 
+// Una curiosidad ELEGIDA, nunca escrita, por el modelo: el texto es una frase
+// literal del artículo (en su idioma, sin traducir) o un hecho de Wikidata con
+// plantilla fija del código.
+export interface ItemCuriosidad {
+  texto: string;
+  idioma: "es" | "en";
+  fuente: "wikipedia" | "wikidata";
+  url: string;
+  seleccion: "modelo" | "heuristica";
+}
+
 export interface CuriosidadesParada {
+  // Compatibilidad con el formato anterior: las frases en castellano de Wikipedia.
   frases: string[];
   url: string;
+  items?: ItemCuriosidad[];
+  seleccion?: "modelo" | "heuristica";
+  // El respaldo determinista se mejora con el modelo una sola vez.
+  mejora_intentada?: boolean;
 }
 
 // bloque alternativas-equivalentes: de dónde sale una alternativa -- el

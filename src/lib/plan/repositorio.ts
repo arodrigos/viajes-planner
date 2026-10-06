@@ -7,6 +7,13 @@ import type { Alternativa, AnclaAlojamiento, Dia, EtapaPlan, Franja, Lugar, Para
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { fotoSegura } from "@/lib/lugares/urlFoto";
 
+// Lo que se lee de la base pasa por el saneado: un item manipulado en la tabla
+// no llega al plan.
+function curiosidadesSegurasDe(bruto: Parada["curiosidades"] | null | undefined): { curiosidades?: Parada["curiosidades"] } {
+  const segura = curiosidadesSeguras(bruto);
+  return segura ? { curiosidades: segura } : {};
+}
+
 // Forma en la que se guardan los días dentro de plan_versiones.dias: todo
 // menos las paradas, que tienen su propia tabla porque procedencias y
 // visitas (bloques posteriores) necesitan referenciarlas una a una.
@@ -248,7 +255,7 @@ export async function recuperarPlan(
       ...(fila.lugar ? { lugar: fila.lugar as Lugar } : {}),
       ...(fotoSegura(fila.foto as Alternativa["foto"]) ? { foto: fila.foto as Alternativa["foto"] } : {}),
       ...(guiaSegura(fila.guia as Alternativa["guia"]) ? { guia: fila.guia as Alternativa["guia"] } : {}),
-      ...(curiosidadesSeguras(fila.curiosidades as Alternativa["curiosidades"]) ? { curiosidades: fila.curiosidades as Alternativa["curiosidades"] } : {}),
+      ...(curiosidadesSegurasDe(fila.curiosidades as Alternativa["curiosidades"])),
       ...(fila.guia_intentada_en ? { guia_intentada_en: fila.guia_intentada_en as string } : {}),
       ...(typeof fila.guia_formato === "number" ? { guia_formato: fila.guia_formato } : {}),
     };
@@ -302,7 +309,7 @@ export async function recuperarPlan(
           ...(guiaSegura(fila.guia as Parada["guia"]) ? { guia: fila.guia as Parada["guia"] } : {}),
           ...(fila.guia_intentada_en ? { guia_intentada_en: fila.guia_intentada_en as string } : {}),
           ...(typeof fila.guia_formato === "number" ? { guia_formato: fila.guia_formato } : {}),
-          ...(curiosidadesSeguras(fila.curiosidades as Parada["curiosidades"]) ? { curiosidades: fila.curiosidades as Parada["curiosidades"] } : {}),
+          ...(curiosidadesSegurasDe(fila.curiosidades as Parada["curiosidades"])),
           ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
           ...(idsVisitados.has(fila.id_externo as string) ? { visitada: true } : {}),
         };

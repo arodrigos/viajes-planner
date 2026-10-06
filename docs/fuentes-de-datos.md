@@ -142,3 +142,26 @@ ni número de personas, el correo del usuario, ni ningún otro campo de
 `criterios`. Desde el navegador del usuario solo sale, hacia OpenFreeMap,
 la zona del mapa que está mirando (coordenadas de las teselas) -nunca
 ningún dato del plan.
+
+## Curiosidades verificadas
+
+Las curiosidades de cada parada y alternativa salen de Wikipedia (castellano e
+inglés) y de Wikidata. El modelo **elige, no escribe ni traduce**: recibe una
+lista numerada de candidatas (`c1`, `c2`…) por sitio y devuelve solo ids; el
+código copia el texto literal de la candidata elegida.
+
+- **Wikipedia**: frases literales del artículo (completo en las paradas, solo la
+  entradilla en las alternativas), en su idioma, sin traducir. Cada una enlaza
+  con un URL Text Fragment (`#:~:text=`) que resalta la frase en la página.
+- **Wikidata**: hechos (año de fundación, arquitecto, altura…) con plantillas
+  fijas en castellano; el único texto de la fuente es el valor del hecho.
+- **Una invocación por versión** del plan, paradas y alternativas juntas. Si el
+  modelo falla (límite de uso, respuesta inválida) se usa un respaldo
+  determinista por puntuación y se permite **una** mejora con el modelo en un
+  tick posterior.
+- Ningún texto sin verificar llega a la vista: `curiosidadesSeguras` descarta
+  lo que no cumple formato y hosts permitidos.
+- Licencias: Wikipedia CC BY-SA y Wikidata CC0, atribuidas bajo cada lista.
+
+Comprobación contra el modelo real: `npx tsx scripts/curiosidades-real.ts fixtures/curiosidades-londres.json`
+(sale con código 2 si el modelo no llegó a elegir).
