@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { esFechaDeHoy } from "@/lib/plan/fechaHoy";
 import { formatearKm } from "@/lib/plan/paseo";
+import { EnlacesParada } from "./EnlacesParada";
 import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
 import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
@@ -205,7 +206,7 @@ function calcularComoLlegar(puntos: PuntoMapaDia[], siguiente: PuntoMapaDia | nu
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-function SeccionDia({ dia, indice, etapa, eventos, planId, onPlanActualizado }: { dia: DiaPublico; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; onPlanActualizado: () => void }) {
+function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActualizado }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; onPlanActualizado: () => void }) {
   const tieneAlgunaParada = dia.paradas.length > 0;
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
@@ -420,17 +421,10 @@ function SeccionDia({ dia, indice, etapa, eventos, planId, onPlanActualizado }: 
                         </p>
                       ) : (
                         <p className="procedencia-parada">
-                          Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}{" "}
-                          <a
-                            href={parada.procedencia.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`Ver en ${parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}: ${parada.nombre}`}
-                          >
-                            <span aria-hidden="true">↗</span>
-                          </a>
+                          Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}
                         </p>
                       )}
+                      <EnlacesParada parada={parada} ciudad={etapa?.ciudad ?? destino} />
                       {/* dest-ac1..ac3: solo el día de hoy -- un día pasado
                           o futuro no muestra ningún botón de visita. */}
                       {esHoy && (
@@ -705,6 +699,7 @@ export function VistaPlan({ id }: { id: string }) {
             dia={dia}
             indice={indice}
             eventos={eventosDelDia(plan.eventos?.eventos, dia.fecha).filter((e) => dia.etapa === undefined || e.etapa === dia.etapa)}
+            destino={plan.destino}
             etapa={etapa ? { ciudad: etapa.ciudad.nombre ?? etapa.pais, caja: etapa.ciudad.caja } : undefined}
             planId={id}
             onPlanActualizado={() => setRecargarContador((n) => n + 1)}
@@ -713,8 +708,8 @@ export function VistaPlan({ id }: { id: string }) {
       })}
 
       {plan && (
-        <section aria-label="Recomendaciones" className="seccion-recomendaciones">
-          <h2>Recomendaciones</h2>
+        <section aria-label="Más sitios recomendados" className="seccion-recomendaciones">
+          <h2>Más sitios recomendados</h2>
           {(plan.recomendaciones ?? []).length === 0 ? (
             // reco-ac7(b): un plan sin recomendaciones sigue siendo un plan
             // completo -el hueco se explica, no se calla ni se esconde.

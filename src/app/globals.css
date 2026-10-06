@@ -693,3 +693,20 @@ footer a,
 .previa-infografia img[hidden] {
   display: none;
 }
+
+/* enl-ac2: fila de acciones que envuelve en móvil en vez de desbordar. */
+.enlaces-parada {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2) var(--espacio-3);
+  list-style: none;
+  padding: 0;
+  margin: var(--espacio-2) 0 0;
+  font-size: var(--texto-pequeno);
+}
+/* son acciones sueltas, no enlaces dentro de un párrafo: objetivo táctil completo. */
+.enlaces-parada a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--objetivo-tactil);
+}

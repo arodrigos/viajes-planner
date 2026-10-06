@@ -63,9 +63,9 @@ describe("VistaPlan: botón de cambio y enlace a la fuente", () => {
     expect(screen.getAllByRole("button", { name: "Cambiar por una alternativa" })).toHaveLength(1);
   });
 
-  it("el enlace a la fuente se anuncia con fuente y sitio, no como flecha", async () => {
+  it("el enlace a la fuente se anuncia con su nombre, no como flecha", async () => {
     await pintar(0);
-    expect(screen.getByRole("link", { name: "Ver en OpenStreetMap: Real Alcázar" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Fuente: OpenStreetMap" })).toBeInTheDocument();
   });
 
   it("invariante: el botón se renderiza si y solo si hay al menos una alternativa", async () => {

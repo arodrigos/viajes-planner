@@ -224,7 +224,7 @@ test("el recorrido completo funciona de punta a punta, y un segundo usuario no v
   const seccionDia2 = pagina.locator("section.seccion-dia").nth(1);
   await expect(seccionDia2.locator(".cabecera-franja h3")).toHaveText(["Mañana", "Tarde"]);
 
-  await expect(pagina.getByRole("heading", { name: "Recomendaciones" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Más sitios recomendados" })).toBeVisible();
   for (const reco of RECOMENDACIONES_A) {
     await expect(pagina.getByRole("link", { name: reco.nombre, exact: true })).toBeVisible();
     await expect(pagina.getByText(reco.motivo)).toBeVisible();

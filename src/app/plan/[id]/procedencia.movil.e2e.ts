@@ -120,7 +120,7 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   // (a) dos enlaces "Ubicación comprobada", cada uno a su lugar.url sembrada.
   const tarjetaOsm = pagina.locator(".tarjeta-parada", { hasText: "Museo del Prado" });
   await expect(tarjetaOsm.getByText(/Ubicación comprobada en OpenStreetMap/)).toBeVisible();
-  const enlaceOsm = tarjetaOsm.getByRole("link");
+  const enlaceOsm = tarjetaOsm.getByRole("link", { name: "Fuente: OpenStreetMap" });
   await expect(enlaceOsm).toHaveAttribute("href", "https://www.openstreetmap.org/relation/7726080");
   await expect(enlaceOsm).toHaveAttribute("target", "_blank");
   const relOsm = await enlaceOsm.getAttribute("rel");
@@ -129,11 +129,11 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
 
   const tarjetaWikipedia = pagina.locator(".tarjeta-parada", { hasText: "Templo de Debod" });
   await expect(tarjetaWikipedia.getByText(/Ubicación comprobada en Wikipedia/)).toBeVisible();
-  await expect(tarjetaWikipedia.getByRole("link")).toHaveAttribute("href", "https://es.wikipedia.org/wiki/Templo_de_Debod");
+  await expect(tarjetaWikipedia.getByRole("link", { name: "Fuente: Wikipedia" })).toHaveAttribute("href", "https://es.wikipedia.org/wiki/Templo_de_Debod");
 
-  // cam-ac3: el nombre accesible dice fuente y sitio, no «flecha».
-  await expect(pagina.getByRole("link", { name: "Ver en OpenStreetMap: Museo del Prado" })).toBeVisible();
-  await expect(pagina.getByRole("link", { name: "Ver en Wikipedia: Templo de Debod" })).toBeVisible();
+  // cam-ac3: el nombre accesible dice la fuente, no «flecha».
+  await expect(pagina.getByRole("link", { name: "Fuente: OpenStreetMap" }).first()).toBeVisible();
+  await expect(pagina.getByRole("link", { name: "Fuente: Wikipedia" }).first()).toBeVisible();
   const nombresMalos = await pagina.evaluate(() =>
     // Solo dentro de las tarjetas: el resto de la página (mapa, cabecera) trae
     // controles de terceros cuyo nombre no depende de este bloque.
@@ -147,7 +147,7 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   const tarjetaSinResolver = pagina.locator(".tarjeta-parada", { hasText: "Sitio Inventado Que No Existe" });
   await expect(tarjetaSinResolver.getByText(/Sin comprobar/)).toBeVisible();
   await expect(tarjetaSinResolver.getByText(/comprueba el nombre y la dirección antes de ir/)).toBeVisible();
-  await expect(tarjetaSinResolver.getByRole("link")).toHaveCount(0);
+  await expect(tarjetaSinResolver.getByRole("link", { name: /^Fuente:/ })).toHaveCount(0);
 
   // (c) el aviso global, honesto y sin control de cierre.
   const aviso = pagina.getByText(/Las paradas marcadas como comprobadas se han localizado/);

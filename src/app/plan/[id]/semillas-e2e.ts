@@ -120,3 +120,23 @@ export function planUnaCiudadLargaInfografia(id: string): Plan {
     })),
   };
 }
+
+// enl-ac1 (cp-enl-01): Londres, 1 día. Comida resuelta en OSM, cena sin
+// resolver y mañana resuelta en Wikipedia.
+export function planLondresEnlaces(id: string): Plan {
+  const franjas = franjasComoArray("Londres");
+  const resuelta = (fuente: "osm" | "wikipedia", url: string, nombre: string) => ({
+    fuente, url, id: url, nombre_fuente: nombre, etiquetas: {}, resuelto_en: "2026-10-05T00:00:00Z",
+  });
+  return {
+    id, version: 1, destino: "Londres", personas: 2,
+    dias: [{
+      fecha: "2027-05-10", franjas,
+      paradas: [
+        { ...parada("l1", "British Museum", 90, 0), coordenadas: { lat: 51.5194, lon: -0.127 }, lugar: resuelta("wikipedia", "https://en.wikipedia.org/wiki/British_Museum", "British Museum"), procedencia: { fuente: "wikipedia", url: "https://en.wikipedia.org/wiki/British_Museum" } },
+        { ...parada("l2", "Borough Market", 80, 15), franja_id: "comida", coordenadas: { lat: 51.5055, lon: -0.091 }, lugar: resuelta("osm", "https://www.openstreetmap.org/node/1", "Borough Market"), procedencia: { fuente: "osm", url: "https://www.openstreetmap.org/node/1" } },
+        { ...parada("l3", "Cena en Dishoom Covent Garden", 70, 30), franja_id: "cena" },
+      ],
+    }],
+  };
+}
