@@ -116,6 +116,9 @@ test("cp-cc-02: «Ver más» despliega el consejo largo y el corto no tiene bot�
   const tarjetaB = pagina.locator("li.tarjeta-parada", { hasText: "Parada consejo corto" });
   const parrafoA = tarjetaA.getByTestId("consejo-guia");
   const botonA = tarjetaA.getByRole("button", { name: "Ver más" });
+  // tar-ac1: los consejos viven en un panel plegado; hay que abrirlo para verlos.
+  await tarjetaA.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
+  await tarjetaB.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
   const altoYLinea = () => parrafoA.evaluate((el) => ({ alto: el.getBoundingClientRect().height, linea: parseFloat(getComputedStyle(el).lineHeight) }));
 
   await expect(botonA).toHaveAttribute("aria-expanded", "false");

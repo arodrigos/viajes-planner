@@ -143,10 +143,10 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   );
   expect(nombresMalos).toEqual([]);
 
-  // (b) la que no resolvió dice "Sin comprobar" con su ayuda, sin enlace.
+  // (b) la que no resolvió dice "Sin comprobar" con su aviso, sin enlace.
   const tarjetaSinResolver = pagina.locator(".tarjeta-parada", { hasText: "Sitio Inventado Que No Existe" });
   await expect(tarjetaSinResolver.getByText(/Sin comprobar/)).toBeVisible();
-  await expect(tarjetaSinResolver.getByText(/comprueba el nombre y la dirección antes de ir/)).toBeVisible();
+  await expect(tarjetaSinResolver.getByText(/revisa nombre y dirección antes de ir/)).toBeVisible();
   await expect(tarjetaSinResolver.getByRole("link", { name: /^Fuente:/ })).toHaveCount(0);
 
   // (c) el aviso global, honesto y sin control de cierre.

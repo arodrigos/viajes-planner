@@ -53,15 +53,15 @@ async function pintar(cuantas: number) {
 }
 
 // cam-ac1 / cam-ac3
-describe("VistaPlan: botón de cambio y enlace a la fuente", () => {
-  it("sin alternativas no hay ningún botón de cambio", async () => {
+describe("VistaPlan: panel de alternativas y enlace a la fuente", () => {
+  it("sin alternativas no hay panel de alternativas", async () => {
     await pintar(0);
-    expect(screen.queryByRole("button", { name: /Cambiar/ })).toBeNull();
+    expect(screen.queryByText(/^Alternativas/)).toBeNull();
   });
 
-  it("con alternativas el botón se llama «Cambiar por una alternativa»", async () => {
+  it("con alternativas el panel se llama «Alternativas (N)»", async () => {
     await pintar(2);
-    expect(screen.getAllByRole("button", { name: "Cambiar por una alternativa" })).toHaveLength(1);
+    expect(screen.getAllByText("Alternativas (2)")).toHaveLength(1);
   });
 
   it("el enlace a la fuente se anuncia con su nombre, no como flecha", async () => {
@@ -69,12 +69,12 @@ describe("VistaPlan: botón de cambio y enlace a la fuente", () => {
     expect(screen.getByRole("link", { name: "Fuente: OpenStreetMap" })).toBeInTheDocument();
   });
 
-  it("invariante: el botón se renderiza si y solo si hay al menos una alternativa", async () => {
+  it("invariante: el panel se renderiza si y solo si hay al menos una alternativa", async () => {
     await fc.assert(
       fc.asyncProperty(fc.integer({ min: 0, max: 5 }), async (cuantas) => {
         cleanup();
         await pintar(cuantas);
-        expect(screen.queryAllByRole("button", { name: /Cambiar/ }).length).toBe(cuantas >= 1 ? 1 : 0);
+        expect(screen.queryAllByText(/^Alternativas \(/).length).toBe(cuantas >= 1 ? 1 : 0);
       }),
       { numRuns: 12 },
     );
