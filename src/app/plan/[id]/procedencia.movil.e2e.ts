@@ -114,7 +114,7 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   // (a) dos enlaces "Ubicación comprobada", cada uno a su lugar.url sembrada.

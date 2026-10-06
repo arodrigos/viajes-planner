@@ -1,3 +1,4 @@
+import { abrirOpciones } from "./opciones-e2e";
 import { readFileSync } from "node:fs";
 import { expect, test, type Browser } from "@playwright/test";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
@@ -43,7 +44,8 @@ test("Descargar infografía entrega un PNG de 1080×1350 y la ruta respeta la pr
   expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email: EMAIL } })).ok()).toBe(true);
   const codigo = await leerCodigo(EMAIL);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } })).ok()).toBe(true);
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  await abrirOpciones(pagina);
   await expect(pagina.getByRole("heading", { name: "Toledo" })).toBeVisible();
   await expect(pagina.getByText("Una imagen del viaje entero para guardar o compartir")).toBeVisible();
 
@@ -93,7 +95,8 @@ async function descargarLamina(browser: Browser, email: string, plan: Plan, pres
   expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } })).ok()).toBe(true);
   const codigo = await leerCodigo(email);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
-  await pagina.goto(`/plan/${plan.id}`);
+  await pagina.goto(`/plan/${plan.id}?dia=1`);
+  await abrirOpciones(pagina);
   await expect(pagina.getByRole("heading", { name: titulo })).toBeVisible();
 
   const [descarga] = await Promise.all([pagina.waitForEvent("download"), pagina.getByRole("button", { name: "Descargar infografía" }).click()]);

@@ -115,7 +115,7 @@ test("un plan real se lee como línea de tiempo: días y franjas en orden, icono
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   // (a) fechas ascendentes en el DOM.

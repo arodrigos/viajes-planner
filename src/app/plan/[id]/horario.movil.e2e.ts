@@ -78,7 +78,7 @@ test("cada tarjeta enseña su rango y el .ics trae los mismos con TZID (hor-ac1)
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   // Los rangos de la tarjeta, sin depender de que haya más texto alrededor.

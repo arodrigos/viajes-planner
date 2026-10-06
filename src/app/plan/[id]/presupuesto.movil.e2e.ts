@@ -92,7 +92,7 @@ test("motivo, precio y cabecera de presupuesto con sus estados vacíos (mot-ac1)
   const codigo = await leerCodigo(EMAIL);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } })).ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planSevilla}`);
+  await pagina.goto(`/plan/${planSevilla}?dia=resumen`);
   const alcazar = pagina.locator("li.tarjeta-parada", { hasText: "Real Alcázar" });
   await expect(alcazar).toContainText("Por qué te lo proponemos");
   await expect(alcazar).toContainText("Lo dice el planificador");
@@ -102,13 +102,13 @@ test("motivo, precio y cabecera de presupuesto con sus estados vacíos (mot-ac1)
   await expect(pagina.locator("li.tarjeta-parada", { hasText: "Catedral de Sevilla" }).getByTestId("precio-parada")).toHaveText("Sin precio orientativo");
   await expect(pagina.getByTestId("presupuesto-plan")).toContainText("Visitas: ~60 € estimados · Tu presupuesto: 900 €");
 
-  await pagina.goto(`/plan/${planRoma}`);
+  await pagina.goto(`/plan/${planRoma}?dia=resumen`);
   const foro = pagina.locator("li.tarjeta-parada", { hasText: "Foro Romano" });
   await expect(foro.getByTestId("precio-parada")).toHaveText("Sin precio orientativo");
   await expect(pagina.getByText("Por qué te lo proponemos")).toHaveCount(0);
   await expect(pagina.getByTestId("presupuesto-plan")).toContainText("Sin estimación de gasto en visitas");
 
-  await pagina.goto(`/plan/${planCadiz}`);
+  await pagina.goto(`/plan/${planCadiz}?dia=resumen`);
   await expect(pagina.getByTestId("presupuesto-plan")).toContainText("Las visitas estimadas superan tu presupuesto en ~300 €");
   await expect(pagina.getByTestId("motivo-parada")).toBeVisible();
   const desborda = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

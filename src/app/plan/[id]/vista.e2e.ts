@@ -65,12 +65,11 @@ test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni d
 }) => {
   await page.route("**/api/plan/*", (route) => route.fulfill({ json: PLAN_FIXTURE }));
 
-  await page.goto("/plan/plan-e2e");
+  await page.goto("/plan/plan-e2e?dia=1");
 
   // (a) cinco secciones de día, franjas por etiqueta, sin desbordamiento.
-  for (const dia of PLAN_FIXTURE.dias) {
-    await expect(page.getByRole("heading", { name: dia.fecha })).toBeVisible();
-  }
+  await expect(page.getByRole("navigation", { name: "Días del viaje" }).getByRole("link")).toHaveCount(PLAN_FIXTURE.dias.length + 1);
+  await expect(page.getByRole("heading", { level: 2, name: /^Día 1 · / })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mañana", exact: true }).first()).toBeVisible();
   const anchoDocumento = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(anchoDocumento).toBeLessThanOrEqual(360);

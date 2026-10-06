@@ -1,3 +1,4 @@
+import { abrirOpciones } from "./opciones-e2e";
 import { expect, test } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
@@ -78,7 +79,8 @@ test("«Añadir al calendario» descarga un fichero .ics (ics-ac2)", async ({ br
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, EMAIL);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  await abrirOpciones(pagina);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const enlace = pagina.getByRole("link", { name: "Añadir al calendario" });

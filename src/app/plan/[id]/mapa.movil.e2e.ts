@@ -108,7 +108,7 @@ test("el mapa del día numera los marcadores en orden de franja, resalta la tarj
   const pagina = await contexto.newPage();
 
   const peticionTeselas = pagina.waitForRequest(/tiles\.openfreemap\.org\/styles\/liberty/);
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
   await peticionTeselas;
 
@@ -183,7 +183,7 @@ test("un día sin ninguna parada resuelta no muestra mapa, y explica por qué (m
   const contexto = await browser.newContext({ viewport: { width: 393, height: 851 } });
   await iniciarSesion(contexto, "ci-test-mapa-vacio@example.com");
   const pagina = await contexto.newPage();
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   await expect(pagina.locator("canvas.maplibregl-canvas")).toHaveCount(0);
@@ -216,7 +216,7 @@ test("si OpenFreeMap no responde, el hueco del mapa lo dice y la lista de parada
   await iniciarSesion(contexto, "ci-test-mapa-caido@example.com");
   const pagina = await contexto.newPage();
   await pagina.route("**/tiles.openfreemap.org/**", (route) => route.abort());
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   await expect(pagina.getByText("El mapa no está disponible ahora.")).toBeVisible();

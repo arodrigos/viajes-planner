@@ -59,7 +59,7 @@ test("las recomendaciones se ven en la línea de tiempo, con enlace en pestaña 
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=resumen`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
   await expect(pagina.getByRole("heading", { name: "Más sitios recomendados" })).toBeVisible();
 

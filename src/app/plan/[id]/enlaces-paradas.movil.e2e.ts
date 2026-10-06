@@ -30,7 +30,7 @@ test("cada tarjeta, también Comida y Cena, lleva su enlace de mapa y su fuente 
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } })).ok()).toBe(true);
 
   const pagina = await contexto.newPage();
-  await pagina.goto(`/plan/${plan.id}`);
+  await pagina.goto(`/plan/${plan.id}?dia=1`);
   await expect(pagina.getByRole("heading", { name: "Londres" })).toBeVisible();
 
   const tarjetas = pagina.locator("li.tarjeta-parada");

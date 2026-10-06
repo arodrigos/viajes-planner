@@ -80,10 +80,11 @@ for (const [nombre, fixture] of [
   });
 }
 
-test("el plan también avisa de que su dirección es la única forma de volver", async ({ page }) => {
+test("el plan ya no avisa de que su dirección es la única forma de volver (dia-ac5)", async ({ page }) => {
   await page.route("**/api/plan/*", (route) => route.fulfill({ json: PLAN_FIXTURE }));
-  await page.goto("/plan/plan-usabilidad-e2e");
-  await expect(page.getByText(/única forma de volver a este plan/)).toBeVisible();
+  await page.goto("/plan/plan-usabilidad-e2e?dia=1");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByText(/única forma de volver/)).toHaveCount(0);
 });
 
 // usabilidad-ac8(c): un mensaje por cada forma real de fallo, comprobando
@@ -164,6 +165,6 @@ test("capturas de los cuatro estados nuevos para juicio visual", async ({ page }
   await page.screenshot({ path: "artefactos/capturas/usabilidad-trabajos-pausado.png", fullPage: true });
 
   await page.route("**/api/plan/*", (route) => route.fulfill({ json: PLAN_FIXTURE }));
-  await page.goto("/plan/plan-usabilidad-e2e");
+  await page.goto("/plan/plan-usabilidad-e2e?dia=1");
   await page.screenshot({ path: "artefactos/capturas/usabilidad-plan.png", fullPage: true });
 });

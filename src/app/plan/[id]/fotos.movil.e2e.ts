@@ -102,7 +102,7 @@ test("una tarjeta con foto muestra la imagen y su atribución; sin foto, un marc
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   // (a) la parada con foto: img con los atributos exactos y atribución visible.

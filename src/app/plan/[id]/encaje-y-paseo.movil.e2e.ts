@@ -118,7 +118,7 @@ test("una alternativa muestra sus etiquetas de encaje calculadas (enc-ac1)", asy
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo del Prado" });
@@ -178,7 +178,7 @@ test("un día con mucho paseo muestra el aviso y abre el panel de la parada más
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const paseo = pagina.locator(".paseo-dia");

@@ -34,7 +34,7 @@ test("el enlace de una recomendación con nombre envenenado apunta al literal de
   page,
 }) => {
   await page.route("**/api/plan/*", (route) => route.fulfill({ json: PLAN_FIXTURE }));
-  await page.goto("/plan/plan-enl-ac3");
+  await page.goto("/plan/plan-enl-ac3?dia=1");
 
   const enlace = page.getByRole("link", { name: NOMBRE_ENVENENADO, exact: true });
   await expect(enlace).toHaveAttribute("href", HREF_ESPERADO);

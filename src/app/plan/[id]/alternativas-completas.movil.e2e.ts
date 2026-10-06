@@ -117,7 +117,7 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const tarjeta = pagina.locator(".tarjeta-parada");
@@ -228,7 +228,7 @@ async function entrarYAbrirAlternativas(browser: Browser, supabase: SupabaseClie
   expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } })).ok()).toBe(true);
   const codigo = await leerCodigo(email);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: "Londres" })).toBeVisible();
   const tarjeta = pagina.locator(".tarjeta-parada");
   await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
