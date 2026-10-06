@@ -37,7 +37,10 @@ export interface VersionParaGuia {
   etapas?: EtapaPlan[] | null;
 }
 
+// Una fila de `paradas` o de `paradas_alternativas`: comparten la guía pero
+// solo las paradas tienen coste.
 interface FilaParadaGuia {
+  tabla?: "paradas" | "paradas_alternativas";
   id: string;
   nombre: string;
   lat: number | null;
@@ -94,10 +97,17 @@ export async function enriquecerParadas(
         const pagina = await deps.fuenteGuia.paginaCiudad(ciudad, hasta);
         if (pagina) {
           urlGuia = pagina.url;
-          fichas = asignarFichas(
-            pagina.fichas,
-            grupo.map((f) => ({ id: f.id, nombre: f.nombre, ...(f.lat !== null && f.lon !== null ? { coordenadas: { lat: f.lat, lon: f.lon } } : {}) })),
+          const comoAsignable = (f: FilaParadaGuia) => ({ id: f.id, nombre: f.nombre, ...(f.lat !== null && f.lon !== null ? { coordenadas: { lat: f.lat, lon: f.lon } } : {}) });
+          // Las paradas eligen primero: una alternativa nunca le quita su ficha
+          // a la parada del plan, solo aprovecha las que sobran. Todo sale de
+          // la misma página, sin ninguna petición más.
+          fichas = asignarFichas(pagina.fichas, grupo.filter((f) => f.tabla !== "paradas_alternativas").map(comoAsignable));
+          const usadas = new Set(fichas.values());
+          const sobrantes = asignarFichas(
+            pagina.fichas.filter((ficha) => !usadas.has(ficha)),
+            grupo.filter((f) => f.tabla === "paradas_alternativas").map(comoAsignable),
           );
+          for (const [id, ficha] of sobrantes) fichas.set(id, ficha);
         }
       } catch (error) {
         // Ni un fallo de la fuente ni quedarse sin hueco de ritmo gastan el
@@ -130,7 +140,7 @@ export async function enriquecerParadas(
             }
           : undefined;
       const { error } = await supabase
-        .from("paradas")
+        .from(fila.tabla ?? "paradas")
         .update({
           guia: ficha
             ? {
@@ -142,12 +152,12 @@ export async function enriquecerParadas(
               }
             : null,
           curiosidades,
-          ...(coste ? { coste } : {}),
+          ...(coste && fila.tabla !== "paradas_alternativas" ? { coste } : {}),
           guia_intentada_en: ahora.toISOString(),
           guia_formato: FORMATO_GUIA,
         })
         .eq("id", fila.id);
-      if (error) throw new Error(`No se pudo guardar la guía de la parada: ${error.message}`);
+      if (error) throw new Error(`No se pudo guardar la guía de ${fila.tabla ?? "paradas"}: ${error.message}`);
       resultado.intentadas += 1;
       if (ficha) resultado.con_guia += 1;
       if (curiosidades) resultado.con_curiosidades += 1;
@@ -156,9 +166,10 @@ export async function enriquecerParadas(
   return resultado;
 }
 
-// Paradas ya resueltas, de las versiones dadas, a las que aún no se ha
-// mirado la guía o que se guardaron con un formato anterior (guia_formato
-// siempre se escribe al intentar, así que null cubre ambas cosas). Las que no tienen coordenadas no se piden: sin ubicación
+// Paradas ya resueltas (y sus alternativas con coordenadas), de las versiones
+// dadas, a las que aún no se ha mirado la guía o que se guardaron con un
+// formato anterior (guia_formato siempre se escribe al intentar, así que null
+// cubre ambas cosas). Las que no tienen coordenadas no se piden: sin ubicación
 // comprobada no hay forma fiable de asignar ficha.
 export async function enriquecerGuiaPendientes(
   supabase: SupabaseClient,
@@ -177,10 +188,42 @@ export async function enriquecerGuiaPendientes(
     .limit(limite);
   if (error) throw new Error(`No se pudieron leer las paradas sin guía: ${error.message}`);
   const porId = new Map(versiones.map((v) => [v.id, v]));
-  const filas = ((data as FilaParadaGuia[] | null) ?? []).map((f) => {
+  const filas: Array<FilaParadaGuia & { ciudad: string | null }> = ((data as FilaParadaGuia[] | null) ?? []).map((f) => {
     const version = porId.get(f.plan_version_id);
-    return { ...f, ciudad: version ? ciudadDeParada(version, f.dia_index) : null };
+    return { ...f, tabla: "paradas", ciudad: version ? ciudadDeParada(version, f.dia_index) : null };
   });
+
+  // Las alternativas con coordenadas (las que la resolución ya comprobó) van en
+  // el mismo lote, tras las paradas y dentro del mismo límite: así se comparte
+  // la página de la ciudad y el ritmo por tick no cambia.
+  const hueco = limite - filas.length;
+  if (hueco > 0) {
+    const { data: dataAlt, error: errorAlt } = await supabase
+      .from("paradas_alternativas")
+      .select("id, nombre, lat, lon, lugar, paradas!inner(dia_index, plan_version_id)")
+      .in("paradas.plan_version_id", versiones.map((v) => v.id))
+      .not("lat", "is", null)
+      .or(`guia_formato.is.null,guia_formato.lt.${FORMATO_GUIA}`)
+      .limit(hueco);
+    if (errorAlt) throw new Error(`No se pudieron leer las alternativas sin guía: ${errorAlt.message}`);
+    type FilaAlt = Omit<FilaParadaGuia, "coste" | "dia_index" | "plan_version_id"> & { paradas: { dia_index: number; plan_version_id: string } | Array<{ dia_index: number; plan_version_id: string }> };
+    for (const f of (dataAlt as FilaAlt[] | null) ?? []) {
+      const padre = Array.isArray(f.paradas) ? f.paradas[0] : f.paradas;
+      const version = porId.get(padre.plan_version_id);
+      filas.push({
+        tabla: "paradas_alternativas",
+        id: f.id,
+        nombre: f.nombre,
+        lat: f.lat,
+        lon: f.lon,
+        lugar: f.lugar,
+        coste: null,
+        dia_index: padre.dia_index,
+        plan_version_id: padre.plan_version_id,
+        ciudad: version ? ciudadDeParada(version, padre.dia_index) : null,
+      });
+    }
+  }
   return enriquecerParadas(supabase, deps, filas, hasta);
 }
 

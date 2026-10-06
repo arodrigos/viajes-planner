@@ -31,7 +31,9 @@ export function SeccionesGuia({ nombre, guia, curiosidades, intentada }: Props) 
             </p>
           </>
         ) : (
-          <p className="texto-guia">{intentada ? "La guía no tiene ficha de este sitio" : "Todavía no hemos consultado la guía para este sitio"}</p>
+          <p className="texto-guia">
+            {intentada ? "La guía no tiene ficha de este sitio" : `Buscando consejos y curiosidades de ${nombre}; aparecerán en unos minutos`}
+          </p>
         )}
       </div>
       <div data-testid="curiosidades-parada">

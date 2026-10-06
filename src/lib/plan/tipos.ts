@@ -204,6 +204,12 @@ export interface Alternativa {
   coordenadas?: { lat: number; lon: number };
   lugar?: Lugar;
   foto?: Foto;
+  // Misma guía que la de una parada: sustituir.ts la traspasa tal cual a la
+  // parada nueva, y la de la parada anterior viaja con ella al deshacer.
+  guia?: GuiaParada;
+  curiosidades?: CuriosidadesParada;
+  guia_intentada_en?: string;
+  guia_formato?: number;
 }
 
 export type AnclaAlojamiento =

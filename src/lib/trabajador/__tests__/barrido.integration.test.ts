@@ -584,3 +584,115 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("reformateo de la guía (cc-ac3)"
     expect(llamadas.length).toBe(antes);
   });
 });
+
+// alg-ac3 (cp-alg-03): las alternativas pendientes se rellenan en el mismo
+// lote que sus paradas, con UNA sola página de Wikivoyage por ciudad.
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("guía de las alternativas (alg-ac3)", () => {
+  const supabase = clienteDePrueba();
+  const PLAN = "plan-barrido-guia-alt";
+  const PARADAS = ["Museo Alfa Uno", "Palacio Beta Dos", "Castillo Gamma Tres", "Torre Delta Cuatro"];
+  // Nombres sin parecido entre sí (la asignación de fichas usa similitud de
+  // nombre): las 5 primeras tendrán ficha en la fuente, las 7 siguientes no.
+  const CON_FICHA = ["Observatorio Marítimo", "Jardín Botánico", "Biblioteca Municipal", "Mercado Central", "Estación del Norte"];
+  const SIN_FICHA = ["Plaza Redonda", "Faro Viejo", "Puente Romano", "Acuario Grande", "Teatro Principal", "Ermita Alta", "Bodega Antigua"];
+
+  beforeEach(async () => {
+    await supabase.from("planes").delete().like("id", "plan-barrido-guia-%");
+  });
+
+  async function sembrar(): Promise<void> {
+    await supabase.from("planes").insert({ id: PLAN, destino: DESTINO, ciudad: CIUDAD_RESUELTA });
+    const { data: procedencia } = await supabase.from("procedencias").insert({ fuente: "propuesto-sin-verificar" }).select("id").single();
+    const franjas = [{ id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" }];
+    const { data: version } = await supabase
+      .from("plan_versiones")
+      .insert({ plan_id: PLAN, version: 1, personas: 2, dias: [{ fecha: "2026-11-01", franjas }], avisos: [] })
+      .select("id")
+      .single();
+    const resuelta = { estado: "resuelta", intentado_en: "2026-10-01T00:00:00Z" };
+    const { data: paradas, error } = await supabase
+      .from("paradas")
+      .insert(
+        PARADAS.map((nombre, i) => ({
+          plan_version_id: version?.id,
+          id_externo: `ga-${i}`,
+          dia_index: 0,
+          franja_id: "manana",
+          nombre,
+          descripcion: "",
+          duracion_min: 60,
+          prioridad: 50,
+          procedencia_id: procedencia?.id,
+          lat: 39.47 + i * 0.01,
+          lon: -0.37,
+          resolucion: resuelta,
+          foto_intentada_en: "2026-10-01T00:00:00Z",
+        })),
+      )
+      .select("id");
+    if (error || !paradas) throw new Error(`No se pudo sembrar: ${error?.message}`);
+    const nombresAlternativas = [...CON_FICHA, ...SIN_FICHA];
+    const alternativas = paradas.flatMap((parada, i) =>
+      [0, 1, 2].map((j) => ({
+        parada_id: parada.id,
+        origen: "modelo",
+        nombre: nombresAlternativas[i * 3 + j],
+        descripcion: "d",
+        motivo: "m",
+        duracion_min: 60,
+        categoria: "monumento",
+        lat: 39.3 + i * 0.01 + j * 0.001,
+        lon: -0.2,
+        // Una alternativa sin lugar: se marca intentada igualmente.
+        lugar: null,
+      })),
+    );
+    const { error: errorAlt } = await supabase.from("paradas_alternativas").insert(alternativas);
+    if (errorAlt) throw new Error(`No se pudieron sembrar las alternativas: ${errorAlt.message}`);
+  }
+
+  it("cp-alg-03: 1 sola página de ciudad; las 12 alternativas y las 4 paradas quedan intentadas; solo las que tienen ficha llevan consejo", async () => {
+    await sembrar();
+    let llamadas = 0;
+    const fichas: FichaGuia[] = [
+      { tipo: "see", nombre: "Museo Alfa Uno", contenido: "Consejo de la parada Alfa." },
+      { tipo: "see", nombre: "Palacio Beta Dos", contenido: "Consejo de la parada Beta." },
+      ...CON_FICHA.map((nombre): FichaGuia => ({ tipo: "see", nombre, contenido: `Consejo de ${nombre}.` })),
+    ];
+    const fuenteGuia: FuenteGuia = {
+      async paginaCiudad(ciudad) {
+        llamadas += 1;
+        return { idioma: "es", titulo: ciudad, url: "https://es.wikivoyage.org/wiki/Valencia", fichas };
+      },
+    };
+    await completarParadasPendientes(supabase, fuenteInstrumentada({}), 120, FUENTE_FOTOS_SIN_RED, undefined, undefined, FUENTE_CERCANOS_SIN_RED, undefined, fuenteGuia);
+
+    expect(llamadas).toBe(1);
+    const { data: paradas } = await supabase.from("paradas").select("nombre, guia, guia_intentada_en, guia_formato").in("nombre", PARADAS);
+    expect(paradas).toHaveLength(4);
+    for (const fila of paradas ?? []) {
+      expect(fila.guia_intentada_en).not.toBeNull();
+      expect(fila.guia_formato).toBe(FORMATO_GUIA);
+    }
+    const conFicha = (paradas ?? []).filter((f) => f.guia !== null).map((f) => f.nombre);
+    expect(conFicha.sort()).toEqual(["Museo Alfa Uno", "Palacio Beta Dos"]);
+
+    const { data: idsParadas } = await supabase.from("paradas").select("id").in("nombre", PARADAS);
+    const { data: alternativas } = await supabase
+      .from("paradas_alternativas")
+      .select("nombre, guia, guia_intentada_en, guia_formato")
+      .in("parada_id", (idsParadas ?? []).map((f) => f.id as string));
+    expect(alternativas).toHaveLength(12);
+    for (const fila of alternativas ?? []) {
+      expect(fila.guia_intentada_en).not.toBeNull();
+      expect(fila.guia_formato).toBe(FORMATO_GUIA);
+    }
+    const conConsejo = (alternativas ?? []).filter((f) => (f.guia as { consejo?: string } | null)?.consejo);
+    expect(conConsejo.map((f) => f.nombre).sort()).toEqual([...CON_FICHA].sort());
+
+    // Ya intentadas: otro tick no vuelve a pedir nada.
+    const antes = llamadas;
+    await completarParadasPendientes(supabase, fuenteInstrumentada({}), 120, FUENTE_FOTOS_SIN_RED, undefined, undefined, FUENTE_CERCANOS_SIN_RED, undefined, fuenteGuia);
+    expect(llamadas).toBe(antes);
+  });
+});

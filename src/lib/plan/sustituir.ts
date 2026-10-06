@@ -7,7 +7,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { guardarPlan, recuperarPlan } from "./repositorio";
-import type { Alternativa } from "./tipos";
+import type { Alternativa, Parada } from "./tipos";
 
 const MAXIMO_ALTERNATIVAS = 3;
 
@@ -16,6 +16,58 @@ const MAXIMO_ALTERNATIVAS = 3;
 // que con 3 alternativas se recorta la última, nunca se llega a 4.
 export function heredarAlternativas(actuales: Alternativa[], elegida: Alternativa, sustituida: Alternativa): Alternativa[] {
   return [...actuales.filter((alternativa) => alternativa !== elegida), sustituida].slice(0, MAXIMO_ALTERNATIVAS);
+}
+
+// Pura y exportada para poder probar las invariantes de la herencia con
+// cualquier parada y alternativa: la guía del sitio nuevo es la de su
+// alternativa, la del anterior viaja a su alternativa, y motivo y coste (del
+// hueco, no del sitio) no se heredan.
+export function intercambiar(paradaActual: Parada, alternativaElegida: Alternativa): Parada {
+  const paradaAnteriorComoAlternativa: Alternativa = {
+    nombre: paradaActual.nombre,
+    descripcion: paradaActual.descripcion,
+    motivo: "Era la actividad anterior en este hueco.",
+    duracion_min: paradaActual.duracion_min,
+    categoria: paradaActual.categoria,
+    origen: "modelo",
+    coordenadas: paradaActual.coordenadas,
+    lugar: paradaActual.lugar,
+    foto: paradaActual.foto,
+    // La guía viaja con el sitio: al deshacer, la parada original recupera la
+    // suya sin volver a pedirla a ninguna fuente.
+    guia: paradaActual.guia,
+    curiosidades: paradaActual.curiosidades,
+    guia_intentada_en: paradaActual.guia_intentada_en,
+    guia_formato: paradaActual.guia_formato,
+  };
+
+  const alternativasHeredadas = heredarAlternativas(paradaActual.alternativas ?? [], alternativaElegida, paradaAnteriorComoAlternativa);
+
+  const paradaNueva = {
+    ...paradaActual,
+    nombre: alternativaElegida.nombre,
+    descripcion: alternativaElegida.descripcion,
+    duracion_min: alternativaElegida.duracion_min,
+    categoria: alternativaElegida.categoria,
+    coordenadas: alternativaElegida.coordenadas,
+    lugar: alternativaElegida.lugar,
+    foto: alternativaElegida.foto,
+    resolucion: alternativaElegida.coordenadas ? { estado: "resuelta" as const, intentado_en: new Date().toISOString() } : undefined,
+    alternativas: alternativasHeredadas,
+    // El motivo y el precio eran del sitio anterior: heredarlos presentaría
+    // una razón y un coste que no corresponden al sitio nuevo.
+    motivo: undefined,
+    coste: undefined,
+    // La guía sí es del sitio nuevo: la trae su alternativa. Si aún no la
+    // tenía (guia_intentada_en ausente), la parada queda pendiente y el
+    // barrido la rellena.
+    guia: alternativaElegida.guia,
+    curiosidades: alternativaElegida.curiosidades,
+    guia_intentada_en: alternativaElegida.guia_intentada_en,
+    guia_formato: alternativaElegida.guia_formato,
+  };
+
+  return paradaNueva;
 }
 
 export type ResultadoSustitucion =
@@ -52,42 +104,7 @@ export async function sustituirParada(
   const alternativaElegida = (paradaActual.alternativas ?? []).find((alternativa) => alternativa.id === alternativaId);
   if (!alternativaElegida) return { estado: "alternativa-invalida" };
 
-  const paradaAnteriorComoAlternativa: Alternativa = {
-    nombre: paradaActual.nombre,
-    descripcion: paradaActual.descripcion,
-    motivo: "Era la actividad anterior en este hueco.",
-    duracion_min: paradaActual.duracion_min,
-    categoria: paradaActual.categoria,
-    origen: "modelo",
-    coordenadas: paradaActual.coordenadas,
-    lugar: paradaActual.lugar,
-    foto: paradaActual.foto,
-  };
-
-  const alternativasHeredadas = heredarAlternativas(paradaActual.alternativas ?? [], alternativaElegida, paradaAnteriorComoAlternativa);
-
-  const paradaNueva = {
-    ...paradaActual,
-    nombre: alternativaElegida.nombre,
-    descripcion: alternativaElegida.descripcion,
-    duracion_min: alternativaElegida.duracion_min,
-    categoria: alternativaElegida.categoria,
-    coordenadas: alternativaElegida.coordenadas,
-    lugar: alternativaElegida.lugar,
-    foto: alternativaElegida.foto,
-    resolucion: alternativaElegida.coordenadas ? { estado: "resuelta" as const, intentado_en: new Date().toISOString() } : undefined,
-    alternativas: alternativasHeredadas,
-    // El motivo y el precio eran del sitio anterior: heredarlos presentaría
-    // una razón y un coste que no corresponden al sitio nuevo.
-    motivo: undefined,
-    coste: undefined,
-    // Lo mismo con la guía: es la ficha del sitio anterior. Sin
-    // guia_intentada_en el barrido vuelve a mirar el sitio nuevo.
-    guia: undefined,
-    curiosidades: undefined,
-    guia_intentada_en: undefined,
-    guia_formato: undefined,
-  };
+  const paradaNueva = intercambiar(paradaActual, alternativaElegida);
 
   const diasNuevos = plan.dias.map((dia, iDia) => {
     if (iDia !== diaIndexEncontrado) return dia;
