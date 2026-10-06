@@ -7,7 +7,7 @@
 #
 # CORREO_DE_PRUEBA tiene que ser una dirección YA presente en
 # CORREOS_PERMITIDOS -nunca se escribe aquí ni en el repositorio-. Contra el
-# despliegue real la pone Adrián; en CI reutiliza ci-test@example.com, que
+# despliegue real la pone el dueño del producto; en CI reutiliza ci-test@example.com, que
 # ya está en la lista de prueba del job.
 set -euo pipefail
 

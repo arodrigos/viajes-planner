@@ -12,7 +12,7 @@ port = 54321
 # endpoints. `public` and `graphql_public` schemas are included by default.
 # `viajes_planner` va en último lugar a propósito: así `public` sigue siendo
 # el perfil por defecto de PostgREST en local, igual que en el proyecto real
-# tras el traspaso automático (issue #137/#138), y una petición sin cabecera
+# tras el traspaso automático, y una petición sin cabecera
 # de perfil se resuelve contra `public` en los dos sitios por igual.
 schemas = ["public", "graphql_public", "viajes_planner"]
 # Extra schemas to add to the search_path of every request.
@@ -164,7 +164,7 @@ enabled = true
 # URL con este ajuste (las plantillas de abajo imprimen `{{ .Token }}`, no
 # `{{ .SiteURL }}`), así que esto es la prueba viva de que el producto ya no
 # depende del «Site URL» -el ajuste único por proyecto que, mientras el
-# acceso dependía de él, solo podía apuntar a un producto de la flota a la
+# acceso dependía de él, solo podía apuntar a un producto del proyecto a la
 # vez. playwright.config.ts ya no ata su `baseURL` a este valor.
 site_url = "http://127.0.0.1:9999"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.

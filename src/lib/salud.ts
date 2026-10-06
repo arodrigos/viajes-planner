@@ -9,7 +9,7 @@ export interface EstadoDependencia {
 }
 
 // bar-ac4 (feedback del gatekeeper, 2026-10-04): el resultado del ÚLTIMO
-// tick ejecutado, para distinguir desde fuera "código viejo en VPS1" (sha
+// tick ejecutado, para distinguir desde fuera "código viejo en el trabajador" (sha
 // desfasado), "excepción que aborta el barrido" (error presente) y
 // "reintento que de verdad se hizo y salió negativo" (ok con contadores en
 // cero) -- hoy las tres son indistinguibles porque el heartbeat se escribe

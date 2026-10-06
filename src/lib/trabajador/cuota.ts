@@ -13,7 +13,7 @@ export function familiaDeModelo(modelo: string): FamiliaModelo {
 }
 
 // trabajador-ac4: se retira el freno preventivo y la función que lo leía
-// por decisión de Adrián — decidía con un porcentaje que el modo headless
+// por decisión de producto — decidía con un porcentaje que el modo headless
 // no publica, así que su condición de umbral nunca reflejaba una medición
 // real. Queda anotado como fase pendiente F2-15 en el manifiesto,
 // condicionada a que exista una fuente fiable del dato; no se reconstruye

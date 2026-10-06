@@ -42,7 +42,7 @@ export interface OpcionesTick {
   // eventos: ausente, no se consultan festivos ni fiestas (los tests no usan red).
   fuenteEventos?: FuenteEventos;
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): el SHA que de verdad
-  // ejecuta este tick en VPS1, distinto del commit que Vercel informa en
+  // ejecuta este tick en la máquina del trabajador, distinto del commit que Vercel informa en
   // /api/salud -- scripts/trabajador-tick.ts lo calcula con `git rev-parse`.
   commitSha?: string;
 }
@@ -71,7 +71,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
     return { cerrojoAdquirido: false, trabajosProcesados: 0 };
   }
 
-  // esqueleto-ac1: deja constancia de que VPS1 sigue vivo (/api/salud lee la
+  // esqueleto-ac1: deja constancia de que el trabajador sigue vivo (/api/salud lee la
   // fila más reciente de este origen). Va aquí, no en procesarTrabajo, para
   // que un tick con la cola vacía cuente igual que uno que sí trabaja.
   // bar-ac4: se guarda el id de esta fila para poder completarla al final

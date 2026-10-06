@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CODIGO_VALIDO } from "@/lib/auth/codigoValido";
 
-// Issue #181, tercer caso real del día: Supabase Auth del proyecto DEV real
+// Caso real de una incidencia anterior: Supabase Auth del proyecto DEV real
 // emite el código en 8 dígitos, no en los 6 que cita la documentación. El
 // producto no debe fijar una longitud que decide un servicio externo.
 describe("CODIGO_VALIDO", () => {

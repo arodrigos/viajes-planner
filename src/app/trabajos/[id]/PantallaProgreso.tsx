@@ -38,7 +38,7 @@ function formatearFecha(iso: string): string {
 }
 
 // vista-ac1: el usuario ve el NOMBRE de la etapa en curso, no una barra
-// genérica -es lo que Adrián pidió a cambio de aceptar más espera-, y cada
+// genérica -es lo que pidió el dueño del producto a cambio de aceptar más espera-, y cada
 // estado que no es éxito se explica con su motivo y, cuando lo hay, con su
 // hora de reanudación, en vez de seguir girando en silencio.
 export function PantallaProgreso({ id }: { id: string }) {

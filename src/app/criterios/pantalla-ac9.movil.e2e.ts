@@ -17,7 +17,7 @@ test("el campo del código declara inputmode, autocomplete y maxlength, con etiq
   await expect(campo).toHaveAttribute("inputmode", "numeric");
   await expect(campo).toHaveAttribute("autocomplete", "one-time-code");
   // Declara un límite (no deja el campo sin tope), pero no un valor fijo de
-  // "6" -- issue #181, tercer caso real: quién decide cuántos dígitos trae
+  // "6" -- caso real de una incidencia anterior: quién decide cuántos dígitos trae
   // el código es Supabase Auth, no este campo.
   const maxlength = Number(await campo.getAttribute("maxlength"));
   expect(maxlength).toBeGreaterThanOrEqual(6);

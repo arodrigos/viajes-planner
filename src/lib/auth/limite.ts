@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Sin tope de gasto monetario (respuesta de Adrián: el modelo se paga con
+// Sin tope de gasto monetario (decisión de producto: el modelo se paga con
 // la suscripción, no por token): el único grifo que hay que cerrar aquí es
 // cuántos trabajos puede encolar un usuario, no cuánto cuesta hacerlo.
 export async function trabajosRecientes(

@@ -406,7 +406,7 @@ export async function procesarTrabajo(
   const planConFotos = await resolverFotosPlan(fotos, planConLugares);
 
   // alt-ac1/alt-ac3/alt-ac4: alternativas SOLO para viajes nuevos (decisión
-  // de Adrián) -- es justo lo que genera este paso, nunca el barrido de
+  // de producto) -- es justo lo que genera este paso, nunca el barrido de
   // planes existentes (relleno-planes-existentes no toca `alternativas`).
   // alt-ac4: misma caché persistente que lug-ac3 exige para Nominatim --
   // en memoria se evaporaba en cada tick del trabajador (un proceso nuevo

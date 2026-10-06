@@ -46,9 +46,9 @@ const RESPUESTA_CORREO_NO_AUTORIZADO = () =>
 // para que cada endpoint escriba `const s = await requireSesion(req); if (s instanceof Response) return s;`
 //
 // acceso-ac5: `auth.users` es de un proyecto Supabase COMPARTIDO entre toda
-// la flota, así que tener sesión no basta -- sin repetir esta comprobación
-// en cada endpoint, una sesión emitida por otro producto de la flota podría
-// encolar trabajos contra la suscripción de Adrián.
+// otros productos, así que tener sesión no basta -- sin repetir esta comprobación
+// en cada endpoint, una sesión emitida por otro producto del proyecto podría
+// encolar trabajos contra la suscripción del dueño del producto.
 export async function requireSesion(request: NextRequest): Promise<Sesion | Response> {
   const sesion = await obtenerSesion(request);
   if (!sesion) return RESPUESTA_NO_AUTENTICADO();

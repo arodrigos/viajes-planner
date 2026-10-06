@@ -2,7 +2,7 @@
 // FuenteLugares es la interfaz que resolverPlan consume: una única
 // implementación real (fuenteAbierta.ts, Nominatim + Wikipedia) y un doble
 // de test con fixtures grabadas (fuenteGrabada.ts). Nada de esto se usa
-// desde src/app -- solo desde el trabajador de VPS1.
+// desde src/app -- solo desde el trabajador.
 
 import type { Foto } from "@/lib/plan/tipos";
 

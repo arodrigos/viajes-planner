@@ -1,4 +1,4 @@
-// El nombre de la etapa ES el texto que ve el usuario (lo que Adrián pidió
+// El nombre de la etapa ES el texto que ve el usuario (lo que pidió el dueño del producto
 // a cambio de aceptar más espera): no hay una traducción id -> texto
 // legible por separado. El porcentaje es la posición de esa etapa dentro
 // del flujo declarado en el diseño (arquitectura), no un dato guardado.

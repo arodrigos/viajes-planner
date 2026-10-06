@@ -21,8 +21,8 @@ concurrency:
   group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || format('ci-run-{0}', github.run_id) }}
   cancel-in-progress: true
 
-# CORREOS_PERMITIDOS no es un secreto de producto (lo es la lista real de
-# Adrián, que vive solo en Vercel); es el valor de prueba que necesita
+# CORREOS_PERMITIDOS no es un secreto de producto (lo es la lista real, que
+# vive solo en Vercel); es el valor de prueba que necesita
 # cualquier `npm run build` en CI desde que el prebuild lo exige (acceso-ac2).
 # Cada test pide su propio código, así que su buzón de Mailpit nunca tiene
 # más de un mensaje (no hay que suponer en qué orden Mailpit devolvería dos
@@ -350,9 +350,9 @@ jobs:
       - name: verificar respuesta uniforme de verificar-codigo (unif-ac5)
         run: CORREO_DE_PRUEBA=ci-test@example.com bash scripts/verificar-acceso-uniforme.sh
 
-  # Issue #181 (claude-fleet-infra): el pipeline horizontal mergea migraciones
+  # El pipeline horizontal mergeaba migraciones
   # a `main` pero ningún paso las aplica de verdad contra el proyecto
-  # Supabase real -- el run a89b lo demostró rompiendo "Mis viajes" en
+  # Supabase real -- un run anterior lo demostró rompiendo "Mis viajes" en
   # producción (3 migraciones aprobadas por el gatekeeper, nunca aplicadas).
   # `needs` en TODOS los demás jobs a propósito: solo se dispara cuando el
   # resto ya está verde, para que el oráculo `comprobar_migraciones_aplicadas`
@@ -362,10 +362,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint-typecheck-test, verificar-esqueleto, persistencia, e2e]
     # lug-ac5: desde el 2026-10-03 `dev` es la rama de trabajo y el
-    # trabajador de VPS1 corre sobre ella, contra el MISMO proyecto
+    # trabajador corre sobre ella, contra el MISMO proyecto
     # Supabase (DEV) que `main` -- sin aplicar también en `dev`, el primer
     # guardarPlan tras mergear la 011 falla con "column paradas.lugar does
-    # not exist" (el fallo real del run a89b, ahora en la rama nueva).
+    # not exist" (el mismo fallo real de antes, ahora en la rama nueva).
     if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
     env:
       SUPABASE_PROJECT_REF: ihgounrvbggdowbdtzrr
@@ -374,8 +374,8 @@ jobs:
       - run: bash scripts/aplicar-migraciones-reales.sh
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      # Paso barato del issue #181 (claude-fleet-infra): la API de logs de
-      # Actions no está disponible para el runner (issue #140) -- este
+      # Paso barato: la API de logs de Actions no está disponible para el
+      # runner -- este
       # artefacto es lo que el gatekeeper sí puede descargar y leer ya
       # estructurado. `if: always()` porque el script escribe el JSON
       # también cuando rechaza una migración o falla a mitad (trap EXIT).

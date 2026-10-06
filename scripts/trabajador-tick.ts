@@ -1,8 +1,8 @@
-// Entrypoint del cron de VPS1 (cada dos minutos, manifiesto.cron). NO se
-// ejecuta desde este agente de desarrollo: instalarlo es un paso de
-// traspaso que hace mantenimiento sobre la flota viva, fuera del terreno
-// de esta etapa (CLAUDE.md, regla 8). Vive en su propio directorio de
-// trabajo, efímero por trabajo, y usa la sesión de Claude Code de Adrián
+// Entrypoint del cron del trabajador (cada dos minutos, manifiesto.cron).
+// NO se ejecuta desde este agente de desarrollo: instalarlo es un paso de
+// traspaso, fuera del terreno de esta etapa (CLAUDE.md, regla 8). Vive en
+// su propio directorio de trabajo, efímero por trabajo, y usa la sesión de
+// Claude Code de la cuenta que ejecuta el trabajador
 // vía el binario `claude` del PATH heredado, nunca una clave de API.
 import { execSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";

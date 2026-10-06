@@ -2,7 +2,7 @@
 // herramientas alimentado con texto de terceros (modelo_amenazas,
 // trabajador-vps1). El entorno que recibe esa invocación lleva solo lo
 // imprescindible para que el binario arranque y encuentre la sesión de
-// Adrián (HOME); ninguna clave de Supabase, openrouteservice ni MapTiler
+// la cuenta que ejecuta el trabajador (HOME); ninguna clave de Supabase, openrouteservice ni MapTiler
 // pasa nunca por aquí, sean cuales sean sus nombres futuros.
 const VARIABLES_PERMITIDAS = ["PATH", "HOME", "LANG", "LC_ALL", "TZ", "TMPDIR", "USER", "SHELL"] as const;
 

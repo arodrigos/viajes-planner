@@ -1,6 +1,6 @@
 // Entrada del usuario: destino/tipo, fechas o época, días, personas con
 // edad, perfil de viaje y presupuesto. El alojamiento es SIEMPRE opcional
-// (respuesta de Adrián): en el flujo normal no se pide, la zona la propone
+// (decisión de producto): en el flujo normal no se pide, la zona la propone
 // la herramienta (bloque alojamiento-propuesto). Solo existe como campo
 // avanzado por si el usuario ya ha reservado.
 export type Perfil = "familiar" | "amigos" | "pareja" | "solo";

@@ -42,7 +42,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud (esqueleto-ac1)",
     expect(cuerpo.credenciales_modelo_en_web).toBe(false);
   });
 
-  // bar-ac4: sin esto, "código viejo en VPS1" y "excepción que aborta el
+  // bar-ac4: sin esto, "código viejo en el trabajador" y "excepción que aborta el
   // barrido" eran indistinguibles desde fuera -- /api/salud solo informaba
   // del commit de Vercel, nunca del que de verdad ejecuta el trabajador.
   it("expone trabajador.commit_sha y trabajador.ultimo_resultado del último tick", async () => {

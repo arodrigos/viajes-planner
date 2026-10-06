@@ -45,7 +45,7 @@ async function cookieDeSesion(email: string): Promise<string> {
 }
 
 // acceso-ac5(b,c): la lista blanca sigue siendo la frontera DESPUÉS de
-// autenticarse. `auth.users` es compartida entre toda la flota, así que una
+// autenticarse. `auth.users` es compartida entre todos los productos del proyecto, así que una
 // sesión válida por sí sola (el caso ya cubierto por sesion.integration.test.ts
 // con 401) no basta como prueba -- hace falta una sesión real de un correo
 // fuera de CORREOS_PERMITIDOS, contra las rutas reales, para que este

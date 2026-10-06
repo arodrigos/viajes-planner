@@ -46,6 +46,6 @@ test("la guía conserva su extensión, estructura y carácter público sin relaj
   const texto = await page.evaluate(() => document.body.innerText);
   expect(texto).not.toMatch(/@[a-z0-9.-]+\.[a-z]{2,}/i);
 
-  // (d) captura para el juicio del gatekeeper (issue #141).
+  // (d) captura para el juicio del gatekeeper.
   await page.screenshot({ path: "artefactos/capturas/guia.png", fullPage: true });
 });

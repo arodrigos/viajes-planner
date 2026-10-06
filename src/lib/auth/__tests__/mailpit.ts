@@ -43,7 +43,7 @@ export async function leerCorreo(email: string): Promise<{ html: string }> {
 // Sustituye a `leerEnlaceMagico` (retirado con el bloque
 // codigo-en-la-misma-pantalla): ya no hay ningún enlace que leer, solo un
 // código que la plantilla imprime con `{{ .Token }}` -su longitud la decide
-// el ajuste de Supabase Auth del proyecto (issue #181: 6 en esta pila
+// el ajuste de Supabase Auth del proyecto (6 en esta pila
 // local, 8 en el proyecto DEV real), nunca un número fijo en este helper.
 export async function leerCodigo(email: string): Promise<string> {
   const { html } = await leerCorreo(email);

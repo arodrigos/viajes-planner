@@ -16,7 +16,7 @@ export COMMIT_SHA
 COMMIT_SHA="$(git rev-parse HEAD)"
 VIAJES_URL="http://localhost:${PORT}"
 # acceso-ac2: el prebuild exige la lista blanca configurada; en un build
-# real de Vercel la pone Adrián, aquí basta un valor de prueba.
+# real de Vercel la pone el dueño del producto, aquí basta un valor de prueba.
 export CORREOS_PERMITIDOS="${CORREOS_PERMITIDOS:-ci-test@example.com}"
 
 npm run build
@@ -43,13 +43,13 @@ jq -e '.crons_registrados == 1' /tmp/salud.json >/dev/null
 # LIMITACIÓN DECLARADA (ver desviaciones en el entregable de desarrollo):
 # este job arranca la app a propósito sin SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY
 # (más abajo, trabajador-vps1, depende de ese vacío para probar su propio
-# camino de error) y sin un trabajador de VPS1 corriendo tick(). Por eso
+# camino de error) y sin un trabajador corriendo tick(). Por eso
 # solo se comprueba que estos campos existen con el TIPO que el smoke_test
 # del manifiesto espera, no los valores "sanos" (supabase: "activa",
 # trabajador.visto_hace_seg < 300...): esos sí los comprueba de verdad
 # el test de integración de route.ts contra Supabase local (npm run
 # test:integration, job "persistencia"), y el smoke_test completo solo
-# tiene sentido contra el despliegue real ya con VPS1 vivo.
+# tiene sentido contra el despliegue real ya con el trabajador vivo.
 echo "== esqueleto-ac1: /api/salud trae la forma completa que pide el smoke_test del manifiesto =="
 jq -e '
   (.supabase == "error") and
@@ -75,7 +75,7 @@ for dominio in googlesyndication.com doubleclick.net "adsystem.amazon" taboola.c
 done
 
 echo "== trabajador-vps1: scripts/trabajador-tick.ts carga fuera de Next.js (--conditions=react-server) =="
-# El script del cron de VPS1 corre con `tsx` puro, sin el bundler de
+# El script del cron del trabajador corre con `tsx` puro, sin el bundler de
 # Next.js: sin --conditions=react-server, cada módulo "server-only" que
 # importa (clienteServicio, procesarTrabajo...) lanza al cargar. Aquí no
 # hay SUPABASE_URL, así que el fallo esperado es ESE, no el de server-only.

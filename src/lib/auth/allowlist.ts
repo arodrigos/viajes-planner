@@ -1,5 +1,5 @@
 // Lista blanca de correos: el mecanismo que mantiene el encuadre personal
-// confirmado por Adrián y que impide que el RGPD entre por descuido. Una
+// confirmado como decisión de producto y que impide que el RGPD entre por descuido. Una
 // lista vacía no es "nadie autorizado todavía", es una configuración rota:
 // el arranque debe fallar en vez de dejar pasar a cualquiera por omisión.
 const VARIABLE = "CORREOS_PERMITIDOS";

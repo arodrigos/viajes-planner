@@ -13,7 +13,7 @@ function restaurarEnv() {
 // cliente-ac1: el esquema se declara en un único sitio (SUPABASE_SCHEMA),
 // viaja en todas las peticiones y su ausencia se nota al instante en vez de
 // degradar a `public` -que en un proyecto compartido con el resto de la
-// flota leería o escribiría sobre datos ajenos.
+// proyecto leería o escribiría sobre datos ajenos.
 describe("clienteServicio y clienteAnonimo (cliente-ac1)", () => {
   beforeEach(() => {
     process.env.SUPABASE_URL = "http://localhost:54321";
@@ -74,7 +74,7 @@ describe("clienteServicio y clienteAnonimo (cliente-ac1)", () => {
   // incisión) no falla ni deja de mandar cabecera -manda "Accept-Profile:
   // public" porque supabase-js usa DEFAULT_DB_OPTIONS = { schema: "public" }-
   // así que se resolvería en silencio contra el esquema de otro producto de
-  // la flota en el mismo proyecto compartido. Eso es justo lo que la
+  // otro producto en el mismo proyecto compartido. Eso es justo lo que la
   // fábrica ya no permite construir sin SUPABASE_SCHEMA.
   it("sin schema, supabase-js cae a 'public' en vez de fallar (lo que la fábrica ya no permite)", async () => {
     const { createClient } = await import("@supabase/supabase-js");

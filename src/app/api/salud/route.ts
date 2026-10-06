@@ -23,8 +23,8 @@ const SECRETOS_REQUERIDOS = [
 ] as const;
 
 // Estas variables no deberían existir jamás en el entorno de la mitad web:
-// son las credenciales con las que VPS1 invoca `claude` bajo la suscripción
-// de Adrián. Si alguna aparece aquí, la frontera entre las dos mitades
+// son las credenciales con las que el trabajador invoca `claude` bajo la
+// suscripción del dueño del producto. Si alguna aparece aquí, la frontera entre las dos mitades
 // (modelo de amenazas, mitigación de credenciales) se ha roto.
 const VARIABLES_CREDENCIAL_MODELO = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_API_KEY"] as const;
 

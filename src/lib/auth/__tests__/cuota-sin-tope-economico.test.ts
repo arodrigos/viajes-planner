@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Salvaguarda permanente, no atada a un único criterio de aceptación: la
-// respuesta de Adrián sustituyó el tope mensual en euros por pausa y
+// la decisión de producto sustituyó el tope mensual en euros por pausa y
 // retomada de cuota de suscripción (ver src/lib/trabajador/cuota.ts, donde
 // vive el mecanismo, y trabajador-ac4 (d), que también cita este test).
 // Demuestra que el tope antiguo no ha sobrevivido en ninguna parte del

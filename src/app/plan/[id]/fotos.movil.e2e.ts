@@ -130,7 +130,7 @@ test("una tarjeta con foto muestra la imagen y su atribución; sin foto, un marc
   await expect(tarjetaSinFoto.locator("img")).toHaveCount(0);
 
   // fot-ac5: capturas claro/oscuro para el juicio visual del gatekeeper
-  // (issue #141) -una tarjeta con foto, otra sin-.
+  // -una tarjeta con foto, otra sin-.
   await pagina.emulateMedia({ colorScheme: "light" });
   await pagina.screenshot({ path: "artefactos/capturas/plan-fotos-claro.png" });
   await pagina.emulateMedia({ colorScheme: "dark" });

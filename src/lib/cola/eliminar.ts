@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // borrar-ac2/borrar-ac3: MARCA, nunca borra -la fila, su plan, sus versiones
-// y sus paradas siguen existiendo, así que Adrián puede deshacerlo a mano
+// y sus paradas siguen existiendo, así que se puede deshacer a mano
 // poniendo esta columna a null. El filtro `usuario_id` es la defensa real
 // (mismo patrón que listarViajes/obtenerTrabajo: la clave de servicio
 // atraviesa RLS, así que el control vive aquí). `is("eliminado_en", null)`

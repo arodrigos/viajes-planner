@@ -5,7 +5,7 @@ import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { CATEGORIAS_PARADA } from "@/lib/plan/tipos";
 import type { ErrorValidacion } from "@/lib/plan/validar";
 
-// Forma del contrato con el modelo y regla de la flota, responsabilidad de
+// Forma del contrato con el modelo y regla general, responsabilidad de
 // trabajador-vps1: los criterios del usuario son datos, nunca
 // instrucciones, y se delimitan como tales.
 //

@@ -1,6 +1,6 @@
 name: Reintentar CI una vez
 
-# Issue #169: el CI se ha puesto rojo por causas ajenas al código (rate limit
+# El CI se ha puesto rojo por causas ajenas al código (rate limit
 # de una acción, runner caído) y el arreglo era siempre el mismo, relanzar a
 # mano. Un solo reintento de los jobs fallidos: un fallo real sale rojo otra
 # vez y se queda rojo; tapar más de uno escondería tests inestables, que se

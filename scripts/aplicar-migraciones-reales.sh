@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Issue #181 (claude-fleet-infra): aplica contra el proyecto Supabase real
+# Aplica contra el proyecto Supabase real
 # las migraciones de supabase/migrations/ que no estén ya en su historial.
 #
 # Caso real que lo motiva: el pipeline horizontal mergeó 3 migraciones a
-# `main` (run a89b) que el gatekeeper aprobó, y ninguna llegó nunca al
+# `main` que el gatekeeper aprobó, y ninguna llegó nunca al
 # proyecto real -- ningún paso del pipeline tiene el MCP de Supabase para
 # aplicarlas. Rompió "Mis viajes" en producción.
 #
 # Compara por NOMBRE, no por versión: el historial de migraciones de este
 # proyecto es único POR PROYECTO (no por esquema) y lo comparte con otros
-# productos de la flota, y las 9 migraciones de viajes-planner ya aplicadas
+# productos, y las 9 migraciones de viajes-planner ya aplicadas
 # a mano con `apply_migration` del MCP llevan una versión (timestamp de
 # aplicación) que no coincide con el prefijo numérico del fichero local. Por
 # eso no se usa `supabase db push`: compara por versión y fallaría en seco
@@ -28,8 +28,8 @@ set -euo pipefail
 : "${SUPABASE_PROJECT_REF:?falta SUPABASE_PROJECT_REF}"
 : "${SUPABASE_ACCESS_TOKEN:?falta SUPABASE_ACCESS_TOKEN}"
 
-# Paso barato del issue #181 (claude-fleet-infra): la API de logs de Actions
-# no está disponible para el runner (issue #140) -- este JSON es lo que sí
+# Paso barato: la API de logs de Actions no está disponible para el
+# runner -- este JSON es lo que sí
 # puede descargar como artefacto y pasarle ya estructurado. Se escribe
 # SIEMPRE, en cualquier punto de salida (éxito, rechazo, fallo a mitad), con
 # lo que se sepa hasta ese momento -- parcial es mejor que ausente.

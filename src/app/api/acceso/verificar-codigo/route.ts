@@ -51,7 +51,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "código incorrecto o caducado" }, { status: 401 });
     case "configuracion-invalida":
       // issue #40: el motivo real (nombra la variable de entorno) queda en
-      // el registro del servidor, donde mantenimiento lo necesita; hacia
+      // el registro del servidor, donde lo necesita quien opera el despliegue; hacia
       // fuera solo un 500 genérico, igual que el resto de 500 de esta ruta.
       console.error(`verificar-codigo: configuración inválida: ${resultado.motivo}`);
       return NextResponse.json({ error: "error de configuración del servidor" }, { status: 500 });

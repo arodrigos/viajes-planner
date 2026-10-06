@@ -1,5 +1,5 @@
 // El alojamiento nunca es "required": esa es literalmente la respuesta de
-// Adrián hecha esquema.
+// del dueño del producto hecha esquema.
 export const esquemaCriterios = {
   $id: "https://viajes-planner/esquema-criterios.json",
   type: "object",

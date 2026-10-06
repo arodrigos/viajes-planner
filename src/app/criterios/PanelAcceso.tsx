@@ -147,8 +147,8 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
             del producto, que esas plantillas ya no llevan por ser comunes a
             Auth entero-, y el aviso del enlace cubre el estado real de hoy en
             producción sin distinguir si el correo está en la lista blanca. El
-            texto ya no dice un número de dígitos fijo (issue #181, tercer caso
-            real del día): Supabase Auth decide cuántos son, no el producto.
+            texto ya no dice un número de dígitos fijo (caso real de una
+            incidencia anterior): Supabase Auth decide cuántos son, no el producto.
             txt-ac4: "con el asunto «...»" era una promesa que este repo no
             controla -el asunto lo fija el panel de Supabase, no la plantilla-,
             así que se describe por el texto que sí imprime la plantilla. */}

@@ -71,7 +71,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
   });
 
   it("cuadra el total, usa solo las veinticinco claves numéricas, y no publica ningún dato personal", async () => {
-    // Plan 1: destino descriptivo real de Adrián, trabajo vivo, parada sin
+    // Plan 1: destino descriptivo real de un usuario, trabajo vivo, parada sin
     // intentar, ciudad efectiva ya resuelta (ciu-ac6).
     const plan1: Plan = {
       id: `${PREFIJO}londres`,
