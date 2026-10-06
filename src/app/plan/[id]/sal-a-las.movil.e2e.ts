@@ -1,5 +1,6 @@
 import { expect, test, type Browser } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { comprobarAccesibilidad } from "@/app/axe-e2e";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
@@ -95,6 +96,17 @@ test("a tiempo: «Sal antes de las 11:15» (sal-ac1)", async ({ browser }) => {
   const { contexto, ahora } = await abrirConLaPrimeraVisitada(browser, email, planId, "10:30:10", "Europe/Lisbon");
 
   await expect(ahora).toContainText("Sal antes de las 11:15 para llegar a las 11:40 (≈ 20 min a pie)");
+  // ah-ac2: la hora destaca y la línea no se pinta como ayuda pequeña y gris.
+  const linea = ahora.locator("p", { hasText: "Sal antes de las" });
+  await expect(linea).not.toHaveClass(/ayuda/);
+  await expect(linea.locator("time", { hasText: "11:15" })).toBeVisible();
+  const pesoHora = await linea.locator("time").evaluate((el) => Number(getComputedStyle(el).fontWeight));
+  expect(pesoHora).toBeGreaterThanOrEqual(600);
+  const tamanoLinea = await linea.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  const tamanoBase = await ahora.page().locator("main p").first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(tamanoLinea).toBeGreaterThanOrEqual(16);
+  expect(tamanoLinea).toBeGreaterThanOrEqual(tamanoBase);
+  await comprobarAccesibilidad(ahora.page());
   await contexto.close();
 });
 
@@ -103,6 +115,8 @@ test("pasada la hora de salida dice cuándo llegarías y cuánto tarde (sal-ac2)
   const tarde = await sembrar(supabase, "ci-test-sal-ac2a@example.com", "b", LISBOA);
   const a = await abrirConLaPrimeraVisitada(browser, "ci-test-sal-ac2a@example.com", tarde, "11:30:10", "Europe/Lisbon");
   await expect(a.ahora).toContainText("Si sales ya, llegas a las 11:50 (10 min tarde)");
+  const pesoLlegada = await a.ahora.locator("time", { hasText: "11:50" }).evaluate((el) => Number(getComputedStyle(el).fontWeight));
+  expect(pesoLlegada).toBeGreaterThanOrEqual(600);
   await a.contexto.close();
 
   // Dentro del margen de 5 min: ya pasó la hora de salida, pero se llega a tiempo.

@@ -930,6 +930,9 @@ footer a,
 .ahora-parada {
   font-size: 1.125rem;
 }
+.ahora-salida strong {
+  font-weight: 700;
+}
 .solo-lectores {
   position: absolute;
   width: 1px;

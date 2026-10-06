@@ -56,7 +56,7 @@ describe("TarjetaParada con errores por parada", () => {
   it("un error de visita se pinta con role=alert y deja el botón activo y sin marcar", () => {
     render(<ul>{pintar(parada("a", "Parada A (ejemplo)"), { tipo: "visita", mensaje: "No se ha podido guardar la visita. Revisa la conexión y vuelve a intentarlo." })}</ul>);
     expect(screen.getByRole("alert")).toHaveTextContent("No se ha podido guardar la visita.");
-    const boton = screen.getByRole("button", { name: "Marcar como visitada" });
+    const boton = screen.getByRole("button", { name: "Marcar como visitada: Parada A (ejemplo)" });
     expect(boton).toBeEnabled();
     expect(boton).toHaveAttribute("aria-pressed", "false");
   });
