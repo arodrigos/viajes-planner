@@ -12,7 +12,7 @@ export type ResultadoVerificacionCodigo =
 // poder probar el orden de las dos operaciones sin depender de una petición
 // HTTP real. ESE ORDEN ES LA DECISIÓN DE SEGURIDAD DEL BLOQUE (cod-ac3):
 // `verifyOtp({ email, token })` acepta cualquier correo del proyecto
-// Supabase COMPARTIDO por toda la flota, así que la lista blanca se
+// Supabase COMPARTIDO con otros productos, así que la lista blanca se
 // comprueba ANTES de llamar a Supabase Auth -- si se invirtiera el orden,
 // este producto serviría de oráculo de canje para los usuarios de los
 // demás productos del proyecto compartido.

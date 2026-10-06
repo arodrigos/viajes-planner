@@ -1,5 +1,5 @@
 // reco-ac1: el script que el Gatekeeper ejecuta él mismo (manifiesto.
-// verificacion_modelo_real, issue #171) para comprobar que el camino de
+// verificacion_modelo_real) para comprobar que el camino de
 // producción de verdad genera un plan sin ninguna URL colada, invocando al
 // modelo real -- nunca un doble, nunca esta etapa de desarrollo. Recorre
 // EXACTAMENTE las mismas funciones que procesarTrabajo.ts usa en

@@ -7,7 +7,7 @@ de estos servicios (`mapa-del-dia`, `fotos-paradas`, `alternativas-equivalentes`
 
 ## Fuentes y políticas de uso
 
-Los cuatro servicios siguientes son los únicos aprobados por Adrián
+Los cuatro servicios siguientes son los únicos aprobados como decisión de producto
 (2026-10-03): gratuitos, sin cuenta, sin clave. Ninguna otra fuente de
 mapas, lugares o fotos puede usarse sin su aprobación explícita.
 
@@ -20,15 +20,15 @@ mapas, lugares o fotos puede usarse sin su aprobación explícita.
   coordenadas reales. Política de uso estricta: máximo 1 petición/segundo,
   un solo hilo en vuelo, `User-Agent` identificable obligatorio, caché
   obligatoria de resultados (también los negativos). Llamado SOLO desde el
-  trabajador de VPS1 (`src/lib/lugares/fuenteAbierta.ts`).
+  trabajador (`src/lib/lugares/fuenteAbierta.ts`).
 - **Wikipedia y Wikimedia Commons** (`*.wikipedia.org`, `commons.wikimedia.org`,
   `upload.wikimedia.org`): respaldo de resolución cuando Nominatim no
   acepta ningún candidato, y origen de la foto de cada parada (REST
   `page/summary` + `imageinfo` de Commons). Llamado SOLO desde el
-  trabajador de VPS1.
+  trabajador.
 - **Overpass API** (`overpass-api.de`): consulta pública de OpenStreetMap
   por etiqueta, usada para completar alternativas cercanas cuando el
-  modelo no propuso suficientes. Llamado SOLO desde el trabajador de VPS1,
+  modelo no propuso suficientes. Llamado SOLO desde el trabajador,
   con la consulta QL construida exclusivamente desde el enum cerrado de
   categorías y números (nunca desde texto libre).
 
@@ -38,7 +38,7 @@ mapas, lugares o fotos puede usarse sin su aprobación explícita.
   las fichas `see/do/eat/drink` (`ver/hacer/comer/beber` en es) para dar
   consejo y precio a cada parada. Ritmo propio: una página cada 30 s como
   mínimo y caché de 30 días en `cache_sitios` (también la ausencia de
-  página). Llamado SOLO desde el trabajador de VPS1
+  página). Llamado SOLO desde el trabajador
   (`src/lib/guia/wikivoyage.ts`). Las curiosidades salen del extracto de
   Wikipedia que ya se pide para la foto, sin petición nueva.
 

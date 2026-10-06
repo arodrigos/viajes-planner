@@ -324,7 +324,7 @@ export async function resolverPuertaDeCiudad(
 }
 
 // Feedback del gatekeeper (bar-ac4, 2026-10-04): sin esto, un tick que se
-// queda colgado (código viejo en VPS1, una excepción que aborta el
+// queda colgado (código viejo en el trabajador, una excepción que aborta el
 // barrido, o un reintento que de verdad se hizo y salió negativo) son tres
 // hipótesis indistinguibles desde fuera. `planesMirados` es el número de
 // planes con al menos una parada pendiente considerados este tick (tengan
@@ -382,7 +382,7 @@ function contadoresAlternativasVacios(): ContadoresAlternativas {
   return { candidatas: 0, intentadas: 0, conCercanos: 0, sinDatos: 0, sinCategoria: 0, sinCoordenadas: 0, categorizadas: 0, falloFuente: 0, errorInterno: 0, ultimoError: null };
 }
 
-// rel-ac1/rel-ac2/bar-ac1: cumple la decisión de Adrián -- coordenadas (y
+// rel-ac1/rel-ac2/bar-ac1: cumple la decisión de producto -- coordenadas (y
 // fotos) de TODOS los planes con al menos una versión, tengan o no trabajo
 // vivo, sin invocar al modelo y sin regenerar el plan. ciu-ac1/ciu-ac3: el
 // cualificador geográfico y la caja de cada parada vienen de la ciudad

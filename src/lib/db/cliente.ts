@@ -6,7 +6,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 // supabase-js mande `Accept-Profile` en lecturas y `Content-Profile` en
 // escrituras y en `.rpc()` sin que ningún punto de llamada tenga que
 // acordarse. Sin la variable, lanza: no hay valor por defecto `public`,
-// porque en un proyecto compartido con el resto de la flota ese fallback
+// porque en un proyecto compartido con otros productos ese fallback
 // silencioso leería o escribiría sobre datos ajenos.
 function esquema(): string {
   const valor = process.env.SUPABASE_SCHEMA;

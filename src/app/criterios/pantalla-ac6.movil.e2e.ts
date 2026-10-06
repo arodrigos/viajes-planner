@@ -14,7 +14,7 @@ async function pedirYCanjear(peticion: APIRequestContext, email: string): Promis
 
   const { html } = await leerCorreo(email);
   // (a) exactamente un grupo de dígitos -su longitud la decide el ajuste de
-  // Supabase Auth del proyecto (6 en esta pila local, issue #181: el
+  // Supabase Auth del proyecto (6 en esta pila local: el
   // proyecto DEV real usa 8), nunca un número fijo aquí- y es el que canjea
   // con éxito.
   const codigos = [...html.matchAll(/\b(\d{6,10})\b/g)].map((m) => m[1]);

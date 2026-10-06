@@ -5,7 +5,7 @@ import { normalizarNombre } from "./normalizar";
 import { FalloRedCiudad, PresupuestoAgotado, type ZonaGeocodificada, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares, type PresupuestoPeticiones } from "./tipos";
 import { VERSION_RESOLUTOR_ACTUAL } from "./ciudad";
 
-// lug-ac3: identifica la APLICACIÓN y el repo, nunca a Adrián ni a la
+// lug-ac3: identifica la APLICACIÓN y el repo, nunca a una persona ni a la
 // familia. La versión viene del propio package.json en build; en local o
 // en un entorno sin esa variable cae a "0.0.0", que sigue siendo un UA
 // válido y honesto (no inventa un número).

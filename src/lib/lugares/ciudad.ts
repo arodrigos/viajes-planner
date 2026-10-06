@@ -109,7 +109,7 @@ export interface CiudadEfectiva {
   // veredicto. Ausente en todo lo escrito antes de este bloque (se trata
   // como "anterior a cualquier versión", nunca como "versión 0 válida").
   version_resolutor?: number;
-  // bar-ac2/ciudad-a-mano: lo que Adrián escribió a mano cuando el estado es
+  // bar-ac2/ciudad-a-mano: lo que el usuario escribió a mano cuando el estado es
   // "pendiente-manual" -- el barrido lo geocodifica en el siguiente tick
   // (bloque barrido-todos-los-planes); el endpoint que lo escribe es de un
   // bloque posterior, pero el campo tiene que existir ya para que el
@@ -265,7 +265,7 @@ async function elegirGanador(fuente: FuenteCiudad, escrutinio: Escrutinio): Prom
 
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): antes estos dos casos
   // compartían el mismo motivo ("abarca una zona demasiado grande"), que es
-  // justo lo que Adrián lee en el aviso de ciudad-a-mano -- y es FALSO
+  // justo lo que el usuario lee en el aviso de ciudad-a-mano -- y es FALSO
   // cuando lo que pasó es que `geocodificarCiudad` no devolvió caja (no se
   // pudo verificar, no que la zona fuera grande). Con datos reales esto
   // importa: dice cuál de las dos ramas se tomó de verdad.
@@ -367,7 +367,7 @@ async function intentarCajaDelDestino(
 }
 
 // bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): colas
-// cualificadoras conocidas que Adrián antepone/pospone al nombre real de
+// cualificadoras conocidas que el usuario antepone/pospone al nombre real de
 // la ciudad en un destino descriptivo. De más larga a más corta para que
 // "en familia con niños" se quite entera antes que "con niños" sola.
 const COLAS_CUALIFICADORAS_DESTINO = [

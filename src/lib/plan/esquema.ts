@@ -1,5 +1,5 @@
 // Esquema JSON del plan. Es doble contrato: aquí valida lo que construye la
-// mitad web, y el mismo esquema es el que el trabajador de VPS1 usará para
+// mitad web, y el mismo esquema es el que el trabajador usará para
 // validar la respuesta de texto del modelo (bloque trabajador-vps1) antes de
 // escribir nada en la base de datos.
 export const esquemaPlan = {

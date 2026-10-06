@@ -132,7 +132,7 @@ export interface Parada {
   // "se intentó y no había foto aceptable" ('foto' null, esto con fecha).
   foto_intentada_en?: string;
   // bloque alternativas-equivalentes: solo en planes generados a partir de
-  // este bloque (decisión de Adrián) -- ausente o vacío en los anteriores,
+  // este bloque (decisión de producto) -- ausente o vacío en los anteriores,
   // nunca un array a medias.
   alternativas?: Alternativa[];
   // bloque uso-en-destino (dest-ac4): se deriva en repositorio.ts a partir

@@ -10,7 +10,7 @@
 # MIGRACIONES_PRE_AUTOMATIZACION. El diseño decía "lo pasa sobre
 # supabase/migrations/*.sql" sin excepción, pero probado contra el repo
 # real, la 00000000000005_esquema_fase1.sql (aplicada a mano vía MCP antes
-# de que existiera el job aplicar-migraciones, issue #181) contiene
+# de que existiera el job aplicar-migraciones) contiene
 # `rename column` y `drop constraint` -- DDL no aditivo que el patrón real
 # SÍ rechaza. Comprobar el histórico entero habría dejado este paso en rojo
 # para siempre en cualquier PR, aunque ninguna migración nueva tuviera nada

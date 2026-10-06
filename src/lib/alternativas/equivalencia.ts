@@ -26,7 +26,7 @@ export interface ResultadoEquivalencia {
 }
 
 // `perfil` decide el radio -2.000 m para el perfil familiar, 3.000 m para
-// el resto (diseño, decisión de Adrián sobre el alcance del paseo)-.
+// el resto (diseño, decisión de producto sobre el alcance del paseo)-.
 export function esEquivalente(
   parada: Pick<Parada, "categoria" | "duracion_min" | "coordenadas">,
   alternativa: Pick<Alternativa, "categoria" | "duracion_min" | "coordenadas">,

@@ -5,15 +5,15 @@
 Planificador/optimizador de viajes turísticos. Producto **personal y
 familiar, sin monetización** — es la condición de la que dependen a la vez
 Vercel Hobby, OpenFreeMap y la reutilización de contenido con licencia
-compartir igual. No se rompe nunca sin decisión explícita de Adrián.
+compartir igual. No se rompe nunca sin decisión explícita del dueño del producto.
 
 ## Arquitectura (resumen; el diseño completo vive en el pipeline horizontal)
 
 Dos mitades que no se pisan. La mitad web (Next.js App Router, Vercel Hobby,
 Supabase) sirve la interfaz y encola trabajos; no habla con ningún modelo y
-no tiene ninguna credencial de modelo. La mitad que piensa vive en VPS1: un
+no tiene ninguna credencial de modelo. La mitad que piensa vive en la máquina del trabajador: un
 tick por cron toma trabajos de la cola y ejecuta `claude -p` en modo no
-interactivo bajo la suscripción de Adrián, nunca con una clave de API
+interactivo bajo la suscripción del dueño del producto, nunca con una clave de API
 facturada por token.
 
 ## Reglas de este repo
@@ -33,7 +33,7 @@ facturada por token.
   `COMMIT_SHA` como equivalente fuera de Vercel), nunca de invocar `git` en
   tiempo de ejecución: en producción no hay `.git` disponible.
 - Mapa, resolución de lugares y fotos usan EXCLUSIVAMENTE los cuatro
-  servicios abiertos sin cuenta aprobados por Adrián (OpenFreeMap,
+  servicios abiertos sin cuenta aprobados como decisión de producto (OpenFreeMap,
   Nominatim, Wikipedia/Wikimedia Commons, Overpass API): nunca Google Maps
   Platform ni ningún otro proveedor de mapas o lugares. Detalle en
   `docs/fuentes-de-datos.md`.

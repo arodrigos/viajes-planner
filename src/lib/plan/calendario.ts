@@ -22,7 +22,7 @@ function fechaHoraComoArray(fecha: string, hora: string): DateArray {
 // hor-ac1: los mismos rangos que enseña la tarjeta (calcularHorarioDia), no
 // la ventana entera de la franja. Son hora LOCAL del lugar: "local"/"local"
 // evita que `ics` las reconvierta según el huso del proceso (no sería el
-// mismo en VPS1 que en Vercel); la zona se añade después como TZID (ver
+// mismo en el trabajador que en Vercel); la zona se añade después como TZID (ver
 // conZona), porque `ics` solo sabe escribir hora flotante o UTC.
 function eventoDeParada(dia: Dia, horario: HorarioParada, parada: Parada, destino: string): EventAttributes {
   return {

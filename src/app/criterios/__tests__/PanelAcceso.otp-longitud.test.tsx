@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// Issue #181, tercer caso real del día: Adrián pedía acceso, Supabase Auth
+// Caso real de una incidencia anterior: el dueño del producto pedía acceso, Supabase Auth
 // del proyecto DEV real le mandaba un código de 8 dígitos, y la pantalla
 // -maxLength={6} en el campo, más un regex de exactamente 6- no dejaba ni
 // teclearlo entero. Este test reproduce ese escenario exacto: sin el fix,

@@ -24,8 +24,8 @@ function limiteDeUsoDesde(texto: string): LimiteDeUsoAlcanzado | null {
   return horaReinicio ? new LimiteDeUsoAlcanzado(horaReinicio, null) : null;
 }
 
-// Implementación real, para VPS1: ejecuta `claude -p` en modo no
-// interactivo bajo la sesión de Adrián (Claude Code — Non-interactive
+// Implementación real, para la máquina del trabajador: ejecuta `claude -p`
+// en modo no interactivo bajo la sesión de su cuenta (Claude Code — Non-interactive
 // mode, verificado por Diseño). '--output-format json' devuelve un único
 // objeto con el campo 'result' cuando la ejecución termina con éxito.
 export const ejecutorClaudeCode: EjecutorModelo = {

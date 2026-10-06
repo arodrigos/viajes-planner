@@ -211,7 +211,7 @@ export function PanelViajes() {
           propio enlace a /criterios ("Cuéntanos tu viaje") y duplicarlo
           sería un segundo camino, justo lo que el diseño prohíbe (otro-ac3).
           Va ANTES del <ul>, para que se vea sin scroll aunque haya muchos
-          viajes -era la queja de Adrián: no encontrarlo mirando la pantalla
+          viajes -era la queja del dueño del producto: no encontrarlo mirando la pantalla
           entera. Mismo destino y mismo estilo que el enlace principal de la
           portada, sin formulario ni ruta nueva. */}
       {viajes.length > 0 && (
