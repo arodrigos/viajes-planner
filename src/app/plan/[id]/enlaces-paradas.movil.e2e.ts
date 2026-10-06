@@ -55,10 +55,13 @@ test("cada tarjeta, también Comida y Cena, lleva su enlace de mapa y su fuente 
     await expect(enlace).toHaveAttribute("target", "_blank");
     expect(await enlace.getAttribute("rel")).toContain("noopener");
   }
-  await expect(pagina.getByRole("heading", { name: "Más sitios recomendados" })).toBeAttached();
 
   // enl-ac2: ni la fila de enlaces ni la tarjeta desbordan en móvil.
   expect(await pagina.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await pagina.screenshot({ path: "artefactos/capturas/enlaces-paradas-movil.png", fullPage: true });
+
+  // Las recomendaciones viven en el Resumen, no en el panel del día.
+  await pagina.goto(`/plan/${plan.id}?dia=resumen`);
+  await expect(pagina.getByRole("heading", { name: "Más sitios recomendados" })).toBeAttached();
   await contexto.close();
 });

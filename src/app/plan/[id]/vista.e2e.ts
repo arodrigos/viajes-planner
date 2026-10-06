@@ -90,12 +90,13 @@ test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni d
 
   // reco-ac5: el enlace de la recomendación envenenada apunta a la
   // búsqueda determinista, nunca al booking.com falso del nombre.
+  await page.goto("/plan/plan-e2e?dia=resumen");
   const enlaceRecomendacion = page.getByRole("link", { name: /Reserva en https:\/\/booking\.com/ });
   await expect(enlaceRecomendacion).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/);
 
   // (c) el aviso es visible al abrir, sigue visible tras recargar y no
   // tiene ningún control de cierre en el DOM.
-  const aviso = page.getByText(/Las paradas marcadas como comprobadas/);
+  const aviso = page.getByText("Esta herramienta no es una fuente de navegación ni de seguridad.");
   await expect(aviso).toBeVisible();
   await page.reload();
   await expect(aviso).toBeVisible();

@@ -49,6 +49,7 @@ test("eventos con fuente y enlace, y estado de época (eve-ac1, eve-ac2)", async
   const seccion = pagina.getByTestId("eventos-viaje");
   await expect(seccion).toContainText("Festivo nacional: Portugal Day · OpenHolidays");
   await expect(seccion.getByRole("link", { name: "Ver en OpenHolidays: Portugal Day" })).toHaveAttribute("href", "https://www.openholidaysapi.org/en/");
+  await pagina.goto(`/plan/${conEventos}?dia=1`);
   await expect(pagina.getByTestId("eventos-dia")).toContainText("Algunos museos cierran o cambian de horario en festivo");
   expect(await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
 

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { abrirOpciones } from "./plan/[id]/opciones-e2e";
 
 // usabilidad-ac8: solo corre en el proyecto 'movil' -mismo motivo que
 // guia.movil.e2e.ts, el viewport real es el que hace que "sin hacer scroll"
@@ -52,6 +53,8 @@ test("sin atributos title y con toda ayuda aria-describedby visible, en las cuat
 
   for (const ruta of ["/", "/criterios", "/trabajos/trabajo-usabilidad-e2e", "/plan/plan-usabilidad-e2e"]) {
     await page.goto(ruta);
+    // La ayuda del calendario y de regenerar solo se ve con el menú abierto.
+    if (ruta.startsWith("/plan/")) await abrirOpciones(page);
     await sinTitleYConDescripcionesVisibles(page);
   }
 });

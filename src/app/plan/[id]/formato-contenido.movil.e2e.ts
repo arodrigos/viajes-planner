@@ -55,6 +55,7 @@ test("fmt-ac2: los importes de cuatro cifras llevan punto de miles y espacio dur
   }, 3000);
   const { contexto, pagina } = await abrirPlan(browser, email, planId);
 
+  await pagina.goto(`/plan/${planId}?dia=resumen`);
   const presupuesto = pagina.getByTestId("presupuesto-plan");
   await expect(presupuesto).toContainText("Tu presupuesto: 3.000 €");
   const texto = (await presupuesto.textContent()) ?? "";
