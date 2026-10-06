@@ -435,6 +435,21 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
           echo "SUPABASE_SCHEMA=viajes_planner" >> "$GITHUB_ENV"
       - run: npm run test:e2e
+      # e2e-ac1: los specs que fallaron en el primer intento de un CI tienen
+      # que pasar sin reintentos y varias veces seguidas; un reintento verde
+      # no demuestra que el test sea estable. Y e2e-ac2: ninguna espera por
+      # tiempo.
+      - name: ninguna espera fija en los e2e (e2e-ac2)
+        run: "! grep -rn 'waitForTimeout' src --include=*.e2e.ts"
+      # Tres pasadas separadas en vez de --repeat-each=3: los specs siembran
+      # usuarios con un correo fijo y repetirlos en la misma pasada chocaría
+      # con «ya registrado». Cada pasada parte de una base recién reseteada.
+      - name: specs antes inestables, sin reintentos y repetidos (e2e-ac1)
+        run: |
+          for pasada in 1 2 3; do
+            supabase db reset
+            npx playwright test --project=movil --retries=0 infografia-previa tramos.movil alternativas.movil
+          done
       # inf-ac2: las dos láminas de ejemplo se publican junto a las capturas.
       - run: npm run generar:infografia-ejemplo
       # visual-ac1/pantalla-ac9: el gatekeeper juzga estas capturas (issue

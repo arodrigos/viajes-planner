@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContext } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Locator } from "@playwright/test";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { PRESUPUESTO_MULTICIUDAD, planMulticiudadInfografia, sembrarPlan } from "./semillas-e2e";
@@ -31,6 +31,15 @@ async function entrarConPlan(browser: Browser, email: string): Promise<{ context
   return { contexto, planId: plan.id };
 }
 
+// Un clic antes de hidratar no hace nada (el HTML es estático): se repite
+// hasta que el botón responde, en vez de fiarlo a una espera fija.
+async function abrirPrevia(boton: Locator) {
+  await expect(async () => {
+    await boton.click();
+    await expect(boton).toHaveAttribute("aria-expanded", "true", { timeout: 1_000 });
+  }).toPass();
+}
+
 test("«Ver infografía» enseña la lámina real en la página, sin descargar y a ancho de móvil (ip-ac1, ip-ac3)", async ({ browser }) => {
   const { contexto, planId } = await entrarConPlan(browser, "ci-test-infografia-previa-e2e@example.com");
   const pagina = await contexto.newPage();
@@ -52,7 +61,7 @@ test("«Ver infografía» enseña la lámina real en la página, sin descargar y
   expect(pedidas).toBe(0);
 
   const boton = pagina.getByRole("button", { name: "Ver infografía" });
-  await boton.click();
+  await abrirPrevia(boton);
   const imagen = pagina.getByRole("img", { name: "Infografía del viaje" });
   await expect(imagen).toBeVisible();
   await expect(boton).toHaveAttribute("aria-expanded", "true");
@@ -96,7 +105,7 @@ test("la previa dice que está preparando y, si falla, explica y deja reintentar
   });
   await pagina.goto(`/plan/${planId}`);
   await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
-  await pagina.getByRole("button", { name: "Ver infografía" }).click();
+  await abrirPrevia(pagina.getByRole("button", { name: "Ver infografía" }));
   await expect(pagina.getByRole("status").filter({ hasText: "Preparando la infografía…" })).toBeVisible();
   const alerta = pagina.getByRole("alert").filter({ hasText: "No hemos podido preparar la imagen" });
   await expect(alerta).toBeVisible({ timeout: 10_000 });
@@ -116,7 +125,7 @@ test("sin sesión la previa no enseña ninguna imagen: responde 401 y sale el er
   await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
   await contexto.clearCookies();
   const respuesta = pagina.waitForResponse((r) => r.url().includes("infografia.png"));
-  await pagina.getByRole("button", { name: "Ver infografía" }).click();
+  await abrirPrevia(pagina.getByRole("button", { name: "Ver infografía" }));
   expect((await respuesta).status()).toBe(401);
   await expect(pagina.getByRole("alert").filter({ hasText: "No hemos podido preparar la imagen" })).toBeVisible();
   await contexto.close();
