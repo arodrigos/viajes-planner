@@ -1,7 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { calcularPaseoDia } from "../paseo";
-import { calcularTramosDia, formatearMinutos, umbralAPieKm, type PuntoTramo } from "../tramos";
+import { formatearMinutos } from "@/lib/formato/numeros";
+import { calcularTramosDia, umbralAPieKm, type PuntoTramo } from "../tramos";
 import { urlRecorridoDia } from "../urlRecorridoDia";
 
 // tra-ac1 / cp-tra-01: coordenadas reales de Londres.

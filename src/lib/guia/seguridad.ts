@@ -2,6 +2,7 @@
 // comprobar al leerlo. El trabajador ya solo escribe URLs canónicas, pero un
 // dato manipulado en la tabla no debe acabar en un enlace de la vista.
 import type { CuriosidadesParada, GuiaParada, ItemCuriosidad } from "@/lib/plan/tipos";
+import { sanearFrases, sanearItems } from "./sanear";
 import { MAX_CONSEJO, MAX_TEXTO } from "./wikitexto";
 
 function esHttpsDe(url: unknown, sufijo: string): url is string {
@@ -47,9 +48,9 @@ function itemSeguro(item: unknown): item is ItemCuriosidad {
 // pintándose como hasta ahora.
 export function curiosidadesSeguras(c: CuriosidadesParada | null | undefined): CuriosidadesParada | undefined {
   if (!c || !Array.isArray(c.frases)) return undefined;
-  const items = Array.isArray(c.items) ? c.items.filter(itemSeguro).slice(0, 4) : [];
+  const items = Array.isArray(c.items) ? sanearItems(c.items.filter(itemSeguro)).slice(0, 4) : [];
   const urlValida = esUrlWikipedia(c.url);
-  const frases = urlValida ? c.frases.filter((f) => typeof f === "string" && f.length > 0 && f.length <= MAX_TEXTO && !SIN_MARCADO.test(f)) : [];
+  const frases = urlValida ? sanearFrases(c.frases.filter((f) => typeof f === "string" && f.length > 0 && f.length <= MAX_TEXTO && !SIN_MARCADO.test(f))) : [];
   if (items.length === 0 && frases.length === 0) return undefined;
   return {
     frases,

@@ -156,6 +156,7 @@ export function crearFuenteCuriosidadesWikimedia(opciones: OpcionesFuenteCuriosi
         }
         resultado.set(qid, {
           qid,
+          clases: (e.claims?.P31 ?? []).filter((d) => d.rank !== "deprecated").map((d) => idDe(d.mainsnak?.datavalue?.value)).filter((id): id is string => id !== undefined),
           titulos: { ...(e.sitelinks?.eswiki?.title ? { es: e.sitelinks.eswiki.title } : {}), ...(e.sitelinks?.enwiki?.title ? { en: e.sitelinks.enwiki.title } : {}) },
           hechos,
         });

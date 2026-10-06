@@ -92,13 +92,6 @@ export function calcularTramosDia(puntos: readonly PuntoTramo[], opciones: Opcio
   return tramos;
 }
 
-export function formatearMinutos(minutos: number): string {
-  const horas = Math.floor(minutos / 60);
-  const resto = minutos % 60;
-  if (horas === 0) return `${resto} min`;
-  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`;
-}
-
 export const ETIQUETA_MODO: Record<ModoTramo, string> = {
   "a-pie": "A pie",
   "transporte-publico": "Transporte público o taxi",

@@ -4,6 +4,7 @@ import type { EjecutorModelo } from "@/lib/trabajador/ejecutorModelo";
 import type { CuriosidadesParada, Lugar } from "@/lib/plan/tipos";
 import { construirCandidatas, type FuenteCuriosidades, type SitioCuriosidades } from "./candidatas";
 import { FORMATO_GUIA, type VersionParaGuia } from "./enriquecer";
+import { sanearItems } from "./sanear";
 import { seleccionarCuriosidades } from "./seleccionarCuriosidades";
 import { FalloFuenteCuriosidades } from "./fuenteCuriosidades";
 
@@ -12,6 +13,10 @@ export interface DependenciasCuriosidades {
   ejecutor: EjecutorModelo;
   directorio: string;
 }
+
+// 4 = hechos de Wikidata redactados sin confundir fundación con apertura y
+// frases partidas con la lista de abreviaturas.
+export const FORMATO_CURIOSIDADES = 4;
 
 export interface ResultadoCuriosidades {
   versionesProcesadas: number;
@@ -33,8 +38,11 @@ interface FilaSitio {
 
 // Un sitio está pendiente si nunca pasó por aquí (sin items) o si solo tiene
 // el respaldo y aún no se le ha dado su única oportunidad con el modelo.
+// El formato antiguo (sin marca) se reprocesa una vez: las candidatas cambiaron
+// (fundación frente a apertura, frases cortadas por abreviatura).
 function pendiente(c: CuriosidadesParada | null): boolean {
   if (!c || !Array.isArray(c.items)) return true;
+  if ((c.formato ?? 0) < FORMATO_CURIOSIDADES) return true;
   return c.seleccion === "heuristica" && c.mejora_intentada !== true;
 }
 
@@ -96,13 +104,15 @@ export async function rellenarCuriosidadesPendientes(
     for (const { sitio } of candidatas) {
       const fila = porId.get(sitio.id) as FilaSitio;
       const elegido = seleccion.porSitio.get(sitio.id) ?? { items: [], vistoPorModelo: false };
-      const items = elegido.items;
+      // Mismo saneado que al leer: lo que se guarda ya sale limpio.
+      const items = sanearItems(elegido.items);
       const urlPagina = items.find((i) => i.fuente === "wikipedia" && i.idioma === "es")?.url.split("#")[0] ?? items.find((i) => i.fuente === "wikipedia")?.url.split("#")[0] ?? "";
       const todosModelo = items.length > 0 && items.every((i) => i.seleccion === "modelo");
       const curiosidades: CuriosidadesParada = {
         frases: items.filter((i) => i.fuente === "wikipedia" && i.idioma === "es").map((i) => i.texto),
         url: urlPagina,
         items,
+        formato: FORMATO_CURIOSIDADES,
         seleccion: items.length === 0 || !todosModelo ? "heuristica" : "modelo",
         // Un sitio que ya tenía el respaldo agota aquí su única mejora.
         mejora_intentada: items.length === 0 || todosModelo || elegido.vistoPorModelo || (fila.curiosidades?.seleccion === "heuristica"),

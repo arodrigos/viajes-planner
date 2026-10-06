@@ -110,9 +110,3 @@ export function calcularPaseoDia(puntos: PuntoPaseo[], perfil: string | null, tr
     },
   };
 }
-
-// Formato español ("2,6 km") -- el resto de la interfaz no usa ninguna
-// librería de internacionalización, así que basta con la coma decimal.
-export function formatearKm(km: number): string {
-  return `${km.toFixed(1).replace(".", ",")} km`;
-}

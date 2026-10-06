@@ -44,7 +44,7 @@ describe("construirModeloInfografia (inf-ac1, invariante 1)", () => {
     expect(m.bloques[0].detalle).toBe("2 noches");
     expect(m.bloques[0].paradas).toEqual(["Sitio 2", "Sitio 12"]);
     expect(m.totales.km_traslado).toBe(313);
-    expect(m.totales.texto_presupuesto).toMatch(/de 3\.?000 €/);
+    expect(m.totales.texto_presupuesto).toMatch(/de 3\.000\u00a0€/);
   });
 
   it("una ciudad: la misma lámina por días", () => {

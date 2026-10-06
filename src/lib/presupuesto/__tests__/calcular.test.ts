@@ -93,10 +93,10 @@ describe("textos del presupuesto (mot-ac1)", () => {
   it("cabecera: estimado frente al presupuesto, aviso al superarlo y estado vacío", () => {
     const base = { total_estimado_eur: 60, total_de_fuente_eur: 0 };
     expect(textoCabeceraPresupuesto({ ...base, total_eur: 60, tu_presupuesto_eur: 900 })).toEqual({
-      resumen: "Visitas: ~60 € estimados · Tu presupuesto: 900 €",
+      resumen: "Visitas: ~60 € estimados · Tu presupuesto: 900 €",
     });
     expect(textoCabeceraPresupuesto({ total_eur: 1200, total_estimado_eur: 1200, total_de_fuente_eur: 0, tu_presupuesto_eur: 900 }).aviso).toBe(
-      "Las visitas estimadas superan tu presupuesto en ~300 €",
+      "Las visitas estimadas superan tu presupuesto en ~300 €",
     );
     expect(textoCabeceraPresupuesto({ total_eur: 0, total_estimado_eur: 0, total_de_fuente_eur: 0, tu_presupuesto_eur: 900 }).resumen).toBe(
       "Sin estimación de gasto en visitas",

@@ -1,6 +1,7 @@
 import type { CriteriosViaje, Modo } from "@/lib/criterios/tipos";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
+import { formatearEuros, formatearNumero } from "@/lib/formato/numeros";
 import type { Zona } from "./clasificar";
 import { PISO_ALOJAMIENTO_EUR, TOPE_AVION_MIN, TOPE_TIERRA_MIN } from "./constantes";
 import { maxEtapas, nochesDe, DIAS_POR_ETAPA, MAX_ETAPAS } from "./reglas";
@@ -51,13 +52,8 @@ export function distanciaMinimaEntreCajas(a: CajaDelimitadora, b: CajaDelimitado
   return Math.max(0, minimo - pa.paso_km - pb.paso_km);
 }
 
-function formatearMiles(n: number): string {
-  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
-function formatearEuros(n: number): string {
-  return `${formatearMiles(Math.ceil(n))} €`;
-}
+// Los importes se redondean hacia arriba: un mínimo nunca debe quedarse corto.
+const euros = (n: number): string => formatearEuros(Math.ceil(n));
 
 const NOMBRE_MODO: Record<Modo, string> = { coche: "coche", avion: "avión", tren: "tren", autobus: "autobús" };
 
@@ -145,7 +141,7 @@ export function comprobarViabilidad(zonas: readonly Zona[], criterios: Criterios
       const medios = modos.length > 0 ? modos.map((m) => NOMBRE_MODO[m]).join(", ") : "ningún medio";
       razones.push({
         codigo: "distancia",
-        texto: `${zonas[par.desde].nombre} y ${zonas[par.hasta].nombre} están como mínimo a ${formatearMiles(par.km)} km, y con ${modos.length > 0 ? `lo que has marcado (${medios})` : "cualquier medio"} no se llega en ${topeTexto}.`,
+        texto: `${zonas[par.desde].nombre} y ${zonas[par.hasta].nombre} están como mínimo a ${formatearNumero(par.km)} km, y con ${modos.length > 0 ? `lo que has marcado (${medios})` : "cualquier medio"} no se llega en ${topeTexto}.`,
       });
       sugerencias.push(conAvion ? "Elige países más cercanos." : "Marca «Avión» o elige países más cercanos.");
     } else if (!demasiadas) {
@@ -169,12 +165,12 @@ export function comprobarViabilidad(zonas: readonly Zona[], criterios: Criterios
 function razonPresupuesto(criterios: CriteriosViaje, personas: number, traslados: number): Razon {
   const noches = nochesDe(criterios.dias);
   const alojamiento = noches * personas * PISO_ALOJAMIENTO_EUR;
-  const detalle = `${noches} ${noches === 1 ? "noche" : "noches"} × ${plural(personas, "persona", "personas")} × ${PISO_ALOJAMIENTO_EUR} € = ${formatearEuros(alojamiento)}`;
+  const detalle = `${noches} ${noches === 1 ? "noche" : "noches"} × ${plural(personas, "persona", "personas")} × ${PISO_ALOJAMIENTO_EUR} € = ${euros(alojamiento)}`;
   const total = alojamiento + traslados;
   const texto =
     traslados > 0
-      ? `Solo el alojamiento más barato posible (${detalle}) y los traslados mínimos (${formatearEuros(traslados)}) suman ${formatearEuros(total)}, más que tu presupuesto de ${formatearEuros(criterios.presupuesto_eur)}.`
-      : `Solo el alojamiento más barato posible (${detalle}) ya supera tu presupuesto de ${formatearEuros(criterios.presupuesto_eur)}.`;
+      ? `Solo el alojamiento más barato posible (${detalle}) y los traslados mínimos (${euros(traslados)}) suman ${euros(total)}, más que tu presupuesto de ${euros(criterios.presupuesto_eur)}.`
+      : `Solo el alojamiento más barato posible (${detalle}) ya supera tu presupuesto de ${euros(criterios.presupuesto_eur)}.`;
   return { codigo: "presupuesto", texto };
 }
 

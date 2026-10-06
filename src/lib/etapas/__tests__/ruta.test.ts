@@ -26,7 +26,7 @@ describe("calcularRuta (cp-etv-01)", () => {
     expect(ruta.etapas.map((e) => [e.ciudad, e.noches])).toEqual([["Lisboa", 4], ["Oporto", 3]]);
     expect(ruta.etapas[1].fecha_llegada).toBe("2027-06-12");
     expect(ruta.suma_visible_eur).toBe(919);
-    expect(textoTraslado(traslado)).toBe("Lisboa → Oporto · autobús · ~3 h 49 min · ~79 € (estimado)");
+    expect(textoTraslado(traslado)).toBe("Lisboa → Oporto · autobús · ~3 h 49 min · ~79 € (estimado)");
   });
 
   it("formatea duraciones", () => {

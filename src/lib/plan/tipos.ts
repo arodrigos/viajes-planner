@@ -184,6 +184,9 @@ export interface CuriosidadesParada {
   frases: string[];
   url: string;
   items?: ItemCuriosidad[];
+  // Versión del formato con que se eligieron (FORMATO_CURIOSIDADES); sin marca,
+  // son anteriores y el trabajador las reprocesa una vez.
+  formato?: number;
   seleccion?: "modelo" | "heuristica";
   // El respaldo determinista se mejora con el modelo una sola vez.
   mejora_intentada?: boolean;

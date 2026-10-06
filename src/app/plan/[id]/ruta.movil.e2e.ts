@@ -81,7 +81,7 @@ test("Ruta del viaje: etapas, traslado, presupuesto y ajustes, sin aviso de ciud
   await expect(ruta.getByText("Lisboa → Oporto · autobús", { exact: false })).toHaveCount(0);
   await expect(ruta.getByText("Lisboa → Oporto · tren · ~3 h 49 min · ~79 € (estimado)")).toBeVisible();
   await expect(pagina.getByTestId("presupuesto-plan")).toContainText("Total estimado: ~919 €");
-  await expect(pagina.getByTestId("presupuesto-plan")).toContainText(/Tu presupuesto: 3\.?000 €/);
+  await expect(pagina.getByTestId("presupuesto-plan")).toContainText(/Tu presupuesto: 3\.000\u00a0€/);
   await expect(ruta.getByText("Quitamos Coímbra: 1 día no deja tiempo para descansar")).toBeVisible();
   await expect(pagina.getByText(/No hemos identificado la ciudad/)).toHaveCount(0);
 

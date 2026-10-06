@@ -1,10 +1,7 @@
 // Redacción de la tarjeta y la cabecera, aquí y no en el componente para que
 // los textos exactos del criterio se comprueben sin montar la vista.
+import { formatearEuros } from "@/lib/formato/numeros";
 import type { CosteParada } from "@/lib/plan/tipos";
-
-export function formatearEuros(importe: number): string {
-  return `${Math.round(importe).toLocaleString("es-ES")} €`;
-}
 
 export function textoPrecioParada(coste: CosteParada | undefined): string {
   if (!coste) return "Sin precio orientativo";
