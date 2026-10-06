@@ -154,7 +154,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
             así que se describe por el texto que sí imprime la plantilla. */}
         <p id="ayuda-codigo-acceso" className="ayuda">
           El código llega en un correo que empieza por «Tu código de acceso», sin ningún enlace que abrir. Si lo que
-          te llega es un enlace en vez de un código, falta un ajuste del correo: avisa a Adrián. Caduca en una hora,
+          te llega es un enlace en vez de un código, falta un ajuste del correo: avisa al dueño del producto. Caduca en una hora,
           es de un solo uso, y si no te llega puedes pedir otro cada 60 segundos.
         </p>
       </div>

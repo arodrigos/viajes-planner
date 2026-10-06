@@ -30,7 +30,7 @@ async function llegarAlAvisoDelCodigo(page: Page, email: string): Promise<string
 test("la ayuda del código dice qué hacer si lo que llega es un enlace, sin jerga técnica", async ({ page }) => {
   const texto = await llegarAlAvisoDelCodigo(page, `ci-test-aud-ac4-jerga-${Date.now()}@example.com`);
   expect(texto).toMatch(/enlace/i);
-  expect(texto).toMatch(/Adrián/);
+  expect(texto).toMatch(/avisa al dueño del producto/);
   expect(texto).not.toMatch(REGEX_JERGA);
 });
 
