@@ -6,7 +6,7 @@ import { comprobarAccesibilidad } from "@/app/axe-e2e";
 const dias = ["2027-06-08", "2027-06-09", "2027-06-10"].map((fecha, i) => ({
   fecha,
   franjas: [{ id: "manana", etiqueta: "Mañana" }],
-  paradas: [{ id: `p${i}`, franja_id: "manana", nombre: `Sitio ${i + 1}`, descripcion: "d", procedencia: { fuente: "osm", url: "https://www.openstreetmap.org/way/1" } }],
+  paradas: [{ id: `p${i}`, franja_id: "manana", nombre: `Sitio ${i + 1}`, descripcion: "d", coordenadas: { lat: 38.72 + i * 0.01, lon: -9.14 }, procedencia: { fuente: "osm", url: "https://www.openstreetmap.org/way/1" } }],
 }));
 const PLAN = { id: "plan-dias", version: 1, destino: "Lisboa", personas: 2, dias, avisos: [], recomendaciones: [], regenerando: false, trabajoId: "t", zona: "Europe/Lisbon" };
 
@@ -15,24 +15,43 @@ test.use({ viewport: { width: 390, height: 844 } });
 async function abrir(page: import("@playwright/test").Page, ahora: string, ruta = "/plan/plan-dias") {
   await page.clock.install({ time: new Date(ahora) });
   await page.route("**/api/plan/*", (r) => r.fulfill({ json: PLAN }));
+  // Estilo vacío y válido en vez de abortar la red: un fallo de estilo hace
+  // que MapaDia sustituya el lienzo por su aviso, y entonces «exactamente 1
+  // lienzo» dependería de una carrera. Así el test no necesita a un tercero.
+  await page.route("**/tiles.openfreemap.org/**", (r) => r.fulfill({ json: { version: 8, sources: {}, layers: [] } }));
   await page.goto(ruta);
 }
 
 test("día por defecto: antes → Resumen, durante → hoy, después → Resumen (dia-ac1)", async ({ page }) => {
   await abrir(page, "2027-06-01T12:00:00Z");
   await expect(page.getByRole("heading", { level: 2, name: "Resumen" })).toBeVisible();
-  await page.close();
+  const chips = page.getByRole("navigation", { name: "Días del viaje" }).getByRole("link");
+  await expect(chips.filter({ hasText: "Hoy" })).toHaveCount(0);
+  await expect(chips.filter({ hasText: "Resumen" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("[aria-current]")).toHaveCount(1);
+  await expect(page.locator(".maplibregl-canvas")).toHaveCount(0);
 });
 
 test("durante el viaje abre el día de hoy y la recarga lo conserva (dia-ac1, dia-ac2)", async ({ page }) => {
   await abrir(page, "2027-06-09T12:00:00Z");
   await expect(page.getByRole("heading", { level: 2, name: /^Día 2 · / })).toBeVisible();
-  await page.getByRole("navigation", { name: "Días del viaje" }).getByRole("link").nth(3).click();
+  const chips = page.getByRole("navigation", { name: "Días del viaje" }).getByRole("link");
+  const chipDia2 = chips.filter({ hasText: /^Día 2/ });
+  const chipDia3 = chips.filter({ hasText: /^Día 3/ });
+  await expect(chips.filter({ hasText: "Hoy" })).toHaveCount(1);
+  await expect(chipDia2).toContainText("Hoy");
+  await expect(chipDia2).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("nav[aria-label='Días del viaje'] [aria-current]")).toHaveCount(1);
+  await expect(page.locator(".maplibregl-canvas")).toHaveCount(1);
+  await chips.nth(3).click();
   await expect(page.getByRole("heading", { level: 2, name: /^Día 3 · / })).toBeVisible();
   await expect(page).toHaveURL(/dia=3/);
   await page.reload();
   await expect(page.getByRole("heading", { level: 2, name: /^Día 3 · / })).toBeVisible();
-  expect(await page.locator(".maplibregl-canvas").count()).toBeLessThanOrEqual(1);
+  await expect(chipDia3).toHaveAttribute("aria-current", "page");
+  await expect(chipDia2).toContainText("Hoy");
+  await expect(chipDia2).not.toHaveAttribute("aria-current", /.*/);
+  await expect(page.locator(".maplibregl-canvas")).toHaveCount(1);
 });
 
 test("?dia inválido cae en el valor por defecto (dia-ac1)", async ({ page }) => {

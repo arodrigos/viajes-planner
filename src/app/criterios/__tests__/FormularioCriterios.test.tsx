@@ -133,7 +133,9 @@ describe("FormularioCriterios: invariante de errores del servidor (cam-ac2)", ()
       }),
       { numRuns: 8 },
     );
-  });
+    // Presupuesto explícito: con la máquina cargada el límite por defecto de
+    // Vitest (5 s) no alcanza para 8 renderizados con userEvent.
+  }, 30_000);
 });
 
 describe("FormularioCriterios: transporte (tra-ac1, tra-ac2)", () => {
