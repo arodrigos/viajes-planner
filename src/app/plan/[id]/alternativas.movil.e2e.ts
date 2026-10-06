@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Browser } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
@@ -175,5 +175,143 @@ test("usabilidad: parada sin alternativas, ayuda y objetivos táctiles (alt-ac7)
   await pagina.emulateMedia({ colorScheme: "dark" });
   await pagina.screenshot({ path: "artefactos/capturas/plan-alternativas-oscuro.png" });
 
+  await contexto.close();
+});
+
+// alr-ac2/alr-ac3: «Museo A» con dos alternativas, para ver el estado mientras
+// se cambia. Siembra directa por el mismo motivo que sembrarPlan.
+async function sembrarMuseos(supabase: SupabaseClient, email: string) {
+  const { data: usuario, error } = await supabase.auth.admin.createUser({ email, email_confirm: true });
+  if (error || !usuario.user) throw new Error(`No se pudo crear el usuario de prueba: ${error?.message}`);
+  const planId = `plan-alr-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const { error: errorPlan } = await supabase.from("planes").insert({ id: planId, destino: DESTINO });
+  if (errorPlan) throw new Error(`No se pudo sembrar el plan: ${errorPlan.message}`);
+  const { data: version, error: errorVersion } = await supabase
+    .from("plan_versiones")
+    .insert({ plan_id: planId, version: 1, personas: 2, dias: [{ fecha: "2026-11-07", franjas: franjasComoArray(DESTINO) }], avisos: [] })
+    .select("id")
+    .single();
+  if (errorVersion || !version) throw new Error(`No se pudo sembrar la versión: ${errorVersion?.message}`);
+  const { data: procedencia } = await supabase.from("procedencias").insert({ fuente: "propuesto-sin-verificar" }).select("id").single();
+  const { data: parada, error: errorParada } = await supabase
+    .from("paradas")
+    .insert({
+      id_externo: "p-museo",
+      plan_version_id: version.id,
+      dia_index: 0,
+      franja_id: "manana",
+      nombre: "Museo A",
+      descripcion: "Colección permanente",
+      lat: 37.3862,
+      lon: -5.9926,
+      duracion_min: 90,
+      prioridad: 60,
+      procedencia_id: procedencia?.id,
+      categoria: "museo",
+      lugar: { fuente: "osm", id: "osm:way/7", url: "https://www.openstreetmap.org/way/7", nombre_fuente: "Museo A", etiquetas: {}, resuelto_en: RESUELTO_EN },
+      resolucion: { estado: "resuelta", intentado_en: RESUELTO_EN },
+    })
+    .select("id")
+    .single();
+  if (errorParada || !parada) throw new Error(`No se pudo sembrar la parada: ${errorParada?.message}`);
+  const { error: errorAlternativas } = await supabase.from("paradas_alternativas").insert(
+    ["Museo B", "Parque C"].map((nombre) => ({
+      parada_id: parada.id,
+      origen: "modelo",
+      nombre,
+      descripcion: "Otra opción",
+      motivo: "mismo tipo, misma franja",
+      duracion_min: 90,
+      categoria: "museo",
+      lat: 37.3834,
+      lon: -5.9904,
+    })),
+  );
+  if (errorAlternativas) throw new Error(`No se pudieron sembrar las alternativas: ${errorAlternativas.message}`);
+  const { error: errorTrabajo } = await supabase
+    .from("trabajos")
+    .insert({ usuario_id: usuario.user.id, tipo: "generacion", criterios: {}, estado: "completado", plan_id: planId });
+  if (errorTrabajo) throw new Error(`No se pudo sembrar el trabajo: ${errorTrabajo.message}`);
+  return planId;
+}
+
+async function abrirPanelMuseo(browser: Browser, email: string) {
+  const supabase = clienteDePrueba("servicio");
+  const planId = await sembrarMuseos(supabase, email);
+  const contexto = await browser.newContext({ viewport: { width: 393, height: 851 } });
+  const pagina = await contexto.newPage();
+  expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } })).ok()).toBe(true);
+  const codigo = await leerCodigo(email);
+  expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
+  await pagina.goto(`/plan/${planId}`);
+  const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo A" });
+  await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  return { contexto, pagina, tarjeta };
+}
+
+test("cp-alr-02: mientras cambia se ve «Cambiando…» y al terminar qué ha cambiado (alr-ac2)", async ({ browser }) => {
+  const { contexto, pagina, tarjeta } = await abrirPanelMuseo(browser, "ci-test-alternativas-estado@example.com");
+  let envios = 0;
+  await pagina.route("**/sustituir", async (route) => {
+    envios++;
+    await new Promise((resolver) => setTimeout(resolver, 1500));
+    await route.continue();
+  });
+
+  const panel = tarjeta.getByRole("region", { name: /Alternativas a Museo A/ });
+  const botonB = tarjeta.locator(".tarjeta-alternativa", { hasText: "Museo B" }).getByRole("button");
+  await botonB.click();
+  // Espera por estado, no por un sleep: el retraso es de 1.500 ms y esto solo exige verlo antes de que acabe.
+  await expect(botonB).toHaveText("Cambiando…");
+  await expect(botonB).toBeDisabled();
+  await expect(tarjeta.locator(".tarjeta-alternativa", { hasText: "Parque C" }).getByRole("button")).toBeDisabled();
+  await expect(panel).toHaveAttribute("aria-busy", "true");
+  await expect(pagina.getByRole("status").filter({ hasText: "Cambiando la parada…" })).toBeVisible();
+
+  const tarjetaNueva = pagina.locator(".tarjeta-parada", { hasText: "Museo B" });
+  await expect(tarjetaNueva).toBeVisible({ timeout: 15_000 });
+  await expect(pagina.getByRole("status").filter({ hasText: "Hecho: ahora vas a Museo B" })).toBeVisible();
+  await expect(tarjetaNueva.getByRole("region", { name: /Alternativas a/ })).toHaveCount(0);
+  await expect(async () => {
+    const dentro = await tarjetaNueva.evaluate((el) => el.contains(document.activeElement));
+    expect(dentro).toBe(true);
+  }).toPass();
+  expect(envios).toBe(1);
+  await contexto.close();
+});
+
+test("cp-alr-02: error del servidor y red caída dejan el panel abierto con su mensaje (alr-ac2)", async ({ browser }) => {
+  const { contexto, pagina, tarjeta } = await abrirPanelMuseo(browser, "ci-test-alternativas-error@example.com");
+  const mensaje = "esa alternativa no es de este plan o el plan ha cambiado; recarga";
+  await pagina.route("**/sustituir", (route) => route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: mensaje }) }));
+  const botonB = tarjeta.locator(".tarjeta-alternativa", { hasText: "Museo B" }).getByRole("button");
+  await botonB.click();
+  await expect(pagina.getByRole("alert").filter({ hasText: mensaje })).toBeVisible();
+  await expect(botonB).toBeEnabled();
+  await expect(tarjeta.getByRole("region", { name: /Alternativas a Museo A/ })).toBeVisible();
+  await expect(pagina.locator(".tarjeta-parada", { hasText: "Museo A" })).toBeVisible();
+
+  await pagina.unroute("**/sustituir");
+  await pagina.route("**/sustituir", (route) => route.abort());
+  await botonB.click();
+  await expect(pagina.getByRole("alert")).toHaveText("No se ha podido cambiar la parada. El plan sigue como estaba; vuelve a intentarlo.");
+  await contexto.close();
+});
+
+test("doble pulsación u otra alternativa mientras cambia lanzan un solo POST (alr-ac3)", async ({ browser }) => {
+  const { contexto, pagina, tarjeta } = await abrirPanelMuseo(browser, "ci-test-alternativas-doble@example.com");
+  let envios = 0;
+  await pagina.route("**/sustituir", async (route) => {
+    envios++;
+    await new Promise((resolver) => setTimeout(resolver, 1500));
+    await route.continue();
+  });
+  const botonB = tarjeta.locator(".tarjeta-alternativa", { hasText: "Museo B" }).getByRole("button");
+  const botonC = tarjeta.locator(".tarjeta-alternativa", { hasText: "Parque C" }).getByRole("button");
+  await botonB.click();
+  await botonB.click({ force: true });
+  await botonC.click({ force: true });
+  await expect(pagina.locator(".tarjeta-parada", { hasText: "Museo B" })).toBeVisible({ timeout: 15_000 });
+  expect(envios).toBe(1);
   await contexto.close();
 });

@@ -65,6 +65,14 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
   }
   const planVersionId = versionInsertada.id as string;
 
+  // alr-ac1: los ids de procedencias y paradas se generan aquí para poder
+  // insertar cada tabla con UNA petición de array, sin esperar a que
+  // PostgREST devuelva los ids ni depender del orden de su respuesta. Así el
+  // número de peticiones es constante (≤ 6) sea cual sea el tamaño del plan.
+  const filasProcedencias: { id: string; fuente: string }[] = [];
+  const filasParadas: Record<string, unknown>[] = [];
+  const filasAlternativas: Record<string, unknown>[] = [];
+
   for (const [diaIndex, dia] of plan.dias.entries()) {
     for (const parada of dia.paradas) {
       // El CHECK de `procedencias.fuente` solo admite 'propuesto-sin-verificar'
@@ -73,44 +81,34 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
       // venga de un `recuperarPlan` previo (sustituirParada) con `procedencia`
       // ya derivada a 'osm'/'wikipedia', lo que se guarda es siempre el valor
       // fijo que el CHECK acepta.
-      const { data: procedenciaInsertada, error: errorProcedencia } = await supabase
-        .from("procedencias")
-        .insert({ fuente: "propuesto-sin-verificar" })
-        .select("id")
-        .single();
-      if (errorProcedencia || !procedenciaInsertada) {
-        throw new Error(`No se pudo guardar la procedencia: ${errorProcedencia?.message}`);
-      }
-
-      const { data: paradaInsertada, error: errorParada } = await supabase
-        .from("paradas")
-        .insert({
-          id_externo: parada.id,
-          plan_version_id: planVersionId,
-          dia_index: diaIndex,
-          franja_id: parada.franja_id,
-          nombre: parada.nombre,
-          descripcion: parada.descripcion,
-          lat: parada.coordenadas?.lat ?? null,
-          lon: parada.coordenadas?.lon ?? null,
-          duracion_min: parada.duracion_min,
-          prioridad: parada.prioridad,
-          procedencia_id: procedenciaInsertada.id,
-          categoria: parada.categoria ?? null,
-          lugar: parada.lugar ?? null,
-          foto: fotoSegura(parada.foto) ?? null,
-          resolucion: parada.resolucion ?? null,
-          foto_intentada_en: parada.foto_intentada_en ?? null,
-          motivo: parada.motivo ?? null,
-          coste: parada.coste ?? null,
-          guia: parada.guia ?? null,
-          curiosidades: parada.curiosidades ?? null,
-          guia_intentada_en: parada.guia_intentada_en ?? null,
-          guia_formato: parada.guia_formato ?? null,
-        })
-        .select("id")
-        .single();
-      if (errorParada || !paradaInsertada) throw new Error(`No se pudo guardar la parada '${parada.id}': ${errorParada?.message}`);
+      const procedenciaId = crypto.randomUUID();
+      const paradaId = crypto.randomUUID();
+      filasProcedencias.push({ id: procedenciaId, fuente: "propuesto-sin-verificar" });
+      filasParadas.push({
+        id: paradaId,
+        id_externo: parada.id,
+        plan_version_id: planVersionId,
+        dia_index: diaIndex,
+        franja_id: parada.franja_id,
+        nombre: parada.nombre,
+        descripcion: parada.descripcion,
+        lat: parada.coordenadas?.lat ?? null,
+        lon: parada.coordenadas?.lon ?? null,
+        duracion_min: parada.duracion_min,
+        prioridad: parada.prioridad,
+        procedencia_id: procedenciaId,
+        categoria: parada.categoria ?? null,
+        lugar: parada.lugar ?? null,
+        foto: fotoSegura(parada.foto) ?? null,
+        resolucion: parada.resolucion ?? null,
+        foto_intentada_en: parada.foto_intentada_en ?? null,
+        motivo: parada.motivo ?? null,
+        coste: parada.coste ?? null,
+        guia: parada.guia ?? null,
+        curiosidades: parada.curiosidades ?? null,
+        guia_intentada_en: parada.guia_intentada_en ?? null,
+        guia_formato: parada.guia_formato ?? null,
+      });
 
       // alt-ac3: solo las alternativas que ya pasaron el filtro de
       // equivalencia llegan aquí (resolverAlternativasPlan) -- se guardan
@@ -120,8 +118,8 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
       // nunca la dio), pero la columna es NOT NULL: mismo "otro" de reserva
       // que ya usa el enum para la parada sin categoría.
       for (const alternativa of parada.alternativas ?? []) {
-        const { error: errorAlternativa } = await supabase.from("paradas_alternativas").insert({
-          parada_id: paradaInsertada.id,
+        filasAlternativas.push({
+          parada_id: paradaId,
           origen: alternativa.origen,
           nombre: alternativa.nombre,
           descripcion: alternativa.descripcion,
@@ -133,11 +131,23 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
           lugar: alternativa.lugar ?? null,
           foto: fotoSegura(alternativa.foto) ?? null,
         });
-        if (errorAlternativa) {
-          throw new Error(`No se pudo guardar la alternativa '${alternativa.nombre}' de la parada '${parada.id}': ${errorAlternativa.message}`);
-        }
       }
     }
+  }
+
+  // Orden fijo por las FK: procedencias → paradas → alternativas. Sin filas
+  // no se pide nada (un insert de array vacío sería una petición inútil).
+  if (filasProcedencias.length > 0) {
+    const { error } = await supabase.from("procedencias").insert(filasProcedencias);
+    if (error) throw new Error(`No se pudo guardar la procedencia: ${error.message}`);
+  }
+  if (filasParadas.length > 0) {
+    const { error } = await supabase.from("paradas").insert(filasParadas);
+    if (error) throw new Error(`No se pudieron guardar las paradas: ${error.message}`);
+  }
+  if (filasAlternativas.length > 0) {
+    const { error } = await supabase.from("paradas_alternativas").insert(filasAlternativas);
+    if (error) throw new Error(`No se pudieron guardar las alternativas: ${error.message}`);
   }
 
   return { version: siguienteVersion };
