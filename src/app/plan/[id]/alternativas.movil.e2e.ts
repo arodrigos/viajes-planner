@@ -294,7 +294,7 @@ test("cp-alr-02: error del servidor y red caída dejan el panel abierto con su m
   await pagina.unroute("**/sustituir");
   await pagina.route("**/sustituir", (route) => route.abort());
   await botonB.click();
-  await expect(pagina.getByRole("alert")).toHaveText("No se ha podido cambiar la parada. El plan sigue como estaba; vuelve a intentarlo.");
+  await expect(pagina.getByRole("alert").filter({ hasText: "No se ha podido cambiar la parada." })).toHaveText("No se ha podido cambiar la parada. El plan sigue como estaba; vuelve a intentarlo.");
   await contexto.close();
 });
 

@@ -17,6 +17,20 @@ interface DiaAlmacenado {
   etapa?: number;
 }
 
+// Limpieza de mejor esfuerzo: sus errores se ignoran a propósito para no
+// tapar el fallo original de la inserción que la dispara. Se borran las
+// paradas por si el fallo fue en las alternativas, y las procedencias huérfanas.
+async function retirarVersionIncompleta(supabase: SupabaseClient, planVersionId: string, procedenciaIds: string[]): Promise<void> {
+  const { data: paradas } = await supabase.from("paradas").select("id").eq("plan_version_id", planVersionId);
+  const paradaIds = (paradas ?? []).map((p) => p.id as string);
+  if (paradaIds.length > 0) {
+    await supabase.from("paradas_alternativas").delete().in("parada_id", paradaIds);
+    await supabase.from("paradas").delete().eq("plan_version_id", planVersionId);
+  }
+  await supabase.from("plan_versiones").delete().eq("id", planVersionId);
+  if (procedenciaIds.length > 0) await supabase.from("procedencias").delete().in("id", procedenciaIds);
+}
+
 export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise<{ version: number }> {
   // ciu-ac1: `ciudad` solo se incluye en el upsert cuando el plan la trae
   // -- omitir la clave (en vez de escribir null) deja intacta la ciudad ya
@@ -137,17 +151,25 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
 
   // Orden fijo por las FK: procedencias → paradas → alternativas. Sin filas
   // no se pide nada (un insert de array vacío sería una petición inútil).
-  if (filasProcedencias.length > 0) {
-    const { error } = await supabase.from("procedencias").insert(filasProcedencias);
-    if (error) throw new Error(`No se pudo guardar la procedencia: ${error.message}`);
-  }
-  if (filasParadas.length > 0) {
-    const { error } = await supabase.from("paradas").insert(filasParadas);
-    if (error) throw new Error(`No se pudieron guardar las paradas: ${error.message}`);
-  }
-  if (filasAlternativas.length > 0) {
-    const { error } = await supabase.from("paradas_alternativas").insert(filasAlternativas);
-    if (error) throw new Error(`No se pudieron guardar las alternativas: ${error.message}`);
+  // Si cualquier inserción falla, la versión ya creada se retira: sin ello
+  // recuperarPlan serviría la versión más reciente, que quedaría a medias,
+  // en vez de la anterior completa.
+  try {
+    if (filasProcedencias.length > 0) {
+      const { error } = await supabase.from("procedencias").insert(filasProcedencias);
+      if (error) throw new Error(`No se pudo guardar la procedencia: ${error.message}`);
+    }
+    if (filasParadas.length > 0) {
+      const { error } = await supabase.from("paradas").insert(filasParadas);
+      if (error) throw new Error(`No se pudieron guardar las paradas: ${error.message}`);
+    }
+    if (filasAlternativas.length > 0) {
+      const { error } = await supabase.from("paradas_alternativas").insert(filasAlternativas);
+      if (error) throw new Error(`No se pudieron guardar las alternativas: ${error.message}`);
+    }
+  } catch (fallo) {
+    await retirarVersionIncompleta(supabase, planVersionId, filasProcedencias.map((f) => f.id));
+    throw fallo;
   }
 
   return { version: siguienteVersion };
