@@ -1,3 +1,14 @@
 {
-  "crons": [{ "path": "/api/salud", "schedule": "0 7 * * *" }]
+  "crons": [
+    {
+      "path": "/api/salud",
+      "schedule": "0 7 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "dev": true
+    }
+  }
 }
