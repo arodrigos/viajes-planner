@@ -298,7 +298,8 @@ test("cp-alr-02: error del servidor y red caída dejan el panel abierto con su m
   await expect(pagina.getByRole("alert").filter({ hasText: mensaje })).toBeVisible();
   // err-ac1: el error vive dentro de la tarjeta de su parada y es el único de la página.
   await expect(tarjeta.getByRole("alert")).toHaveText(mensaje);
-  await expect(pagina.getByRole("alert")).toHaveCount(1);
+  // El anunciador de rutas de Next también es role=alert (vacío): se cuenta solo el que lleva el mensaje.
+  await expect(pagina.getByRole("alert").filter({ hasText: mensaje })).toHaveCount(1);
   await expect(botonB).toBeEnabled();
   await expect(tarjeta.getByRole("region", { name: /Alternativas a Museo A/ })).toBeVisible();
   await expect(pagina.locator(".tarjeta-parada", { hasText: "Museo A" })).toBeVisible();
