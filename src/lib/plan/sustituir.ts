@@ -86,6 +86,7 @@ export async function sustituirParada(
     guia: undefined,
     curiosidades: undefined,
     guia_intentada_en: undefined,
+    guia_formato: undefined,
   };
 
   const diasNuevos = plan.dias.map((dia, iDia) => {

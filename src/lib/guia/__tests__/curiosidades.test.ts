@@ -4,7 +4,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { extraerCuriosidades, partirFrases } from "../curiosidades";
 import { esUrlWikipedia, esUrlWikivoyage, curiosidadesSeguras, guiaSegura } from "../seguridad";
-import { MAX_TEXTO } from "../wikitexto";
+import { MAX_CONSEJO, MAX_TEXTO } from "../wikitexto";
 
 const real = JSON.parse(readFileSync(join(process.cwd(), "fixtures/guia/es-wikipedia-real-alcazar.json"), "utf8")) as { extract: string };
 
@@ -71,7 +71,7 @@ describe("invariante 2: URLs y licencia (lectura segura)", () => {
           const g = guiaSegura({ consejo, url, licencia: licencia as "CC BY-SA" });
           if (g) {
             expect(g.consejo).not.toMatch(/[{}[\]<>]/);
-            expect(g.consejo.length).toBeLessThanOrEqual(MAX_TEXTO);
+            expect(g.consejo.length).toBeLessThanOrEqual(MAX_CONSEJO);
             expect(esUrlWikivoyage(g.url)).toBe(true);
             expect(g.licencia).toBe("CC BY-SA");
           }

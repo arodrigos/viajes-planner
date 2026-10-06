@@ -42,6 +42,17 @@ mapas, lugares o fotos puede usarse sin su aprobación explícita.
   (`src/lib/guia/wikivoyage.ts`). Las curiosidades salen del extracto de
   Wikipedia que ya se pide para la foto, sin petición nueva.
 
+  **Guía y curiosidades: límite y relleno.** El consejo de una ficha se
+  guarda hasta `MAX_CONSEJO` = 2.000 caracteres (las frases de curiosidades
+  y el nombre mantienen sus topes de 400 y 120); si la ficha lo supera se
+  corta en el último fin de frase y termina en «…». `paradas.guia_formato`
+  guarda la versión de formato con que se escribió la guía
+  (`FORMATO_GUIA` en `src/lib/guia/enriquecer.ts`). El barrido vuelve a
+  pedir, una sola vez, las paradas de la última versión de cada plan cuyo
+  `guia_formato` sea nulo o menor que `FORMATO_GUIA`, y siempre lo escribe:
+  así se rellenan los planes que ya existían con el consejo cortado a 400, y
+  una segunda pasada no pide nada. Subir `FORMATO_GUIA` repite el relleno.
+
 Límites de ritmo comunes a Nominatim, Wikipedia/Commons y Overpass: pausa
 de 30 s y un único reintento ante HTTP 429/5xx; ninguna de estas URLs se
 llama desde `src/app` (la mitad web), solo desde el trabajador.

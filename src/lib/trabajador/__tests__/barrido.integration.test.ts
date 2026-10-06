@@ -9,6 +9,10 @@ import { VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciu
 import { crearFuenteFotosGrabada } from "@/lib/lugares/fuenteFotosGrabada";
 import type { FuenteCercanos } from "@/lib/alternativas/cercanos";
 import type { Dia, Plan } from "@/lib/plan/tipos";
+import { completarParadasPendientes } from "@/lib/trabajador/barrido";
+import { FORMATO_GUIA } from "@/lib/guia/enriquecer";
+import type { FuenteGuia } from "@/lib/guia/wikivoyage";
+import type { FichaGuia } from "@/lib/guia/wikitexto";
 
 // fot-ac4: sin fixtures, ninguna llamada a Wikipedia/Commons de verdad --
 // las paradas que este fichero resuelve vía Nominatim quedan con
@@ -494,5 +498,89 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("barrido de relleno (bar-ac1, bar
     const sinFoto = (paradasFinal ?? []).filter((p) => p.foto === null);
     expect(conFoto).toHaveLength(1);
     expect(sinFoto).toHaveLength(1);
+  });
+});
+
+// cc-ac3 (cp-cc-03): las paradas guardadas con el consejo cortado se vuelven
+// a pedir una sola vez, y solo las de la última versión de cada plan.
+describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("reformateo de la guía (cc-ac3)", () => {
+  const supabase = clienteDePrueba();
+  const PLAN = "plan-barrido-guia-formato";
+  const NOMBRES = ["Museo Alfa Antiguo", "Palacio Beta Real", "Castillo Gamma Viejo", "Torre Delta Sola"];
+  const frase = "Una frase completa del consejo que mide cincuenta caracteres.";
+  const consejoLargo = Array.from({ length: 16 }, () => frase).join(" ").slice(0, 1000);
+
+  beforeEach(async () => {
+    await supabase.from("planes").delete().like("id", "plan-barrido-guia-%");
+  });
+
+  async function sembrar(): Promise<void> {
+    await supabase.from("planes").insert({ id: PLAN, destino: DESTINO, ciudad: CIUDAD_RESUELTA });
+    const { data: procedencia } = await supabase.from("procedencias").insert({ fuente: "propuesto-sin-verificar" }).select("id").single();
+    const franjas = [{ id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" }];
+    const ids: string[] = [];
+    for (const version of [1, 2]) {
+      const { data } = await supabase
+        .from("plan_versiones")
+        .insert({ plan_id: PLAN, version, personas: 2, dias: [{ fecha: "2026-11-01", franjas }], avisos: [] })
+        .select("id")
+        .single();
+      ids.push(data?.id as string);
+    }
+    const cortado = { consejo: `${consejoLargo.slice(0, 399)}…`, url: "https://es.wikivoyage.org/wiki/Viejo", licencia: "CC BY-SA" };
+    const resuelta = { estado: "resuelta", intentado_en: "2026-10-01T00:00:00Z" };
+    const filas = NOMBRES.map((nombre, i) => ({
+      plan_version_id: i === 3 ? ids[0] : ids[1],
+      id_externo: `g-${i}`,
+      dia_index: 0,
+      franja_id: "manana",
+      nombre,
+      descripcion: "",
+      duracion_min: 60,
+      prioridad: 50,
+      procedencia_id: procedencia?.id,
+      lat: 39.47 + i * 0.01,
+      lon: -0.37,
+      resolucion: resuelta,
+      foto_intentada_en: "2026-10-01T00:00:00Z",
+      guia: cortado,
+      guia_intentada_en: "2026-10-02T00:00:00Z",
+    }));
+    const { error } = await supabase.from("paradas").insert(filas);
+    if (error) throw new Error(`No se pudo sembrar: ${error.message}`);
+  }
+
+  it("cp-cc-03: reformatea las de la última versión una vez; la de la versión anterior queda intacta; ficha desaparecida → guia null y no se repite", async () => {
+    await sembrar();
+    const llamadas: string[] = [];
+    // La fuente solo tiene fichas de las dos primeras: «Castillo Gamma Viejo» ya no la tiene.
+    const fichas: FichaGuia[] = NOMBRES.slice(0, 2).map((nombre) => ({ tipo: "see", nombre, contenido: consejoLargo }));
+    const fuenteGuia: FuenteGuia = {
+      async paginaCiudad(ciudad) {
+        llamadas.push(ciudad);
+        return { idioma: "es", titulo: ciudad, url: "https://es.wikivoyage.org/wiki/Valencia", fichas };
+      },
+    };
+    const correr = () => completarParadasPendientes(supabase, fuenteInstrumentada({}), 120, FUENTE_FOTOS_SIN_RED, undefined, undefined, FUENTE_CERCANOS_SIN_RED, undefined, fuenteGuia);
+
+    await correr();
+    const { data } = await supabase.from("paradas").select("nombre, guia, guia_formato").in("nombre", NOMBRES);
+    const por = new Map((data ?? []).map((f) => [f.nombre as string, f]));
+    for (const nombre of NOMBRES.slice(0, 2)) {
+      expect(por.get(nombre)?.guia_formato).toBe(FORMATO_GUIA);
+      const consejo = (por.get(nombre)?.guia as { consejo: string }).consejo;
+      expect(consejo).toBe(consejoLargo);
+      expect(consejo.endsWith("…")).toBe(false);
+    }
+    // Sin ficha en la fuente: queda sin guía, ya formateada.
+    expect(por.get("Castillo Gamma Viejo")?.guia).toBeNull();
+    expect(por.get("Castillo Gamma Viejo")?.guia_formato).toBe(FORMATO_GUIA);
+    // Versión anterior: intacta.
+    expect(por.get("Torre Delta Sola")?.guia_formato).toBeNull();
+    expect((por.get("Torre Delta Sola")?.guia as { consejo: string }).consejo).toHaveLength(400);
+
+    const antes = llamadas.length;
+    await correr();
+    expect(llamadas.length).toBe(antes);
   });
 });

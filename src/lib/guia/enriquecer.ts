@@ -10,6 +10,11 @@ import { extraerCuriosidades } from "./curiosidades";
 import type { FichaGuia } from "./wikitexto";
 import { EsperaExcedida, FalloFuenteGuia, type FuenteGuia } from "./wikivoyage";
 
+// Sube cuando cambia lo que se guarda en `guia`: el barrido vuelve a pedir,
+// una vez, las paradas guardadas con un formato anterior. 2 = consejo hasta
+// MAX_CONSEJO (el 1 implícito, null, cortaba a 400).
+export const FORMATO_GUIA = 2;
+
 export interface DependenciasGuia {
   fuenteGuia: FuenteGuia;
   fuenteFotos: FuenteFotos;
@@ -139,6 +144,7 @@ export async function enriquecerParadas(
           curiosidades,
           ...(coste ? { coste } : {}),
           guia_intentada_en: ahora.toISOString(),
+          guia_formato: FORMATO_GUIA,
         })
         .eq("id", fila.id);
       if (error) throw new Error(`No se pudo guardar la guía de la parada: ${error.message}`);
@@ -151,7 +157,8 @@ export async function enriquecerParadas(
 }
 
 // Paradas ya resueltas, de las versiones dadas, a las que aún no se ha
-// mirado la guía. Las que no tienen coordenadas no se piden: sin ubicación
+// mirado la guía o que se guardaron con un formato anterior (guia_formato
+// siempre se escribe al intentar, así que null cubre ambas cosas). Las que no tienen coordenadas no se piden: sin ubicación
 // comprobada no hay forma fiable de asignar ficha.
 export async function enriquecerGuiaPendientes(
   supabase: SupabaseClient,
@@ -166,7 +173,7 @@ export async function enriquecerGuiaPendientes(
     .select("id, nombre, lat, lon, lugar, coste, dia_index, plan_version_id")
     .in("plan_version_id", versiones.map((v) => v.id))
     .eq("resolucion->>estado", "resuelta")
-    .is("guia_intentada_en", null)
+    .or(`guia_formato.is.null,guia_formato.lt.${FORMATO_GUIA}`)
     .limit(limite);
   if (error) throw new Error(`No se pudieron leer las paradas sin guía: ${error.message}`);
   const porId = new Map(versiones.map((v) => [v.id, v]));

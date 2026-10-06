@@ -2,7 +2,7 @@
 // comprobar al leerlo. El trabajador ya solo escribe URLs canónicas, pero un
 // dato manipulado en la tabla no debe acabar en un enlace de la vista.
 import type { CuriosidadesParada, GuiaParada } from "@/lib/plan/tipos";
-import { MAX_TEXTO } from "./wikitexto";
+import { MAX_CONSEJO, MAX_TEXTO } from "./wikitexto";
 
 function esHttpsDe(url: unknown, sufijo: string): url is string {
   if (typeof url !== "string") return false;
@@ -26,7 +26,7 @@ const SIN_MARCADO = /[{}[\]<>]/;
 
 export function guiaSegura(guia: GuiaParada | null | undefined): GuiaParada | undefined {
   if (!guia || typeof guia.consejo !== "string") return undefined;
-  if (guia.consejo.length === 0 || guia.consejo.length > MAX_TEXTO || SIN_MARCADO.test(guia.consejo)) return undefined;
+  if (guia.consejo.length === 0 || guia.consejo.length > MAX_CONSEJO || SIN_MARCADO.test(guia.consejo)) return undefined;
   if (!esUrlWikivoyage(guia.url) || guia.licencia !== "CC BY-SA") return undefined;
   return guia;
 }

@@ -153,6 +153,8 @@ export interface Parada {
   guia?: GuiaParada;
   curiosidades?: CuriosidadesParada;
   guia_intentada_en?: string;
+  // Versión del formato con que se guardó la guía (FORMATO_GUIA al escribirla).
+  guia_formato?: number;
 }
 
 // guia-abierta: la ficha de Wikivoyage asignada a la parada. `precio_eur`

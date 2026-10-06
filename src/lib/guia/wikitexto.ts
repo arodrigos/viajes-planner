@@ -4,6 +4,10 @@
 // que sale es plano: nada de lo que viene de fuera llega a la vista con
 // marcado.
 export const MAX_TEXTO = 400;
+// El consejo de la ficha se guarda casi entero; MAX_TEXTO sigue acotando las
+// frases de curiosidades. El nombre tiene su propio tope.
+export const MAX_CONSEJO = 2000;
+export const MAX_NOMBRE = 120;
 
 export type TipoFicha = "see" | "do" | "eat" | "drink";
 
@@ -75,6 +79,21 @@ export function limpiarTexto(entrada: string, max: number = MAX_TEXTO): string {
   const corte = t.slice(0, max - 1);
   const ultimoEspacio = corte.lastIndexOf(" ");
   return `${(ultimoEspacio > max / 2 ? corte.slice(0, ultimoEspacio) : corte).trimEnd()}…`;
+}
+
+// Por encima de MAX_CONSEJO corta en el último fin de frase para que la
+// tarjeta no enseñe una frase a medias; solo si no hay ninguno razonable
+// cae al corte por palabra de limpiarTexto.
+export function limpiarConsejo(entrada: string): string {
+  const completo = limpiarTexto(entrada, Number.MAX_SAFE_INTEGER);
+  if (completo.length <= MAX_CONSEJO) return completo;
+  const ventana = completo.slice(0, MAX_CONSEJO - 1);
+  let corte = -1;
+  for (const m of ventana.matchAll(/[.!?](?=\s|$)/g)) corte = m.index;
+  // En la ventana, un «.» final puede ser el principio de una frase cortada
+  // justo ahí: solo vale si lo que sigue en el texto original es un espacio.
+  if (corte >= MAX_CONSEJO / 4 && /\s/.test(completo[corte + 1] ?? " ")) return `${ventana.slice(0, corte + 1)}…`;
+  return limpiarTexto(completo, MAX_CONSEJO);
 }
 
 // Un precio solo se suma si es un importe claro. «Adult €13.50, concessions
@@ -177,8 +196,8 @@ export function extraerFichas(wikitexto: string): FichaGuia[] {
 
     const tipo = base === "generica" ? TIPO_POR_VALOR[(parametros.get("type") ?? "").toLowerCase()] : base;
     if (!tipo) continue;
-    const nombre = limpiarTexto(parametros.get("name") ?? "", 120);
-    const contenido = limpiarTexto(parametros.get("content") ?? "");
+    const nombre = limpiarTexto(parametros.get("name") ?? "", MAX_NOMBRE);
+    const contenido = limpiarConsejo(parametros.get("content") ?? "");
     if (!nombre || !contenido) continue;
 
     const precioCrudo = limpiarTexto(parametros.get("price") ?? "", 120);
