@@ -8,7 +8,7 @@ import { distanciaMetros } from "@/lib/alternativas/equivalencia";
 // es la línea recta entre dos puntos.
 export const FACTOR_CALLE = 1.3;
 
-// Umbrales confirmados por Adrián: con niños se camina menos.
+// Umbrales confirmados en el diseño: con niños se camina menos.
 export const UMBRAL_A_PIE_FAMILIAR_KM = 1.5;
 export const UMBRAL_A_PIE_RESTO_KM = 2.0;
 
