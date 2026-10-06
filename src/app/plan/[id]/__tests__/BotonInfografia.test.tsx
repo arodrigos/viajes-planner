@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BotonInfografia, ERROR_INFOGRAFIA } from "../BotonInfografia";
@@ -34,7 +34,7 @@ describe("BotonInfografia (inf-ac3)", () => {
   it("comparte el fichero cuando el navegador lo permite, sin descargar", async () => {
     const share = vi.fn(async () => {});
     Object.assign(navigator, { share, canShare: () => true });
-    render(<BotonInfografia planId="p1" />);
+    render(<BotonInfografia planId="p1" version={1} />);
     await userEvent.click(screen.getByRole("button", { name: "Descargar infografía" }));
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
     expect((share.mock.calls[0] as unknown as [{ files: File[] }])[0].files[0].type).toBe("image/png");
@@ -47,14 +47,14 @@ describe("BotonInfografia (inf-ac3)", () => {
       throw new DOMException("cancelado", "AbortError");
     });
     Object.assign(navigator, { share, canShare: () => true });
-    render(<BotonInfografia planId="p1" />);
+    render(<BotonInfografia planId="p1" version={1} />);
     await userEvent.click(screen.getByRole("button", { name: "Descargar infografía" }));
     await waitFor(() => expect(share).toHaveBeenCalled());
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("sin navigator.share descarga el fichero", async () => {
-    render(<BotonInfografia planId="p1" />);
+    render(<BotonInfografia planId="p1" version={1} />);
     await userEvent.click(screen.getByRole("button", { name: "Descargar infografía" }));
     await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1), { timeout: 15000 });
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
@@ -63,9 +63,48 @@ describe("BotonInfografia (inf-ac3)", () => {
 
   it("si la generación falla, enseña el mensaje y el botón sigue disponible", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 500, blob: async () => new Blob([]) })));
-    render(<BotonInfografia planId="p1" />);
+    render(<BotonInfografia planId="p1" version={1} />);
     await userEvent.click(screen.getByRole("button", { name: "Descargar infografía" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(ERROR_INFOGRAFIA);
     expect(screen.getByRole("button", { name: "Descargar infografía" })).toBeEnabled();
+  });
+
+  it("la previa no pide nada hasta pulsar «Ver infografía» y usa la versión en la URL", async () => {
+    render(<BotonInfografia planId="p1" version={3} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    const boton = screen.getByRole("button", { name: "Ver infografía" });
+    expect(boton).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(boton);
+    expect(boton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Preparando la infografía…");
+    const imagen = document.querySelector("img") as HTMLImageElement;
+    expect(imagen.getAttribute("src")).toBe("/api/plan/p1/infografia.png?v=3");
+    expect(imagen.alt).toBe("Infografía del viaje");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("al cargar la imagen desaparece el marcador, y cerrar y abrir no cambia la URL", async () => {
+    render(<BotonInfografia planId="p1" version={1} />);
+    const boton = screen.getByRole("button", { name: "Ver infografía" });
+    await userEvent.click(boton);
+    const imagen = document.querySelector("img") as HTMLImageElement;
+    fireEvent.load(imagen);
+    expect(screen.queryByRole("status")).toBeNull();
+    await userEvent.click(boton);
+    expect(boton).toHaveAttribute("aria-expanded", "false");
+    expect(document.querySelector("figure")).toHaveAttribute("hidden");
+    await userEvent.click(boton);
+    expect(document.querySelector("img")).toBe(imagen);
+  });
+
+  it("si la previa falla enseña el error y «Reintentar» pide la imagen con &r=1", async () => {
+    render(<BotonInfografia planId="p1" version={1} />);
+    await userEvent.click(screen.getByRole("button", { name: "Ver infografía" }));
+    fireEvent.error(document.querySelector("img") as HTMLImageElement);
+    expect(await screen.findByRole("alert")).toHaveTextContent(ERROR_INFOGRAFIA);
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect((document.querySelector("img") as HTMLImageElement).getAttribute("src")).toBe("/api/plan/p1/infografia.png?v=1&r=1");
+    expect(screen.getByRole("status")).toBeInTheDocument();
   });
 });
