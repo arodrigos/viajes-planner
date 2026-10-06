@@ -111,7 +111,7 @@ test("cp-cc-02: «Ver más» despliega el consejo largo y el corto no tiene bot�
   const codigo = await leerCodigo(email);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   const tarjetaA = pagina.locator("li.tarjeta-parada", { hasText: "Parada consejo largo" });
   const tarjetaB = pagina.locator("li.tarjeta-parada", { hasText: "Parada consejo corto" });
   const parrafoA = tarjetaA.getByTestId("consejo-guia");
@@ -152,7 +152,7 @@ test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui
   const codigo = await leerCodigo(EMAIL);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } })).ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   const jeronimos = pagina.locator("li.tarjeta-parada", { hasText: "Monasterio de los Jerónimos" });
   await expect(jeronimos.getByTestId("guia-parada")).toContainText("Consejos de la guía");
   await expect(jeronimos.getByTestId("guia-parada")).toContainText("Wikivoyage · CC BY-SA");
@@ -223,7 +223,7 @@ test("cp-cur-03: cada curiosidad lleva su rótulo y enlace; la inglesa va sin tr
   const codigo = await leerCodigo(email);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   const bloque = pagina.locator("li.tarjeta-parada", { hasText: "Parada con curiosidades" }).getByTestId("curiosidades-parada");
   const elementos = bloque.locator("li");
   await expect(elementos).toHaveCount(4);

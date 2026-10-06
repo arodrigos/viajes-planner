@@ -1,3 +1,4 @@
+import { abrirOpciones } from "./opciones-e2e";
 import { expect, test, type Browser, type BrowserContext, type Locator } from "@playwright/test";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
@@ -56,7 +57,8 @@ test("«Ver infografía» enseña la lámina real en la página, sin descargar y
     descargas += 1;
   });
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  await abrirOpciones(pagina);
   await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
   expect(pedidas).toBe(0);
 
@@ -104,7 +106,8 @@ test("la previa dice que está preparando y, si falla, explica y deja reintentar
       await ruta.continue();
     }
   });
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  await abrirOpciones(pagina);
   await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
   await abrirPrevia(pagina.getByRole("button", { name: "Ver infografía" }));
   await expect(pagina.getByRole("status").filter({ hasText: "Preparando la infografía…" })).toBeVisible();
@@ -122,7 +125,8 @@ test("la previa dice que está preparando y, si falla, explica y deja reintentar
 test("sin sesión la previa no enseña ninguna imagen: responde 401 y sale el error (ip-ac1)", async ({ browser }) => {
   const { contexto, planId } = await entrarConPlan(browser, "ci-test-infografia-previa-sinsesion-e2e@example.com");
   const pagina = await contexto.newPage();
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  await abrirOpciones(pagina);
   await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
   await contexto.clearCookies();
   const respuesta = pagina.waitForResponse((r) => r.url().includes("infografia.png"));

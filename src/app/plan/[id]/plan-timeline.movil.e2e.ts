@@ -115,28 +115,30 @@ test("un plan real se lee como línea de tiempo: días y franjas en orden, icono
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
-  // (a) fechas ascendentes en el DOM.
-  const encabezadosDia = pagina.locator("section.seccion-dia h2");
-  await expect(encabezadosDia).toHaveText([dias[0].fecha, dias[1].fecha]);
-
+  // (a) cada día es su propio panel, en el orden de las fechas sembradas.
   // (b) dentro de cada día, las etiquetas de franja en el orden de
   // config-franjas.ts -no el orden en que se sembraron las paradas.
-  const seccionDia1 = pagina.locator("section.seccion-dia").nth(0);
-  await expect(seccionDia1.locator(".cabecera-franja h3")).toHaveText(["Mañana temprano", "Comida", "Cena"]);
-  const seccionDia2 = pagina.locator("section.seccion-dia").nth(1);
-  await expect(seccionDia2.locator(".cabecera-franja h3")).toHaveText(["Mañana", "Tarde"]);
-
   // (c) cada parada trae su propio <svg> dentro de su propio elemento.
-  for (const dia of dias) {
+  const franjasEsperadas = [["Mañana temprano", "Comida", "Cena"], ["Mañana", "Tarde"]];
+  for (const [i, dia] of dias.entries()) {
+    await pagina.goto(`/plan/${planId}?dia=${i + 1}`);
+    await expect(pagina.locator("section.seccion-dia h2")).toHaveText(new RegExp(`^Día ${i + 1} · `));
+    await expect(pagina.locator("section.seccion-dia")).toHaveCount(1);
+    await expect(pagina.locator("section.seccion-dia .cabecera-franja h3")).toHaveText(franjasEsperadas[i]);
     for (const parada of dia.paradas) {
       const tarjeta = pagina.locator(".tarjeta-parada", { hasText: parada.nombre });
       await expect(tarjeta).toBeVisible();
       await expect(tarjeta.locator("svg")).toHaveCount(1);
     }
   }
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  // El panel se pinta tras cargar /api/plan: sin esta espera el recuento de
+  // <svg> se hace sobre la página vacía.
+  await expect(pagina.locator("section.seccion-dia h2")).toHaveText(/^Día 1 · /);
+  await expect(pagina.locator(".tarjeta-parada svg").first()).toBeVisible();
 
   // maq-ac2(b): todo <svg> de la página es decorativo, y la etiqueta de
   // cada franja pintada sigue presente como texto -quitar el CSS no

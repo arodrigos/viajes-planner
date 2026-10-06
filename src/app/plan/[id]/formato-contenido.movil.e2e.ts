@@ -36,7 +36,7 @@ async function abrirPlan(browser: Browser, email: string, planId: string) {
   expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } })).ok()).toBe(true);
   const codigo = await leerCodigo(email);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   return { contexto, pagina };
 }
 
@@ -55,6 +55,7 @@ test("fmt-ac2: los importes de cuatro cifras llevan punto de miles y espacio dur
   }, 3000);
   const { contexto, pagina } = await abrirPlan(browser, email, planId);
 
+  await pagina.goto(`/plan/${planId}?dia=resumen`);
   const presupuesto = pagina.getByTestId("presupuesto-plan");
   await expect(presupuesto).toContainText("Tu presupuesto: 3.000 €");
   const texto = (await presupuesto.textContent()) ?? "";

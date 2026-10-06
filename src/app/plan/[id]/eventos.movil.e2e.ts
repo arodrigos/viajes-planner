@@ -45,14 +45,15 @@ test("eventos con fuente y enlace, y estado de época (eve-ac1, eve-ac2)", async
   const codigo = await leerCodigo(EMAIL);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } })).ok()).toBe(true);
 
-  await pagina.goto(`/plan/${conEventos}`);
+  await pagina.goto(`/plan/${conEventos}?dia=resumen`);
   const seccion = pagina.getByTestId("eventos-viaje");
   await expect(seccion).toContainText("Festivo nacional: Portugal Day · OpenHolidays");
   await expect(seccion.getByRole("link", { name: "Ver en OpenHolidays: Portugal Day" })).toHaveAttribute("href", "https://www.openholidaysapi.org/en/");
+  await pagina.goto(`/plan/${conEventos}?dia=1`);
   await expect(pagina.getByTestId("eventos-dia")).toContainText("Algunos museos cierran o cambian de horario en festivo");
   expect(await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
 
-  await pagina.goto(`/plan/${deEpoca}`);
+  await pagina.goto(`/plan/${deEpoca}?dia=resumen`);
   await expect(pagina.getByTestId("eventos-viaje")).toContainText("Indica fechas concretas para ver festivos y fiestas");
   await expect(pagina.getByTestId("evento")).toHaveCount(0);
   await contexto.close();

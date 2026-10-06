@@ -73,7 +73,7 @@ test("aviso, motivo, ayuda y contador de un plan sin ciudad identificable, sin s
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, EMAIL);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   await expect(pagina.getByText("No hemos identificado la ciudad de este viaje")).toBeVisible();
@@ -113,7 +113,7 @@ test("decir la ciudad a mano: confirma y deja pendiente-manual con nombre_pedido
   const contexto = await browser.newContext({ viewport: { width: 393, height: 851 } });
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, email);
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
 
   await pagina.getByLabel("¿De qué ciudad es este viaje?").fill("Valencia");
   await pagina.getByRole("button", { name: "Guardar ciudad" }).click();

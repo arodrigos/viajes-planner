@@ -753,3 +753,101 @@ footer a,
   align-items: center;
   min-height: var(--objetivo-tactil);
 }
+
+/* vista-por-dias: el carril se desplaza dentro de su contenedor para que la
+   página nunca desborde a 390 px; cada chip cumple el objetivo táctil de 44 px. */
+.selector-dias {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--background);
+  border-bottom: 1px solid var(--borde);
+  padding: var(--espacio-2) 0;
+}
+
+.carril-dias {
+  flex-direction: row;
+  gap: var(--espacio-2);
+  overflow-x: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.carril-dias li {
+  flex: 0 0 auto;
+}
+
+.chip-dia {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  min-height: var(--objetivo-tactil);
+  padding: 0 var(--espacio-3);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--foreground);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.chip-dia[aria-current="page"] {
+  background: var(--foco);
+  border-color: var(--foco);
+  color: #fff;
+  font-weight: 600;
+}
+
+.marca-hoy {
+  font-size: var(--texto-pequeno);
+  font-weight: 700;
+  padding: 0 var(--espacio-2);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+.cabecera-plan .fila {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cabecera-plan h1 {
+  overflow-wrap: anywhere;
+}
+
+.menu-opciones {
+  padding: var(--espacio-3);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+  background: var(--superficie);
+}
+
+.menu-opciones[hidden] {
+  display: none;
+}
+
+.dialogo-regenerar {
+  max-width: min(32rem, calc(100vw - 2rem));
+  border: 2px solid var(--peligro-borde);
+  border-radius: 0.5rem;
+  padding: var(--espacio-4);
+}
+
+.como-leer-plan summary {
+  min-height: var(--objetivo-tactil);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.resumen-plan {
+  font-weight: 600;
+}
+
+.lista-dias .enlace-boton {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--objetivo-tactil);
+}

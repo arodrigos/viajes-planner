@@ -114,7 +114,7 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   // (a) dos enlaces "Ubicación comprobada", cada uno a su lugar.url sembrada.
@@ -150,7 +150,7 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   await expect(tarjetaSinResolver.getByRole("link", { name: /^Fuente:/ })).toHaveCount(0);
 
   // (c) el aviso global, honesto y sin control de cierre.
-  const aviso = pagina.getByText(/Las paradas marcadas como comprobadas se han localizado/);
+  const aviso = pagina.getByText("Esta herramienta no es una fuente de navegación ni de seguridad.");
   await expect(aviso).toBeVisible();
   await expect(aviso).toHaveAttribute("role", "note");
 

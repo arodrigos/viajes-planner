@@ -66,7 +66,7 @@ async function abrirPlan(browser: import("@playwright/test").Browser, supabase: 
   expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email: EMAIL } })).ok()).toBe(true);
   const codigo = await leerCodigo(EMAIL);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } })).ok()).toBe(true);
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=resumen`);
   await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
   return { contexto, pagina };
 }
@@ -76,7 +76,7 @@ test("Ruta del viaje: etapas, traslado, presupuesto y ajustes, sin aviso de ciud
   const ruta = pagina.getByTestId("ruta-viaje");
   await expect(ruta).toBeVisible();
 
-  const etapas = await ruta.getByTestId("etapa-ruta").locator("h3").allTextContents();
+  const etapas = await ruta.getByTestId("etapa-ruta").locator("h4").allTextContents();
   expect(etapas).toEqual(["Lisboa · 4 noches", "Oporto · 3 noches"]);
   await expect(ruta.getByText("Lisboa → Oporto · autobús", { exact: false })).toHaveCount(0);
   await expect(ruta.getByText("Lisboa → Oporto · tren · ~3 h 49 min · ~79 € (estimado)")).toBeVisible();
@@ -87,7 +87,7 @@ test("Ruta del viaje: etapas, traslado, presupuesto y ajustes, sin aviso de ciud
 
   // Pulsar una etapa lleva a su primer día.
   await ruta.getByRole("button", { name: /Oporto · 3 noches/ }).click();
-  await expect(pagina.locator("#dia-4")).toBeInViewport();
+  await expect(pagina.getByRole("heading", { name: /^Día 5 · .* · Oporto$/ })).toBeVisible();
 
   // etv-ac3: sin desbordamiento horizontal en el móvil.
   const ancho = await pagina.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
@@ -97,17 +97,20 @@ test("Ruta del viaje: etapas, traslado, presupuesto y ajustes, sin aviso de ciud
 
 test("cada día nombra su ciudad y su mapa se centra en ella (etv-ac2)", async ({ browser }) => {
   const { contexto, pagina } = await abrirPlan(browser, clienteDePrueba("servicio"), "coche", "dias");
-  await expect(pagina.getByRole("heading", { name: "Día 1 · Lisboa" })).toBeVisible();
-  await expect(pagina.getByRole("heading", { name: "Día 5 · Oporto" })).toBeVisible();
-
-  const centro = async (indice: number) => {
-    const texto = await pagina.locator(`#dia-${indice} .contenedor-mapa-dia`).getAttribute("data-centro");
+  const chips = pagina.getByRole("navigation", { name: "Días del viaje" }).getByRole("link");
+  const centroDelDia = async () => {
+    const texto = await pagina.locator(".contenedor-mapa-dia").getAttribute("data-centro");
     const [lat, lon] = (texto ?? "").split(",").map(Number);
     return { lat, lon };
   };
   const dentro = (c: { lat: number; lon: number }, caja: typeof CAJA_LISBOA) => c.lat >= caja.minLat && c.lat <= caja.maxLat && c.lon >= caja.minLon && c.lon <= caja.maxLon;
-  expect(dentro(await centro(0), CAJA_LISBOA)).toBe(true);
-  expect(dentro(await centro(4), CAJA_OPORTO)).toBe(true);
+
+  await chips.nth(1).click();
+  await expect(pagina.getByRole("heading", { name: /^Día 1 · .* · Lisboa$/ })).toBeVisible();
+  expect(dentro(await centroDelDia(), CAJA_LISBOA)).toBe(true);
+  await chips.nth(5).click();
+  await expect(pagina.getByRole("heading", { name: /^Día 5 · .* · Oporto$/ })).toBeVisible();
+  expect(dentro(await centroDelDia(), CAJA_OPORTO)).toBe(true);
   await contexto.close();
 });
 

@@ -78,8 +78,8 @@ async function abrirPlan(browser: import("@playwright/test").Browser, email: str
   expect(solicitud.ok()).toBe(true);
   const verificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo: await leerCodigo(email) } });
   expect(verificar.ok()).toBe(true);
-  await pagina.goto(`/plan/${planId}`);
-  await expect(pagina.getByRole("heading", { name: "2026-10-06" })).toBeVisible();
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  await expect(pagina.getByRole("heading", { name: /^Día 1 · / })).toBeVisible();
   return { contexto, pagina };
 }
 
@@ -106,6 +106,7 @@ test("entre dos paradas lejanas se ve el medio, su tiempo y su enlace (tra-ac2, 
 
   const tramos = pagina.getByTestId("tramo-parada");
   await expect(tramos).toHaveCount(2);
+  await expect(tramos.nth(0)).toContainText("≈");
   await expect(tramos.nth(0)).toContainText("1,1 km");
   await expect(tramos.nth(0)).toContainText("A pie");
   await expect(tramos.nth(0)).toContainText("20 min");
@@ -124,7 +125,8 @@ test("entre dos paradas lejanas se ve el medio, su tiempo y su enlace (tra-ac2, 
 
   const hrefs = await pagina.locator("section.seccion-dia a").evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).href));
   expect(hrefs.filter((h) => h.includes("51.6906") && h.includes("travelmode=walking"))).toEqual([]);
-  await expect(pagina.locator("section.seccion-dia")).toContainText("Tiempos estimados por distancia");
+  // dia-ac4: la frase de estimación ya no se repite en el día.
+  await expect(pagina.locator("section.seccion-dia")).not.toContainText("Tiempos estimados por distancia");
   await contexto.close();
 });
 

@@ -19,7 +19,7 @@ export function RutaViaje({ ruta, presupuesto, onIrADia }: Props) {
   const ajustes = ruta.etapas.flatMap((e) => e.ajustes);
   return (
     <section aria-label="Ruta del viaje" className="ruta-viaje" data-testid="ruta-viaje">
-      <h2>Ruta del viaje</h2>
+      <h3>Ruta del viaje</h3>
       <ol className="pila">
         {ruta.etapas.map((etapa) => (
           <li key={etapa.indice} className="etapa-ruta">
@@ -41,11 +41,11 @@ export function RutaViaje({ ruta, presupuesto, onIrADia }: Props) {
               </div>
             )}
             <div className="tarjeta-etapa" data-testid="etapa-ruta">
-              <h3>
+              <h4>
                 <button type="button" className="enlace-boton" onClick={() => onIrADia(etapa.dia_inicio)}>
                   {etapa.ciudad} · {etapa.noches} {etapa.noches === 1 ? "noche" : "noches"}
                 </button>
-              </h3>
+              </h4>
               <p className="ayuda">
                 {etapa.pais}
                 {etapa.fecha_inicio && etapa.fecha_fin ? ` · ${formatearFechaCorta(etapa.fecha_inicio)} – ${formatearFechaCorta(etapa.fecha_fin)}` : ""}
@@ -71,7 +71,7 @@ export function RutaViaje({ ruta, presupuesto, onIrADia }: Props) {
           : " · todo estimado"}
       </p>
       <div className="ajustes-planificador" data-testid="ajustes-planificador">
-        <h3>Ajustes del planificador</h3>
+        <h4>Ajustes del planificador</h4>
         {ajustes.length === 0 ? (
           <p>{TEXTO_SIN_AJUSTES}</p>
         ) : (

@@ -65,12 +65,11 @@ test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni d
 }) => {
   await page.route("**/api/plan/*", (route) => route.fulfill({ json: PLAN_FIXTURE }));
 
-  await page.goto("/plan/plan-e2e");
+  await page.goto("/plan/plan-e2e?dia=1");
 
   // (a) cinco secciones de día, franjas por etiqueta, sin desbordamiento.
-  for (const dia of PLAN_FIXTURE.dias) {
-    await expect(page.getByRole("heading", { name: dia.fecha })).toBeVisible();
-  }
+  await expect(page.getByRole("navigation", { name: "Días del viaje" }).getByRole("link")).toHaveCount(PLAN_FIXTURE.dias.length + 1);
+  await expect(page.getByRole("heading", { level: 2, name: /^Día 1 · / })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mañana", exact: true }).first()).toBeVisible();
   const anchoDocumento = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(anchoDocumento).toBeLessThanOrEqual(360);
@@ -91,12 +90,13 @@ test("el plan se lee a 360px con días y franjas por etiqueta, sin horarios ni d
 
   // reco-ac5: el enlace de la recomendación envenenada apunta a la
   // búsqueda determinista, nunca al booking.com falso del nombre.
+  await page.goto("/plan/plan-e2e?dia=resumen");
   const enlaceRecomendacion = page.getByRole("link", { name: /Reserva en https:\/\/booking\.com/ });
   await expect(enlaceRecomendacion).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/);
 
   // (c) el aviso es visible al abrir, sigue visible tras recargar y no
   // tiene ningún control de cierre en el DOM.
-  const aviso = page.getByText(/Las paradas marcadas como comprobadas/);
+  const aviso = page.getByText("Esta herramienta no es una fuente de navegación ni de seguridad.");
   await expect(aviso).toBeVisible();
   await page.reload();
   await expect(aviso).toBeVisible();

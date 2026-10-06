@@ -41,6 +41,8 @@ interface PropiedadesMapaDia {
   // etv-ac2: en un viaje de varias ciudades, la caja de la etapa del día; sin
   // paradas resueltas el mapa se centra en ella y no en el país entero.
   cajaEtapa?: { minLat: number; maxLat: number; minLon: number; maxLon: number };
+  // vista-por-dias: compacto por defecto en el panel del día, ampliable.
+  alto?: number;
 }
 
 function calcularBounds(puntos: PuntoMapaDia[]): [[number, number], [number, number]] {
@@ -52,7 +54,7 @@ function calcularBounds(puntos: PuntoMapaDia[]): [[number, number], [number, num
   ];
 }
 
-export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisitados, centroParadaId, cajaEtapa }: PropiedadesMapaDia) {
+export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisitados, centroParadaId, cajaEtapa, alto = 280 }: PropiedadesMapaDia) {
   const [fallo, setFallo] = useState(false);
   const mapaRef = useRef<MapRef>(null);
 
@@ -107,7 +109,7 @@ export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisita
         }}
         mapStyle={ESTILO_OPENFREEMAP}
         attributionControl={false}
-        style={{ width: "100%", height: "280px" }}
+        style={{ width: "100%", height: `${alto}px` }}
         onError={() => setFallo(true)}
       >
         {/* map-ac4: atribución visible, nunca colapsada en móvil -requisito

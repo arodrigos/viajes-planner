@@ -99,7 +99,7 @@ test("cambiar una parada por una alternativa crea una versión nueva y la antigu
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const { count: versionesAntes } = await supabase.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planId);
@@ -152,7 +152,7 @@ test("usabilidad: parada sin alternativas, ayuda y objetivos táctiles (alt-ac7)
   const respuestaVerificar = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } });
   expect(respuestaVerificar.ok()).toBe(true);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const tarjetaSinAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Torre del Oro" });
@@ -243,7 +243,7 @@ async function abrirPanelMuseo(browser: Browser, email: string) {
   expect((await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email } })).ok()).toBe(true);
   const codigo = await leerCodigo(email);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo A" });
   await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
   return { contexto, pagina, tarjeta };

@@ -99,7 +99,7 @@ test("marcar/desmarcar visitada, mapa centrado en la siguiente y «Cómo llegar�
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, EMAIL);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   // Aislado por plan: cuenta solo las visitas de las paradas de ESTE plan
@@ -206,7 +206,7 @@ test("un día que no es hoy no muestra ningún botón de visita (dest-ac3)", asy
   const contexto = await browser.newContext({ viewport: { width: 393, height: 851 } });
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, email);
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   await expect(pagina.getByRole("button", { name: "Marcar como visitada" })).toHaveCount(0);

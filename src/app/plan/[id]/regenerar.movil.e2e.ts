@@ -1,3 +1,4 @@
+import { abrirOpciones } from "./opciones-e2e";
 import { expect, test } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
@@ -51,12 +52,13 @@ test("regenerar un viaje de punta a punta: cancelar no cambia nada, confirmar re
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, email);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  await abrirOpciones(pagina);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const { count: trabajosAntes } = await supabase.from("trabajos").select("id", { count: "exact", head: true }).eq("usuario_id", usuario.user.id);
 
-  await pagina.getByRole("button", { name: "Regenerar este viaje" }).click();
+  await pagina.getByRole("button", { name: "Regenerar el viaje…" }).click();
   const dialogo = pagina.getByRole("dialog", { name: "Regenerar este viaje" });
   await expect(dialogo).toBeVisible();
   await expect(dialogo.getByText(TEXTO_CONFIRMACION)).toBeVisible();
@@ -73,7 +75,7 @@ test("regenerar un viaje de punta a punta: cancelar no cambia nada, confirmar re
   // "Sí, regenerar": la fila del trabajo propietario pasa a 'encolado', con
   // el MISMO plan_id (no hay fila nueva en `trabajos`), y navega al
   // progreso.
-  await pagina.getByRole("button", { name: "Regenerar este viaje" }).click();
+  await pagina.getByRole("button", { name: "Regenerar el viaje…" }).click();
   await pagina.getByRole("dialog", { name: "Regenerar este viaje" }).getByRole("button", { name: "Sí, regenerar" }).click();
 
   await expect(pagina).toHaveURL(new RegExp(`/trabajos/${trabajo.id}$`));
@@ -113,7 +115,8 @@ test("usabilidad: objetivo táctil, ayuda, aviso de regeneración en curso y cap
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, email);
 
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  await abrirOpciones(pagina);
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   // reg-ac4: el trabajo está "en-curso" (regenerando) -- la versión
@@ -122,13 +125,13 @@ test("usabilidad: objetivo táctil, ayuda, aviso de regeneración en curso y cap
   const enlaceProgreso = pagina.getByRole("link", { name: "Ver el progreso" });
   await expect(enlaceProgreso).toHaveAttribute("href", `/trabajos/${trabajo.id}`);
 
-  const botonRegenerar = pagina.getByRole("button", { name: "Regenerar este viaje" });
+  const botonRegenerar = pagina.getByRole("button", { name: "Regenerar el viaje…" });
   // usabilidad-ac8: nada de `title` -la ayuda va en un texto visible, no en
   // un tooltip de hover que en táctil no existe.
   await expect(pagina.getByText(/Vuelve a generar el plan con las mejoras actuales/)).toBeVisible();
 
   const resultados = await medirObjetivosTactiles(pagina);
-  const botonMedido = resultados.find((r) => r.descripcion.includes("Regenerar este viaje"));
+  const botonMedido = resultados.find((r) => r.descripcion.includes("Regenerar el viaje"));
   expect(botonMedido?.alto).toBeGreaterThanOrEqual(44);
   expect(botonMedido?.ancho).toBeGreaterThanOrEqual(44);
 

@@ -214,16 +214,19 @@ test("el recorrido completo funciona de punta a punta, y un segundo usuario no v
   // (d) el plan se ve como línea de tiempo, con los días en orden, las
   // franjas en el orden de config-franjas.ts, y sus recomendaciones visibles.
   await enlacePlan.click();
-  await expect(pagina).toHaveURL(`/plan/${planId}`);
+  await expect(pagina).toHaveURL(new RegExp(`/plan/${planId}(\\?.*)?$`));
   await expect(pagina.getByRole("heading", { name: DESTINO_A })).toBeVisible();
 
-  const encabezadosDia = pagina.locator("section.seccion-dia h2");
-  await expect(encabezadosDia).toHaveText([dias[0].fecha, dias[1].fecha]);
-  const seccionDia1 = pagina.locator("section.seccion-dia").nth(0);
-  await expect(seccionDia1.locator(".cabecera-franja h3")).toHaveText(["Mañana temprano", "Comida", "Cena"]);
-  const seccionDia2 = pagina.locator("section.seccion-dia").nth(1);
-  await expect(seccionDia2.locator(".cabecera-franja h3")).toHaveText(["Mañana", "Tarde"]);
+  // Un día por panel: se elige cada uno por la URL, que es el estado real.
+  const franjasPorDia = [["Mañana temprano", "Comida", "Cena"], ["Mañana", "Tarde"]];
+  for (const [i, franjas] of franjasPorDia.entries()) {
+    await pagina.goto(`/plan/${planId}?dia=${i + 1}`);
+    await expect(pagina.locator("section.seccion-dia h2")).toHaveText(new RegExp(`^Día ${i + 1} · `));
+    await expect(pagina.locator("section.seccion-dia .cabecera-franja h3")).toHaveText(franjas);
+  }
+  expect(dias).toHaveLength(2);
 
+  await pagina.goto(`/plan/${planId}?dia=resumen`);
   await expect(pagina.getByRole("heading", { name: "Más sitios recomendados" })).toBeVisible();
   for (const reco of RECOMENDACIONES_A) {
     await expect(pagina.getByRole("link", { name: reco.nombre, exact: true })).toBeVisible();

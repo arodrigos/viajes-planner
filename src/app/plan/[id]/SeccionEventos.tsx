@@ -64,7 +64,7 @@ export function SeccionEventos({ eventos }: { eventos?: EventosVersion }) {
     );
   return (
     <section aria-label="Fiestas y festivos durante tu viaje" className="eventos-viaje" data-testid="eventos-viaje">
-      <h2>Fiestas y festivos durante tu viaje</h2>
+      <h3>Fiestas y festivos durante tu viaje</h3>
       {cuerpo}
     </section>
   );

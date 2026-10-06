@@ -50,7 +50,7 @@ const PAGINAS: Pagina[] = [
     nombre: "plan",
     ruta: "/plan/plan-movil-e2e",
     preparar: (page) => page.route("**/api/plan/*", (route) => route.fulfill({ json: PLAN_FIXTURE })),
-    esperar: (page) => page.getByText(/Las paradas marcadas como comprobadas/).waitFor(),
+    esperar: (page) => page.getByText("Esta herramienta no es una fuente de navegación ni de seguridad.").waitFor(),
   },
   {
     nombre: "trabajos",
