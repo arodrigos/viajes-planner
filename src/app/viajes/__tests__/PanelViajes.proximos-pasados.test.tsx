@@ -48,3 +48,48 @@ describe("PanelViajes: próximos y pasados (txt-ac1)", () => {
     await waitFor(() => expect(screen.getByText(/aquí aparecerán los viajes que ya hayas hecho/i)).toBeInTheDocument());
   });
 });
+
+// mv-ac1/ac4: el viaje en curso con plan listo abre «hoy», va primero y dice qué día es.
+describe("PanelViajes: situación y orden (mv-ac1, mv-ac4)", () => {
+  it("«Abrir hoy» solo en el viaje en curso, y el orden sigue la fecha de inicio", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 9, 6, 12, 0) });
+    const datos = (id: string, destino: string, ini: string, fin: string) => ({
+      id,
+      destino,
+      fecha: `${ini} – ${fin}`,
+      fecha_inicio: ini,
+      fecha_fin: fin,
+      estado: "completado",
+      plan_id: `plan-${id}`,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              correo: "a@ej.com",
+              viajes: [
+                datos("1", "Roma", "2026-11-05", "2026-11-08"),
+                datos("2", "Oporto", "2026-10-05", "2026-10-08"),
+                datos("3", "Lisboa", "2026-10-07", "2026-10-09"),
+              ],
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+
+    render(<PanelViajes />);
+
+    const proximos = await screen.findByRole("region", { name: "Próximos" });
+    const items = within(proximos).getAllByRole("listitem");
+    expect(items.map((i) => within(i).getByRole("strong").textContent)).toEqual(["Oporto", "Lisboa", "Roma"]);
+    expect(within(items[0]).getByRole("link", { name: "Abrir hoy" })).toHaveAttribute("href", "/plan/plan-2");
+    expect(within(items[0]).getByText("En curso · día 2 de 4")).toBeInTheDocument();
+    expect(within(items[1]).getByText("Empieza mañana")).toBeInTheDocument();
+    expect(within(items[1]).getByRole("link", { name: "Ver el itinerario" })).toBeInTheDocument();
+    expect(within(items[2]).getByText("5–8 nov 2026")).toBeInTheDocument();
+    expect(within(items[2]).getByText("Empieza dentro de 30 días")).toBeInTheDocument();
+  });
+});

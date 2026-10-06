@@ -6,6 +6,8 @@ export interface ViajeListado {
   id: string;
   destino: string;
   fecha: string;
+  // Primer día del viaje (AAAA-MM-DD); null si solo se indicó una época.
+  fecha_inicio: string | null;
   // Último día del viaje (AAAA-MM-DD); null si solo se indicó una época.
   fecha_fin: string | null;
   estado: string;
@@ -15,6 +17,10 @@ export interface ViajeListado {
 function textoFecha(fechas: Fechas | undefined): string {
   if (!fechas) return "sin fecha indicada";
   return fechas.modo === "fechas" ? `${fechas.inicio} – ${fechas.fin}` : fechas.epoca;
+}
+
+function fechaInicio(fechas: Fechas | undefined): string | null {
+  return fechas?.modo === "fechas" ? fechas.inicio : null;
 }
 
 function fechaFin(fechas: Fechas | undefined): string | null {
@@ -43,6 +49,7 @@ export async function listarViajes(supabase: SupabaseClient, usuarioId: string):
       id: fila.id,
       destino: criterios?.destino_o_tipo ?? "Destino sin especificar",
       fecha: textoFecha(criterios?.fechas),
+      fecha_inicio: fechaInicio(criterios?.fechas),
       fecha_fin: fechaFin(criterios?.fechas),
       estado: fila.estado,
       plan_id: fila.plan_id,

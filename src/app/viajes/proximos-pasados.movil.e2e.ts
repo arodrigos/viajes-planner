@@ -81,6 +81,70 @@ test("mis-viajes: separa próximos, en curso y pasados; tocar uno abre su plan s
   await contexto.close();
 });
 
+// mv-ac1..ac5: cinco viajes sembrados en un orden de creación distinto del
+// esperado; fechas relativas a hoy para no depender de un reloj fijo.
+test("mis-viajes: orden, rango legible con año, situación y accesibilidad (mv-ac1..ac5)", async ({ browser }) => {
+  const supabase = clienteDePrueba("servicio");
+  const marca = Date.now();
+  const correo = "ci-test-mis-viajes-fechas@example.com";
+  const { data: usuario, error } = await supabase.auth.admin.createUser({ email: correo, email_confirm: true });
+  if (error || !usuario.user) throw new Error(`No se pudo crear el usuario: ${error?.message}`);
+
+  await sembrarViaje(supabase, usuario.user.id, marca, "Roma (ejemplo)", 30, 33);
+  await sembrarViaje(supabase, usuario.user.id, marca, "Sevilla (ejemplo)", -62, -60);
+  const idOporto = await sembrarViaje(supabase, usuario.user.id, marca, "Oporto (ejemplo)", -1, 2);
+  await sembrarViaje(supabase, usuario.user.id, marca, "Atenas (ejemplo)", -12, -10);
+  await sembrarViaje(supabase, usuario.user.id, marca, "Lisboa (ejemplo)", 5, 8);
+
+  const contexto = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const pagina = await contexto.newPage();
+  const solicitud = await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email: correo } });
+  expect(solicitud.ok()).toBe(true);
+  const codigo = await leerCodigo(correo);
+  const verificacion = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: correo, codigo } });
+  expect(verificacion.ok()).toBe(true);
+
+  await pagina.goto("/viajes");
+  const proximos = pagina.getByRole("region", { name: "Próximos" });
+  const pasados = pagina.getByRole("region", { name: "Pasados" });
+  await expect(proximos.getByRole("listitem").first()).toBeVisible();
+
+  const destinos = async (region: typeof proximos) =>
+    (await region.getByRole("listitem").locator("strong").allTextContents()).map((t) => t.trim());
+  expect(await destinos(proximos)).toEqual(["Oporto (ejemplo)", "Lisboa (ejemplo)", "Roma (ejemplo)"]);
+  expect(await destinos(pasados)).toEqual(["Atenas (ejemplo)", "Sevilla (ejemplo)"]);
+
+  // mv-ac4: situación y cuenta atrás; los pasados no llevan ninguna.
+  const tarjeta = (destino: string) => pagina.getByRole("listitem").filter({ hasText: destino });
+  await expect(tarjeta("Oporto (ejemplo)")).toContainText("En curso · día 2 de 4");
+  await expect(tarjeta("Lisboa (ejemplo)")).toContainText("Empieza dentro de 5 días");
+  await expect(tarjeta("Roma (ejemplo)")).toContainText("Empieza dentro de 30 días");
+  await expect(pasados).not.toContainText(/Empieza|En curso/);
+
+  // mv-ac2/ac3: fechas en <time> con año, nunca AAAA-MM-DD, estado en palabras.
+  const textoLista = await pagina.locator("main").textContent();
+  expect(textoLista).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+  expect(textoLista).not.toMatch(/en-curso|encolado|completado|caducado/);
+  const tiempos = pagina.locator("main time");
+  expect(await tiempos.count()).toBe(5);
+  for (const t of await tiempos.all()) {
+    await expect(t).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}$/);
+    expect(await t.textContent()).toMatch(/\d{4}/);
+  }
+
+  // mv-ac5
+  await comprobarAccesibilidad(pagina);
+  expect(await pagina.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await pagina.screenshot({ path: "artefactos/capturas/mis-viajes-fechas.png", fullPage: true });
+
+  // mv-ac1: el primero de Próximos abre su plan, sin parámetro dia.
+  await proximos.getByRole("listitem").first().getByRole("link", { name: "Abrir hoy" }).click();
+  await expect(pagina).toHaveURL(`/plan/${idOporto}`);
+  await expect(pagina.getByRole("heading", { name: "Oporto (ejemplo)" })).toBeVisible();
+
+  await contexto.close();
+});
+
 // txt-ac1-a, límite: sin viajes hay un estado vacío con salida; sin sesión de
 // por medio, porque lo que se prueba es cómo reacciona el panel a la API.
 test("mis-viajes: sin viajes explica qué hacer y enlaza a crear uno (txt-ac1-a, txt-ac3)", async ({ page }) => {
