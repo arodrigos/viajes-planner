@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { formatearFechaDia } from "@/lib/plan/dias";
+import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada } from "@/lib/plan/erroresParada";
+import { TEXTOS_AHORA } from "@/lib/textos/ahora";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
 import { formatearKm } from "@/lib/formato/numeros";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
@@ -33,7 +35,8 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
   const [paradaConVisitaEnCurso, setParadaConVisitaEnCurso] = useState<string | null>(null);
   const refsTarjetas = useRef(new Map<string, HTMLLIElement>());
   const [cambiando, setCambiando] = useState<{ paradaId: string; alternativaId: string } | null>(null);
-  const [errorCambio, setErrorCambio] = useState<string | null>(null);
+  // Un error por parada: cada tarjeta pinta solo el suyo.
+  const [errores, setErrores] = useState<ErroresParada>(ERRORES_VACIOS);
   const [avisoCambio, setAvisoCambio] = useState<string | null>(null);
   const [mapaAmpliado, setMapaAmpliado] = useState(false);
 
@@ -53,7 +56,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
     if (cambiandoRef.current) return false;
     cambiandoRef.current = true;
     setCambiando({ paradaId, alternativaId });
-    setErrorCambio(null);
+    setErrores((e) => limpiarError(e, paradaId));
     setAvisoCambio(null);
     try {
       const respuesta = await fetch(`/api/plan/${planId}/paradas/${paradaId}/sustituir`, {
@@ -63,7 +66,9 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
       });
       if (!respuesta.ok) {
         const datos = await respuesta.json().catch(() => null);
-        setErrorCambio(typeof datos?.error === "string" ? datos.error : ERROR_CAMBIO_GENERICO);
+        // El mensaje viene del servidor ya curado; si no es una cadena razonable, el genérico.
+        const mensaje = typeof datos?.error === "string" && datos.error.length <= 200 ? datos.error : ERROR_CAMBIO_GENERICO;
+        setErrores((e) => fijarError(e, paradaId, { tipo: "cambio", mensaje }));
         return false;
       }
       setAvisoCambio(`Hecho: ahora vas a ${nombreAlternativa}. Para deshacerlo, abre sus alternativas.`);
@@ -73,7 +78,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
       refsTarjetas.current.get(paradaId)?.focus();
       return true;
     } catch {
-      setErrorCambio(ERROR_CAMBIO_GENERICO);
+      setErrores((e) => fijarError(e, paradaId, { tipo: "cambio", mensaje: ERROR_CAMBIO_GENERICO }));
       return false;
     } finally {
       cambiandoRef.current = false;
@@ -86,6 +91,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
   // `paradaId` en usarAlternativa.
   async function alternarVisita(paradaId: string, visitadaActualmente: boolean) {
     setParadaConVisitaEnCurso(paradaId);
+    setErrores((e) => limpiarError(e, paradaId));
     try {
       const respuesta = await fetch(`/api/plan/${planId}/visitas`, {
         method: visitadaActualmente ? "DELETE" : "POST",
@@ -93,6 +99,9 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
         body: JSON.stringify({ parada_id: paradaId }),
       });
       if (respuesta.ok) onPlanActualizado();
+      else setErrores((e) => fijarError(e, paradaId, { tipo: "visita", mensaje: TEXTOS_AHORA.errorVisita.texto }));
+    } catch {
+      setErrores((e) => fijarError(e, paradaId, { tipo: "visita", mensaje: TEXTOS_AHORA.errorVisita.texto }));
     } finally {
       setParadaConVisitaEnCurso(null);
     }
@@ -140,6 +149,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
           tramo={tramoHastaSiguiente(dia.tramos ?? [], siguienteParada)}
           zona={zona}
           marcando={siguienteParada !== null && paradaConVisitaEnCurso === siguienteParada.id}
+          errorVisita={siguienteParada ? leerError(errores, siguienteParada.id)?.mensaje : undefined}
           onMarcar={() => siguienteParada && alternarVisita(siguienteParada.id, false)}
           onIrARecomendados={onIrAResumen}
         />
@@ -238,7 +248,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
                     hrefComoLlegar={hrefComoLlegar ?? undefined}
                     visitaEnCurso={paradaConVisitaEnCurso === parada.id}
                     cambiando={cambiando}
-                    errorCambio={errorCambio}
+                    error={leerError(errores, parada.id)}
                     onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
                     onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
                   />

@@ -296,6 +296,9 @@ test("cp-alr-02: error del servidor y red caída dejan el panel abierto con su m
   const botonB = tarjeta.locator(".tarjeta-alternativa", { hasText: "Museo B" }).getByRole("button");
   await botonB.click();
   await expect(pagina.getByRole("alert").filter({ hasText: mensaje })).toBeVisible();
+  // err-ac1: el error vive dentro de la tarjeta de su parada y es el único de la página.
+  await expect(tarjeta.getByRole("alert")).toHaveText(mensaje);
+  await expect(pagina.getByRole("alert")).toHaveCount(1);
   await expect(botonB).toBeEnabled();
   await expect(tarjeta.getByRole("region", { name: /Alternativas a Museo A/ })).toBeVisible();
   await expect(pagina.locator(".tarjeta-parada", { hasText: "Museo A" })).toBeVisible();
