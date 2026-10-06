@@ -215,7 +215,7 @@ test("el recorrido completo funciona de punta a punta, y un segundo usuario no v
   // franjas en el orden de config-franjas.ts, y sus recomendaciones visibles.
   await enlacePlan.click();
   await expect(pagina).toHaveURL(new RegExp(`/plan/${planId}(\\?.*)?$`));
-  await expect(pagina.getByRole("heading", { name: DESTINO_A })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO_A, exact: true })).toBeVisible();
 
   // Un día por panel: se elige cada uno por la URL, que es el estado real.
   const franjasPorDia = [["Mañana temprano", "Comida", "Cena"], ["Mañana", "Tarde"]];

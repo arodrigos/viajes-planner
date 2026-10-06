@@ -59,7 +59,7 @@ test("«Ver infografía» enseña la lámina real en la página, sin descargar y
 
   await pagina.goto(`/plan/${planId}?dia=1`);
   await abrirOpciones(pagina);
-  await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Portugal", exact: true })).toBeVisible();
   expect(pedidas).toBe(0);
 
   const boton = pagina.getByRole("button", { name: "Ver infografía" });
@@ -108,7 +108,7 @@ test("la previa dice que está preparando y, si falla, explica y deja reintentar
   });
   await pagina.goto(`/plan/${planId}?dia=1`);
   await abrirOpciones(pagina);
-  await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Portugal", exact: true })).toBeVisible();
   await abrirPrevia(pagina.getByRole("button", { name: "Ver infografía" }));
   await expect(pagina.getByRole("status").filter({ hasText: "Preparando la infografía…" })).toBeVisible();
   const alerta = pagina.getByRole("alert").filter({ hasText: "No hemos podido preparar la imagen" });
@@ -127,7 +127,7 @@ test("sin sesión la previa no enseña ninguna imagen: responde 401 y sale el er
   const pagina = await contexto.newPage();
   await pagina.goto(`/plan/${planId}?dia=1`);
   await abrirOpciones(pagina);
-  await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Portugal", exact: true })).toBeVisible();
   await contexto.clearCookies();
   const respuesta = pagina.waitForResponse((r) => r.url().includes("infografia.png"));
   await abrirPrevia(pagina.getByRole("button", { name: "Ver infografía" }));

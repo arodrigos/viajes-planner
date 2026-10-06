@@ -157,6 +157,8 @@ test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui
 
   await pagina.goto(`/plan/${planId}?dia=1`);
   const jeronimos = pagina.locator("li.tarjeta-parada", { hasText: "Monasterio de los Jerónimos" });
+  // Los roles no ven dentro de un <details> cerrado: se abre su panel antes de buscar enlaces.
+  await jeronimos.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
   await expect(jeronimos.getByTestId("guia-parada")).toContainText("Consejos de la guía");
   await expect(jeronimos.getByTestId("guia-parada")).toContainText("Wikivoyage · CC BY-SA");
   const enlace = jeronimos.getByRole("link", { name: "Ver en Wikivoyage: Monasterio de los Jerónimos" });

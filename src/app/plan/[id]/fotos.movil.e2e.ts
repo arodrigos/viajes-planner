@@ -103,7 +103,7 @@ test("una tarjeta con foto muestra la imagen y su atribución; sin foto, un marc
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   // (a) la parada con foto: img con los atributos exactos y atribución visible.
   const tarjetaConFoto = pagina.locator(".tarjeta-parada", { hasText: "Museo del Prado" });

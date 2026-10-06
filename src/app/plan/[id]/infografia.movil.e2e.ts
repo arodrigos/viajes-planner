@@ -46,7 +46,7 @@ test("Descargar infografía entrega un PNG de 1080×1350 y la ruta respeta la pr
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } })).ok()).toBe(true);
   await pagina.goto(`/plan/${planId}?dia=1`);
   await abrirOpciones(pagina);
-  await expect(pagina.getByRole("heading", { name: "Toledo" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Toledo", exact: true })).toBeVisible();
   await expect(pagina.getByText("Una imagen del viaje entero para guardar o compartir")).toBeVisible();
 
   const [descarga] = await Promise.all([pagina.waitForEvent("download"), pagina.getByRole("button", { name: "Descargar infografía" }).click()]);

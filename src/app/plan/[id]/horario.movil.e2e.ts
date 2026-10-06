@@ -79,7 +79,7 @@ test("cada tarjeta enseña su rango y el .ics trae los mismos con TZID (hor-ac1)
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   // Los rangos de la tarjeta, sin depender de que haya más texto alrededor.
   const rangos = await pagina.getByTestId("horario-parada").locator("time").allTextContents();

@@ -54,7 +54,7 @@ test("regenerar un viaje de punta a punta: cancelar no cambia nada, confirmar re
 
   await pagina.goto(`/plan/${planId}?dia=1`);
   await abrirOpciones(pagina);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const { count: trabajosAntes } = await supabase.from("trabajos").select("id", { count: "exact", head: true }).eq("usuario_id", usuario.user.id);
 
@@ -117,7 +117,7 @@ test("usabilidad: objetivo táctil, ayuda, aviso de regeneración en curso y cap
 
   await pagina.goto(`/plan/${planId}?dia=1`);
   await abrirOpciones(pagina);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   // reg-ac4: el trabajo está "en-curso" (regenerando) -- la versión
   // anterior (la única que existe) sigue siendo accesible y avisa.

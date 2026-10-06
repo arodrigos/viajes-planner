@@ -31,7 +31,7 @@ test("cada tarjeta, también Comida y Cena, lleva su enlace de mapa y su fuente 
 
   const pagina = await contexto.newPage();
   await pagina.goto(`/plan/${plan.id}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: "Londres" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Londres", exact: true })).toBeVisible();
 
   const tarjetas = pagina.locator("li.tarjeta-parada");
   await expect(tarjetas).toHaveCount(3);

@@ -155,8 +155,12 @@ test("cambiar por una alternativa crea versión nueva y lo dice (tar-ac2)", asyn
   const tarjeta = page.locator("li.tarjeta-parada");
   await tarjeta.locator("summary", { hasText: "Alternativas (1)" }).click();
   const boton = tarjeta.getByRole("button", { name: "Usar esta" });
-  await boton.click();
-  await boton.click({ force: true }).catch(() => undefined);
+  // Dos clics en el mismo tick: el cerrojo debe dejar pasar solo uno. Un segundo
+  // clic de Playwright esperaría a un botón que el panel ya ha desmontado.
+  await boton.evaluate((el: HTMLButtonElement) => {
+    el.click();
+    el.click();
+  });
   await expect(page.getByRole("status").filter({ hasText: "Hecho: ahora vas a Alternativa B (ejemplo)" })).toBeVisible();
   await expect(tarjeta.getByRole("heading", { level: 4, name: "Alternativa B (ejemplo)" })).toBeVisible();
   expect(enviados).toBe(1);

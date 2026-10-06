@@ -118,7 +118,7 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const tarjeta = pagina.locator(".tarjeta-parada");
   const nombresDelPanel = () => tarjeta.locator(".tarjeta-alternativa strong").allTextContents();
@@ -126,7 +126,7 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
   // Tras sustituir, la tarjeta puede conservar el panel abierto: solo se pulsa si está cerrado.
   const abrirAlternativas = async () => {
     const resumen = tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ });
-    const panel = tarjeta.locator("details", { has: resumen });
+    const panel = tarjeta.locator("details", { has: pagina.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }) });
     if (!(await panel.evaluate((el) => (el as HTMLDetailsElement).open))) await resumen.click();
     await expect(panel).toHaveAttribute("open", "");
   };
@@ -236,7 +236,7 @@ async function entrarYAbrirAlternativas(browser: Browser, supabase: SupabaseClie
   const codigo = await leerCodigo(email);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: "Londres" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Londres", exact: true })).toBeVisible();
   const tarjeta = pagina.locator(".tarjeta-parada");
   await tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
   await tarjeta.locator(".tarjeta-alternativa", { hasText: "Museo de Ciencias" }).getByRole("button", { name: "Usar esta" }).click();

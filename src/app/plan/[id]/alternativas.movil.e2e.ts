@@ -100,7 +100,7 @@ test("cambiar una parada por una alternativa crea una versión nueva y la antigu
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const { count: versionesAntes } = await supabase.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planId);
 
@@ -153,7 +153,7 @@ test("usabilidad: parada sin alternativas, ayuda y objetivos táctiles (alt-ac7)
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const tarjetaSinAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Torre del Oro" });
   // cam-ac1: sin alternativas no hay panel de alternativas.

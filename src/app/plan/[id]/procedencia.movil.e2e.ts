@@ -115,7 +115,7 @@ test("cada tarjeta dice si está comprobada o no, con enlace a la fuente real; e
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   // (a) dos enlaces "Ubicación comprobada", cada uno a su lugar.url sembrada.
   const tarjetaOsm = pagina.locator(".tarjeta-parada", { hasText: "Museo del Prado" });

@@ -119,7 +119,7 @@ test("una alternativa muestra sus etiquetas de encaje calculadas (enc-ac1)", asy
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo del Prado" });
   await tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
@@ -179,7 +179,7 @@ test("un día con mucho paseo muestra el aviso y abre el panel de la parada más
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const paseo = pagina.locator(".paseo-dia");
   await expect(paseo).toContainText("A pie:");
