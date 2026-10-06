@@ -48,9 +48,9 @@ function itemSeguro(item: unknown): item is ItemCuriosidad {
 // pintándose como hasta ahora.
 export function curiosidadesSeguras(c: CuriosidadesParada | null | undefined): CuriosidadesParada | undefined {
   if (!c || !Array.isArray(c.frases)) return undefined;
-  const items = Array.isArray(c.items) ? sanearItems(c.items.filter(itemSeguro)).slice(0, 4) : [];
+  const items = Array.isArray(c.items) ? sanearItems(c.items.filter(itemSeguro), c.formato ?? 0).slice(0, 4) : [];
   const urlValida = esUrlWikipedia(c.url);
-  const frases = urlValida ? sanearFrases(c.frases.filter((f) => typeof f === "string" && f.length > 0 && f.length <= MAX_TEXTO && !SIN_MARCADO.test(f))) : [];
+  const frases = urlValida ? sanearFrases(c.frases.filter((f) => typeof f === "string" && f.length > 0 && f.length <= MAX_TEXTO && !SIN_MARCADO.test(f)), c.formato ?? 0) : [];
   if (items.length === 0 && frases.length === 0) return undefined;
   return {
     frases,

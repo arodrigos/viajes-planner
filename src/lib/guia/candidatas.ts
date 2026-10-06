@@ -7,6 +7,7 @@ import type { Lugar } from "@/lib/plan/tipos";
 import { paginaPropiaDe } from "@/lib/lugares/resolverFotos";
 import { formatearAnio, formatearNumero } from "@/lib/formato/numeros";
 import { partirFrases } from "./curiosidades";
+import { empiezaEnMinuscula } from "./sanear";
 
 export type IdiomaCuriosidad = "es" | "en";
 export type PropiedadWikidata = "P571" | "P1619" | "P84" | "P2048" | "P1435" | "P1174";
@@ -88,11 +89,24 @@ export function puntuarFrase(frase: string): number {
   return puntos;
 }
 
+const ENCABEZADO = /^=+.*=+$/;
+
+// TextExtracts deja un salto de línea simple donde el artículo tenía un <br>
+// dentro de un párrafo: una línea sin puntuación final seguida de otra que
+// empieza en minúscula es una sola frase. Los encabezados nunca se unen.
+function lineasDeTexto(texto: string): string[] {
+  const lineas = texto.split(/\n+/).map(normalizar).filter((p) => p.length > 0);
+  const unidas: string[] = [];
+  for (const linea of lineas) {
+    const previa = unidas[unidas.length - 1];
+    if (previa !== undefined && !ENCABEZADO.test(previa) && !ENCABEZADO.test(linea) && !/[.!?:;…»"”)]$/.test(previa) && empiezaEnMinuscula(linea)) unidas[unidas.length - 1] = `${previa} ${linea}`;
+    else unidas.push(linea);
+  }
+  return unidas;
+}
+
 export function frasesDeTexto(texto: string, locale: string = "es"): string[] {
-  const parrafos = texto
-    .split(/\n+/)
-    .map(normalizar)
-    .filter((p) => p.length > 0 && !/^=+.*=+$/.test(p));
+  const parrafos = lineasDeTexto(texto).filter((p) => !ENCABEZADO.test(p));
   const vistas = new Set<string>();
   const frases: string[] = [];
   parrafos.forEach((parrafo, indice) => {
@@ -102,7 +116,7 @@ export function frasesDeTexto(texto: string, locale: string = "es"): string[] {
     for (const f of partidas) {
       if (f.length < MIN_FRASE || f.length > MAX_FRASE) continue;
       if (SIN_MARCADO.test(f) || f.includes("@") || UUID.test(f) || /==/.test(f) || RUIDO.test(f)) continue;
-      if (!/[.!?»"”)]$/.test(f)) continue;
+      if (!/[.!?»"”)]$/.test(f) || empiezaEnMinuscula(f)) continue;
       if (vistas.has(f)) continue;
       vistas.add(f);
       frases.push(f);
@@ -134,7 +148,12 @@ export function urlConFragmento(base: string, frase: string): string {
 }
 
 // museo, museo de arte, galería de arte, biblioteca, universidad y zoo.
-const CLASES_INSTITUCION: ReadonlySet<string> = new Set(["Q33506", "Q207694", "Q1007870", "Q7075", "Q3918", "Q43501"]);
+export const CLASES_INSTITUCION: ReadonlySet<string> = new Set(["Q33506", "Q207694", "Q1007870", "Q7075", "Q3918", "Q43501"]);
+// castillo, fortificación, fortaleza, fuerte, palacio, torre, iglesia,
+// catedral, edificio, construcción, puente, prisión, monasterio, abadía,
+// monumento y yacimiento arqueológico. Un sitio que también es museo (la Torre
+// de Londres) se visita por el edificio: su P571 es la fecha del edificio.
+export const CLASES_EDIFICIO: ReadonlySet<string> = new Set(["Q23413", "Q57821", "Q57831", "Q1785071", "Q16560", "Q12518", "Q16970", "Q2977", "Q41176", "Q811979", "Q12280", "Q40357", "Q44613", "Q160742", "Q4989906", "Q839954"]);
 
 const unir = (etiquetas: string[]) => (etiquetas.length > 1 ? `${etiquetas.slice(0, -1).join(", ")} y ${etiquetas[etiquetas.length - 1]}` : (etiquetas[0] ?? ""));
 
@@ -146,7 +165,7 @@ export function textoDeHecho(h: HechoWikidata, clases: readonly string[] = []): 
       if (h.anio === undefined) return null;
       // En un museo o una universidad P571 es cuándo nació la entidad, no el
       // edificio que se visita: se dice así para no confundir.
-      return clases.some((c) => CLASES_INSTITUCION.has(c)) ? `La institución se fundó en ${formatearAnio(h.anio)}.` : `Se fundó en ${formatearAnio(h.anio)}.`;
+      return clases.some((c) => CLASES_INSTITUCION.has(c)) && !clases.some((c) => CLASES_EDIFICIO.has(c)) ? `La institución se fundó en ${formatearAnio(h.anio)}.` : `Se fundó en ${formatearAnio(h.anio)}.`;
     case "P1619":
       return h.anio !== undefined ? `Se inauguró en ${formatearAnio(h.anio)}.` : null;
     case "P84":
