@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EstadoRelleno } from "@/lib/salud";
+import { FORMATO_CURIOSIDADES } from "@/lib/guia/curiosidadesPlan";
 
 // sal-ac2: 60 s de caché en memoria del proceso -- diez peticiones seguidas
 // a /api/salud producen una sola tanda de consultas de recuento, no diez.
@@ -30,6 +31,7 @@ export interface RecuentosRelleno {
   paradasConCategoria: number;
   paradasConGuia: number;
   paradasConMotivo: number;
+  curiosidadesFormatoAntiguo: number;
   versionesConEventos: number;
   versionesMulticiudad: number;
   trabajosInviables: number;
@@ -62,6 +64,7 @@ export function armarEstadoRelleno(r: RecuentosRelleno): EstadoRelleno {
     paradas_con_categoria: r.paradasConCategoria,
     paradas_con_guia: r.paradasConGuia,
     paradas_con_motivo: r.paradasConMotivo,
+    curiosidades_formato_antiguo: r.curiosidadesFormatoAntiguo,
     versiones_con_eventos: r.versionesConEventos,
     versiones_multiciudad: r.versionesMulticiudad,
     trabajos_inviables: r.trabajosInviables,
@@ -78,6 +81,57 @@ export function armarEstadoRelleno(r: RecuentosRelleno): EstadoRelleno {
     planes_sellados_sin_candidato_claro: r.planesSelladosSinCandidatoClaro,
     planes_sellados_ciudad_no_encontrada: r.planesSelladosCiudadNoEncontrada,
   };
+}
+
+// Una fila cuenta como pendiente de reproceso si ya tiene curiosidades
+// guardadas con un formato anterior al vigente: lo mismo que hace que
+// pendiente() (curiosidadesPlan.ts) la rehaga, salvo las filas sin items, que
+// aún no han pasado por el paso y no son «antiguas», solo nuevas.
+export function tieneCuriosidadesAntiguas(curiosidades: unknown, formatoActual: number = FORMATO_CURIOSIDADES): boolean {
+  if (typeof curiosidades !== "object" || curiosidades === null) return false;
+  const { items, formato } = curiosidades as { items?: unknown; formato?: unknown };
+  if (!Array.isArray(items) || items.length === 0) return false;
+  return (typeof formato === "number" ? formato : 0) < formatoActual;
+}
+
+const TAMANO_PAGINA = 1000;
+const VERSIONES_POR_CONSULTA = 20;
+
+async function paginar<T>(pagina: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const todas: T[] = [];
+  for (let desde = 0; ; desde += TAMANO_PAGINA) {
+    const { data, error } = await pagina(desde, desde + TAMANO_PAGINA - 1);
+    if (error) throw new Error(error.message);
+    todas.push(...(data ?? []));
+    if ((data?.length ?? 0) < TAMANO_PAGINA) return todas;
+  }
+}
+
+// Solo cuenta la última versión de cada plan, que es la única que rehace el
+// trabajador. Trae únicamente la columna jsonb de curiosidades (nunca nombres
+// ni ids hacia fuera: lo que sale de aquí es un entero).
+async function contarCuriosidadesFormatoAntiguo(supabase: SupabaseClient): Promise<number> {
+  const versiones = await paginar<{ id: string; plan_id: string; version: number }>((d, h) =>
+    supabase.from("plan_versiones").select("id, plan_id, version").order("id").range(d, h),
+  );
+  const ultima = new Map<string, { id: string; version: number }>();
+  for (const v of versiones) {
+    const previa = ultima.get(v.plan_id);
+    if (!previa || v.version > previa.version) ultima.set(v.plan_id, { id: v.id, version: v.version });
+  }
+  const ids = [...ultima.values()].map((v) => v.id);
+  let total = 0;
+  for (let i = 0; i < ids.length; i += VERSIONES_POR_CONSULTA) {
+    const lote = ids.slice(i, i + VERSIONES_POR_CONSULTA);
+    const paradas = await paginar<{ curiosidades: unknown }>((d, h) =>
+      supabase.from("paradas").select("curiosidades").in("plan_version_id", lote).order("id").range(d, h),
+    );
+    const alternativas = await paginar<{ curiosidades: unknown }>((d, h) =>
+      supabase.from("paradas_alternativas").select("curiosidades, paradas!inner(plan_version_id)").in("paradas.plan_version_id", lote).order("id").range(d, h),
+    );
+    total += [...paradas, ...alternativas].filter((f) => tieneCuriosidadesAntiguas(f.curiosidades)).length;
+  }
+  return total;
 }
 
 // sal-ac1/sal-ac2: cada número sale de una consulta de SOLO RECUENTO
@@ -113,6 +167,7 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     versionesMulticiudad,
     trabajosInviables,
     paradasConMotivo,
+    curiosidadesFormatoAntiguo,
   ] = await Promise.all([
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true })),
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true }).eq("resolucion->>estado", "resuelta")),
@@ -158,6 +213,7 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     contar(() =>
       supabase.from("paradas").select("id", { count: "exact", head: true }).not("motivo", "is", null).neq("motivo", ""),
     ),
+    contarCuriosidadesFormatoAntiguo(supabase),
   ]);
 
   return armarEstadoRelleno({
@@ -171,6 +227,7 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     paradasConCategoria,
     paradasConGuia,
     paradasConMotivo,
+    curiosidadesFormatoAntiguo,
     versionesConEventos,
     versionesMulticiudad,
     trabajosInviables,

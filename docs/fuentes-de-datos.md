@@ -180,3 +180,15 @@ código copia el texto literal de la candidata elegida.
 
 Comprobación contra el modelo real: `npx tsx scripts/curiosidades-real.ts fixtures/curiosidades-londres.json`
 (sale con código 2 si el modelo no llegó a elegir).
+
+### Versionado de las reglas de curiosidades
+
+Lo que ya está guardado en `curiosidades` se escribió con las reglas de
+entonces. Si cambian las listas (`ABREVIATURAS_INTERNAS`, `ARRANQUES`,
+`CLASES_INSTITUCION`, `CLASES_EDIFICIO`) o las expresiones regulares de
+`sanear.ts`, `curiosidades.ts` y `candidatas.ts`, hay que subir
+`FORMATO_CURIOSIDADES` (`curiosidadesPlan.ts`): el trabajador rehace entonces
+la última versión de cada plan, una por tick. `src/lib/guia/huella.ts` guarda
+la huella SHA-256 de esas reglas y su test falla si cambian sin subir el
+formato (o al revés). Mientras se rehace, se siguen pintando las curiosidades
+de antes con las reglas de lectura de `sanear.ts`.

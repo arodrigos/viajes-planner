@@ -24,6 +24,10 @@ público y sin autenticar no se convierta en un amplificador de carga:
   paradas con `motivo` no vacío, versiones con `etapas` no vacío (viaje de
   varias ciudades) y trabajos con `inviable` no nulo. Son recuentos de solo
   cabecera, como el resto.
+- `curiosidades_formato_antiguo`: paradas y alternativas de la última versión
+  de cada plan que tienen curiosidades guardadas con un formato anterior a
+  `FORMATO_CURIOSIDADES`. Es lo que el trabajador aún tiene que rehacer (una
+  versión por tick); baja hasta 0 sin pasos manuales. Entero agregado.
 - `paradas_con_categoria`: cuántas paradas tienen `categoria`. Sin ella la
   pasada de alternativas no consulta Overpass; el barrido la deduce del
   nombre y de la clasificación OSM del lugar (`alternativas/categorizar.ts`).

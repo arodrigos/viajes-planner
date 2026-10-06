@@ -16,7 +16,11 @@ export interface DependenciasCuriosidades {
 
 // 4 = hechos de Wikidata redactados sin confundir fundación con apertura y
 // frases partidas con la lista de abreviaturas.
-export const FORMATO_CURIOSIDADES = 4;
+// 5 = edificio con museo no sale como institución, saltos de línea simples
+// unidos, frases en minúscula descartadas y cortes tras inicial o sigla solo
+// cuando lo siguiente abre frase. Subirlo hace que el trabajador rehaga la
+// última versión de cada plan; huella.ts obliga a subirlo si cambian las reglas.
+export const FORMATO_CURIOSIDADES = 5;
 
 export interface ResultadoCuriosidades {
   versionesProcesadas: number;
@@ -40,7 +44,7 @@ interface FilaSitio {
 // el respaldo y aún no se le ha dado su única oportunidad con el modelo.
 // El formato antiguo (sin marca) se reprocesa una vez: las candidatas cambiaron
 // (fundación frente a apertura, frases cortadas por abreviatura).
-function pendiente(c: CuriosidadesParada | null): boolean {
+export function pendiente(c: CuriosidadesParada | null): boolean {
   if (!c || !Array.isArray(c.items)) return true;
   if ((c.formato ?? 0) < FORMATO_CURIOSIDADES) return true;
   return c.seleccion === "heuristica" && c.mejora_intentada !== true;

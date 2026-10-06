@@ -88,6 +88,7 @@ describe("construirSalud", () => {
       versiones_multiciudad: 0,
       trabajos_inviables: 0,
       paradas_con_motivo: 0,
+      curiosidades_formato_antiguo: 0,
       planes_total: 6,
       planes_sin_version: 1,
       planes_sin_trabajo_vivo: 3,

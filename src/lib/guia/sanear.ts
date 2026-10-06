@@ -63,6 +63,10 @@ export function sanearCuriosidad(texto: string): string {
 const FUNDACION = /^(?:Se fundó|La institución se fundó) en \d/;
 const APERTURA = /^(?:Se inauguró|Se abrió) en \d/;
 
+// Para la huella de reglas (huella.ts): todas las expresiones que deciden qué se
+// descarta al sanear.
+export const REGEX_SANEAR: readonly RegExp[] = [TERMINA_EN_ABREVIATURA, TERMINA_EN_INICIAL, APERTURA_FRASE, FUNDACION, APERTURA];
+
 const esDeWikidata = (i: ItemCuriosidad) => i.fuente === "wikidata";
 
 // Sanea los items de una parada: limpia el texto, descarta los cortados por

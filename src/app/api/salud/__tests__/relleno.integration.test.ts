@@ -163,6 +163,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
         "paradas_con_categoria",
         "paradas_con_guia",
         "paradas_con_motivo",
+        "curiosidades_formato_antiguo",
         "versiones_con_eventos",
         "versiones_multiciudad",
         "trabajos_inviables",
@@ -280,7 +281,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     expect(relleno.versiones_multiciudad).toBe(1);
     expect(relleno.trabajos_inviables).toBe(1);
     expect(relleno.paradas_con_motivo).toBe(2);
-    expect(Object.keys(relleno)).toHaveLength(25);
+    expect(Object.keys(relleno)).toHaveLength(26);
     expect(new Set(Object.values(relleno).map((v) => typeof v))).toEqual(new Set(["number"]));
 
     const texto = JSON.stringify(relleno).toLowerCase();
@@ -289,6 +290,27 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     }
     expect(texto).not.toMatch(/@/);
     expect(texto).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
+  });
+
+  // rp-ac4: el contador sube con una parada de formato antiguo y vuelve a
+  // bajar cuando se rehace con el formato vigente.
+  it("cuenta las curiosidades de formato antiguo de la última versión (rp-ac4)", async () => {
+    const leerContador = async () => {
+      _reiniciarCacheRellenoParaTests();
+      const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+      return cuerpo.relleno.curiosidades_formato_antiguo as number;
+    };
+    const plan: Plan = { id: `${PREFIJO}curiosidades`, version: 1, destino: "Curiosidades de ejemplo", personas: 2, dias: [diaConParadas(["Parada curiosa"])] };
+    await guardarPlan(supabase, plan);
+    const antes = await leerContador();
+    expect(Number.isInteger(antes)).toBe(true);
+
+    const item = { texto: "Una curiosidad de ejemplo.", idioma: "es", fuente: "wikipedia", url: "https://es.wikipedia.org/wiki/Ejemplo", seleccion: "modelo" };
+    await marcarParada(supabase, "Parada curiosa-id", { curiosidades: { formato: 4, items: [item], frases: [], url: "", seleccion: "modelo", mejora_intentada: true } });
+    expect(await leerContador()).toBe(antes + 1);
+
+    await marcarParada(supabase, "Parada curiosa-id", { curiosidades: { formato: 5, items: [item], frases: [], url: "", seleccion: "modelo", mejora_intentada: true } });
+    expect(await leerContador()).toBe(antes);
   });
 
   it("si una consulta de recuento falla, la respuesta omite relleno entero y conserva el resto", async () => {
