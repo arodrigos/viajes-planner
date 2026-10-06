@@ -3,16 +3,19 @@
 // sale limpio sin tocar la base) y en el trabajador, antes de guardar.
 import type { ItemCuriosidad } from "@/lib/plan/tipos";
 
-// U+200B, U+200C, U+200D, U+2060, U+00AD y U+FEFF: no se ven, pero rompen la
-// búsqueda de la frase en el artículo y dejan huecos al partir líneas.
-const INVISIBLES = /[​‌‍⁠­﻿]/g;
+// Caracteres de formato de anchura cero (U+200B-U+200F, marcas y aislantes
+// bidi, U+2060-U+2064, U+206A-U+206F, U+00AD, U+034F, U+061C, U+180E, U+FEFF) y
+// los rellenos hangul que se pintan en blanco (U+115F, U+1160, U+3164, U+FFA0):
+// no se ven, pero rompen la búsqueda de la frase en el artículo y dejan
+// huecos al partir líneas. Wikipedia mete U+200E/U+200F con frecuencia.
+const INVISIBLES = /[\u00ad\u034f\u061c\u115f\u1160\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\u3164\ufeff\uffa0]/g;
 // Controles C0 y C1 salvo los espacios en blanco, que se normalizan después.
 const CONTROLES = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g;
 
 // Abreviaturas que NUNCA cierran una frase: lo que sigue es su continuación
-// («Warner Bros. Studio Tour»). «a. C.» o «etc.» sí pueden cerrarla, así que
+// («Warner Bros. Studio Tour», «Mt. Vernon», «s. XVI»). «a. C.» o «etc.» sí pueden cerrarla, así que
 // no figuran aquí.
-export const ABREVIATURAS_INTERNAS = ["Bros", "St", "Dr", "Dra", "Sr", "Sra", "Srta", "Mr", "Mrs", "Ms", "Jr", "Co", "Inc", "Ltd", "Av", "Avda", "Prof", "Gral", "Sto", "Sta"];
+export const ABREVIATURAS_INTERNAS = ["Bros", "St", "Dr", "Dra", "Sr", "Sra", "Srta", "Mr", "Mrs", "Ms", "Jr", "Co", "Inc", "Ltd", "Av", "Avda", "Prof", "Gral", "Sto", "Sta", "Gen", "Mt", "Mte", "Pza", "Pl", "Ctra", "Cmdr", "Col", "Capt", "Lt", "Sgt", "Rev", "Gov", "Sen", "Hon", "Fr", "Mons", "Lic", "Ing", "Arq", "Ud", "Uds", "Vd", "Mme", "Mlle", "Ste", "Cía", "Pte", "núm", "vol", "cap", "pág", "s"];
 
 const TERMINA_EN_ABREVIATURA = new RegExp(`(?:^|[\\s(«"“'‘])(?:${ABREVIATURAS_INTERNAS.join("|")})\\.$`);
 

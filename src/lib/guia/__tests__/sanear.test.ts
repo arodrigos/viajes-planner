@@ -1,9 +1,10 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { ItemCuriosidad } from "@/lib/plan/tipos";
+import { partirFrases } from "../curiosidades";
 import { ABREVIATURAS_INTERNAS, sanearCuriosidad, sanearFrases, sanearItems, terminaEnAbreviatura } from "../sanear";
 
-const INVISIBLE = /[​‌‍⁠­﻿]/;
+const INVISIBLE = /[\u00ad\u034f\u061c\u115f\u1160\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\u3164\ufeff\uffa0]/;
 
 const item = (texto: string, fuente: "wikipedia" | "wikidata" = "wikipedia"): ItemCuriosidad => ({
   texto, fuente, idioma: fuente === "wikidata" ? "es" : "en", seleccion: "modelo",
@@ -65,5 +66,20 @@ describe("fundación frente a apertura (cur-ac2, invariante 9)", () => {
         expect(fundacion && apertura).toBe(false);
       }),
     );
+  });
+});
+
+describe("cortes por abreviatura y invisibles del refutador (cur-ac1)", () => {
+  it("no parte tras «Gen.», «Mt.», «s.» ni «Pza.»", () => {
+    expect(partirFrases("The estate was home of the first president Gen. George Washington until 1799. Next.", "en")[0]).toBe("The estate was home of the first president Gen. George Washington until 1799.");
+    expect(partirFrases("The estate lies near Mt. Vernon in Virginia.", "en")).toEqual(["The estate lies near Mt. Vernon in Virginia."]);
+    expect(partirFrases("La iglesia se construyó en el s. XVI por orden del obispo.", "es")).toEqual(["La iglesia se construyó en el s. XVI por orden del obispo."]);
+    expect(partirFrases("Está en la Pza. Mayor junto al ayuntamiento.", "es")).toEqual(["Está en la Pza. Mayor junto al ayuntamiento."]);
+  });
+
+  it("quita marcas bidi y otros invisibles de anchura cero", () => {
+    for (const c of ["\u200e", "\u200f", "\u2062", "\u180e", "\u202a", "\u2066", "\u3164", "\u034f"]) {
+      expect(sanearCuriosidad(`a${c}b`)).toBe("ab");
+    }
   });
 });
