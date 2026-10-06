@@ -15,4 +15,5 @@ export const TEXTOS_AHORA = {
   medioTransporte: t("ayuda", "≈ {minutos} en transporte"),
   medioCoche: t("ayuda", "≈ {minutos} en coche"),
   marcando: t("estado", "Marcando…"),
+  errorVisita: t("error", "No se ha podido guardar la visita. Revisa la conexión y vuelve a intentarlo."),
 } as const;

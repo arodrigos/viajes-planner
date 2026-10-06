@@ -19,6 +19,8 @@ interface Props {
   // Zona horaria del destino: «ahora» se lee en ella, no en la del móvil.
   zona?: string;
   marcando: boolean;
+  // Error de visita de la parada que se muestra; el aviso con role=alert vive en su tarjeta, aquí solo se repite el texto.
+  errorVisita?: string;
   onMarcar: () => void;
   onIrARecomendados: () => void;
 }
@@ -26,7 +28,7 @@ interface Props {
 // hoy-ac1..ac3: solo se monta en el día de hoy (PanelDia). Reutiliza la API
 // de visitas de las tarjetas; no pide geolocalización: el origen es la
 // última parada visitada.
-export function TarjetaAhora({ siguiente, hayUbicadas, progreso, hrefComoLlegar, tramo, zona, marcando, onMarcar, onIrARecomendados }: Props) {
+export function TarjetaAhora({ siguiente, hayUbicadas, progreso, hrefComoLlegar, tramo, zona, marcando, errorVisita, onMarcar, onIrARecomendados }: Props) {
   // El anuncio solo se escribe cuando el progreso SUBE: así no se lee nada
   // al abrir el plan y sí al marcar, con la parada que toca después.
   const visitadasPrevias = useRef(progreso.visitadas);
@@ -72,6 +74,7 @@ export function TarjetaAhora({ siguiente, hayUbicadas, progreso, hrefComoLlegar,
               </a>
             )}
           </div>
+          {errorVisita && <p className="ayuda">{errorVisita}</p>}
         </>
       ) : hayUbicadas ? (
         <>

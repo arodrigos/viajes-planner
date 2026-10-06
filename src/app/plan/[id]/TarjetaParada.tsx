@@ -10,6 +10,7 @@ import { IconoSinFoto } from "./iconoSinFoto";
 import { ConsejosYCuriosidades, contarConsejosYCuriosidades } from "./SeccionesGuia";
 import type { ParadaPublica } from "./tiposVista";
 import type { Tramo } from "@/lib/plan/tramos";
+import type { ErrorParada } from "@/lib/plan/erroresParada";
 
 export type PanelParada = "motivo" | "guia" | "alternativas";
 
@@ -28,7 +29,8 @@ interface Props {
   hrefComoLlegar?: string;
   visitaEnCurso: boolean;
   cambiando: { paradaId: string; alternativaId: string } | null;
-  errorCambio: string | null;
+  // Solo el error de ESTA parada.
+  error?: ErrorParada;
   onUsarAlternativa: (alternativaId: string, nombre: string) => Promise<boolean>;
   onAlternarVisita: (visitadaActualmente: boolean) => void;
 }
@@ -38,7 +40,7 @@ interface Props {
 // nativos <details name> que el navegador mantiene exclusivos. El estado se
 // sincroniza con onToggle para poder abrir uno por código sin pelearse con el
 // navegador.
-export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, errorCambio, onUsarAlternativa, onAlternarVisita }: Props) {
+export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita }: Props) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const alternativas = parada.alternativas ?? [];
   const nombreGrupo = `parada-${parada.id}`;
@@ -168,7 +170,7 @@ export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, act
                   aria-busy={cambiando?.paradaId === parada.id ? "true" : undefined}
                 >
                   {cambiando?.paradaId === parada.id && <p role="status">Cambiando la parada…</p>}
-                  {errorCambio && <p role="alert">{errorCambio}</p>}
+                  {error?.tipo === "cambio" && <p role="alert">{error.mensaje}</p>}
                   <p className="ayuda-alternativas">
                     Cambiar una parada crea una nueva versión del plan; podrás volver a la anterior desde esta misma lista.
                   </p>
@@ -240,6 +242,7 @@ export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, act
               onDesmarcar={() => onAlternarVisita(true)}
             />
           )}
+          {error?.tipo === "visita" && <p role="alert">{error.mensaje}</p>}
         </div>
       </li>
     </Fragment>

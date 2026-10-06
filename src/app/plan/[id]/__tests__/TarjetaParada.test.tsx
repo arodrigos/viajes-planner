@@ -30,7 +30,6 @@ function pintar(solicitudAlternativas: number, extra: Partial<ParadaPublica> = {
       esSiguiente={false}
       visitaEnCurso={false}
       cambiando={null}
-      errorCambio={null}
       onUsarAlternativa={async () => true}
       onAlternarVisita={() => undefined}
     />
