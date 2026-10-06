@@ -2,9 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { esFechaDeHoy } from "@/lib/plan/fechaHoy";
 import { formatearKm } from "@/lib/plan/paseo";
+import { ETIQUETA_MODO, formatearMinutos, type Tramo } from "@/lib/plan/tramos";
 import { EnlacesParada } from "./EnlacesParada";
 import { urlBusquedaSitio } from "@/lib/plan/urlBusquedaSitio";
 import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
@@ -73,6 +74,7 @@ interface AvisoPaseoPublico {
 
 interface PaseoPublico {
   km: number;
+  kmTransporte?: number;
   aviso?: AvisoPaseoPublico;
 }
 
@@ -107,6 +109,8 @@ interface DiaPublico {
   franjas: FranjaPublica[];
   paradas: ParadaPublica[];
   paseo?: PaseoPublico;
+  // tramos-dia: ya calculados por el servidor; aquí solo se pintan.
+  tramos?: Tramo[];
 }
 
 interface RecomendacionPublica {
@@ -160,6 +164,19 @@ const AVISO_FIJO =
 // sugeriría una garantía que la herramienta no da.
 const AVISO_RECOMENDACIONES =
   "Cada enlace abre una búsqueda en un mapa, no una reserva ni un listado verificado.";
+
+// tramos-dia (tra-ac2/ac3): medio, tiempo y enlace entre dos paradas. El
+// rótulo de estimación es parte del contrato: no son rutas reales.
+function LineaTramo({ tramo }: { tramo: Tramo }) {
+  return (
+    <li className="tramo-parada" data-testid="tramo-parada">
+      {formatearKm(tramo.km)} · {ETIQUETA_MODO[tramo.modo]} · {formatearMinutos(tramo.minutos)}{" "}
+      <a href={tramo.href} target="_blank" rel="noopener noreferrer">
+        Cómo ir
+      </a>
+    </li>
+  );
+}
 
 // map-ac1: numera en el orden real de las franjas del día (mañana antes
 // que comida antes que tarde...), no en el orden en que llegaron del
@@ -264,7 +281,12 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
     seleccionarParada(paradaId);
   }
 
-  const tramos = puntos.length > 0 ? urlRecorridoDia(puntos.map((p) => ({ lat: p.lat, lon: p.lon }))) : [];
+  const tramosDelDia = dia.tramos ?? [];
+  const tramoHasta = new Map(tramosDelDia.map((t) => [t.hastaId, t]));
+  // Con algún tramo que no es a pie, forzar travelmode=walking en el
+  // recorrido completo mandaría andar kilómetros de transporte.
+  const todoAPie = tramosDelDia.every((t) => t.modo === "a-pie");
+  const tramos = puntos.length > 0 ? urlRecorridoDia(puntos.map((p) => ({ lat: p.lat, lon: p.lon })), todoAPie) : [];
 
   return (
     <section aria-label={`Día ${dia.fecha}`} className="seccion-dia" id={`dia-${indice}`}>
@@ -284,7 +306,8 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
           resueltas -- nunca un paseo a medias. */}
       {dia.paseo && (
         <p className="paseo-dia">
-          Paseo estimado: {formatearKm(dia.paseo.km)}
+          A pie: {formatearKm(dia.paseo.km)}
+          {dia.paseo.kmTransporte !== undefined && <> · En transporte: {formatearKm(dia.paseo.kmTransporte)}</>}
           {dia.paseo.aviso && (
             <>
               {" — "}
@@ -300,6 +323,7 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
           )}
         </p>
       )}
+      {tramosDelDia.length > 0 && <p className="ayuda">Tiempos estimados por distancia, no por rutas reales.</p>}
       {!tieneAlgunaParada && <p className="dia-sin-paradas">Todavía no hay paradas planificadas para este día.</p>}
 
       {(tieneAlgunaParada || etapa?.caja) &&
@@ -350,8 +374,9 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
               </div>
               <ul className="pila">
                 {paradasDeLaFranja.map((parada) => (
+                  <Fragment key={parada.id}>
+                  {tramoHasta.get(parada.id) && <LineaTramo tramo={tramoHasta.get(parada.id)!} />}
                   <li
-                    key={parada.id}
                     ref={(elemento) => {
                       if (elemento) refsTarjetas.current.set(parada.id, elemento);
                       else refsTarjetas.current.delete(parada.id);
@@ -424,7 +449,7 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
                           Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}
                         </p>
                       )}
-                      <EnlacesParada parada={parada} ciudad={etapa?.ciudad ?? destino} />
+                      <EnlacesParada parada={parada} ciudad={etapa?.ciudad ?? destino} tramo={tramoHasta.get(parada.id)} />
                       {/* dest-ac1..ac3: solo el día de hoy -- un día pasado
                           o futuro no muestra ningún botón de visita. */}
                       {esHoy && (
@@ -513,6 +538,7 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
                       )}
                     </div>
                   </li>
+                  </Fragment>
                 ))}
               </ul>
             </div>

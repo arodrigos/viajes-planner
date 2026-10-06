@@ -110,3 +110,20 @@ describe("aPlanPublico expone paseo por día (enc-ac2)", () => {
     expect(publico.dias[0].paseo).toBeUndefined();
   });
 });
+
+// tra-ac1: el servidor sirve dia.tramos, n − 1 entre paradas resueltas.
+describe("aPlanPublico expone tramos por día (tra-ac1)", () => {
+  it("n paradas resueltas dan n − 1 tramos enlazados por id", () => {
+    const plan = planConAlternativaYVecinos();
+    const resueltas = plan.dias[0].paradas.filter((p) => p.coordenadas);
+    const tramos = aPlanPublico(plan, "familiar").dias[0].tramos ?? [];
+    expect(tramos).toHaveLength(resueltas.length - 1);
+    expect(tramos.map((t) => t.hastaId)).toEqual(resueltas.slice(1).map((p) => p.id));
+  });
+
+  it("con menos de 2 paradas resueltas no hay tramos", () => {
+    const plan = planConAlternativaYVecinos();
+    plan.dias[0].paradas = [plan.dias[0].paradas[0]];
+    expect(aPlanPublico(plan, "familiar").dias[0].tramos).toBeUndefined();
+  });
+});

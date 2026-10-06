@@ -32,40 +32,44 @@ describe("calcularPaseoDia (enc-ac2)", () => {
     expect(resultado.aviso).toBeUndefined();
   });
 
-  it("perfil familiar: por encima de 8 km, aviso con la parada más alejada", () => {
-    // a-b: ~1 km; b-c: ~10 km -- c es la que más distancia aporta.
-    const puntos: PuntoPaseo[] = [
-      { id: "a", nombre: "Parada A", lat: 40.4, lon: -3.6 },
-      { id: "b", nombre: "Parada B", lat: 40.41, lon: -3.6 },
-      { id: "c", nombre: "Parada C", lat: 40.5, lon: -3.6 },
-    ];
-    const resultado = calcularPaseoDia(puntos, "familiar")!;
+  // tramos-dia: el paseo suma solo lo andado, así que los casos de umbral
+  // usan cadenas de tramos a pie (cada uno bajo su umbral de «a pie").
+  function cadena(pasosKm: number[]): PuntoPaseo[] {
+    let lat = 40;
+    const puntos: PuntoPaseo[] = [{ id: "p0", nombre: "Parada 0", lat, lon: -3.6 }];
+    pasosKm.forEach((km, i) => {
+      lat += km / 1.3 / 111.32;
+      puntos.push({ id: `p${i + 1}`, nombre: `Parada ${i + 1}`, lat, lon: -3.6 });
+    });
+    return puntos;
+  }
+
+  it("perfil familiar: por encima de 8 km andados, aviso con la parada más alejada", () => {
+    // El primer tramo es el más corto: la última parada es la que más desvío añade.
+    const resultado = calcularPaseoDia(cadena([1.0, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4]), "familiar")!;
     expect(resultado.km).toBeGreaterThan(8);
-    expect(resultado.aviso?.paradaId).toBe("c");
-    expect(resultado.aviso?.texto).toContain("Parada C");
+    expect(resultado.kmTransporte).toBeUndefined();
+    expect(resultado.aviso?.paradaId).toBe("p8");
+    expect(resultado.aviso?.texto).toContain("Parada 8");
   });
 
-  it("perfil no familiar usa el umbral de 12 km: 9,5 km no avisa", () => {
-    // a-b y b-c de ~3,65 km cada uno (lineal) -> *1,3 ≈ 9,5 km total.
-    const puntos: PuntoPaseo[] = [
-      { id: "a", nombre: "A", lat: 40.4, lon: -3.6 },
-      { id: "b", nombre: "B", lat: 40.433, lon: -3.6 },
-      { id: "c", nombre: "C", lat: 40.466, lon: -3.6 },
-    ];
-    const resultado = calcularPaseoDia(puntos, "pareja")!;
+  it("perfil no familiar usa el umbral de 12 km: 9,5 km andados no avisa", () => {
+    const resultado = calcularPaseoDia(cadena([1.9, 1.9, 1.9, 1.9, 1.9]), "pareja")!;
     expect(resultado.km).toBeCloseTo(9.5, 0);
     expect(resultado.aviso).toBeUndefined();
   });
 
   it("perfil desconocido (null) cae en el umbral no familiar, el más permisivo", () => {
-    const puntos: PuntoPaseo[] = [
-      { id: "a", nombre: "A", lat: 40.4, lon: -3.6 },
-      { id: "b", nombre: "B", lat: 40.47, lon: -3.6 },
-    ];
-    const familiarAvisa = calcularPaseoDia(puntos, "familiar")!.aviso !== undefined;
-    const nullNoAvisa = calcularPaseoDia(puntos, null)!.aviso === undefined;
-    expect(familiarAvisa).toBe(true);
-    expect(nullNoAvisa).toBe(true);
+    const puntos = cadena([1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4]);
+    expect(calcularPaseoDia(puntos, "familiar")!.aviso).toBeDefined();
+    expect(calcularPaseoDia(puntos, null)!.aviso).toBeUndefined();
+  });
+
+  it("tramos-dia: los kilómetros en transporte no cuentan como andados ni disparan el aviso", () => {
+    const resultado = calcularPaseoDia(cadena([1.0, 30]), "familiar")!;
+    expect(resultado.km).toBe(1);
+    expect(resultado.kmTransporte).toBe(30);
+    expect(resultado.aviso).toBeUndefined();
   });
 });
 

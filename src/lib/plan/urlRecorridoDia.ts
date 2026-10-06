@@ -25,7 +25,9 @@ function formatoPunto(punto: PuntoRecorrido): string {
   return `${punto.lat},${punto.lon}`;
 }
 
-export function urlRecorridoDia(puntos: PuntoRecorrido[]): TramoRecorrido[] {
+// tramos-dia: `todoAPie` falso quita el travelmode -- Google Maps elige
+// entonces el medio por sí mismo, en vez de forzar andar tramos largos.
+export function urlRecorridoDia(puntos: PuntoRecorrido[], todoAPie = true): TramoRecorrido[] {
   if (puntos.length < 2) return [];
 
   const tramos: TramoRecorrido[] = [];
@@ -44,7 +46,7 @@ export function urlRecorridoDia(puntos: PuntoRecorrido[]): TramoRecorrido[] {
     if (intermedias.length > 0) {
       href += `&waypoints=${intermedias.map(formatoPunto).join("|")}`;
     }
-    href += "&travelmode=walking";
+    if (todoAPie) href += "&travelmode=walking";
 
     tramos.push({
       etiqueta: necesitaTramos

@@ -3,6 +3,7 @@ import { distanciaMetros } from "@/lib/alternativas/equivalencia";
 import { avisoRecortada, calcularHorarioDia, horaDeMinutos, minutosDeHora, type HorarioParada } from "./horario";
 import { zonaDeParada } from "./zona";
 import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./paseo";
+import { calcularTramosDia, type Tramo } from "./tramos";
 import type { AnclaAlojamiento, Dia, EtapaPlan, Foto, TrasladoPlan, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
@@ -62,7 +63,10 @@ export interface DiaPublico {
   paradas: ParadaPublica[];
   // encaje-y-paseo (enc-ac2): ausente cuando el día tiene menos de dos
   // paradas resueltas -- nunca un paseo a medias.
-  paseo?: { km: number; aviso?: AvisoPaseo };
+  paseo?: { km: number; kmTransporte?: number; aviso?: AvisoPaseo };
+  // tramos-dia: n − 1 tramos entre paradas resueltas consecutivas; ausente
+  // con menos de dos.
+  tramos?: Tramo[];
 }
 
 export interface PlanPublico {
@@ -178,7 +182,7 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
 // ausente en una llamada que no lo conoce (p. ej. un script sin trabajo
 // detrás), en cuyo caso el paseo usa el umbral no familiar, el más
 // permisivo.
-export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null): PlanPublico {
+export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null): PlanPublico {
   const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur } = calcularPresupuesto(plan);
   return {
     id: plan.id,
@@ -187,13 +191,15 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
     personas: plan.personas,
     dias: plan.dias.map((dia) => {
       const horarios = calcularHorarioDia(dia);
+      const resueltas = ordenarParadasResueltas(dia.franjas, dia.paradas);
       return {
         fecha: dia.fecha,
         ...(dia.etapa !== undefined ? { etapa: dia.etapa } : {}),
         ancla_alojamiento: dia.ancla_alojamiento,
         franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
         paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined))),
-        paseo: calcularPaseoDia(ordenarParadasResueltas(dia.franjas, dia.paradas), perfil) ?? undefined,
+        paseo: calcularPaseoDia(resueltas, perfil, transporte) ?? undefined,
+        ...(resueltas.length >= 2 ? { tramos: calcularTramosDia(resueltas, { perfil, transporte }) } : {}),
       };
     }),
     avisos: plan.avisos ?? [],

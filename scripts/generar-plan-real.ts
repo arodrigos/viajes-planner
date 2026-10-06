@@ -127,7 +127,7 @@ async function generarMulticiudad(criterios: CriteriosViaje, directorio: string)
   const conFotos = await resolverFotosPlan(crearFuenteFotosAbierta(), conLugares);
   const cercanos = crearFuenteCercanosAbierta();
   const final = await porEtapas(conFotos, (sub, cualificador) => resolverAlternativasPlan(fuente, cercanos, sub, criterios.perfil, cualificador));
-  return { plan: aPlanPublico(final, criterios.perfil, criterios.presupuesto_eur), inviable: null, zonas };
+  return { plan: aPlanPublico(final, criterios.perfil, criterios.presupuesto_eur, criterios.transporte ?? null), inviable: null, zonas };
 }
 
 async function main() {
