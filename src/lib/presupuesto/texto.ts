@@ -8,8 +8,12 @@ export function textoPrecioParada(coste: CosteParada | undefined): string {
   if (coste.por === "gratis") return "Gratis";
   const origen = coste.procedencia === "estimado" ? "estimado" : "según Wikivoyage";
   const unidad = coste.por === "persona" ? "/persona" : " el grupo";
-  const importe = Number.isInteger(coste.importe_eur) ? String(coste.importe_eur) : coste.importe_eur.toFixed(2).replace(".", ",");
-  return `Precio orientativo: ${importe} €${unidad} · ${origen}`;
+  // Los enteros pasan por el formateador único (punto de miles y espacio duro); los céntimos
+  // de Wikivoyage se mantienen con coma porque formatearEuros redondea.
+  const importe = Number.isInteger(coste.importe_eur)
+    ? formatearEuros(coste.importe_eur)
+    : `${coste.importe_eur.toFixed(2).replace(".", ",")}\u00a0€`;
+  return `Precio orientativo: ${importe}${unidad} · ${origen}`;
 }
 
 export interface PresupuestoPublico {

@@ -85,7 +85,7 @@ describe("textos del presupuesto (mot-ac1)", () => {
   const coste = (por: CosteParada["por"], importe: number): CosteParada => ({ importe_eur: importe, por, procedencia: "estimado", fecha: "2026-10-05" });
 
   it("precio por parada: persona, gratis y ausente", () => {
-    expect(textoPrecioParada(coste("persona", 15))).toBe("Precio orientativo: 15 €/persona · estimado");
+    expect(textoPrecioParada(coste("persona", 15))).toBe("Precio orientativo: 15\u00a0€/persona · estimado");
     expect(textoPrecioParada(coste("gratis", 0))).toBe("Gratis");
     expect(textoPrecioParada(undefined)).toBe("Sin precio orientativo");
   });

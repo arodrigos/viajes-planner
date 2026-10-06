@@ -158,7 +158,7 @@ test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui
   await expect(jeronimos.getByTestId("guia-parada")).toContainText("Wikivoyage · CC BY-SA");
   const enlace = jeronimos.getByRole("link", { name: "Ver en Wikivoyage: Monasterio de los Jerónimos" });
   await expect(enlace).toHaveAttribute("href", "https://en.wikivoyage.org/wiki/Lisbon/Bel%C3%A9m");
-  await expect(jeronimos.getByTestId("precio-parada")).toHaveText("Precio orientativo: 10 €/persona · según Wikivoyage");
+  await expect(jeronimos.getByTestId("precio-parada")).toHaveText("Precio orientativo: 10\u00a0€/persona · según Wikivoyage");
   await expect(jeronimos.getByTestId("curiosidades-parada")).toContainText("El palacio original se edificó en la Alta Edad Media.");
   await expect(jeronimos.getByTestId("curiosidades-parada")).toContainText("Wikipedia · CC BY-SA");
   await expect(jeronimos.getByTestId("opiniones-parada")).toHaveText("Opiniones de visitantes: Sin opiniones de visitantes");
@@ -166,12 +166,12 @@ test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui
   // Precio no numérico: se enseña literal y el estimado se conserva.
   const domingo = pagina.locator("li.tarjeta-parada", { hasText: "Museo gratis en domingo" });
   await expect(domingo.getByTestId("guia-parada")).toContainText("Precio según la guía: free on Sundays");
-  await expect(domingo.getByTestId("precio-parada")).toHaveText("Precio orientativo: 8 €/persona · estimado");
+  await expect(domingo.getByTestId("precio-parada")).toHaveText("Precio orientativo: 8\u00a0€/persona · estimado");
 
   const sinFicha = pagina.locator("li.tarjeta-parada", { hasText: "Pastelería del barrio" });
   await expect(sinFicha.getByTestId("guia-parada")).toContainText("La guía no tiene ficha de este sitio");
   await expect(sinFicha.getByTestId("curiosidades-parada")).toContainText("No hay curiosidades en Wikipedia para este sitio");
-  await expect(sinFicha.getByTestId("precio-parada")).toHaveText("Precio orientativo: 5 €/persona · estimado");
+  await expect(sinFicha.getByTestId("precio-parada")).toHaveText("Precio orientativo: 5\u00a0€/persona · estimado");
   await expect(pagina.getByTestId("opiniones-parada")).toHaveCount(3);
 
   expect(await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);

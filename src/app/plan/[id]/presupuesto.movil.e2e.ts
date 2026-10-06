@@ -97,7 +97,7 @@ test("motivo, precio y cabecera de presupuesto con sus estados vacíos (mot-ac1)
   await expect(alcazar).toContainText("Por qué te lo proponemos");
   await expect(alcazar).toContainText("Lo dice el planificador");
   await expect(alcazar).toContainText("Patios y jardines que a los niños les encantan");
-  await expect(alcazar.getByTestId("precio-parada")).toHaveText("Precio orientativo: 15 €/persona · estimado");
+  await expect(alcazar.getByTestId("precio-parada")).toHaveText("Precio orientativo: 15\u00a0€/persona · estimado");
   await expect(pagina.locator("li.tarjeta-parada", { hasText: "Plaza de España" }).getByTestId("precio-parada")).toHaveText("Gratis");
   await expect(pagina.locator("li.tarjeta-parada", { hasText: "Catedral de Sevilla" }).getByTestId("precio-parada")).toHaveText("Sin precio orientativo");
   await expect(pagina.getByTestId("presupuesto-plan")).toContainText("Visitas: ~60 € estimados · Tu presupuesto: 900 €");
