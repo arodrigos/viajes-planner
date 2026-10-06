@@ -149,6 +149,7 @@ interface PlanPublico {
 const TEXTO_CONFIRMACION_REGENERAR =
   "El plan actual se sustituirá por uno nuevo generado desde cero. Las paradas marcadas como visitadas se perderán. Tarda unos minutos y consume una generación de tu suscripción. ¿Seguir?";
 const AYUDA_REGENERAR = "Vuelve a generar el plan con las mejoras actuales (alternativas, lugares comprobados, fotos)";
+const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue como estaba; vuelve a intentarlo.";
 const ERROR_REGENERAR_GENERICO = "No se ha podido regenerar el viaje. Vuelve a intentarlo en un momento.";
 
 // lug-ac7: reescrito -ya no dice "ninguna parada"- porque desde este
@@ -230,6 +231,9 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
   const [paradaConPanelAbiertoId, setParadaConPanelAbiertoId] = useState<string | null>(null);
   const [paradaConVisitaEnCurso, setParadaConVisitaEnCurso] = useState<string | null>(null);
   const refsTarjetas = useRef(new Map<string, HTMLLIElement>());
+  const [cambiando, setCambiando] = useState<{ paradaId: string; alternativaId: string } | null>(null);
+  const [errorCambio, setErrorCambio] = useState<string | null>(null);
+  const [avisoCambio, setAvisoCambio] = useState<string | null>(null);
 
   // dest-ac2/dest-ac3: "hoy" es la fecha del dispositivo, nunca UTC -- solo
   // el día de hoy muestra botones de visita, mapa centrado en la siguiente
@@ -239,15 +243,38 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
   const siguienteParada = esHoy ? siguienteSinVisitar(puntos, idsVisitados) : null;
   const hrefComoLlegar = esHoy ? calcularComoLlegar(puntos, siguienteParada, idsVisitados) : null;
 
-  async function usarAlternativa(paradaId: string, alternativaId: string) {
-    const respuesta = await fetch(`/api/plan/${planId}/paradas/${paradaId}/sustituir`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ alternativa_id: alternativaId }),
-    });
-    if (respuesta.ok) {
+  // alr-ac2/alr-ac3: `cambiando` es a la vez el estado visible y el cerrojo
+  // contra la doble pulsación; un ref evita que dos clics en el mismo tick
+  // lancen dos POST antes de que React repinte el botón deshabilitado.
+  const cambiandoRef = useRef(false);
+  async function usarAlternativa(paradaId: string, alternativaId: string, nombreAlternativa: string) {
+    if (cambiandoRef.current) return;
+    cambiandoRef.current = true;
+    setCambiando({ paradaId, alternativaId });
+    setErrorCambio(null);
+    setAvisoCambio(null);
+    try {
+      const respuesta = await fetch(`/api/plan/${planId}/paradas/${paradaId}/sustituir`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ alternativa_id: alternativaId }),
+      });
+      if (!respuesta.ok) {
+        const datos = await respuesta.json().catch(() => null);
+        setErrorCambio(typeof datos?.error === "string" ? datos.error : ERROR_CAMBIO_GENERICO);
+        return;
+      }
       setParadaConPanelAbiertoId(null);
+      setAvisoCambio(`Hecho: ahora vas a ${nombreAlternativa}. Para deshacerlo, abre sus alternativas.`);
       onPlanActualizado();
+      // El <li> de la parada sobrevive a la recarga (su id externo no cambia),
+      // así que el foco no se pierde cuando llegue la versión nueva.
+      refsTarjetas.current.get(paradaId)?.focus();
+    } catch {
+      setErrorCambio(ERROR_CAMBIO_GENERICO);
+    } finally {
+      cambiandoRef.current = false;
+      setCambiando(null);
     }
   }
 
@@ -282,6 +309,9 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
   }
 
   const tramosDelDia = dia.tramos ?? [];
+  // Región viva fuera del panel: el panel se cierra al terminar y el aviso
+  // de «Hecho» tiene que seguir anunciándose.
+
   const tramoHasta = new Map(tramosDelDia.map((t) => [t.hastaId, t]));
   // Con algún tramo que no es a pie, forzar travelmode=walking en el
   // recorrido completo mandaría andar kilómetros de transporte.
@@ -301,6 +331,7 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
       ) : (
         <h2>{dia.fecha}</h2>
       )}
+      {avisoCambio && <p role="status" className="ayuda">{avisoCambio}</p>}
       <EventosDia eventos={eventos} />
       {/* enc-ac2: ausente cuando el día tiene menos de dos paradas
           resueltas -- nunca un paseo a medias. */}
@@ -382,6 +413,7 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
                       else refsTarjetas.current.delete(parada.id);
                     }}
                     className="tarjeta-parada"
+                    tabIndex={-1}
                     // map-ac2: tocar el marcador correspondiente en el mapa
                     // marca esta tarjeta con aria-current (la anterior lo
                     // pierde) y la desplaza a la vista.
@@ -478,7 +510,14 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
                         </button>
                       )}
                       {paradaConPanelAbiertoId === parada.id && (
-                        <div className="panel-alternativas" role="region" aria-label={`Alternativas a ${parada.nombre}`}>
+                        <div
+                          className="panel-alternativas"
+                          role="region"
+                          aria-label={`Alternativas a ${parada.nombre}`}
+                          aria-busy={cambiando?.paradaId === parada.id ? "true" : undefined}
+                        >
+                          {cambiando?.paradaId === parada.id && <p role="status">Cambiando la parada…</p>}
+                          {errorCambio && <p role="alert">{errorCambio}</p>}
                           <p className="ayuda-alternativas">
                             Cambiar una parada crea una nueva versión del plan; podrás volver a la anterior desde esta
                             misma lista.
@@ -524,10 +563,10 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
                                     <button
                                       type="button"
                                       className="boton boton-principal"
-                                      disabled={!alternativa.id}
-                                      onClick={() => alternativa.id && usarAlternativa(parada.id, alternativa.id)}
+                                      disabled={!alternativa.id || cambiando !== null}
+                                      onClick={() => alternativa.id && usarAlternativa(parada.id, alternativa.id, alternativa.nombre)}
                                     >
-                                      Usar esta
+                                      {cambiando?.alternativaId === alternativa.id ? "Cambiando…" : "Usar esta"}
                                     </button>
                                   </div>
                                 </li>
