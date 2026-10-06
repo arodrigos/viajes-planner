@@ -67,7 +67,7 @@ async function abrirPlan(browser: import("@playwright/test").Browser, supabase: 
   const codigo = await leerCodigo(EMAIL);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: EMAIL, codigo } })).ok()).toBe(true);
   await pagina.goto(`/plan/${planId}?dia=resumen`);
-  await expect(pagina.getByRole("heading", { name: "Portugal" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Portugal", exact: true })).toBeVisible();
   return { contexto, pagina };
 }
 

@@ -74,7 +74,7 @@ test("aviso, motivo, ayuda y contador de un plan sin ciudad identificable, sin s
   await iniciarSesion(contexto, EMAIL);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   await expect(pagina.getByText("No hemos identificado la ciudad de este viaje")).toBeVisible();
   await expect(pagina.getByText(motivo)).toBeVisible();

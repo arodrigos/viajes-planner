@@ -113,6 +113,7 @@ test("motivo, precio y cabecera de presupuesto con sus estados vacíos (mot-ac1)
   await pagina.goto(`/plan/${planCadiz}?dia=resumen`);
   await expect(pagina.getByTestId("presupuesto-plan")).toContainText("Las visitas estimadas superan tu presupuesto en ~300 €");
   await pagina.goto(`/plan/${planCadiz}?dia=1`);
+  await pagina.locator("summary", { hasText: "Por qué te lo proponemos" }).click();
   await expect(pagina.getByTestId("motivo-parada")).toBeVisible();
   const desborda = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(desborda).toBe(false);

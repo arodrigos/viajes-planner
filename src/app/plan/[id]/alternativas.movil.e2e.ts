@@ -100,12 +100,12 @@ test("cambiar una parada por una alternativa crea una versión nueva y la antigu
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const { count: versionesAntes } = await supabase.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planId);
 
   const tarjetaConAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Catedral de Sevilla" });
-  await tarjetaConAlternativas.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await tarjetaConAlternativas.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
   await expect(tarjetaConAlternativas.getByText("Real Alcázar")).toBeVisible();
   // Acotado a los metadatos de la alternativa: desde encaje-y-paseo, la propia
   // parada también muestra "a N m de la siguiente parada" (etiquetas de encaje),
@@ -125,7 +125,7 @@ test("cambiar una parada por una alternativa crea una versión nueva y la antigu
 
   await pagina.reload();
   await expect(pagina.locator(".tarjeta-parada", { hasText: "Real Alcázar" })).toBeVisible();
-  await pagina.locator(".tarjeta-parada", { hasText: "Real Alcázar" }).getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await pagina.locator(".tarjeta-parada", { hasText: "Real Alcázar" }).locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
   await expect(pagina.getByText("Catedral de Sevilla").last()).toBeVisible();
 
   await contexto.close();
@@ -153,22 +153,24 @@ test("usabilidad: parada sin alternativas, ayuda y objetivos táctiles (alt-ac7)
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const tarjetaSinAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Torre del Oro" });
-  // cam-ac1: sin alternativas no hay ningún botón de cambio.
-  await expect(tarjetaSinAlternativas.getByRole("button", { name: /Cambiar/ })).toHaveCount(0);
+  // cam-ac1: sin alternativas no hay panel de alternativas.
+  await expect(tarjetaSinAlternativas.locator("summary", { hasText: /^Alternativas/ })).toHaveCount(0);
 
-  // El botón de una tarjeta CON alternativas mide al menos 44×44 y su texto cabe.
+  // El rótulo del panel de una tarjeta CON alternativas mide al menos 44 px de alto y su texto cabe.
   const tarjetaConAlternativas = pagina.locator(".tarjeta-parada", { hasText: "Catedral de Sevilla" });
-  await expect(tarjetaConAlternativas.getByRole("button", { name: "Cambiar por una alternativa" })).toHaveCount(1);
-  await tarjetaConAlternativas.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await expect(tarjetaConAlternativas.locator("summary", { hasText: /^Alternativas \(\d+\)$/ })).toHaveCount(1);
+  await tarjetaConAlternativas.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
   await expect(tarjetaConAlternativas.getByText(/crea una nueva versión del plan/)).toBeVisible();
 
+  const cajaRotulo = await tarjetaConAlternativas.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).boundingBox();
+  expect(cajaRotulo?.height).toBeGreaterThanOrEqual(44);
+  expect(cajaRotulo?.width).toBeGreaterThanOrEqual(44);
   const resultados = await medirObjetivosTactiles(pagina);
-  const botonMedido = resultados.find((r) => r.descripcion.includes("Cambiar"));
-  expect(botonMedido?.alto).toBeGreaterThanOrEqual(44);
-  expect(botonMedido?.ancho).toBeGreaterThanOrEqual(44);
+  const botonUsar = resultados.find((r) => r.descripcion.includes("Usar esta"));
+  expect(botonUsar?.alto).toBeGreaterThanOrEqual(44);
 
   await pagina.emulateMedia({ colorScheme: "light" });
   await pagina.screenshot({ path: "artefactos/capturas/plan-alternativas-claro.png" });
@@ -245,7 +247,7 @@ async function abrirPanelMuseo(browser: Browser, email: string) {
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
   await pagina.goto(`/plan/${planId}?dia=1`);
   const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo A" });
-  await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
   return { contexto, pagina, tarjeta };
 }
 

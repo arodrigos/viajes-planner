@@ -9,10 +9,17 @@ interface Props {
   intentada: boolean;
 }
 
+// Número que acompaña al rótulo del panel: el consejo de la guía cuenta como
+// uno y cada curiosidad como otro.
+export function contarConsejosYCuriosidades(guia?: GuiaParada, curiosidades?: CuriosidadesParada): number {
+  const nCuriosidades = curiosidades ? (curiosidades.items && curiosidades.items.length > 0 ? curiosidades.items.length : curiosidades.frases.length) : 0;
+  return (guia ? 1 : 0) + nCuriosidades;
+}
+
 // guia-abierta (gui-ac1/gui-ac2): cada sección lleva su fuente y su licencia
 // y tiene estado vacío propio. El texto es plano (el trabajador lo limpió) y
 // React lo pinta como texto, nunca como HTML.
-export function SeccionesGuia({ nombre, guia, curiosidades, intentada }: Props) {
+export function ConsejosYCuriosidades({ nombre, guia, curiosidades, intentada }: Props) {
   return (
     <div className="guia-parada">
       <div data-testid="guia-parada">
@@ -42,23 +49,27 @@ export function SeccionesGuia({ nombre, guia, curiosidades, intentada }: Props) 
         </p>
         {curiosidades && curiosidades.items && curiosidades.items.length > 0 ? (
           <>
-            <ul className="texto-guia">
+            <ul className="texto-guia lista-curiosidades">
               {curiosidades.items.map((item) => (
                 <li key={item.texto}>
                   {/* El texto en inglés se enseña tal cual (sin traducir); lang
                       hace que el lector de pantalla lo pronuncie bien. */}
-                  <span lang={item.idioma === "en" ? "en" : undefined}>{item.texto}</span>{" "}
-                  <span className="atribucion-guia">
-                    {item.fuente === "wikidata" ? "Wikidata" : item.idioma === "en" ? "Wikipedia · en inglés" : "Wikipedia"}{" "}
+                  <p className="texto-curiosidad" lang={item.idioma === "en" ? "en" : undefined}>
+                    {item.texto}
+                  </p>
+                  {/* tar-ac3: la atribución y el ↗ van en su propia línea: dentro del
+                      párrafo dejaban un hueco en la última línea del texto. */}
+                  <p className="atribucion-guia atribucion-curiosidad">
                     <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Ver en ${item.fuente === "wikidata" ? "Wikidata" : "Wikipedia"}: ${item.texto}`}
                     >
+                      {item.fuente === "wikidata" ? "Wikidata" : item.idioma === "en" ? "Wikipedia · en inglés" : "Wikipedia"}{" "}
                       <span aria-hidden="true">↗</span>
                     </a>
-                  </span>
+                  </p>
                 </li>
               ))}
             </ul>

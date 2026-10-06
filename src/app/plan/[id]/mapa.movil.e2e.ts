@@ -109,7 +109,7 @@ test("el mapa del día numera los marcadores en orden de franja, resalta la tarj
 
   const peticionTeselas = pagina.waitForRequest(/tiles\.openfreemap\.org\/styles\/liberty/);
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
   await peticionTeselas;
 
   // map-ac1: canvas presente, 3 marcadores numerados 1,2,3 en orden de
@@ -184,7 +184,7 @@ test("un día sin ninguna parada resuelta no muestra mapa, y explica por qué (m
   await iniciarSesion(contexto, "ci-test-mapa-vacio@example.com");
   const pagina = await contexto.newPage();
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   await expect(pagina.locator("canvas.maplibregl-canvas")).toHaveCount(0);
   await expect(
@@ -217,7 +217,7 @@ test("si OpenFreeMap no responde, el hueco del mapa lo dice y la lista de parada
   const pagina = await contexto.newPage();
   await pagina.route("**/tiles.openfreemap.org/**", (route) => route.abort());
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   await expect(pagina.getByText("El mapa no está disponible ahora.")).toBeVisible();
   await expect(pagina.locator(".tarjeta-parada")).toHaveCount(PARADAS.length);

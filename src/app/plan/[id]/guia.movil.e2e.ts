@@ -116,6 +116,9 @@ test("cp-cc-02: «Ver más» despliega el consejo largo y el corto no tiene bot�
   const tarjetaB = pagina.locator("li.tarjeta-parada", { hasText: "Parada consejo corto" });
   const parrafoA = tarjetaA.getByTestId("consejo-guia");
   const botonA = tarjetaA.getByRole("button", { name: "Ver más" });
+  // tar-ac1: los consejos viven en un panel plegado; hay que abrirlo para verlos.
+  await tarjetaA.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
+  await tarjetaB.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
   const altoYLinea = () => parrafoA.evaluate((el) => ({ alto: el.getBoundingClientRect().height, linea: parseFloat(getComputedStyle(el).lineHeight) }));
 
   await expect(botonA).toHaveAttribute("aria-expanded", "false");
@@ -154,6 +157,8 @@ test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui
 
   await pagina.goto(`/plan/${planId}?dia=1`);
   const jeronimos = pagina.locator("li.tarjeta-parada", { hasText: "Monasterio de los Jerónimos" });
+  // Los roles no ven dentro de un <details> cerrado: se abre su panel antes de buscar enlaces.
+  await jeronimos.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
   await expect(jeronimos.getByTestId("guia-parada")).toContainText("Consejos de la guía");
   await expect(jeronimos.getByTestId("guia-parada")).toContainText("Wikivoyage · CC BY-SA");
   const enlace = jeronimos.getByRole("link", { name: "Ver en Wikivoyage: Monasterio de los Jerónimos" });
@@ -224,7 +229,11 @@ test("cp-cur-03: cada curiosidad lleva su rótulo y enlace; la inglesa va sin tr
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  const bloque = pagina.locator("li.tarjeta-parada", { hasText: "Parada con curiosidades" }).getByTestId("curiosidades-parada");
+  const tarjeta = pagina.locator("li.tarjeta-parada", { hasText: "Parada con curiosidades" });
+  // Los roles de un panel cerrado no están en el árbol de accesibilidad: hay que abrirlo antes.
+  await tarjeta.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
+  const bloque = tarjeta.getByTestId("curiosidades-parada");
+  await expect(bloque).toBeVisible();
   const elementos = bloque.locator("li");
   await expect(elementos).toHaveCount(4);
   await expect(elementos.nth(0)).toContainText("Wikipedia");

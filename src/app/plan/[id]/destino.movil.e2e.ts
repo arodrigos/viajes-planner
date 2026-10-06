@@ -100,7 +100,7 @@ test("marcar/desmarcar visitada, mapa centrado en la siguiente y «Cómo llegar�
   await iniciarSesion(contexto, EMAIL);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   // Aislado por plan: cuenta solo las visitas de las paradas de ESTE plan
   // (fullyParallel: true -- contar la tabla entera mezclaría visitas de
@@ -207,7 +207,7 @@ test("un día que no es hoy no muestra ningún botón de visita (dest-ac3)", asy
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, email);
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   await expect(pagina.getByRole("button", { name: "Marcar como visitada" })).toHaveCount(0);
   await expect(pagina.getByRole("button", { name: "Visitada ✓" })).toHaveCount(0);

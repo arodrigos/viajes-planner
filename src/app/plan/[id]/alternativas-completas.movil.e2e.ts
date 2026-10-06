@@ -118,15 +118,22 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const tarjeta = pagina.locator(".tarjeta-parada");
   const nombresDelPanel = () => tarjeta.locator(".tarjeta-alternativa strong").allTextContents();
   const alternativa = (nombre: string) => tarjeta.locator(".tarjeta-alternativa", { hasText: nombre });
+  // Tras sustituir, la tarjeta puede conservar el panel abierto: solo se pulsa si está cerrado.
+  const abrirAlternativas = async () => {
+    const resumen = tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ });
+    const panel = tarjeta.locator("details", { has: pagina.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }) });
+    if (!(await panel.evaluate((el) => (el as HTMLDetailsElement).open))) await resumen.click();
+    await expect(panel).toHaveAttribute("open", "");
+  };
 
   // Versión 1: dos alternativas; la que tiene foto la pinta, la otra enseña «Sin foto».
-  await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
-  expect((await nombresDelPanel()).sort()).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
+  await abrirAlternativas();
+  await expect.poll(async () => (await nombresDelPanel()).sort()).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
   const imagen = alternativa("Casa de Pilatos").locator("img");
   await expect(imagen).toHaveCount(1);
   await expect.poll(() => imagen.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
@@ -139,8 +146,8 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
     const { count } = await supabase.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planId);
     expect(count).toBe(2);
   }).toPass();
-  await expect(tarjeta.locator(":scope > div > strong").filter({ hasText: "Casa de Pilatos" })).toBeVisible();
-  await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await expect(tarjeta.locator("h4").filter({ hasText: "Casa de Pilatos" })).toBeVisible();
+  await abrirAlternativas();
   await expect.poll(async () => (await nombresDelPanel()).sort()).toEqual(["Palacio de las Dueñas", "Real Alcázar"]);
 
   // Vuelta: versión 3 otra vez con Real Alcázar y las otras dos como alternativas.
@@ -149,8 +156,8 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
     const { count } = await supabase.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", planId);
     expect(count).toBe(3);
   }).toPass();
-  await expect(tarjeta.locator(":scope > div > strong").filter({ hasText: "Real Alcázar" })).toBeVisible();
-  await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await expect(tarjeta.locator("h4").filter({ hasText: "Real Alcázar" })).toBeVisible();
+  await abrirAlternativas();
   await expect.poll(async () => (await nombresDelPanel()).sort()).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
 
   await contexto.close();
@@ -229,9 +236,9 @@ async function entrarYAbrirAlternativas(browser: Browser, supabase: SupabaseClie
   const codigo = await leerCodigo(email);
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: "Londres" })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: "Londres", exact: true })).toBeVisible();
   const tarjeta = pagina.locator(".tarjeta-parada");
-  await tarjeta.getByRole("button", { name: "Cambiar por una alternativa" }).click();
+  await tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
   await tarjeta.locator(".tarjeta-alternativa", { hasText: "Museo de Ciencias" }).getByRole("button", { name: "Usar esta" }).click();
   await expect(pagina.getByText(/^Hecho: ahora vas a Museo de Ciencias/)).toBeVisible();
   return { contexto, pagina, tarjeta };
@@ -244,6 +251,7 @@ test("«Usar esta» enseña la guía y las curiosidades de la alternativa sin es
   const { contexto, pagina } = await entrarYAbrirAlternativas(browser, supabase, "ci-test-alternativas-guia@example.com", planId);
 
   const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo de Ciencias" });
+  await tarjeta.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
   await expect(tarjeta.getByTestId("guia-parada")).toContainText("Consejo M");
   await expect(tarjeta.getByTestId("guia-parada").getByRole("link", { name: /Ver en Wikivoyage/ })).toBeVisible();
   await expect(tarjeta.getByTestId("curiosidades-parada").locator("li")).toHaveText(["Frase M1", "Frase M2", "Frase M3"]);

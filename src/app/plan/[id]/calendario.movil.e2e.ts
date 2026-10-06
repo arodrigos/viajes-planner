@@ -81,7 +81,7 @@ test("«Añadir al calendario» descarga un fichero .ics (ics-ac2)", async ({ br
 
   await pagina.goto(`/plan/${planId}?dia=1`);
   await abrirOpciones(pagina);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   const enlace = pagina.getByRole("link", { name: "Añadir al calendario" });
   await expect(enlace).toBeVisible();

@@ -249,16 +249,65 @@ h3 {
    overflow:hidden ni max-height que pueda recortarla. */
 .foto-parada {
   display: block;
-  width: 100%;
-  max-width: 320px;
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
   border-radius: 0.375rem;
+}
+
+/* tar-ac1: miniatura junto al nombre y la hora; el resto de la tarjeta se
+   apila debajo. min-width: 0 deja que los textos largos partan línea. */
+.cuerpo-parada {
+  flex: 1;
+  min-width: 0;
+}
+.cuerpo-parada p {
+  margin: var(--espacio-1) 0 0;
+  overflow-wrap: anywhere;
+}
+.cabeza-parada {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: flex-start;
+}
+.cabeza-parada > div:last-child {
+  min-width: 0;
+}
+.cabeza-parada h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.cabeza-parada .foto-ausente {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 88px;
+  height: 88px;
+  margin-top: 0;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+/* tar-ac1: tres paneles nativos; el rótulo es el objetivo táctil (44 px). */
+.panel-parada {
   margin-top: var(--espacio-2);
+  border-top: 1px solid var(--borde);
+}
+.panel-parada > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.procedencia-sin-comprobar {
+  font-weight: 600;
 }
 
 .atribucion-foto {
   font-size: var(--texto-pequeno);
   opacity: 0.85;
-  margin-top: var(--espacio-1);
 }
 
 .foto-ausente {
@@ -657,6 +706,19 @@ footer a,
   justify-content: center;
   min-height: var(--objetivo-tactil);
   min-width: var(--objetivo-tactil);
+}
+/* tar-ac3: texto y atribución son bloques distintos, así que la última línea
+   del texto no arrastra el hueco del enlace. */
+.guia-parada .lista-curiosidades {
+  list-style: none;
+  padding-left: 0;
+}
+.guia-parada .texto-curiosidad {
+  margin: 0;
+  line-height: 1.4;
+}
+.guia-parada .atribucion-curiosidad {
+  margin: 0 0 0.25rem;
 }
 
 /* etapas-vista: «Ruta del viaje». Aditivo; los textos largos (ciudades, ajustes)

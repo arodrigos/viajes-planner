@@ -116,7 +116,7 @@ test("un plan real se lee como línea de tiempo: días y franjas en orden, icono
   expect(respuestaVerificar.ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: DESTINO, exact: true })).toBeVisible();
 
   // (a) cada día es su propio panel, en el orden de las fechas sembradas.
   // (b) dentro de cada día, las etiquetas de franja en el orden de

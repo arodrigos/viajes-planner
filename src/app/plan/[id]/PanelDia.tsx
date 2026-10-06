@@ -1,22 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Fragment, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { formatearFechaDia } from "@/lib/plan/dias";
 import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
 import { formatearKm } from "@/lib/formato/numeros";
-import { textoPrecioParada } from "@/lib/presupuesto/texto";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
 import type { Evento } from "@/lib/eventos/tipos";
-import { AccionesVisita } from "./AccionesVisita";
-import { ConectorTramo } from "./ConectorTramo";
-import { EnlacesParada } from "./EnlacesParada";
 import { EventosDia } from "./SeccionEventos";
 import { IconoFranja } from "./iconosFranja";
-import { IconoSinFoto } from "./iconoSinFoto";
 import type { PuntoMapaDia } from "./MapaDia";
-import { SeccionesGuia } from "./SeccionesGuia";
+import { TarjetaParada } from "./TarjetaParada";
 import type { DiaPublico } from "./tiposVista";
 
 // map-ac1: carga dinámica sin SSR -maplibre-gl exige `window` y no se
@@ -76,7 +71,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, on
   const tieneAlgunaParada = dia.paradas.length > 0;
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
-  const [paradaConPanelAbiertoId, setParadaConPanelAbiertoId] = useState<string | null>(null);
+  const [solicitudAlternativas, setSolicitudAlternativas] = useState<{ paradaId: string; veces: number } | null>(null);
   const [paradaConVisitaEnCurso, setParadaConVisitaEnCurso] = useState<string | null>(null);
   const refsTarjetas = useRef(new Map<string, HTMLLIElement>());
   const [cambiando, setCambiando] = useState<{ paradaId: string; alternativaId: string } | null>(null);
@@ -96,8 +91,8 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, on
   // contra la doble pulsación; un ref evita que dos clics en el mismo tick
   // lancen dos POST antes de que React repinte el botón deshabilitado.
   const cambiandoRef = useRef(false);
-  async function usarAlternativa(paradaId: string, alternativaId: string, nombreAlternativa: string) {
-    if (cambiandoRef.current) return;
+  async function usarAlternativa(paradaId: string, alternativaId: string, nombreAlternativa: string): Promise<boolean> {
+    if (cambiandoRef.current) return false;
     cambiandoRef.current = true;
     setCambiando({ paradaId, alternativaId });
     setErrorCambio(null);
@@ -111,16 +106,17 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, on
       if (!respuesta.ok) {
         const datos = await respuesta.json().catch(() => null);
         setErrorCambio(typeof datos?.error === "string" ? datos.error : ERROR_CAMBIO_GENERICO);
-        return;
+        return false;
       }
-      setParadaConPanelAbiertoId(null);
       setAvisoCambio(`Hecho: ahora vas a ${nombreAlternativa}. Para deshacerlo, abre sus alternativas.`);
       onPlanActualizado();
       // El <li> de la parada sobrevive a la recarga (su id externo no cambia),
       // así que el foco no se pierde cuando llegue la versión nueva.
       refsTarjetas.current.get(paradaId)?.focus();
+      return true;
     } catch {
       setErrorCambio(ERROR_CAMBIO_GENERICO);
+      return false;
     } finally {
       cambiandoRef.current = false;
       setCambiando(null);
@@ -153,8 +149,9 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, on
   // la parada más alejada -- abrirlo y llevar la vista hasta su tarjeta,
   // igual que hace tocar su marcador en el mapa.
   function abrirPanelDesdeAviso(paradaId: string) {
-    setParadaConPanelAbiertoId(paradaId);
+    setSolicitudAlternativas((previa) => ({ paradaId, veces: previa?.paradaId === paradaId ? previa.veces + 1 : 1 }));
     seleccionarParada(paradaId);
+    refsTarjetas.current.get(paradaId)?.focus();
   }
 
   const tramosDelDia = dia.tramos ?? [];
@@ -252,179 +249,27 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, on
               </div>
               <ul className="pila">
                 {paradasDeLaFranja.map((parada) => (
-                  <Fragment key={parada.id}>
-                  {tramoHasta.get(parada.id) && <ConectorTramo tramo={tramoHasta.get(parada.id)!} />}
-                  <li
-                    ref={(elemento) => {
+                  <TarjetaParada
+                    key={parada.id}
+                    parada={parada}
+                    franjaId={franja.id}
+                    ciudad={etapa?.ciudad ?? destino}
+                    tramo={tramoHasta.get(parada.id)}
+                    tarjetaRef={(elemento) => {
                       if (elemento) refsTarjetas.current.set(parada.id, elemento);
                       else refsTarjetas.current.delete(parada.id);
                     }}
-                    className="tarjeta-parada"
-                    tabIndex={-1}
-                    // map-ac2: tocar el marcador correspondiente en el mapa
-                    // marca esta tarjeta con aria-current (la anterior lo
-                    // pierde) y la desplaza a la vista.
-                    aria-current={parada.id === paradaActivaId ? "true" : undefined}
-                  >
-                    <IconoFranja franjaId={franja.id} />
-                    <div>
-                      <strong>{parada.nombre}</strong>
-                      {parada.horario && (
-                        <p className="horario-parada" data-testid="horario-parada">
-                          <time>{parada.horario.inicio} – {parada.horario.fin}</time>
-                          {" · "}
-                          {parada.horario.apertura}
-                          {parada.horario.aviso && <span className="aviso-horario"> · {parada.horario.aviso}</span>}
-                        </p>
-                      )}
-                      <p>{parada.descripcion}</p>
-                      {/* mot-ac1: el motivo va rotulado como del modelo -es
-                          su opinión, no un dato comprobado-; sin motivo (plan
-                          anterior) la sección no aparece, el precio sí dice
-                          que no hay. */}
-                      {parada.motivo && (
-                        <div className="motivo-parada" data-testid="motivo-parada">
-                          <p>
-                            <strong>Por qué te lo proponemos</strong> <span className="etiqueta-modelo">Lo dice el planificador</span>
-                          </p>
-                          <p className="texto-motivo">{parada.motivo}</p>
-                        </div>
-                      )}
-                      <p className="precio-parada" data-testid="precio-parada">
-                        {textoPrecioParada(parada.coste)}
-                      </p>
-                      <SeccionesGuia nombre={parada.nombre} guia={parada.guia} curiosidades={parada.curiosidades} intentada={Boolean(parada.guia_intentada_en)} />
-                      {/* fot-ac2/fot-ac3: la foto nunca viene de otro
-                          sitio -procede de resolverFotos.ts, server-only-;
-                          sin ella, el marcador de posición es digno, nunca
-                          un hueco roto. */}
-                      {parada.foto ? (
-                        <>
-                          <img src={parada.foto.url} alt={parada.nombre} loading="lazy" className="foto-parada" />
-                          <p className="atribucion-foto">
-                            Foto:{" "}
-                            <a href={parada.foto.pagina_url} target="_blank" rel="noopener noreferrer">
-                              {parada.foto.autor}
-                            </a>{" "}
-                            ·{" "}
-                            <a href={parada.foto.licencia_url} target="_blank" rel="noopener noreferrer">
-                              {parada.foto.licencia}
-                            </a>
-                          </p>
-                        </>
-                      ) : (
-                        <div className="foto-ausente">
-                          <IconoSinFoto />
-                          <span>Sin foto</span>
-                        </div>
-                      )}
-                      {parada.procedencia.fuente === "propuesto-sin-verificar" ? (
-                        <p className="procedencia-parada">
-                          Sin comprobar. No hemos podido localizar este sitio en los mapas abiertos: comprueba el
-                          nombre y la dirección antes de ir.
-                        </p>
-                      ) : (
-                        <p className="procedencia-parada">
-                          Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}
-                        </p>
-                      )}
-                      <EnlacesParada parada={parada} ciudad={etapa?.ciudad ?? destino} tramo={tramoHasta.get(parada.id)} />
-                      {/* dest-ac1..ac3: solo el día de hoy -- un día pasado
-                          o futuro no muestra ningún botón de visita. */}
-                      {esHoy && (
-                        <AccionesVisita
-                          sesionActiva={true}
-                          visitada={Boolean(parada.visitada)}
-                          tieneUbicacion={Boolean(parada.coordenadas)}
-                          cargando={paradaConVisitaEnCurso === parada.id}
-                          hrefComoLlegar={siguienteParada?.id === parada.id ? (hrefComoLlegar ?? undefined) : undefined}
-                          onMarcar={() => alternarVisita(parada.id, false)}
-                          onDesmarcar={() => alternarVisita(parada.id, true)}
-                        />
-                      )}
-                      {/* cam-ac1: el botón solo existe si hay a qué cambiar; un
-                          botón que abre un panel vacío era ruido. */}
-                      {(parada.alternativas ?? []).length > 0 && (
-                        <button
-                          type="button"
-                          className="boton"
-                          aria-expanded={paradaConPanelAbiertoId === parada.id}
-                          onClick={() =>
-                            setParadaConPanelAbiertoId(paradaConPanelAbiertoId === parada.id ? null : parada.id)
-                          }
-                        >
-                          Cambiar por una alternativa
-                        </button>
-                      )}
-                      {paradaConPanelAbiertoId === parada.id && (
-                        <div
-                          className="panel-alternativas"
-                          role="region"
-                          aria-label={`Alternativas a ${parada.nombre}`}
-                          aria-busy={cambiando?.paradaId === parada.id ? "true" : undefined}
-                        >
-                          {cambiando?.paradaId === parada.id && <p role="status">Cambiando la parada…</p>}
-                          {errorCambio && <p role="alert">{errorCambio}</p>}
-                          <p className="ayuda-alternativas">
-                            Cambiar una parada crea una nueva versión del plan; podrás volver a la anterior desde esta
-                            misma lista.
-                          </p>
-                          {/* El panel también se abre desde «Ver sus alternativas» del paseo
-                              del día, sin botón de cambio: el estado vacío sigue siendo alcanzable. */}
-                          {(parada.alternativas ?? []).length === 0 ? (
-                            <div className="alternativas-vacio">
-                              <p>No hay alternativas comprobadas para esta parada.</p>
-                              <p className="ayuda-alternativas">
-                                Las alternativas salen al generar el plan; los viajes anteriores no las tienen. Puedes
-                                regenerar este viaje desde el menú del plan para obtenerlas.
-                              </p>
-                            </div>
-                          ) : (
-                            <ul className="pila lista-alternativas">
-                              {(parada.alternativas ?? []).map((alternativa, indice) => (
-                                <li key={alternativa.id ?? `${parada.id}-${indice}`} className="tarjeta-alternativa">
-                                  {alternativa.foto ? (
-                                    <img src={alternativa.foto.url} alt={alternativa.nombre} loading="lazy" className="foto-alternativa" />
-                                  ) : (
-                                    <div className="foto-ausente">
-                                      <IconoSinFoto />
-                                      <span>Sin foto</span>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <strong>{alternativa.nombre}</strong>
-                                    <p>{alternativa.motivo}</p>
-                                    <p className="metadatos-alternativa">
-                                      {alternativa.distancia_m !== undefined && <span>A {alternativa.distancia_m} m</span>}{" "}
-                                      <span>{alternativa.origen === "cercano" ? "cerca de aquí" : "propuesta"}</span>
-                                    </p>
-                                    {/* enc-ac1: hechos calculados, no redactados -- ver
-                                        formatearEtiquetasEncaje en src/lib/alternativas/encaje.ts. */}
-                                    {alternativa.etiquetasEncaje.length > 0 && (
-                                      <ul className="pila etiquetas-encaje">
-                                        {alternativa.etiquetasEncaje.map((etiqueta) => (
-                                          <li key={etiqueta}>{etiqueta}</li>
-                                        ))}
-                                      </ul>
-                                    )}
-                                    <button
-                                      type="button"
-                                      className="boton boton-principal"
-                                      disabled={!alternativa.id || cambiando !== null}
-                                      onClick={() => alternativa.id && usarAlternativa(parada.id, alternativa.id, alternativa.nombre)}
-                                    >
-                                      {cambiando?.alternativaId === alternativa.id ? "Cambiando…" : "Usar esta"}
-                                    </button>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                  </Fragment>
+                    activa={parada.id === paradaActivaId}
+                    solicitudAlternativas={solicitudAlternativas?.paradaId === parada.id ? solicitudAlternativas.veces : 0}
+                    esHoy={esHoy}
+                    esSiguiente={siguienteParada?.id === parada.id}
+                    hrefComoLlegar={hrefComoLlegar ?? undefined}
+                    visitaEnCurso={paradaConVisitaEnCurso === parada.id}
+                    cambiando={cambiando}
+                    errorCambio={errorCambio}
+                    onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
+                    onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
+                  />
                 ))}
               </ul>
             </div>
