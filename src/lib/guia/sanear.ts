@@ -15,12 +15,18 @@ const CONTROLES = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g;
 // Abreviaturas que NUNCA cierran una frase: lo que sigue es su continuación
 // («Warner Bros. Studio Tour», «Mt. Vernon», «s. XVI»). «a. C.» o «etc.» sí pueden cerrarla, así que
 // no figuran aquí.
-export const ABREVIATURAS_INTERNAS = ["Bros", "St", "Dr", "Dra", "Sr", "Sra", "Srta", "Mr", "Mrs", "Ms", "Jr", "Co", "Inc", "Ltd", "Av", "Avda", "Prof", "Gral", "Sto", "Sta", "Gen", "Mt", "Mte", "Pza", "Pl", "Ctra", "Cmdr", "Col", "Capt", "Lt", "Sgt", "Rev", "Gov", "Sen", "Hon", "Fr", "Mons", "Lic", "Ing", "Arq", "Ud", "Uds", "Vd", "Mme", "Mlle", "Ste", "Cía", "Pte", "núm", "vol", "cap", "pág", "s"];
+export const ABREVIATURAS_INTERNAS = ["Bros", "St", "Dr", "Dra", "Sr", "Sra", "Srta", "Mr", "Mrs", "Ms", "Jr", "Co", "Inc", "Ltd", "Av", "Avda", "Prof", "Gral", "Sto", "Sta", "Gen", "Mt", "Mte", "Pza", "Pl", "Ctra", "Cmdr", "Col", "Capt", "Lt", "Sgt", "Rev", "Gov", "Sen", "Hon", "Fr", "Mons", "Lic", "Ing", "Arq", "Ud", "Uds", "Vd", "Mme", "Mlle", "Ste", "Cía", "Pte", "núm", "vol", "cap", "pág", "s", "No", "vs", "Hnos", "approx"];
 
-const TERMINA_EN_ABREVIATURA = new RegExp(`(?:^|[\\s(«"“'‘])(?:${ABREVIATURAS_INTERNAS.join("|")})\\.$`);
+const INICIO = "(?:^|[\\s(«\"“'‘])";
+const TERMINA_EN_ABREVIATURA = new RegExp(`${INICIO}(?:${ABREVIATURAS_INTERNAS.join("|")})\\.$`);
+// Regla general además de la lista: una inicial suelta («John F.», «Washington D.»)
+// o una sigla con puntos («U.S.») nunca cierran frase en un texto enciclopédico.
+// «a. C.» / «d. C.» / «D. C.» quedan fuera: sí pueden acabar una frase.
+const TERMINA_EN_INICIAL = new RegExp(`${INICIO}(?<![adAD]\\. )\\p{Lu}\\.$|${INICIO}(?:\\p{Lu}\\.){2,}$`, "u");
 
 export function terminaEnAbreviatura(frase: string): boolean {
-  return TERMINA_EN_ABREVIATURA.test(frase.trimEnd());
+  const f = frase.trimEnd();
+  return TERMINA_EN_ABREVIATURA.test(f) || TERMINA_EN_INICIAL.test(f);
 }
 
 export function sanearCuriosidad(texto: string): string {
