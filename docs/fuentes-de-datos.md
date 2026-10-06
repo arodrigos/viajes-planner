@@ -157,10 +157,18 @@ código copia el texto literal de la candidata elegida.
   fijas en castellano; el único texto de la fuente es el valor del hecho. Con
   apertura (P1619, «Se inauguró en…») no se pinta la fundación (P571), que es
   la de la entidad y no la del edificio; con solo P571 en un museo, galería,
-  biblioteca, universidad o zoo se dice «La institución se fundó en…».
+  biblioteca, universidad o zoo se dice «La institución se fundó en…», salvo que
+  alguna clase P31 sea de edificio o fortificación (`CLASES_EDIFICIO`: castillo,
+  palacio, torre, iglesia…): la Torre de Londres es castillo y museo, y sale
+  como «Se fundó en 1066.».
 - **Saneado**: al leer y antes de guardar, `sanearItems` quita los caracteres
   invisibles y descarta las frases cortadas por una abreviatura («Bros.»,
-  «Dr.»…). Las curiosidades guardadas sin `formato` (anteriores) se reprocesan
+  «Dr.»…) y las que empiezan en minúscula (segunda mitad de una frase cortada).
+  Una inicial o sigla final («Jacobo I.», «D.C.») solo descarta en lo guardado
+  con `formato` < 5; al escribir, `partirFrases` corta tras ella únicamente si
+  lo siguiente empieza por una palabra de `ARRANQUES`. `frasesDeTexto` une los
+  saltos de línea simples de TextExtracts (línea sin puntuación final seguida
+  de otra en minúscula). Las curiosidades guardadas sin `formato` (anteriores) se reprocesan
   una vez, de una versión por tick.
 - **Una invocación por versión** del plan, paradas y alternativas juntas. Si el
   modelo falla (límite de uso, respuesta inválida) se usa un respaldo

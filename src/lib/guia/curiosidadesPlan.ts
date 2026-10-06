@@ -105,7 +105,7 @@ export async function rellenarCuriosidadesPendientes(
       const fila = porId.get(sitio.id) as FilaSitio;
       const elegido = seleccion.porSitio.get(sitio.id) ?? { items: [], vistoPorModelo: false };
       // Mismo saneado que al leer: lo que se guarda ya sale limpio.
-      const items = sanearItems(elegido.items);
+      const items = sanearItems(elegido.items, FORMATO_CURIOSIDADES);
       const urlPagina = items.find((i) => i.fuente === "wikipedia" && i.idioma === "es")?.url.split("#")[0] ?? items.find((i) => i.fuente === "wikipedia")?.url.split("#")[0] ?? "";
       const todosModelo = items.length > 0 && items.every((i) => i.seleccion === "modelo");
       const curiosidades: CuriosidadesParada = {
