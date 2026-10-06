@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
+import { hoyEnZona } from "@/lib/plan/dias";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 
@@ -12,15 +13,13 @@ const EMAIL = "ci-test-destino@example.com";
 const DESTINO = "Granada";
 const RESUELTO_EN = new Date("2026-10-04").toISOString();
 
-// dest-ac1: "hoy" es la fecha del DISPOSITIVO (zona local de quien corre el
-// test, que en CI es la misma zona del navegador que Playwright lanza) --
-// nunca una fecha fija, porque el criterio es justo "el día de hoy".
+// dest-ac1: «hoy» lo decide la app en la zona del destino (VistaPlan usa
+// hoyEnZona con la zona sacada de las coordenadas de las paradas), no en la
+// del runner. Con la zona del runner (UTC) el test fallaba cada día entre las
+// 22:00 y las 24:00 UTC, cuando en Granada ya es el día siguiente.
+const ZONA_DESTINO = "Europe/Madrid";
 function fechaDeHoyISO(): string {
-  const hoy = new Date();
-  const anio = hoy.getFullYear();
-  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
-  const dia = String(hoy.getDate()).padStart(2, "0");
-  return `${anio}-${mes}-${dia}`;
+  return hoyEnZona(ZONA_DESTINO);
 }
 
 const PARADA_A = { id: "p-destino-a", nombre: "Alhambra", lat: 37.1761, lon: -3.5881 };
