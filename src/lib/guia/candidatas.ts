@@ -90,16 +90,23 @@ export function puntuarFrase(frase: string): number {
 }
 
 const ENCABEZADO = /^=+.*=+$/;
+const SEPARADOR_LINEAS = /\n+/;
+const CIERRE_DE_FRASE = /[.!?:;…»"”)]$/;
+const CIERRE_DE_FRASE_FINAL = /[.!?»"”)]$/;
+const DOBLE_IGUAL = /==/;
+
+// Para la huella de reglas (huella.ts).
+export const REGEX_CANDIDATAS: readonly RegExp[] = [SIN_MARCADO, UUID, RUIDO, ENCABEZADO, SEPARADOR_LINEAS, CIERRE_DE_FRASE, CIERRE_DE_FRASE_FINAL, DOBLE_IGUAL];
 
 // TextExtracts deja un salto de línea simple donde el artículo tenía un <br>
 // dentro de un párrafo: una línea sin puntuación final seguida de otra que
 // empieza en minúscula es una sola frase. Los encabezados nunca se unen.
 function lineasDeTexto(texto: string): string[] {
-  const lineas = texto.split(/\n+/).map(normalizar).filter((p) => p.length > 0);
+  const lineas = texto.split(SEPARADOR_LINEAS).map(normalizar).filter((p) => p.length > 0);
   const unidas: string[] = [];
   for (const linea of lineas) {
     const previa = unidas[unidas.length - 1];
-    if (previa !== undefined && !ENCABEZADO.test(previa) && !ENCABEZADO.test(linea) && !/[.!?:;…»"”)]$/.test(previa) && empiezaEnMinuscula(linea)) unidas[unidas.length - 1] = `${previa} ${linea}`;
+    if (previa !== undefined && !ENCABEZADO.test(previa) && !ENCABEZADO.test(linea) && !CIERRE_DE_FRASE.test(previa) && empiezaEnMinuscula(linea)) unidas[unidas.length - 1] = `${previa} ${linea}`;
     else unidas.push(linea);
   }
   return unidas;
@@ -115,8 +122,8 @@ export function frasesDeTexto(texto: string, locale: string = "es"): string[] {
     const partidas = partirFrases(parrafo, locale).slice(indice === 0 ? 1 : 0);
     for (const f of partidas) {
       if (f.length < MIN_FRASE || f.length > MAX_FRASE) continue;
-      if (SIN_MARCADO.test(f) || f.includes("@") || UUID.test(f) || /==/.test(f) || RUIDO.test(f)) continue;
-      if (!/[.!?»"”)]$/.test(f) || empiezaEnMinuscula(f)) continue;
+      if (SIN_MARCADO.test(f) || f.includes("@") || UUID.test(f) || DOBLE_IGUAL.test(f) || RUIDO.test(f)) continue;
+      if (!CIERRE_DE_FRASE_FINAL.test(f) || empiezaEnMinuscula(f)) continue;
       if (vistas.has(f)) continue;
       vistas.add(f);
       frases.push(f);

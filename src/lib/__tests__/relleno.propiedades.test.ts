@@ -26,6 +26,7 @@ const recuentos: fc.Arbitrary<RecuentosRelleno> = fc
       paradasConCategoria: parte(2),
       paradasConGuia: parte(3),
       paradasConMotivo: parte(4),
+      curiosidadesFormatoAntiguo: parte(4),
       versionesConEventos: multiciudad,
       versionesMulticiudad: multiciudad,
       trabajosInviables: inviables,
@@ -47,12 +48,12 @@ const recuentos: fc.Arbitrary<RecuentosRelleno> = fc
 // sco-ac3: las invariantes valen para cualquier combinación, no solo para
 // el ejemplo sembrado en el test de integración.
 describe("armarEstadoRelleno (sco-ac3)", () => {
-  it("siempre las 25 claves, todas enteros >= 0", () => {
+  it("siempre las 26 claves, todas enteros >= 0", () => {
     fc.assert(
       fc.property(recuentos, (r) => {
         const estado = armarEstadoRelleno(r);
         const valores = Object.values(estado);
-        expect(valores).toHaveLength(25);
+        expect(valores).toHaveLength(26);
         expect(valores.every((v) => Number.isInteger(v) && v >= 0)).toBe(true);
       }),
     );

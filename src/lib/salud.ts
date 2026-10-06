@@ -179,6 +179,10 @@ export interface EstadoRelleno {
   paradas_con_guia: number;
   // Motivo no nulo y no vacío: la razón por la que se propuso la parada.
   paradas_con_motivo: number;
+  // Paradas y alternativas de la última versión de cada plan con curiosidades
+  // guardadas en un formato anterior al vigente: lo que aún tiene que rehacer
+  // el trabajador. Entero agregado; baja hasta 0 tick a tick.
+  curiosidades_formato_antiguo: number;
   versiones_con_eventos: number;
   // Versiones con `etapas` no vacío (viaje de varias ciudades) y trabajos
   // que el planificador dio por inviables: sin ellos no se ve si el
