@@ -65,9 +65,14 @@ export function TarjetaAhora({ siguiente, hayUbicadas, progreso, hrefComoLlegar,
           )}
           {salida && tramo && <p className="ahora-salida">{lineaSalida(salida, tramo)}</p>}
           <div className="acciones-visita">
-            <button type="button" className="boton boton-principal" disabled={marcando} onClick={onMarcar}>
+            <button
+              type="button"
+              className="boton boton-principal"
+              disabled={marcando}
+              aria-label={`${marcando ? T.marcando.texto : T.marcar.texto}: ${siguiente.nombre}`}
+              onClick={onMarcar}
+            >
               {marcando ? T.marcando.texto : T.marcar.texto}
-              <span className="solo-lectores">: {siguiente.nombre}</span>
             </button>
             {hrefComoLlegar && (
               <a href={hrefComoLlegar} target="_blank" rel="noopener noreferrer">

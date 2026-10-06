@@ -96,7 +96,7 @@ test("la tarjeta Ahora nombra la siguiente, avanza al marcar y lo guarda (hoy-ac
   await expect(ahora.getByRole("button")).toHaveCount(1);
   await expect(ahora.getByRole("button", { name: `Marcar como visitada: ${PARADAS[0].nombre}`, exact: true })).toHaveCount(1);
   await expect(pagina.getByRole("listitem").filter({ hasText: PARADAS[1].nombre }).getByRole("button", { name: `Marcar como visitada: ${PARADAS[1].nombre}`, exact: true })).toHaveCount(1);
-  const nombresBotones = await pagina.getByRole("button", { name: /^Marcar como visitada/ }).evaluateAll((els) => els.map((el) => el.textContent?.trim() ?? ""));
+  const nombresBotones = await pagina.getByRole("button", { name: /^Marcar como visitada/ }).evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""));
   for (const texto of nombresBotones) {
     expect(PARADAS.some((p) => texto === `Marcar como visitada: ${p.nombre}`)).toBe(true);
   }

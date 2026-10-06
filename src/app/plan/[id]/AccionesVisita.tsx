@@ -10,7 +10,9 @@ export interface PropiedadesAccionesVisita {
   tieneUbicacion: boolean;
   cargando: boolean;
   // WCAG 2.5.3: el nombre accesible empieza por el texto visible y añade la
-  // parada, para que dos botones iguales en pantalla no suenen igual.
+  // parada, para que dos botones iguales en pantalla no suenen igual. Va en
+  // aria-label y no en un span oculto: Chromium separa con un espacio un
+  // hijo con position:absolute y el nombre saldría «visitada : parada».
   nombreParada: string;
   hrefComoLlegar?: string;
   onMarcar: () => void;
@@ -40,11 +42,11 @@ export function AccionesVisita({
         type="button"
         className="boton"
         aria-pressed={visitada}
+        aria-label={`${visitada ? "Visitada ✓" : "Marcar como visitada"}: ${nombreParada}`}
         disabled={cargando}
         onClick={visitada ? onDesmarcar : onMarcar}
       >
         {visitada ? "Visitada ✓" : "Marcar como visitada"}
-        <span className="solo-lectores">: {nombreParada}</span>
       </button>
       {hrefComoLlegar ? (
         <a href={hrefComoLlegar} target="_blank" rel="noopener noreferrer">
