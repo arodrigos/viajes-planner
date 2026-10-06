@@ -110,6 +110,7 @@ export function VistaPlan({ id }: { id: string }) {
                   planId={id}
                   hoy={hoy}
                   onPlanActualizado={() => setRecargarContador((n) => n + 1)}
+                  onIrAResumen={() => elegir("resumen")}
                 />
               );
             })()
