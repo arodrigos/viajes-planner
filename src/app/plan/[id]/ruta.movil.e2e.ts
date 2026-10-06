@@ -87,7 +87,7 @@ test("Ruta del viaje: etapas, traslado, presupuesto y ajustes, sin aviso de ciud
 
   // Pulsar una etapa lleva a su primer día.
   await ruta.getByRole("button", { name: /Oporto · 3 noches/ }).click();
-  await expect(pagina.getByRole("heading", { name: /^Día 4 · / })).toBeVisible();
+  await expect(pagina.getByRole("heading", { name: /^Día 5 · .* · Oporto$/ })).toBeVisible();
 
   // etv-ac3: sin desbordamiento horizontal en el móvil.
   const ancho = await pagina.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));

@@ -135,6 +135,10 @@ test("un plan real se lee como línea de tiempo: días y franjas en orden, icono
     }
   }
   await pagina.goto(`/plan/${planId}?dia=1`);
+  // El panel se pinta tras cargar /api/plan: sin esta espera el recuento de
+  // <svg> se hace sobre la página vacía.
+  await expect(pagina.locator("section.seccion-dia h2")).toHaveText(/^Día 1 · /);
+  await expect(pagina.locator(".tarjeta-parada svg").first()).toBeVisible();
 
   // maq-ac2(b): todo <svg> de la página es decorativo, y la etiqueta de
   // cada franja pintada sigue presente como texto -quitar el CSS no
