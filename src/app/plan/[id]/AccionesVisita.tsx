@@ -9,6 +9,9 @@ export interface PropiedadesAccionesVisita {
   visitada: boolean;
   tieneUbicacion: boolean;
   cargando: boolean;
+  // WCAG 2.5.3: el nombre accesible empieza por el texto visible y añade la
+  // parada, para que dos botones iguales en pantalla no suenen igual.
+  nombreParada: string;
   hrefComoLlegar?: string;
   onMarcar: () => void;
   onDesmarcar: () => void;
@@ -22,6 +25,7 @@ export function AccionesVisita({
   visitada,
   tieneUbicacion,
   cargando,
+  nombreParada,
   hrefComoLlegar,
   onMarcar,
   onDesmarcar,
@@ -40,6 +44,7 @@ export function AccionesVisita({
         onClick={visitada ? onDesmarcar : onMarcar}
       >
         {visitada ? "Visitada ✓" : "Marcar como visitada"}
+        <span className="solo-lectores">: {nombreParada}</span>
       </button>
       {hrefComoLlegar ? (
         <a href={hrefComoLlegar} target="_blank" rel="noopener noreferrer">

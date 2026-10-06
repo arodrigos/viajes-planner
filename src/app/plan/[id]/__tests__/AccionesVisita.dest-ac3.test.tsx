@@ -17,6 +17,7 @@ describe("AccionesVisita (dest-ac3)", () => {
         visitada={false}
         tieneUbicacion={true}
         cargando={false}
+        nombreParada="P1 (ejemplo)"
         onMarcar={vi.fn()}
         onDesmarcar={vi.fn()}
       />,
@@ -33,12 +34,13 @@ describe("AccionesVisita (dest-ac3)", () => {
         visitada={false}
         tieneUbicacion={true}
         cargando={false}
+        nombreParada="P1 (ejemplo)"
         hrefComoLlegar="https://www.google.com/maps/dir/?api=1&origin=1,1&destination=2,2&travelmode=walking"
         onMarcar={onMarcar}
         onDesmarcar={vi.fn()}
       />,
     );
-    const boton = screen.getByRole("button", { name: "Marcar como visitada" });
+    const boton = screen.getByRole("button", { name: "Marcar como visitada: P1 (ejemplo)" });
     await userEvent.click(boton);
     expect(onMarcar).toHaveBeenCalledTimes(1);
   });
@@ -51,11 +53,12 @@ describe("AccionesVisita (dest-ac3)", () => {
         visitada={true}
         tieneUbicacion={true}
         cargando={false}
+        nombreParada="P1 (ejemplo)"
         onMarcar={vi.fn()}
         onDesmarcar={onDesmarcar}
       />,
     );
-    const boton = screen.getByRole("button", { name: "Visitada ✓" });
+    const boton = screen.getByRole("button", { name: "Visitada ✓: P1 (ejemplo)" });
     await userEvent.click(boton);
     expect(onDesmarcar).toHaveBeenCalledTimes(1);
   });
@@ -67,6 +70,7 @@ describe("AccionesVisita (dest-ac3)", () => {
         visitada={false}
         tieneUbicacion={false}
         cargando={false}
+        nombreParada="P1 (ejemplo)"
         onMarcar={vi.fn()}
         onDesmarcar={vi.fn()}
       />,
@@ -75,7 +79,7 @@ describe("AccionesVisita (dest-ac3)", () => {
     expect(screen.getByText(TEXTO_SIN_UBICACION)).toBeInTheDocument();
     // El botón de marcar sigue existiendo: una parada sin ubicación se
     // puede marcar como visitada igual.
-    expect(screen.getByRole("button", { name: "Marcar como visitada" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Marcar como visitada: P1 (ejemplo)" })).toBeInTheDocument();
   });
 
   it("con hrefComoLlegar, el enlace 'Cómo llegar' apunta exactamente a esa URL", () => {
@@ -86,6 +90,7 @@ describe("AccionesVisita (dest-ac3)", () => {
         visitada={false}
         tieneUbicacion={true}
         cargando={false}
+        nombreParada="P1 (ejemplo)"
         hrefComoLlegar={href}
         onMarcar={vi.fn()}
         onDesmarcar={vi.fn()}

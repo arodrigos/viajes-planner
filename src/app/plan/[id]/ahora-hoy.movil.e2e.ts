@@ -92,9 +92,17 @@ test("la tarjeta Ahora nombra la siguiente, avanza al marcar y lo guarda (hoy-ac
   await expect(ahora).toContainText(PARADAS[0].nombre);
   await expect(ahora).toContainText("0 de 3 visitadas");
   await expect(ahora.getByRole("link", { name: "Cómo llegar" })).toHaveCount(0);
+  // ah-ac1: cada botón de visita dice a qué parada se refiere.
+  await expect(ahora.getByRole("button")).toHaveCount(1);
+  await expect(ahora.getByRole("button", { name: `Marcar como visitada: ${PARADAS[0].nombre}`, exact: true })).toHaveCount(1);
+  await expect(pagina.getByRole("listitem").filter({ hasText: PARADAS[1].nombre }).getByRole("button", { name: `Marcar como visitada: ${PARADAS[1].nombre}`, exact: true })).toHaveCount(1);
+  const nombresBotones = await pagina.getByRole("button", { name: /^Marcar como visitada/ }).evaluateAll((els) => els.map((el) => el.textContent?.trim() ?? ""));
+  for (const texto of nombresBotones) {
+    expect(PARADAS.some((p) => texto === `Marcar como visitada: ${p.nombre}`)).toBe(true);
+  }
   await comprobarAccesibilidad(pagina);
 
-  await ahora.getByRole("button", { name: "Marcar como visitada" }).click();
+  await ahora.getByRole("button", { name: `Marcar como visitada: ${PARADAS[0].nombre}`, exact: true }).click();
   await expect(ahora).toContainText(PARADAS[1].nombre);
   await expect(ahora).toContainText("1 de 3 visitadas");
   await expect(ahora.getByRole("link", { name: "Cómo llegar" })).toHaveAttribute("href", urlComoLlegar(PARADAS[0], PARADAS[1]));
@@ -105,6 +113,7 @@ test("la tarjeta Ahora nombra la siguiente, avanza al marcar y lo guarda (hoy-ac
   const trasRecargar = pagina.getByRole("region", { name: "Ahora" });
   await expect(trasRecargar).toContainText(PARADAS[1].nombre);
   await expect(trasRecargar).toContainText("1 de 3 visitadas");
+  await expect(pagina.getByRole("button", { name: `Visitada ✓: ${PARADAS[0].nombre}`, exact: true })).toHaveAttribute("aria-pressed", "true");
 
   // Con todas visitadas: sin siguiente y con salida a las recomendaciones.
   await trasRecargar.getByRole("button", { name: "Marcar como visitada" }).click();

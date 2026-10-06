@@ -237,6 +237,7 @@ export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, act
               visitada={Boolean(parada.visitada)}
               tieneUbicacion={Boolean(parada.coordenadas)}
               cargando={visitaEnCurso}
+              nombreParada={parada.nombre}
               hrefComoLlegar={esSiguiente ? hrefComoLlegar : undefined}
               onMarcar={() => onAlternarVisita(false)}
               onDesmarcar={() => onAlternarVisita(true)}

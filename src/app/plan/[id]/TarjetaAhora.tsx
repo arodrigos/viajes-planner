@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { horaDeSalida, minutosAhoraEnZona, type SalidaCalculada } from "@/lib/plan/horaDeSalida";
 import { formatearKm, formatearMinutos } from "@/lib/formato/numeros";
 import type { Tramo } from "@/lib/plan/tramos";
@@ -63,10 +63,11 @@ export function TarjetaAhora({ siguiente, hayUbicadas, progreso, hrefComoLlegar,
               Desde la anterior: ≈ {formatearMinutos(tramo.minutos)} · {formatearKm(tramo.km)}
             </p>
           )}
-          {salida && tramo && <p className="ayuda">{textoSalida(salida, tramo)}</p>}
+          {salida && tramo && <p className="ahora-salida">{lineaSalida(salida, tramo)}</p>}
           <div className="acciones-visita">
             <button type="button" className="boton boton-principal" disabled={marcando} onClick={onMarcar}>
               {marcando ? T.marcando.texto : T.marcar.texto}
+              <span className="solo-lectores">: {siguiente.nombre}</span>
             </button>
             {hrefComoLlegar && (
               <a href={hrefComoLlegar} target="_blank" rel="noopener noreferrer">
@@ -98,9 +99,29 @@ export function TarjetaAhora({ siguiente, hayUbicadas, progreso, hrefComoLlegar,
 
 const TEXTO_MEDIO = { "a-pie": T.medioAPie.texto, "transporte-publico": T.medioTransporte.texto, coche: T.medioCoche.texto } as const;
 
-function textoSalida(salida: SalidaCalculada, tramo: Tramo): string {
+// La hora que hay que cumplir va en <strong><time> para leerse de un vistazo;
+// el resto de la frase sale del catálogo sin cambios.
+function lineaSalida(salida: SalidaCalculada, tramo: Tramo): ReactNode {
   const medio = TEXTO_MEDIO[tramo.modo].replace("{minutos}", formatearMinutos(tramo.minutos));
-  if (salida.estado === "a-tiempo") return T.salida.texto.replace("{salida}", salida.salida).replace("{inicio}", salida.inicio).replace("{tramo}", medio);
-  if (salida.retrasoMin === 0) return T.salidaYa.texto.replace("{llegada}", salida.llegada).replace("{tramo}", medio);
-  return T.salidaYaTarde.texto.replace("{llegada}", salida.llegada).replace("{retraso}", String(salida.retrasoMin));
+  const hora = (valor: string) => (
+    <strong>
+      <time dateTime={valor}>{valor}</time>
+    </strong>
+  );
+  let plantilla: string;
+  let valores: Record<string, ReactNode>;
+  if (salida.estado === "a-tiempo") {
+    plantilla = T.salida.texto;
+    valores = { salida: hora(salida.salida), inicio: salida.inicio, tramo: medio };
+  } else if (salida.retrasoMin === 0) {
+    plantilla = T.salidaYa.texto;
+    valores = { llegada: hora(salida.llegada), tramo: medio };
+  } else {
+    plantilla = T.salidaYaTarde.texto;
+    valores = { llegada: hora(salida.llegada), retraso: String(salida.retrasoMin) };
+  }
+  return plantilla.split(/(\{\w+\})/).map((trozo, i) => {
+    const clave = /^\{(\w+)\}$/.exec(trozo)?.[1];
+    return clave ? <Fragment key={i}>{valores[clave]}</Fragment> : trozo;
+  });
 }
