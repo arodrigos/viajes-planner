@@ -3,14 +3,14 @@
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { formatearFechaDia } from "@/lib/plan/dias";
-import { urlComoLlegar } from "@/lib/plan/urlComoLlegar";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
 import { formatearKm } from "@/lib/formato/numeros";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
 import type { Evento } from "@/lib/eventos/tipos";
 import { EventosDia } from "./SeccionEventos";
 import { IconoFranja } from "./iconosFranja";
-import type { PuntoMapaDia } from "./MapaDia";
+import { calcularComoLlegar, progresoDelDia, puntosDelDia, siguienteSinVisitar, tramoHastaSiguiente } from "./ahora";
+import { TarjetaAhora } from "./TarjetaAhora";
 import { TarjetaParada } from "./TarjetaParada";
 import type { DiaPublico } from "./tiposVista";
 
@@ -20,54 +20,12 @@ const MapaDia = dynamic(() => import("./MapaDia").then((m) => m.MapaDia), { ssr:
 
 const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue como estaba; vuelve a intentarlo.";
 
-// map-ac1: numera en el orden real de las franjas del día (mañana antes
-// que comida antes que tarde...), no en el orden en que llegaron del
-// servidor; solo las paradas resueltas (con coordenadas) entran en el
-// mapa y en el enlace de recorrido.
-function puntosDelDia(dia: DiaPublico): PuntoMapaDia[] {
-  const puntos: PuntoMapaDia[] = [];
-  let orden = 0;
-  for (const franja of dia.franjas) {
-    for (const parada of dia.paradas.filter((p) => p.franja_id === franja.id)) {
-      if (!parada.coordenadas) continue;
-      orden += 1;
-      puntos.push({ id: parada.id, orden, nombre: parada.nombre, lat: parada.coordenadas.lat, lon: parada.coordenadas.lon });
-    }
-  }
-  return puntos;
-}
-
-// dest-ac2: la siguiente parada sin visitar, en el orden real de las
-// franjas (el mismo de puntosDelDia) -- es donde se centra el mapa del día
-// de hoy, haya o no enlace "Cómo llegar" todavía.
-function siguienteSinVisitar(puntos: PuntoMapaDia[], idsVisitados: Set<string>): PuntoMapaDia | null {
-  return puntos.find((p) => !idsVisitados.has(p.id)) ?? null;
-}
-
-// dest-ac2: "última visitada, o la primera" hasta la siguiente sin
-// visitar. Si todas las paradas resueltas ya están visitadas, o si la
-// "última visitada" coincide con la "siguiente" (nada visitado todavía y
-// la primera parada es la siguiente), no hay enlace -aunque el mapa sí se
-// siga centrando en esa parada, ver siguienteSinVisitar.
-function calcularComoLlegar(puntos: PuntoMapaDia[], siguiente: PuntoMapaDia | null, idsVisitados: Set<string>): string | null {
-  if (!siguiente) return null;
-
-  let origen = puntos[0];
-  for (const punto of puntos) {
-    if (idsVisitados.has(punto.id)) origen = punto;
-  }
-  if (origen.id === siguiente.id) return null;
-
-  return urlComoLlegar(origen, siguiente);
-}
-
-
 // vista-por-dias: solo se monta el panel del día elegido, así que hay a lo
 // sumo un mapa. map-ac1..ac5: un día entero (cabecera, mapa y lista de franjas/paradas)
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, onPlanActualizado }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; onPlanActualizado: () => void }) {
+export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, onPlanActualizado, onIrAResumen }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; onPlanActualizado: () => void; onIrAResumen: () => void }) {
   const tieneAlgunaParada = dia.paradas.length > 0;
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
@@ -172,6 +130,19 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, on
         Día {indice + 1} · {formatearFechaDia(dia.fecha)}
         {etapa ? ` · ${etapa.ciudad}` : ""}
       </h2>
+      {/* hoy-ac1: solo el día de hoy, y lo primero del panel. */}
+      {esHoy && (
+        <TarjetaAhora
+          siguiente={dia.paradas.find((p) => p.id === siguienteParada?.id) ?? null}
+          hayUbicadas={puntos.length > 0}
+          progreso={progresoDelDia(dia)}
+          hrefComoLlegar={hrefComoLlegar}
+          tramo={tramoHastaSiguiente(dia.tramos ?? [], siguienteParada)}
+          marcando={siguienteParada !== null && paradaConVisitaEnCurso === siguienteParada.id}
+          onMarcar={() => siguienteParada && alternarVisita(siguienteParada.id, false)}
+          onIrARecomendados={onIrAResumen}
+        />
+      )}
       {avisoCambio && <p role="status" className="ayuda">{avisoCambio}</p>}
       <EventosDia eventos={eventos} />
       {/* enc-ac2: ausente cuando el día tiene menos de dos paradas

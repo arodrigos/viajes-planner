@@ -913,3 +913,28 @@ footer a,
   align-items: center;
   min-height: var(--objetivo-tactil);
 }
+
+/* ahora-hoy: tarjeta «Ahora» del día de hoy */
+.tarjeta-ahora {
+  display: grid;
+  gap: var(--espacio-2);
+  padding: var(--espacio-4);
+  border: 2px solid var(--foco);
+  border-radius: 0.5rem;
+  background: var(--superficie);
+}
+.tarjeta-ahora h3,
+.tarjeta-ahora p {
+  margin: 0;
+}
+.ahora-parada {
+  font-size: 1.125rem;
+}
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
