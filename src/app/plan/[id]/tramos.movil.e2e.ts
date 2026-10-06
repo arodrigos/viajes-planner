@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
+import { formatearKm } from "@/lib/formato/numeros";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
+import { calcularTramosDia } from "@/lib/plan/tramos";
 
 // tra-ac2 / cp-tra-02: medio, tiempo y enlace entre paradas del día.
 test.use({ viewport: { width: 390, height: 844 } });
@@ -91,11 +93,23 @@ test("entre dos paradas lejanas se ve el medio, su tiempo y su enlace (tra-ac2, 
   ]);
   const { contexto, pagina } = await abrirPlan(browser, email, planId);
 
+  // El km esperado sale de las coordenadas de la semilla: si cambian, el
+  // test falla en vez de aceptar cualquier cifra.
+  const kmLargo = calcularTramosDia(
+    [
+      { id: "a", lat: 51.5117, lon: -0.124 },
+      { id: "b", lat: 51.6906, lon: -0.4181 },
+    ],
+    { perfil: null },
+  )[0].km;
+  expect(kmLargo).toBeGreaterThan(20);
+
   const tramos = pagina.getByTestId("tramo-parada");
   await expect(tramos).toHaveCount(2);
   await expect(tramos.nth(0)).toContainText("1,1 km");
   await expect(tramos.nth(0)).toContainText("A pie");
   await expect(tramos.nth(0)).toContainText("20 min");
+  await expect(tramos.nth(1)).toContainText(formatearKm(kmLargo));
   await expect(tramos.nth(1)).toContainText("Transporte público o taxi");
   await expect(tramos.nth(1)).toContainText("2 h 10 min");
   await expect(tramos.nth(1).getByRole("link", { name: "Cómo ir" })).toHaveAttribute("href", /travelmode=transit/);

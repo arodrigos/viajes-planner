@@ -13,7 +13,9 @@ export default defineConfig({
     // plantilla de correo construye ya una URL contra este puerto, así que
     // el puerto de la app bajo prueba es libre de ser el que convenga.
     baseURL: "http://127.0.0.1:3000",
-    trace: "off",
+    // Una traza solo cuando un test reintenta: deja el porqué de un fallo
+    // inestable en el artefacto sin pagar su coste en cada ejecución.
+    trace: "on-first-retry",
   },
   projects: [
     // Los e2e de escritorio que ya existían siguen corriendo tal cual,

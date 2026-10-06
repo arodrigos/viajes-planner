@@ -249,6 +249,10 @@ async function abrirPanelMuseo(browser: Browser, email: string) {
   return { contexto, pagina, tarjeta };
 }
 
+// Umbral del cambio completo, del clic en «Usar esta» al aviso «Hecho»: el
+// POST va con 1.500 ms de retraso inyectado y el resto es el guardado real.
+const UMBRAL_CAMBIO_MS = 15_000;
+
 test("cp-alr-02: mientras cambia se ve «Cambiando…» y al terminar qué ha cambiado (alr-ac2)", async ({ browser }) => {
   const { contexto, pagina, tarjeta } = await abrirPanelMuseo(browser, "ci-test-alternativas-estado@example.com");
   let envios = 0;
@@ -260,6 +264,7 @@ test("cp-alr-02: mientras cambia se ve «Cambiando…» y al terminar qué ha ca
 
   const panel = tarjeta.getByRole("region", { name: /Alternativas a Museo A/ });
   const botonB = tarjeta.locator(".tarjeta-alternativa", { hasText: "Museo B" }).getByRole("button");
+  const inicio = performance.now();
   await botonB.click();
   // Espera por estado, no por un sleep: el retraso es de 1.500 ms y esto solo exige verlo antes de que acabe.
   await expect(botonB).toHaveText("Cambiando…");
@@ -269,8 +274,10 @@ test("cp-alr-02: mientras cambia se ve «Cambiando…» y al terminar qué ha ca
   await expect(pagina.getByRole("status").filter({ hasText: "Cambiando la parada…" })).toBeVisible();
 
   const tarjetaNueva = pagina.locator(".tarjeta-parada", { hasText: "Museo B" });
-  await expect(tarjetaNueva).toBeVisible({ timeout: 15_000 });
+  await expect(tarjetaNueva).toBeVisible({ timeout: UMBRAL_CAMBIO_MS });
   await expect(pagina.getByRole("status").filter({ hasText: "Hecho: ahora vas a Museo B" })).toBeVisible();
+  // Reloj explícito: el timeout de expect no mide cuánto tardó el cambio.
+  expect(performance.now() - inicio).toBeLessThanOrEqual(UMBRAL_CAMBIO_MS);
   await expect(tarjetaNueva.getByRole("region", { name: /Alternativas a/ })).toHaveCount(0);
   await expect(async () => {
     const dentro = await tarjetaNueva.evaluate((el) => el.contains(document.activeElement));
