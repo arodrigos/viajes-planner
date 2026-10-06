@@ -25,7 +25,7 @@ const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue 
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, onPlanActualizado, onIrAResumen }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; onPlanActualizado: () => void; onIrAResumen: () => void }) {
+export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zona, onPlanActualizado, onIrAResumen }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void }) {
   const tieneAlgunaParada = dia.paradas.length > 0;
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
@@ -138,6 +138,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, on
           progreso={progresoDelDia(dia)}
           hrefComoLlegar={hrefComoLlegar}
           tramo={tramoHastaSiguiente(dia.tramos ?? [], siguienteParada)}
+          zona={zona}
           marcando={siguienteParada !== null && paradaConVisitaEnCurso === siguienteParada.id}
           onMarcar={() => siguienteParada && alternarVisita(siguienteParada.id, false)}
           onIrARecomendados={onIrAResumen}
