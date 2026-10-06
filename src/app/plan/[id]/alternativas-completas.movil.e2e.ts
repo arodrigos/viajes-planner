@@ -123,10 +123,17 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
   const tarjeta = pagina.locator(".tarjeta-parada");
   const nombresDelPanel = () => tarjeta.locator(".tarjeta-alternativa strong").allTextContents();
   const alternativa = (nombre: string) => tarjeta.locator(".tarjeta-alternativa", { hasText: nombre });
+  // Tras sustituir, la tarjeta puede conservar el panel abierto: solo se pulsa si está cerrado.
+  const abrirAlternativas = async () => {
+    const resumen = tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ });
+    const panel = tarjeta.locator("details", { has: resumen });
+    if (!(await panel.evaluate((el) => (el as HTMLDetailsElement).open))) await resumen.click();
+    await expect(panel).toHaveAttribute("open", "");
+  };
 
   // Versión 1: dos alternativas; la que tiene foto la pinta, la otra enseña «Sin foto».
-  await tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
-  expect((await nombresDelPanel()).sort()).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
+  await abrirAlternativas();
+  await expect.poll(async () => (await nombresDelPanel()).sort()).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
   const imagen = alternativa("Casa de Pilatos").locator("img");
   await expect(imagen).toHaveCount(1);
   await expect.poll(() => imagen.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
@@ -140,7 +147,7 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
     expect(count).toBe(2);
   }).toPass();
   await expect(tarjeta.locator("h4").filter({ hasText: "Casa de Pilatos" })).toBeVisible();
-  await tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
+  await abrirAlternativas();
   await expect.poll(async () => (await nombresDelPanel()).sort()).toEqual(["Palacio de las Dueñas", "Real Alcázar"]);
 
   // Vuelta: versión 3 otra vez con Real Alcázar y las otras dos como alternativas.
@@ -150,7 +157,7 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
     expect(count).toBe(3);
   }).toPass();
   await expect(tarjeta.locator("h4").filter({ hasText: "Real Alcázar" })).toBeVisible();
-  await tarjeta.locator("summary", { hasText: /^Alternativas \(\d+\)$/ }).click();
+  await abrirAlternativas();
   await expect.poll(async () => (await nombresDelPanel()).sort()).toEqual(["Casa de Pilatos", "Palacio de las Dueñas"]);
 
   await contexto.close();

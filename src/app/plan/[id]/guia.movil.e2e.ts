@@ -227,7 +227,11 @@ test("cp-cur-03: cada curiosidad lleva su rótulo y enlace; la inglesa va sin tr
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email, codigo } })).ok()).toBe(true);
 
   await pagina.goto(`/plan/${planId}?dia=1`);
-  const bloque = pagina.locator("li.tarjeta-parada", { hasText: "Parada con curiosidades" }).getByTestId("curiosidades-parada");
+  const tarjeta = pagina.locator("li.tarjeta-parada", { hasText: "Parada con curiosidades" });
+  // Los roles de un panel cerrado no están en el árbol de accesibilidad: hay que abrirlo antes.
+  await tarjeta.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
+  const bloque = tarjeta.getByTestId("curiosidades-parada");
+  await expect(bloque).toBeVisible();
   const elementos = bloque.locator("li");
   await expect(elementos).toHaveCount(4);
   await expect(elementos.nth(0)).toContainText("Wikipedia");
