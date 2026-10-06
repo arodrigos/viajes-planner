@@ -231,7 +231,7 @@ export async function construirCandidatas(sitios: SitioCuriosidades[], fuente: F
       const compacto = normalizar(texto);
       // Cada frase tiene que aparecer tal cual en el artículo: es lo que
       // permite rotularla «de Wikipedia».
-      const frases = mejores(frasesDeTexto(texto).filter((f) => compacto.includes(f)), max);
+      const frases = mejores(frasesDeTexto(texto, lang).filter((f) => compacto.includes(f)), max);
       const base = urlPaginaWikipedia(lang, titulo);
       return frases.map((f) => ({ texto: f, fuente: "wikipedia" as const, idioma: lang, url: urlConFragmento(base, f) }));
     };

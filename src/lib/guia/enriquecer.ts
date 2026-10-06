@@ -13,8 +13,9 @@ import { EsperaExcedida, FalloFuenteGuia, type FuenteGuia } from "./wikivoyage";
 // Sube cuando cambia lo que se guarda en `guia`: el barrido vuelve a pedir,
 // una vez, las paradas guardadas con un formato anterior. 2 = consejo hasta
 // MAX_CONSEJO (el 1 implícito, null, cortaba a 400). 3 = curiosidades
-// elegidas entre frases literales y hechos de Wikidata (curiosidadesPlan).
-export const FORMATO_GUIA = 3;
+// elegidas entre frases literales y hechos de Wikidata (curiosidadesPlan). 4 = frases unidas tras iniciales y siglas con
+// punto («John F. Kennedy», «U.S.»): lo guardado con cortes se vuelve a elegir.
+export const FORMATO_GUIA = 4;
 
 export interface DependenciasGuia {
   fuenteGuia: FuenteGuia;

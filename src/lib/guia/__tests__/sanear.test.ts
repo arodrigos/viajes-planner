@@ -83,3 +83,24 @@ describe("cortes por abreviatura y invisibles del refutador (cur-ac1)", () => {
     }
   });
 });
+
+describe("iniciales y siglas con punto (cur-ac1)", () => {
+  it("une las frases partidas tras una inicial o una sigla", () => {
+    expect(partirFrases("The airport was renamed after President John F. Kennedy in December 1963.", "en")).toEqual(["The airport was renamed after President John F. Kennedy in December 1963."]);
+    expect(partirFrases("The first public memorial to U.S. President Abraham Lincoln was a statue erected in 1868.", "en")).toEqual(["The first public memorial to U.S. President Abraham Lincoln was a statue erected in 1868."]);
+    expect(partirFrases("Es una de las atracciones más visitadas de Washington D. C. desde su inauguración en 1922.", "es")).toEqual(["Es una de las atracciones más visitadas de Washington D. C. desde su inauguración en 1922."]);
+  });
+
+  it("descarta al leer lo que acaba en inicial o sigla, pero no en «a. C.» ni «D. C.»", () => {
+    expect(terminaEnAbreviatura("The airport was renamed after President John F.")).toBe(true);
+    expect(terminaEnAbreviatura("Memorial to U.S.")).toBe(true);
+    expect(terminaEnAbreviatura("Una de las más visitadas de Washington D.")).toBe(true);
+    expect(terminaEnAbreviatura("El templo se construyó en el 300 a. C.")).toBe(false);
+    expect(terminaEnAbreviatura("Está en Washington D. C.")).toBe(false);
+    expect(terminaEnAbreviatura("Fue en 1857.")).toBe(false);
+  });
+
+  it("«No», «vs» y «Hnos» no cierran frase", () => {
+    for (const a of ["No", "vs", "Hnos", "approx"]) expect(terminaEnAbreviatura(`Fue el ${a}.`)).toBe(true);
+  });
+});
