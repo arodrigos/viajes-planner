@@ -421,15 +421,7 @@ function SeccionDia({ dia, indice, etapa, destino, eventos, planId, onPlanActual
                         </p>
                       ) : (
                         <p className="procedencia-parada">
-                          Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}{" "}
-                          <a
-                            href={parada.procedencia.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`Ver en ${parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}: ${parada.nombre}`}
-                          >
-                            <span aria-hidden="true">↗</span>
-                          </a>
+                          Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}
                         </p>
                       )}
                       <EnlacesParada parada={parada} ciudad={etapa?.ciudad ?? destino} />
