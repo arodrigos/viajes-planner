@@ -74,6 +74,8 @@ export interface PlanPublico {
   version: number;
   destino: string;
   personas: number;
+  // vista-por-dias: zona horaria del destino, para decidir qué día es «hoy».
+  zona?: string;
   dias: DiaPublico[];
   avisos: string[];
   recomendaciones: Recomendacion[];
@@ -182,6 +184,20 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
 // ausente en una llamada que no lo conoce (p. ej. un script sin trabajo
 // detrás), en cuyo caso el paseo usa el umbral no familiar, el más
 // permisivo.
+// vista-por-dias: «hoy» se decide en la zona del destino. Se toma la de la
+// primera parada ubicada (o la caja de la ciudad); sin ninguna, el cliente usa
+// la del dispositivo.
+function zonaDelPlan(plan: Plan): string | undefined {
+  for (const dia of plan.dias) {
+    const caja = plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined);
+    for (const parada of dia.paradas) {
+      const zona = zonaDeParada(parada, caja);
+      if (zona) return zona;
+    }
+  }
+  return undefined;
+}
+
 export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null): PlanPublico {
   const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur } = calcularPresupuesto(plan);
   return {
@@ -189,6 +205,7 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
     version: plan.version,
     destino: plan.destino,
     personas: plan.personas,
+    ...(zonaDelPlan(plan) ? { zona: zonaDelPlan(plan) } : {}),
     dias: plan.dias.map((dia) => {
       const horarios = calcularHorarioDia(dia);
       const resueltas = ordenarParadasResueltas(dia.franjas, dia.paradas);

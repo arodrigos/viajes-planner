@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VistaPlan } from "@/app/plan/[id]/VistaPlan";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const { busqueda } = vi.hoisted(() => ({ busqueda: { valor: "dia=resumen" } }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }), useSearchParams: () => new URLSearchParams(busqueda.valor) }));
 // maplibre-gl exige WebGL: aquí solo importa qué caja recibe cada día.
 vi.mock("@/app/plan/[id]/MapaDia", () => ({
   MapaDia: ({ cajaEtapa }: { cajaEtapa?: { minLat: number } }) => <div data-testid="mapa-falso" data-caja={cajaEtapa ? cajaEtapa.minLat : ""} />,
 }));
 
 afterEach(() => {
+  busqueda.valor = "dia=resumen";
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -44,7 +47,7 @@ function multiciudad(modo: "tren" | "coche", ajustes: string[] = []) {
 async function pintar(plan: unknown, fetchFalso = vi.fn(async () => new Response(JSON.stringify(plan), { status: 200 }))) {
   vi.stubGlobal("fetch", fetchFalso);
   render(<VistaPlan id="p" />);
-  await waitFor(() => expect(screen.getByText("Sitio a")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument());
   return fetchFalso;
 }
 
@@ -55,10 +58,22 @@ describe("VistaPlan: Ruta del viaje (etv-ac1, etv-ac2, etv-ac4)", () => {
     expect(within(ruta).getByRole("button", { name: /Lisboa · 1 noche/ })).toBeInTheDocument();
     expect(within(ruta).getByText("Lisboa → Oporto · tren · ~3 h 49 min · ~79 € (estimado)")).toBeInTheDocument();
     expect(within(ruta).getByText("Quitamos Coímbra: 1 día no deja tiempo para descansar")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Día 2 · Oporto" })).toBeInTheDocument();
     expect(screen.queryByText(/No hemos identificado la ciudad/)).toBeNull();
-    // El mapa de cada día recibe la caja de SU etapa.
-    expect((await screen.findAllByTestId("mapa-falso")).map((m) => m.getAttribute("data-caja"))).toEqual(["38.6", "41.1"]);
+  });
+
+  it("el día de una etapa nombra su ciudad y su mapa recibe la caja de SU etapa", async () => {
+    busqueda.valor = "dia=2";
+    await pintar(multiciudad("tren"));
+    expect(screen.getByRole("heading", { name: /^Día 2 · .* · Oporto$/ })).toBeInTheDocument();
+    expect((await screen.findAllByTestId("mapa-falso")).map((m) => m.getAttribute("data-caja"))).toEqual(["41.1"]);
+  });
+
+  it("elegir un día desde la ruta del resumen cambia de panel con un solo mapa", async () => {
+    await pintar(multiciudad("tren"));
+    expect(screen.queryAllByTestId("mapa-falso")).toHaveLength(0);
+    await userEvent.click(within(screen.getByTestId("ruta-viaje")).getByRole("button", { name: /Lisboa · 1 noche/ }));
+    expect(await screen.findByText("Sitio a")).toBeInTheDocument();
+    expect(screen.getAllByTestId("mapa-falso")).toHaveLength(1);
   });
 
   it("sin ajustes dice que el reparto cumple las reglas", async () => {
@@ -90,6 +105,10 @@ describe("VistaPlan: Ruta del viaje (etv-ac1, etv-ac2, etv-ac4)", () => {
     const plan = { ...multiciudad("tren"), etapas: undefined, traslados: undefined, ciudad: undefined, dias: multiciudad("tren").dias.map((d) => ({ ...d, etapa: undefined })) };
     await pintar(plan);
     expect(screen.queryByTestId("ruta-viaje")).toBeNull();
-    expect(screen.getByRole("heading", { name: "2027-06-09" })).toBeInTheDocument();
+    busqueda.valor = "dia=2";
+    cleanup();
+    await pintar(plan);
+    expect(screen.getByRole("heading", { name: /^Día 2 · .* 9 jun$/ })).toBeInTheDocument();
+    expect(screen.queryByText("2027-06-09")).toBeNull();
   });
 });

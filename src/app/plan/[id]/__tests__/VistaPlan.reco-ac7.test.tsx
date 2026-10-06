@@ -7,7 +7,8 @@ import { VistaPlan } from "@/app/plan/[id]/VistaPlan";
 // vive bajo un App Router real en el test, mismo doble que
 // FormularioCriterios.test.tsx.
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams("dia=resumen"),
 }));
 
 afterEach(() => {

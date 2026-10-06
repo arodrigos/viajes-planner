@@ -6,8 +6,10 @@ import { VistaPlan } from "@/app/plan/[id]/VistaPlan";
 // reg-ac1: VistaPlan usa useRouter() (regenerar-viaje); este componente no
 // vive bajo un App Router real en el test, mismo doble que
 // FormularioCriterios.test.tsx.
+const { busqueda } = vi.hoisted(() => ({ busqueda: { valor: "dia=1" } }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(busqueda.valor),
 }));
 
 afterEach(() => {
@@ -52,6 +54,7 @@ const PLAN_CON_HUECOS = {
 };
 
 beforeEach(() => {
+  busqueda.valor = "dia=1";
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => new Response(JSON.stringify(PLAN_CON_HUECOS), { status: 200 })),
@@ -64,18 +67,16 @@ describe("VistaPlan con huecos (maq-ac5)", () => {
 
     await waitFor(() => expect(screen.getByText("Mercado do Bolhão")).toBeInTheDocument());
 
-    // (a) la franja del primer día sin paradas ("Comida") no existe en el
-    // DOM: hay una sola cabecera "Comida" en todo el documento y es la del
-    // segundo día... salvo que el segundo día tampoco tiene comida, así que
-    // "Comida" no debe aparecer en absoluto.
+    // (a) la franja del primer día sin paradas ("Comida") no existe en el DOM.
     expect(screen.queryByRole("heading", { name: "Comida" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Mañana" })).toHaveLength(1);
+  });
 
-    // (b) el segundo día (sin ninguna parada en ninguna franja) muestra el
-    // texto explicativo, y ninguna de sus franjas ("Mañana"/"Tarde") pinta
-    // una sección.
-    expect(screen.getByText(/todavía no hay paradas planificadas/i)).toBeInTheDocument();
-    const cabecerasManana = screen.getAllByRole("heading", { name: "Mañana" });
-    expect(cabecerasManana).toHaveLength(1); // solo la del primer día, que sí tiene parada.
+  it("el segundo día, sin ninguna parada, explica el hueco y no pinta ninguna franja", async () => {
+    busqueda.valor = "dia=2";
+    render(<VistaPlan id="plan-huecos" />);
+    await waitFor(() => expect(screen.getByText(/todavía no hay paradas planificadas/i)).toBeInTheDocument());
+    expect(screen.queryByRole("heading", { name: "Mañana" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Tarde" })).not.toBeInTheDocument();
   });
 });
