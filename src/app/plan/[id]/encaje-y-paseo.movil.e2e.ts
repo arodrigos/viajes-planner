@@ -154,11 +154,16 @@ test("un día con mucho paseo muestra el aviso y abre el panel de la parada más
     .single();
   if (errorVersion || !version) throw new Error(`No se pudo sembrar la versión del plan: ${errorVersion?.message}`);
 
-  // a-b ~1 km, b-c ~9,5 km (en línea recta) -- la parada "Excursión lejana"
-  // es la que más desvío añade, igual que el caso de paseo.test.ts.
-  await sembrarParada(supabase, version.id, 0, { idExterno: "a", franjaId: "manana", nombre: "Puerta del Sol", lat: 40.4, lon: -3.6, duracion_min: 30 });
-  await sembrarParada(supabase, version.id, 0, { idExterno: "b", franjaId: "tarde", nombre: "Plaza Mayor", lat: 40.409, lon: -3.6, duracion_min: 30 });
-  await sembrarParada(supabase, version.id, 0, { idExterno: "c", franjaId: "cena", nombre: "Excursión lejana", lat: 40.491, lon: -3.6, duracion_min: 30 });
+  // tramos-dia: el aviso mira solo lo andado, así que el día son 9 paradas
+  // en cadena con tramos a pie (1,0 km el primero y 1,4 km el resto, todos
+  // bajo el umbral familiar de 1,5 km): 10,8 km andados > 8 km. La última
+  // es la que más desvío añade por ser el tramo más largo.
+  const franjasDia = ["manana", "manana", "manana", "tarde", "tarde", "tarde", "cena", "cena", "cena"];
+  let lat = 40.4;
+  for (const [i, franjaId] of franjasDia.entries()) {
+    if (i > 0) lat += (i === 1 ? 1.0 : 1.4) / 1.3 / 111.32;
+    await sembrarParada(supabase, version.id, 0, { idExterno: `p${i}`, franjaId, nombre: i === 8 ? "Excursión lejana" : `Parada ${i}`, lat, lon: -3.6, duracion_min: 30 });
+  }
 
   const { error: errorTrabajo } = await supabase
     .from("trabajos")
@@ -177,7 +182,7 @@ test("un día con mucho paseo muestra el aviso y abre el panel de la parada más
   await expect(pagina.getByRole("heading", { name: DESTINO })).toBeVisible();
 
   const paseo = pagina.locator(".paseo-dia");
-  await expect(paseo).toContainText("Paseo estimado:");
+  await expect(paseo).toContainText("A pie:");
   await expect(paseo).toContainText("Excursión lejana");
 
   await paseo.getByRole("button", { name: "Ver sus alternativas" }).click();

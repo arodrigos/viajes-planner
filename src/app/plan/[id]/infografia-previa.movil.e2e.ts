@@ -101,7 +101,9 @@ test("la previa dice que está preparando y, si falla, explica y deja reintentar
   const alerta = pagina.getByRole("alert").filter({ hasText: "No hemos podido preparar la imagen" });
   await expect(alerta).toBeVisible({ timeout: 10_000 });
   await pagina.getByRole("button", { name: "Reintentar" }).click();
-  await expect(pagina.getByRole("img", { name: "Infografía del viaje" })).toBeVisible();
+  // El reintento renderiza la imagen de verdad: en el runner del CI, con todo el
+  // e2e en paralelo, supera los 5 s por defecto.
+  await expect(pagina.getByRole("img", { name: "Infografía del viaje" })).toBeVisible({ timeout: 30_000 });
   await expect(alerta).toBeHidden();
   await expect.poll(() => pagina.getByRole("img", { name: "Infografía del viaje" }).evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1080);
   await contexto.close();

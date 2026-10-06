@@ -732,3 +732,15 @@ footer a,
   align-items: center;
   min-height: var(--objetivo-tactil);
 }
+
+/* tramos-dia: línea entre dos tarjetas; el enlace conserva el objetivo táctil. */
+.tramo-parada {
+  list-style: none;
+  font-size: var(--texto-pequeno);
+  opacity: 0.85;
+}
+.tramo-parada a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--objetivo-tactil);
+}

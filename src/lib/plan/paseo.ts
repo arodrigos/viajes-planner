@@ -5,12 +5,9 @@
 // que aproxima calle sobre línea recta. Puro y testeable, igual que
 // equivalencia.ts, del que reutiliza distanciaMetros.
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
+import { calcularTramosDia } from "./tramos";
 import type { Franja, Parada } from "./tipos";
 
-// Factor calle/línea recta: una calle real nunca es la línea recta entre
-// dos puntos. 1,3 es el mismo orden de magnitud que usan los estimadores
-// de paseo urbano sin grafo de calles (research del diseño).
-const FACTOR_CALLE = 1.3;
 const UMBRAL_FAMILIAR_KM = 8;
 const UMBRAL_RESTO_KM = 12;
 
@@ -26,8 +23,12 @@ export interface AvisoPaseo {
   paradaId: string;
 }
 
+// tramos-dia: `km` son SOLO los kilómetros a pie; lo que se recorre en
+// transporte va aparte, para que el paseo no cuente como andados los
+// kilómetros de un tramo largo.
 export interface ResultadoPaseo {
   km: number;
+  kmTransporte?: number;
   aviso?: AvisoPaseo;
 }
 
@@ -86,20 +87,23 @@ function paradaMasAlejada(puntos: PuntoPaseo[]): PuntoPaseo {
 // perfil: el mismo string que `criterios.perfil` ('familiar' | 'amigos' |
 // 'pareja' | 'solo') -- cualquier valor distinto de 'familiar' cae en el
 // umbral no familiar, el más permisivo, igual que esEquivalente en
-// equivalencia.ts.
-export function calcularPaseoDia(puntos: PuntoPaseo[], perfil: string | null): ResultadoPaseo | null {
+// equivalencia.ts. El aviso de «mucho paseo» mira solo lo andado.
+export function calcularPaseoDia(puntos: PuntoPaseo[], perfil: string | null, transporte?: readonly string[] | null): ResultadoPaseo | null {
   if (puntos.length < 2) return null;
 
-  let kmLineaRecta = 0;
-  for (let i = 1; i < puntos.length; i++) kmLineaRecta += kmEntre(puntos[i - 1], puntos[i]);
-  const km = Math.round(kmLineaRecta * FACTOR_CALLE * 10) / 10;
+  const tramos = calcularTramosDia(puntos, { perfil, transporte });
+  const suma = (aPie: boolean) => Math.round(tramos.filter((t) => (t.modo === "a-pie") === aPie).reduce((total, t) => total + t.km, 0) * 10) / 10;
+  const km = suma(true);
+  const kmTransporte = suma(false);
+  const enTransporte = tramos.some((t) => t.modo !== "a-pie");
 
   const umbral = perfil === "familiar" ? UMBRAL_FAMILIAR_KM : UMBRAL_RESTO_KM;
-  if (km <= umbral) return { km };
+  if (km <= umbral) return { km, ...(enTransporte ? { kmTransporte } : {}) };
 
   const alejada = paradaMasAlejada(puntos);
   return {
     km,
+    ...(enTransporte ? { kmTransporte } : {}),
     aviso: {
       texto: `Este día tiene mucho paseo: prueba a cambiar ${alejada.nombre} por su alternativa más cercana`,
       paradaId: alejada.id,
