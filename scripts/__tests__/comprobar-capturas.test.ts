@@ -5,6 +5,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const SCRIPT = path.resolve(import.meta.dirname, "../comprobar-capturas.mjs");
+// Igual que el script npm: node sin tsx no sabe importar la lista en .ts.
+const TSX = path.resolve(import.meta.dirname, "../../node_modules/.bin/tsx");
 
 const DECLARADAS = [
   { bloque: "bloque-a", fichero: "uno.png" },
@@ -15,7 +17,7 @@ const DECLARADAS = [
 let temporal: string;
 
 function ejecutar() {
-  return spawnSync(process.execPath, [SCRIPT, "--dir", path.join(temporal, "capturas"), "--lista", path.join(temporal, "lista.mjs")], {
+  return spawnSync(TSX, [SCRIPT, "--dir", path.join(temporal, "capturas"), "--lista", path.join(temporal, "lista.mjs")], {
     encoding: "utf8",
   });
 }
