@@ -6,9 +6,9 @@ import { createServerClient } from "@supabase/ssr";
 // trabajo "pausado-por-cuota" -que puede durar bastante más que una hora-
 // se encontraría con una sesión muerta a mitad de la espera.
 //
-// `/guia` (bloque guia-y-usabilidad, aún no construido) es explícitamente
-// pública y sin sesión por diseño: queda fuera del matcher para que la
-// renovación de sesión nunca la toque.
+// `/guia`, `/terminos` y `/privacidad` son explícitamente públicas y sin
+// sesión por diseño: quedan fuera del matcher para que la renovación de
+// sesión nunca las toque.
 export async function middleware(request: NextRequest) {
   let respuesta = NextResponse.next({ request });
 
@@ -35,5 +35,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|guia).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|guia|terminos|privacidad).*)"],
 };

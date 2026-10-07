@@ -32,11 +32,18 @@ facturada por token.
 - El campo `commit` de `/api/salud` sale de `VERCEL_GIT_COMMIT_SHA` (o
   `COMMIT_SHA` como equivalente fuera de Vercel), nunca de invocar `git` en
   tiempo de ejecución: en producción no hay `.git` disponible.
-- Mapa, resolución de lugares y fotos usan EXCLUSIVAMENTE los cuatro
-  servicios abiertos sin cuenta aprobados como decisión de producto (OpenFreeMap,
-  Nominatim, Wikipedia/Wikimedia Commons, Overpass API): nunca Google Maps
-  Platform ni ningún otro proveedor de mapas o lugares. Detalle en
-  `docs/fuentes-de-datos.md`.
+- Mapa, resolución de lugares y fotos usan los servicios abiertos sin cuenta
+  aprobados como decisión de producto (OpenFreeMap, Nominatim,
+  Wikipedia/Wikimedia Commons, Overpass API). Google Maps Platform entra solo
+  en dos usos, ambos dentro de su capa gratuita:
+  1. Text Search desde el trabajador, pidiendo id y ubicación, para casar el
+     `place_id` de una parada ya comprobada (la ubicación se usa para validar
+     y se descarta).
+  2. Places UI Kit en el navegador, solo con sesión, como ficha de la parada.
+  Nunca se guarda nada de Google salvo el `place_id`; nunca contenido de
+  Google al modelo; nunca en `/guia`; nunca precios; nunca junto a otro
+  proveedor de Places. Cada tope de cupo sube solo con una migración nueva y
+  el cambio en la consola de Google. Detalle en `docs/fuentes-de-datos.md`.
 
 ## Capturas
 
