@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FORMATO_CURIOSIDADES, pendiente } from "../curiosidadesPlan";
+import { MAX_FRASE, MIN_FRASE } from "../candidatas";
 import { calcularHuellaReglas, HUELLA_REGLAS_CURIOSIDADES } from "../huella";
 import fc from "fast-check";
 
@@ -20,6 +21,24 @@ describe("huella de las reglas de curiosidades (rp-ac2)", () => {
       HUELLA_REGLAS_CURIOSIDADES.formato,
       "FORMATO_CURIOSIDADES y HUELLA_REGLAS_CURIOSIDADES.formato deben subir juntos, con la huella nueva.",
     ).toBe(FORMATO_CURIOSIDADES);
+  });
+
+  // cur-ac2: los umbrales de longitud deciden qué frases son candidatas, así
+  // que alterarlos tiene que cambiar la huella y dejarlos igual no.
+  it("cambiar MIN_FRASE o MAX_FRASE cambia la huella y dejarlos igual la mantiene", () => {
+    const base = calcularHuellaReglas();
+    expect(calcularHuellaReglas({ min: MIN_FRASE, max: MAX_FRASE })).toBe(base);
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 600 }), fc.integer({ min: 1, max: 600 }), (min, max) => {
+        const igual = min === MIN_FRASE && max === MAX_FRASE;
+        return (calcularHuellaReglas({ min, max }) === base) === igual;
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  it("FORMATO_CURIOSIDADES vale 6", () => {
+    expect(FORMATO_CURIOSIDADES).toBe(6);
   });
 
   it("la huella es un sha-256 en hexadecimal", () => {

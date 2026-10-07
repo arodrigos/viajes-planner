@@ -13,7 +13,11 @@ export type IdiomaCuriosidad = "es" | "en";
 export type PropiedadWikidata = "P571" | "P1619" | "P84" | "P2048" | "P1435" | "P1174";
 
 export const MAX_FRASE = 300;
-export const MIN_FRASE = 20;
+// 15 y no 20: «It opened in 1910.» (19 caracteres) es justo el tipo de frase
+// corta con año que puntuarFrase premia, y con 20 se descartaba. Los restos de
+// corte («See also.», «Ibid.») siguen fuera por los demás filtros, no por el
+// tamaño.
+export const MIN_FRASE = 15;
 // Techos por sitio: una parada usa el artículo completo, una alternativa solo
 // la entradilla.
 export const MAX_HECHOS_PARADA = 3;

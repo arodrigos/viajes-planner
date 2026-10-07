@@ -4,6 +4,7 @@ import { GET } from "@/app/api/salud/route";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import { _reiniciarCacheRellenoParaTests } from "@/lib/relleno";
+import { FORMATO_CURIOSIDADES } from "@/lib/guia/curiosidadesPlan";
 import type { Dia, Plan } from "@/lib/plan/tipos";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -306,10 +307,10 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     expect(Number.isInteger(antes)).toBe(true);
 
     const item = { texto: "Una curiosidad de ejemplo.", idioma: "es", fuente: "wikipedia", url: "https://es.wikipedia.org/wiki/Ejemplo", seleccion: "modelo" };
-    await marcarParada(supabase, "Parada curiosa-id", { curiosidades: { formato: 4, items: [item], frases: [], url: "", seleccion: "modelo", mejora_intentada: true } });
+    await marcarParada(supabase, "Parada curiosa-id", { curiosidades: { formato: FORMATO_CURIOSIDADES - 1, items: [item], frases: [], url: "", seleccion: "modelo", mejora_intentada: true } });
     expect(await leerContador()).toBe(antes + 1);
 
-    await marcarParada(supabase, "Parada curiosa-id", { curiosidades: { formato: 5, items: [item], frases: [], url: "", seleccion: "modelo", mejora_intentada: true } });
+    await marcarParada(supabase, "Parada curiosa-id", { curiosidades: { formato: FORMATO_CURIOSIDADES, items: [item], frases: [], url: "", seleccion: "modelo", mejora_intentada: true } });
     expect(await leerContador()).toBe(antes);
   });
 

@@ -118,6 +118,18 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("reproceso de curiosidades guarda
     expect(textos.some((t) => t.startsWith("He met John F. Kennedy in December 1963"))).toBe(true);
   });
 
+  it("tras rehacerla, el segundo pase no la vuelve a tocar (cur-ac3)", async () => {
+    await sembrar(guardadaConFormato(FORMATO_CURIOSIDADES - 1));
+    const { ejecutor, invocaciones } = ejecutorContador();
+    const contexto = { fuente: fuenteDoble(), ejecutor, directorio: process.cwd() };
+    await rellenarCuriosidadesPendientes(supabase, contexto, [{ id: versionId, ciudad: null }]);
+    expect(invocaciones()).toBe(1);
+    const segundo = await rellenarCuriosidadesPendientes(supabase, contexto, [{ id: versionId, ciudad: null }]);
+    expect(segundo.invocaciones).toBe(0);
+    expect(invocaciones()).toBe(1);
+    expect((await leer()).formato).toBe(FORMATO_CURIOSIDADES);
+  });
+
   it("una parada ya en el formato vigente con selección del modelo no se toca", async () => {
     await sembrar(guardadaConFormato(FORMATO_CURIOSIDADES));
     const { ejecutor, invocaciones } = ejecutorContador();

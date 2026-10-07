@@ -20,7 +20,7 @@ export interface DependenciasCuriosidades {
 // unidos, frases en minúscula descartadas y cortes tras inicial o sigla solo
 // cuando lo siguiente abre frase. Subirlo hace que el trabajador rehaga la
 // última versión de cada plan; huella.ts obliga a subirlo si cambian las reglas.
-export const FORMATO_CURIOSIDADES = 5;
+export const FORMATO_CURIOSIDADES = 6;
 
 export interface ResultadoCuriosidades {
   versionesProcesadas: number;

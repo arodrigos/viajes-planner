@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { CLASES_EDIFICIO, CLASES_INSTITUCION, REGEX_CANDIDATAS } from "./candidatas";
+import { CLASES_EDIFICIO, CLASES_INSTITUCION, MAX_FRASE, MIN_FRASE, REGEX_CANDIDATAS } from "./candidatas";
 import { ARRANQUES, REGEX_PARTIR } from "./curiosidades";
 import { ABREVIATURAS_INTERNAS, REGEX_SANEAR } from "./sanear";
 
@@ -8,8 +8,11 @@ import { ABREVIATURAS_INTERNAS, REGEX_SANEAR } from "./sanear";
 // FORMATO_CURIOSIDADES, el trabajador no rehace nada y las frases malas se
 // quedan para siempre (#171 subió FORMATO_GUIA en lugar de este). El test de
 // huella.test.ts falla en cualquiera de los dos sentidos.
-export function calcularHuellaReglas(): string {
+export function calcularHuellaReglas(umbrales: { min: number; max: number } = { min: MIN_FRASE, max: MAX_FRASE }): string {
   const canonico = JSON.stringify({
+    // Los umbrales deciden qué frases son candidatas igual que una regex.
+    minFrase: umbrales.min,
+    maxFrase: umbrales.max,
     abreviaturas: [...ABREVIATURAS_INTERNAS],
     arranques: [...ARRANQUES].sort(),
     clasesInstitucion: [...CLASES_INSTITUCION].sort(),
@@ -22,6 +25,6 @@ export function calcularHuellaReglas(): string {
 // Al cambiar las reglas: sube FORMATO_CURIOSIDADES (curiosidadesPlan.ts) y
 // pon aquí el mismo número y la huella nueva que imprime el test.
 export const HUELLA_REGLAS_CURIOSIDADES = {
-  formato: 5,
-  sha256: "50226dda1ba09e78e25e44f7e033c588bd8dc3ecf0d250fb3289e88ce58688c8",
+  formato: 6,
+  sha256: "7b6d2b3319d64736fbf41537a79f1c19343b84b6d7f0589586612714e19e15e6",
 };
