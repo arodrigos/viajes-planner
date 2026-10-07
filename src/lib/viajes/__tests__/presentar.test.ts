@@ -25,6 +25,10 @@ describe("formatearRangoViaje (mv-ac2)", () => {
     ["2026-10-14", null, "14 oct 2026"],
     ["2026-10-14", "2026-10-14", "14 oct 2026"],
     ["otoño", null, "otoño"],
+    ["2026-10-03", "2026-10-05", "3–5 oct 2026"],
+    ["2026-09-28", "2026-10-02", "28 sept – 2 oct 2026"],
+    ["2026-12-30", "2027-01-02", "30 dic 2026 – 2 ene 2027"],
+    ["2026-10-05", "2026-10-05", "5 oct 2026"],
   ])("(%s, %s) -> %s", (inicio, fin, esperado) => {
     expect(formatearRangoViaje(inicio, fin)).toBe(esperado);
   });
@@ -43,6 +47,52 @@ describe("formatearRangoViaje (mv-ac2)", () => {
       fc.property(isoArb, fc.option(isoArb, { nil: null }), (a, b) => {
         const ref = b ?? a;
         expect(formatearRangoViaje(a, b)).toContain(ref.slice(0, 4));
+      }),
+      { numRuns: 200 },
+    );
+  });
+});
+
+describe("formatearRangoViaje: invariantes del rango", () => {
+  const rangoArb = fc
+    .tuple(fc.integer({ min: 946_684_800_000, max: 4_102_444_800_000 }), fc.integer({ min: 0, max: 400 }))
+    .map(([t, dias]) => ({ inicio: aISO(t), fin: aISO(t + dias * 86_400_000) }));
+
+  it("contiene el año de fin y una sola fecha si inicio = fin", () => {
+    fc.assert(
+      fc.property(rangoArb, ({ inicio, fin }) => {
+        expect(formatearRangoViaje(inicio, fin)).toContain(fin.slice(0, 4));
+        expect(formatearRangoViaje(inicio, inicio)).not.toMatch(/[–-]/);
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  it("no depende de la zona horaria del proceso", () => {
+    const zonaOriginal = process.env.TZ;
+    try {
+      fc.assert(
+        fc.property(rangoArb, ({ inicio, fin }) => {
+          process.env.TZ = "UTC";
+          const a = formatearRangoViaje(inicio, fin);
+          process.env.TZ = "Pacific/Kiritimati";
+          expect(formatearRangoViaje(inicio, fin)).toBe(a);
+        }),
+        { numRuns: 100 },
+      );
+    } finally {
+      if (zonaOriginal === undefined) delete process.env.TZ;
+      else process.env.TZ = zonaOriginal;
+    }
+  });
+
+  it("no repite el año ni el mes cuando coinciden", () => {
+    fc.assert(
+      fc.property(rangoArb, ({ inicio, fin }) => {
+        if (inicio === fin) return;
+        const texto = formatearRangoViaje(inicio, fin);
+        expect(texto.match(/\d{4}/g)).toHaveLength(inicio.slice(0, 4) === fin.slice(0, 4) ? 1 : 2);
+        if (inicio.slice(0, 7) === fin.slice(0, 7)) expect(texto).not.toContain(" – ");
       }),
       { numRuns: 200 },
     );
