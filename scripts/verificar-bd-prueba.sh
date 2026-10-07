@@ -54,9 +54,9 @@ with proc as (
 ), ver as (
   select id from plan_versiones where plan_id = 'vbd-motivos' and version = 1
 )
-insert into paradas (id_externo, plan_version_id, dia_index, franja_id, sitio_nombre, sitio_lat, sitio_lon,
-                     duracion_min, prioridad, procedencia_id, motivo)
-select m.id_externo, ver.id, 0, 'manana', m.id_externo, 0, 0, 30, 50, proc.id, m.motivo
+insert into paradas (id_externo, plan_version_id, dia_index, franja_id, nombre, lat, lon,
+                     descripcion, duracion_min, prioridad, procedencia_id, motivo)
+select m.id_externo, ver.id, 0, 'manana', m.id_externo, 0, 0, '', 30, 50, proc.id, m.motivo
 from ver, proc, (values
   ('vbd-p1', 'Ideal con niños'),
   ('vbd-p2', 'Vistas al río'),
