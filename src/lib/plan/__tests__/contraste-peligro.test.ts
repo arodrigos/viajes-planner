@@ -94,6 +94,12 @@ describe("tokens de peligro (tok-ac1, tok-ac2)", () => {
       expect(ratioDeContraste(superficie, texto)).toBeGreaterThanOrEqual(4.5);
     });
 
+    // El chip del día actual pinta --texto-sobre-foco sobre --foco; con blanco
+    // fijo el modo oscuro (foco claro) daba 2.5:1 y axe lo cazó en el e2e.
+    it(`${modo}: texto sobre --foco cumple 4.5:1 (chip de día actual)`, () => {
+      expect(ratioDeContraste(leerToken(bloque, "foco"), leerToken(bloque, "texto-sobre-foco"))).toBeGreaterThanOrEqual(4.5);
+    });
+
     // err-ac2: .mensaje-error pinta --peligro-texto sobre la superficie de la
     // tarjeta; se audita el par que de verdad se ve, no solo el de fondo.
     it(`${modo}: .mensaje-error usa --peligro-texto y --peligro-borde y el par cumple 4.5:1 (err-ac2)`, () => {
