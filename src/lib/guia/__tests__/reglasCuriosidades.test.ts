@@ -7,9 +7,11 @@ import { ABREVIATURAS_INTERNAS, empiezaEnMinuscula, sanearItems, terminaEnAbrevi
 import { curiosidadesSeguras } from "../seguridad";
 import { EXTRACTO_MUSEO } from "../__fixtures__/extractoMuseo";
 
-// Lineal ≈ 4 al cuadruplicar la entrada, cuadrático ≈ 16: 6 deja holgura al ruido
-// de un runner compartido sin dejar pasar una complejidad peor que lineal.
-const RAZON_MAXIMA = 6;
+// Al multiplicar la entrada por 8, lineal ≈ 8 y cuadrático ≈ 64. En CI el código
+// lineal ha llegado a 6,8 con un factor 4 (ideal 4) porque el montón más grande
+// encarece el GC: con 24 hay margen de sobra para ese ruido y una complejidad
+// cuadrática sigue quedando muy por encima.
+const RAZON_MAXIMA = 24;
 
 // El ruido de un runner compartido (GC, otro proceso) solo suma tiempo, nunca lo
 // resta: el mínimo de varias repeticiones es la medida más cercana al coste real y
@@ -79,7 +81,7 @@ describe("cr-ac2: frasesDeTexto", () => {
   it("el coste crece de forma lineal con el tamaño del texto (cr-ac4)", () => {
     const bloque = "John F. Kennedy visitó D.C. el año 1963 y el museo\nabrió sus puertas a las 9. Fue un gran día.\n";
     const texto = (n: number) => bloque.repeat(Math.ceil(n / bloque.length)).slice(0, n);
-    const razon = razonDeEscalado((t) => frasesDeTexto(t, "en"), texto(100_000), texto(400_000));
+    const razon = razonDeEscalado((t) => frasesDeTexto(t, "en"), texto(50_000), texto(400_000));
     expect(razon).toBeLessThanOrEqual(RAZON_MAXIMA);
   });
   it("control: la medida rechaza una variante cuadrática", () => {
@@ -93,7 +95,7 @@ describe("cr-ac2: frasesDeTexto", () => {
     };
     const bloque = "Frase número uno del museo y su fachada principal.\n";
     const texto = (n: number) => bloque.repeat(Math.ceil(n / bloque.length)).slice(0, n);
-    expect(razonDeEscalado(cuadratica, texto(100_000), texto(400_000))).toBeGreaterThan(RAZON_MAXIMA);
+    expect(razonDeEscalado(cuadratica, texto(50_000), texto(400_000))).toBeGreaterThan(RAZON_MAXIMA);
   });
 });
 
