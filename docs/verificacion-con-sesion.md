@@ -84,6 +84,11 @@ sustituyen y deshacen paradas, así que no conviene reutilizar el mismo plan
 indefinidamente; con `VERIFICACION_BORRAR=1` el que creó la suite se borra con
 el mismo borrado que «Eliminar» de Mis viajes.
 
+Si `GET /api/plan/<id>` responde 500, el cuerpo trae `paso` (`plan`, `version`,
+`paradas`, `alternativas`, `visitas` o `presentar`) y `detalle` con el mensaje
+del error, sin datos del plan: sirve para reproducirlo desde el preview sin
+leer los logs de la función.
+
 ## Casos
 
 Cada título lleva el id del caso: `pv-ie2e-01`, `pv-ie2e-02`, `pv-ip-01`,
