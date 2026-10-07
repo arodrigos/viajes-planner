@@ -38,6 +38,8 @@ async function main() {
       ejecutor: ejecutorClaudeCode,
       directorio,
       commitSha,
+      // Sin la variable el casado de place_id no hace nada y /api/salud lo dice.
+      google: { clave: process.env.GOOGLE_PLACES_CLAVE || undefined },
       // Solo el trabajador de verdad habla con Wikivoyage: los tests de tick
       // no pasan fuenteGuia y quedan sin red.
       fuenteGuia: crearFuenteGuiaAbierta({ cache: cacheSitiosSupabase(supabase) }),

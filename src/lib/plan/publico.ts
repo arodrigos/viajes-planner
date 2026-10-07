@@ -52,6 +52,9 @@ export interface HorarioPublico extends HorarioParada {
 export interface ParadaPublica extends Omit<Parada, "alternativas"> {
   alternativas?: AlternativaPublica[];
   horario?: HorarioPublico;
+  // casado-place-id: lo añade la ruta del plan tras aPlanPublico, que no lee
+  // la base. Solo el estado, nunca el place_id.
+  google?: { estado: "sin-ubicacion" | "pendiente" | "sin-coincidencia" | "casado" };
 }
 
 export interface DiaPublico {

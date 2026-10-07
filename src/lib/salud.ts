@@ -36,6 +36,9 @@ export interface ResultadoTickTrabajador {
   alternativas_categorizadas?: number;
   alternativas_fallo_fuente?: number;
   alternativas_error_interno?: number;
+  // casado-place-id: 1 si el trabajador tenía GOOGLE_PLACES_CLAVE en este tick.
+  google_clave?: number;
+  google_peticiones?: number;
   error?: string;
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { aPlanPublico } from "@/lib/plan/publico";
+import { conEstadoGoogle, leerEstadosGoogle } from "@/lib/google/estados";
 import { trabajoDelPlan } from "@/lib/plan/propiedad";
 import { ErrorLecturaPlan, recuperarPlan, type PasoLecturaPlan } from "@/lib/plan/repositorio";
 
@@ -51,7 +52,13 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   const regenerando = trabajo.regenerado_en !== null && ESTADOS_EN_VUELO.includes(trabajo.estado);
 
   try {
-    return NextResponse.json({ ...aPlanPublico(plan, trabajo.perfil, trabajo.presupuesto_eur, trabajo.transporte), regenerando, trabajoId: trabajo.id });
+    const publico = aPlanPublico(plan, trabajo.perfil, trabajo.presupuesto_eur, trabajo.transporte);
+    // El estado de Google es un extra: si su lectura falla, el plan sale igual.
+    const conGoogle = await leerEstadosGoogle(supabase, plan).then(
+      (estados) => conEstadoGoogle(publico, estados),
+      () => publico,
+    );
+    return NextResponse.json({ ...conGoogle, regenerando, trabajoId: trabajo.id });
   } catch (fallo) {
     return respuestaFalloLectura(new ErrorLecturaPlan("presentar", fallo instanceof Error ? `${fallo.name}: ${fallo.message}` : "error desconocido"), "presentar");
   }

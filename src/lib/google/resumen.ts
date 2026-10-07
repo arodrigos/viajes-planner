@@ -29,15 +29,19 @@ export interface ClavesPresentes {
   navegador: boolean;
 }
 
-// lugares_casados y lugares_sin_coincidencia valen 0 hasta que exista la
-// tabla lugares_google (bloque casado-place-id): no hay nada que contar.
+async function contarLugares(supabase: SupabaseClient, estado: "casado" | "sin-coincidencia"): Promise<number> {
+  const { count, error } = await supabase.from("lugares_google").select("clave", { count: "exact", head: true }).eq("estado", estado);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
 export async function leerEstadoGoogle(supabase: SupabaseClient, claves: ClavesPresentes): Promise<EstadoGoogle> {
   const { data, error } = await supabase.rpc("consumo_google_resumen");
   if (error) throw new Error(error.message);
   return {
     ...validar(data),
-    lugares_casados: 0,
-    lugares_sin_coincidencia: 0,
+    lugares_casados: await contarLugares(supabase, "casado"),
+    lugares_sin_coincidencia: await contarLugares(supabase, "sin-coincidencia"),
     clave_trabajador: claves.trabajador ? 1 : 0,
     clave_navegador: claves.navegador ? 1 : 0,
   };
