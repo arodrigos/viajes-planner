@@ -8,4 +8,7 @@ export const CAPTURAS_ESPERADAS = [
   { bloque: "error-visita-ahora", fichero: "error-oscuro.png" },
   { bloque: "reglas-y-legal-google", fichero: "terminos.png" },
   { bloque: "reglas-y-legal-google", fichero: "privacidad.png" },
+  { bloque: "ficha-google", fichero: "casada.png" },
+  { bloque: "ficha-google", fichero: "cupo.png" },
+  { bloque: "ficha-google", fichero: "sin-coincidencia.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];

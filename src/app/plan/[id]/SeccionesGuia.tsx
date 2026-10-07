@@ -96,11 +96,6 @@ export function ConsejosYCuriosidades({ nombre, guia, curiosidades, intentada }:
           <p className="texto-guia">{intentada ? "No hay curiosidades en Wikipedia para este sitio" : "Todavía no hemos buscado curiosidades para este sitio"}</p>
         )}
       </div>
-      {/* Las opiniones de visitantes no existen en ninguna fuente abierta
-          aprobada: se dice, no se inventan. */}
-      <p data-testid="opiniones-parada">
-        <strong>Opiniones de visitantes:</strong> Sin opiniones de visitantes
-      </p>
     </div>
   );
 }

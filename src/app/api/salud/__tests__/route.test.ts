@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { _reiniciarCacheRellenoParaTests } from "@/lib/relleno";
 
 const rpc = vi.fn();
@@ -94,6 +94,28 @@ describe("GET /api/salud: bloque google (ctl-ac4)", () => {
     const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
     expect(cuerpo).not.toHaveProperty("google");
     expect(JSON.stringify(cuerpo)).not.toContain("Lisboa");
+  });
+});
+
+// fic-ac7: /api/salud dice si la clave de navegador está puesta, sin exponerla.
+describe("GET /api/salud: clave_navegador (fic-ac7)", () => {
+  const rpcConConsumo = async (nombre: string) =>
+    nombre === "consumo_google_resumen"
+      ? { data: { text_search_hoy: 0, text_search_mes: 0, ui_kit_hoy: 0, ui_kit_mes: 0 }, error: null }
+      : { data: null, error: { message: "sin relleno" } };
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    [undefined, 0],
+    ["", 0],
+    ["AIza-clave-secreta-de-prueba", 1],
+  ])("con la variable %j, clave_navegador vale %i y el valor no se publica", async (valor, esperado) => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_CLAVE_NAVEGADOR", valor as string);
+    rpc.mockImplementation(rpcConConsumo);
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo.google.clave_navegador).toBe(esperado);
+    expect(JSON.stringify(cuerpo)).not.toContain("AIza");
   });
 });
 

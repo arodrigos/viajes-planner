@@ -20,6 +20,7 @@ const parada: ParadaPublica = {
 function pintar(solicitudAlternativas: number, extra: Partial<ParadaPublica> = {}) {
   return (
     <TarjetaParada
+      planId="plan-1"
       parada={{ ...parada, ...extra }}
       franjaId="manana"
       ciudad="Lisboa"
@@ -37,10 +38,10 @@ function pintar(solicitudAlternativas: number, extra: Partial<ParadaPublica> = {
 }
 
 describe("TarjetaParada", () => {
-  it("comparte el nombre del grupo en los tres paneles y arranca todos cerrados", () => {
+  it("comparte el nombre del grupo en los cuatro paneles y arranca todos cerrados", () => {
     const { container } = render(<ul>{pintar(0)}</ul>);
     const paneles = Array.from(container.querySelectorAll("details"));
-    expect(paneles).toHaveLength(3);
+    expect(paneles).toHaveLength(4);
     expect(new Set(paneles.map((p) => p.getAttribute("name")))).toEqual(new Set(["parada-p1"]));
     expect(paneles.some((p) => p.open)).toBe(false);
   });
@@ -61,9 +62,9 @@ describe("TarjetaParada", () => {
     expect(container.querySelectorAll("h4")).toHaveLength(1);
   });
 
-  it("sin motivo ni alternativas solo queda el panel de consejos", () => {
+  it("sin motivo ni alternativas quedan los paneles de consejos y de Google", () => {
     const { container } = render(<ul>{pintar(0, { motivo: undefined, alternativas: [] })}</ul>);
-    expect(container.querySelectorAll("details")).toHaveLength(1);
+    expect(container.querySelectorAll("details")).toHaveLength(2);
   });
 
   it("cuenta el consejo y cada curiosidad", () => {

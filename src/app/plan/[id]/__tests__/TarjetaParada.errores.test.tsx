@@ -21,6 +21,7 @@ function parada(id: string, nombre: string): ParadaPublica {
 function pintar(p: ParadaPublica, error?: ErrorParada) {
   return (
     <TarjetaParada
+      planId="plan-1"
       parada={p}
       franjaId="manana"
       ciudad="Lisboa"
