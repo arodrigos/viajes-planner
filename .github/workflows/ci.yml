@@ -458,6 +458,13 @@ jobs:
       # el artefacto se sube igualmente (if: always()) para ver qué sí salió.
       - name: comprobar capturas
         run: npm run comprobar:capturas
+      # ver-ac1: sin URL_OBJETIVO la suite con sesión no existe para el CI.
+      - name: la suite preview no se lista sin URL_OBJETIVO
+        run: |
+          if npx playwright test --list | grep -q 'preview\.e2e'; then
+            echo "El CI listaría specs preview" >&2
+            exit 1
+          fi
       # inf-ac2: las dos láminas de ejemplo se publican junto a las capturas.
       - run: npm run generar:infografia-ejemplo
       # visual-ac1/pantalla-ac9: el gatekeeper juzga estas capturas (issue
