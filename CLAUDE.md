@@ -38,6 +38,17 @@ facturada por token.
   Platform ni ningún otro proveedor de mapas o lugares. Detalle en
   `docs/fuentes-de-datos.md`.
 
+## Capturas
+
+Los bloques con interfaz producen capturas con `capturar(page, bloque, nombre)`
+de `src/test-utils/capturas.ts`, que las guarda en
+`artefactos/capturas/<bloque>/<nombre>.png` y tapa todo texto con «@» y los
+nodos con `data-sensible`: el repo es público y el artefacto también se lee
+fuera. Cada captura se declara en `src/test-utils/capturas-esperadas.ts` en el
+mismo PR que la genera; el paso «comprobar capturas» del job e2e falla si falta
+alguna. El entregable de cada bloque con UI cita el artefacto `capturas-movil`,
+el id de la ejecución de Actions y las rutas dentro del artefacto.
+
 ## Evidencia de los criterios
 
 Cuando un criterio de aceptación se da por cumplido, su evidencia empieza

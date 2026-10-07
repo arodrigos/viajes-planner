@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "scripts/__tests__/**/*.test.ts"],
     exclude: ["node_modules/**", "src/**/*.integration.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
   },
