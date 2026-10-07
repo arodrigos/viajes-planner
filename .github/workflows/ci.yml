@@ -248,7 +248,7 @@ jobs:
           # lanzan si falta -sin ella, npm run test:integration entero
           # fallaría, que es justo el fail-closed que corrige esta incisión.
           echo "SUPABASE_SCHEMA=viajes_planner" >> "$GITHUB_ENV"
-      # esquema-ac3(c,d): las 13 tablas y las 4 funciones del catálogo viven
+      # esquema-ac3(c,d): las 16 tablas y las 6 funciones del catálogo viven
       # en `viajes_planner`, y `public` se queda sin un solo objeto del
       # producto -el efecto colateral que esta incisión corrige de raíz.
       - name: contar objetos por esquema (esquema-ac3)
@@ -261,14 +261,26 @@ jobs:
           rutinas_public=$(contar "select count(*) from information_schema.routines where routine_schema = 'public'")
           echo "tablas: viajes_planner=$tablas_vp public=$tablas_public"
           echo "rutinas: viajes_planner=$rutinas_vp public=$rutinas_public"
-          [ "$tablas_vp" -eq 13 ]
+          [ "$tablas_vp" -eq 16 ]
           [ "$tablas_public" -eq 0 ]
-          [ "$rutinas_vp" -eq 4 ]
+          [ "$rutinas_vp" -eq 6 ]
           [ "$rutinas_public" -eq 0 ]
       # sal-ac2: estado_relleno() contra Postgres real por psql directo, la
       # misma comprobación que el gatekeeper lanza contra su base de prueba.
       - name: estado_relleno() en la base real (sal-ac2)
         run: BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh
+      # ctl-ac1 y ctl-ac2: el controlador de cupo de Google no pasa de sus
+      # topes con reservas concurrentes y solo service_role llega a él.
+      - name: controlador de cupo de Google (ctl-ac1, ctl-ac2)
+        run: |
+          BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh cupo
+          BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh permisos
+          # Mismo caso por la puerta real: PostgREST con la clave anónima.
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/reservar_cupo_google" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Profile: viajes_planner" -H "Content-Type: application/json" -d '{"p_sku": "ui_kit"}')
+          echo "rpc/reservar_cupo_google con clave anónima: HTTP $codigo"
+          [ "$codigo" != "200" ]
       # rls-ac1: la política de SELECT sobre trabajos evalúa auth.uid() una
       # sola vez por consulta (subconsulta, no llamada desnuda por fila), y
       # sigue habiendo una única política sobre esa tabla.
