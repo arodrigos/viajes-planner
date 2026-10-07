@@ -35,8 +35,10 @@ npx playwright test --project=preview
 
 El global setup canjea el código por la sesión (el código es de un solo uso:
 no se pide otro por el formulario), guarda la sesión en `VERIFICACION_DIR` y,
-si no hay `PLAN_PRUEBA_ID`, pide por el formulario real un plan «Lisboa y
-Oporto» de 10 días con inicio a 60 días vista y 2 adultos. Después sondea cada
+si no hay `PLAN_PRUEBA_ID`, pide por el formulario real un plan de «Portugal»
+(el producto lo trata como viaje de varias ciudades) de 10 días, con 4.000 € de
+presupuesto, inicio a 60 días vista y 2 adultos. Si el plan no sale con al menos
+2 etapas y la mitad de las paradas ubicadas, falla enseguida con el motivo. Después sondea cada
 30 s y espera como máximo 40 minutos; si el trabajador no termina, falla con
 «el trabajador no ha generado el plan a tiempo». Al acabar borra el plan que
 creó, con el mismo borrado que «Eliminar» de Mis viajes.
