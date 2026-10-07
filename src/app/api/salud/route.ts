@@ -101,12 +101,12 @@ async function leerRellenoSinTumbarSalud(): Promise<EstadoRelleno | undefined> {
 
 // ctl-ac4: mismo criterio que el relleno -- si la rpc del controlador falla
 // se omite `google` y el resto de la respuesta sigue.
-async function leerGoogleSinTumbarSalud(): Promise<EstadoGoogle | undefined> {
+async function leerGoogleSinTumbarSalud(claveTrabajador: boolean): Promise<EstadoGoogle | undefined> {
   try {
     return await leerEstadoGoogle(clienteServicio(), {
-      // El trabajador vive en otra máquina: desde aquí solo se sabrá si tiene
-      // clave cuando él mismo lo escriba en su fila de salud (casado-place-id).
-      trabajador: false,
+      // El trabajador vive en otra máquina: solo sabemos si tiene clave por
+      // lo que escribe en su fila de salud.
+      trabajador: claveTrabajador,
       navegador: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_CLAVE_NAVEGADOR),
     });
   } catch {
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
   const { estado, vistoHaceSeg, commitSha, ultimoResultado, pasadaAlternativas } = await comprobarSupabase();
   await tocarSiEsElCron(request, estado === "activa");
   const relleno = await leerRellenoSinTumbarSalud();
-  const google = await leerGoogleSinTumbarSalud();
+  const google = await leerGoogleSinTumbarSalud(ultimoResultado?.google_clave === 1);
 
   const salud = construirSalud({
     cronsRegistrados: vercelConfig.crons.length,

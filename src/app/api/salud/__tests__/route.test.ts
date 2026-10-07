@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { _reiniciarCacheRellenoParaTests } from "@/lib/relleno";
 
 const rpc = vi.fn();
+let filaSalud: unknown = null;
 
 // Consulta encadenable que siempre responde «sin filas»: lo único que este
 // test necesita es que comprobarSupabase salga bien y la rpc sea lo que falla.
 function consultaVacia() {
   const consulta: Record<string, unknown> = {};
   for (const metodo of ["select", "eq", "order", "limit"]) consulta[metodo] = () => consulta;
-  consulta.maybeSingle = () => Promise.resolve({ data: null, error: null });
+  consulta.maybeSingle = () => Promise.resolve({ data: filaSalud, error: null });
   return consulta;
 }
 
@@ -22,6 +23,7 @@ import { GET } from "@/app/api/salud/route";
 beforeEach(() => {
   _reiniciarCacheRellenoParaTests();
   rpc.mockReset();
+  filaSalud = null;
 });
 
 // sal-ac3: si la rpc falla, /api/salud sigue respondiendo con el resto de
@@ -92,5 +94,30 @@ describe("GET /api/salud: bloque google (ctl-ac4)", () => {
     const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
     expect(cuerpo).not.toHaveProperty("google");
     expect(JSON.stringify(cuerpo)).not.toContain("Lisboa");
+  });
+});
+
+// cas-ac2: la clave del trabajador vive en otra máquina; /api/salud solo sabe
+// de ella por lo que el propio trabajador escribe en su fila de salud.
+describe("GET /api/salud: clave_trabajador (cas-ac2)", () => {
+  const rpcConConsumo = async (nombre: string) =>
+    nombre === "consumo_google_resumen"
+      ? { data: { text_search_hoy: 0, text_search_mes: 0, ui_kit_hoy: 0, ui_kit_mes: 0 }, error: null }
+      : { data: null, error: { message: "sin relleno" } };
+
+  it.each([
+    [1, 1],
+    [0, 0],
+  ])("google_clave %i en la fila del trabajador sale como clave_trabajador %i", async (escrito, esperado) => {
+    rpc.mockImplementation(rpcConConsumo);
+    filaSalud = { registrado_en: new Date().toISOString(), commit_sha: "abc", resultado: { ok: true, trabajos_procesados: 0, planes_mirados: 0, paradas_intentadas: 0, google_clave: escrito } };
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo.google.clave_trabajador).toBe(esperado);
+  });
+
+  it("sin fila del trabajador, clave_trabajador es 0", async () => {
+    rpc.mockImplementation(rpcConConsumo);
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo.google.clave_trabajador).toBe(0);
   });
 });

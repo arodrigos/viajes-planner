@@ -261,7 +261,7 @@ jobs:
           rutinas_public=$(contar "select count(*) from information_schema.routines where routine_schema = 'public'")
           echo "tablas: viajes_planner=$tablas_vp public=$tablas_public"
           echo "rutinas: viajes_planner=$rutinas_vp public=$rutinas_public"
-          [ "$tablas_vp" -eq 16 ]
+          [ "$tablas_vp" -eq 17 ]
           [ "$tablas_public" -eq 0 ]
           [ "$rutinas_vp" -eq 7 ]
           [ "$rutinas_public" -eq 0 ]
@@ -281,6 +281,9 @@ jobs:
             -H "Content-Profile: viajes_planner" -H "Content-Type: application/json" -d '{"p_sku": "ui_kit"}')
           echo "rpc/reservar_cupo_google con clave anónima: HTTP $codigo"
           [ "$codigo" != "200" ]
+      # cas-ac3: esquema y permisos de lugares_google.
+      - name: esquema y permisos de lugares_google (cas-ac3)
+        run: BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh lugares
       # rls-ac1: la política de SELECT sobre trabajos evalúa auth.uid() una
       # sola vez por consulta (subconsulta, no llamada desnuda por fila), y
       # sigue habiendo una única política sobre esa tabla.

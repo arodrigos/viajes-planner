@@ -242,9 +242,46 @@ SQL
   echo "OK: anon y authenticated reciben permission denied en las funciones y tablas del cupo."
 }
 
+# cas-ac3: lugares_google no guarda nada de Google salvo el place_id, y el
+# navegador (authenticated) solo lee clave y estado.
+lugares() {
+  local columnas
+  columnas=$(psql "$BD_URL" -tAc "select string_agg(column_name, ',' order by column_name) from information_schema.columns where table_schema = 'viajes_planner' and table_name = 'lugares_google'")
+  if [ "$columnas" != "clave,comprobado_en,estado,place_id" ]; then
+    echo "lugares_google tiene columnas inesperadas: $columnas" >&2
+    exit 1
+  fi
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+begin;
+set local search_path = viajes_planner, public, extensions;
+insert into lugares_google (clave, place_id, estado, comprobado_en) values ('osm:node/vbd-1', 'place-id-de-control', 'casado', now());
+set local role authenticated;
+set local request.jwt.claims = '{"role": "authenticated"}';
+select clave, estado from lugares_google limit 1;
+do $$
+begin
+  begin
+    perform place_id from viajes_planner.lugares_google;
+    raise exception 'authenticated pudo leer place_id';
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    insert into viajes_planner.lugares_google (clave, estado, comprobado_en) values ('x', 'error', now());
+    raise exception 'authenticated pudo escribir en lugares_google';
+  exception when insufficient_privilege then
+    null;
+  end;
+end $$;
+rollback;
+SQL
+  echo "OK: lugares_google tiene 4 columnas y authenticated solo lee clave y estado."
+}
+
 case "$modo" in
   relleno) relleno ;;
   cupo) cupo ;;
   permisos) permisos ;;
-  *) echo "Modo desconocido: $modo (relleno, cupo o permisos)" >&2; exit 2 ;;
+  lugares) lugares ;;
+  *) echo "Modo desconocido: $modo (relleno, cupo, permisos o lugares)" >&2; exit 2 ;;
 esac

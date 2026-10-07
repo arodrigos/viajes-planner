@@ -153,6 +153,8 @@ Pasos manuales en la consola de Google (no se hacen desde el repo):
 
 1. Clave del trabajador: restringida a Places API (New) y a la IP pública del
    servidor del trabajador; cuota diaria de Text Search en 50.
+   El trabajador la lee de la variable de entorno `GOOGLE_PLACES_CLAVE` en cada
+   tick; sin ella no casa nada y `/api/salud` muestra `google.clave_trabajador` a 0.
 2. Clave de navegador: restringida a Maps JavaScript API y Places UI Kit, con
    referrer limitado al dominio de la rama `dev`; cuota diaria de cargas del UI
    Kit en 300. Se da de alta en el despliegue como

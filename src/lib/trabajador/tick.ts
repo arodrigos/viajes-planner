@@ -16,6 +16,7 @@ import type { FuenteGuia } from "@/lib/guia/wikivoyage";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
 import { crearFuenteCercanosAbierta, type FuenteCercanos } from "@/lib/alternativas/cercanos";
 import { ORIGEN_PASADA_ALTERNATIVAS } from "@/lib/salud";
+import { casarLugaresPendientes, type Peticion } from "./google/casar";
 import type { FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 
 export interface ResultadoTick {
@@ -45,6 +46,9 @@ export interface OpcionesTick {
   // ejecuta este tick en la máquina del trabajador, distinto del commit que Vercel informa en
   // /api/salud -- scripts/trabajador-tick.ts lo calcula con `git rev-parse`.
   commitSha?: string;
+  // casado-place-id: ausente, el tick no casa place_id (los tests no usan red).
+  // Presente pero sin clave, se registra que falta y no se hace nada.
+  google?: { clave: string | undefined; peticion?: Peticion };
 }
 
 function esperar(ms: number): Promise<void> {
@@ -97,6 +101,8 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   let planesSaltadosPorRed = 0;
   let peticionesNominatimCiudad = 0;
   let alternativas: ContadoresAlternativas | null = null;
+  let googleClave: number | undefined;
+  let googlePeticiones = 0;
   let errorTick: unknown;
   try {
     let ociosoDesde: number | null = null;
@@ -137,6 +143,15 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         planesSaltadosPorRed = resultadoBarrido.planesSaltadosPorRed;
         peticionesNominatimCiudad = resultadoBarrido.peticionesNominatimCiudad;
         alternativas = resultadoBarrido.alternativas;
+        if (opciones.google) {
+          googleClave = opciones.google.clave ? 1 : 0;
+          // Un fallo de Google no puede tumbar el tick: el resto del barrido ya está hecho.
+          try {
+            googlePeticiones = (await casarLugaresPendientes(supabase, opciones.google)).peticiones;
+          } catch (error) {
+            console.error("[trabajador] casado de place_id falló:", error instanceof Error ? error.message : "error desconocido");
+          }
+        }
       }
 
       if (trabajosProcesados === 0) break;
@@ -159,6 +174,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         planes_saltados_sellados: planesSaltadosSellados,
         planes_saltados_por_red: planesSaltadosPorRed,
         peticiones_nominatim_ciudad: peticionesNominatimCiudad,
+        ...(googleClave !== undefined ? { google_clave: googleClave, google_peticiones: googlePeticiones } : {}),
         ...(alternativas
           ? {
               alternativas_candidatas: alternativas.candidatas,
