@@ -83,18 +83,17 @@ export async function idsExternosVisitados(supabase: SupabaseClient, planId: str
   const idsVersiones = await idsVersionesDelPlan(supabase, planId);
   if (idsVersiones.length === 0) return new Set();
 
-  const { data: paradas, error: errorParadas } = await supabase.from("paradas").select("id, id_externo").in("plan_version_id", idsVersiones);
-  if (errorParadas) throw new Error(`No se pudieron leer las paradas: ${errorParadas.message}`);
-  const idsParadas = (paradas ?? []).map((fila) => fila.id as string);
-  if (idsParadas.length === 0) return new Set();
-
-  const { data: visitas, error: errorVisitas } = await supabase.from("visitas").select("parada_id").in("parada_id", idsParadas);
-  if (errorVisitas) throw new Error(`No se pudieron leer las visitas: ${errorVisitas.message}`);
-  const idsParadasVisitadas = new Set((visitas ?? []).map((fila) => fila.parada_id as string));
+  // El cruce se hace en el servidor con la relación embebida: pasar los ids de
+  // las paradas de todas las versiones en la URL (cientos en un viaje de 10
+  // días con varias sustituciones) superaba el largo que admite PostgREST y
+  // dejaba el plan sin poder leerse.
+  const { data, error } = await supabase.from("visitas").select("paradas!inner(id_externo, plan_version_id)").in("paradas.plan_version_id", idsVersiones);
+  if (error) throw new Error(`No se pudieron leer las visitas: ${error.message}`);
 
   const resultado = new Set<string>();
-  for (const fila of paradas ?? []) {
-    if (idsParadasVisitadas.has(fila.id as string)) resultado.add(fila.id_externo as string);
+  for (const fila of (data ?? []) as unknown as Array<{ paradas: { id_externo: string } | Array<{ id_externo: string }> }>) {
+    const parada = Array.isArray(fila.paradas) ? fila.paradas[0] : fila.paradas;
+    if (parada) resultado.add(parada.id_externo);
   }
   return resultado;
 }
