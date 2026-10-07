@@ -11,21 +11,24 @@ import { EXTRACTO_MUSEO } from "../__fixtures__/extractoMuseo";
 // de un runner compartido sin dejar pasar una complejidad peor que lineal.
 const RAZON_MAXIMA = 6;
 
-function medianaMs(fn: (t: string) => unknown, texto: string): number {
-  const tiempos: number[] = [];
-  for (let i = 0; i < 5; i++) {
+// El ruido de un runner compartido (GC, otro proceso) solo suma tiempo, nunca lo
+// resta: el mínimo de varias repeticiones es la medida más cercana al coste real y
+// la mediana de 5 llegó a dar 7,8 en CI con código lineal.
+function minimoMs(fn: (t: string) => unknown, texto: string): number {
+  let mejor = Infinity;
+  for (let i = 0; i < 9; i++) {
     const t0 = performance.now();
     fn(texto);
-    tiempos.push(performance.now() - t0);
+    mejor = Math.min(mejor, performance.now() - t0);
   }
-  return tiempos.sort((a, b) => a - b)[2];
+  return mejor;
 }
 
 function razonDeEscalado(fn: (t: string) => unknown, pequeno: string, grande: string): number {
   // Una ejecución descartada de cada tamaño: compila las regex y calienta el JIT.
   fn(pequeno);
   fn(grande);
-  return medianaMs(fn, grande) / Math.max(medianaMs(fn, pequeno), 0.01);
+  return minimoMs(fn, grande) / Math.max(minimoMs(fn, pequeno), 0.01);
 }
 
 const item = (texto: string): ItemCuriosidad => ({ texto, fuente: "wikipedia", idioma: "en", seleccion: "modelo", url: "https://en.wikipedia.org/wiki/X" });
