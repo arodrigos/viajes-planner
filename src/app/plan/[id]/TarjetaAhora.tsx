@@ -19,7 +19,7 @@ interface Props {
   // Zona horaria del destino: «ahora» se lee en ella, no en la del móvil.
   zona?: string;
   marcando: boolean;
-  // Error de visita de la parada que se muestra; el aviso con role=alert vive en su tarjeta, aquí solo se repite el texto.
+  // Error de visita de la parada que se muestra; el aviso con role=alert vive en su tarjeta; aquí la copia va oculta a los lectores para que no se anuncie dos veces.
   errorVisita?: string;
   onMarcar: () => void;
   onIrARecomendados: () => void;
@@ -80,7 +80,11 @@ export function TarjetaAhora({ siguiente, hayUbicadas, progreso, hrefComoLlegar,
               </a>
             )}
           </div>
-          {errorVisita && <p className="ayuda">{errorVisita}</p>}
+          {errorVisita && (
+            <p className="mensaje-error" aria-hidden="true">
+              {errorVisita}
+            </p>
+          )}
         </>
       ) : hayUbicadas ? (
         <>

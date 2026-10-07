@@ -4,6 +4,8 @@
   --borde: #d4d4d4;
   --superficie: #f5f5f5;
   --foco: #1d4ed8;
+  /* Texto sobre un fondo --foco: blanco en claro, oscuro en modo oscuro, donde --foco es claro. */
+  --texto-sobre-foco: #ffffff;
 
   --espacio-1: 0.25rem;
   --espacio-2: 0.5rem;
@@ -61,6 +63,7 @@
     --borde: #3f3f3f;
     --superficie: #171717;
     --foco: #60a5fa;
+    --texto-sobre-foco: #0a0a0a;
 
     /* Mismo criterio que arriba, par (fondo, texto) propio para modo
        oscuro -no basta con reutilizar el de modo claro, porque el ratio de
@@ -557,6 +560,18 @@ ol {
   opacity: 0.8;
 }
 
+/* Error de una acción (guardar una visita, cambiar una parada). No reutiliza
+   .ayuda: esa es pequeña y atenuada, y un fallo que pide volver a pulsar
+   tiene que leerse como fallo. El texto usa --peligro-texto y no
+   --peligro-borde porque este último no llega a 4.5:1 sobre --superficie. */
+.mensaje-error {
+  margin: 0;
+  padding-left: var(--espacio-2);
+  border-left: 3px solid var(--peligro-borde);
+  color: var(--peligro-texto);
+  font-size: var(--texto-base);
+}
+
 /* Aviso destacado: lo que hay que saber ANTES de actuar (el correo que va
    a hacer falta confirmar) o MIENTRAS SE ESPERA (que la dirección actual
    es la única forma de volver). Un solo mecanismo para los dos usos. */
@@ -857,7 +872,7 @@ footer a,
 .chip-dia[aria-current="page"] {
   background: var(--foco);
   border-color: var(--foco);
-  color: #fff;
+  color: var(--texto-sobre-foco);
   font-weight: 600;
 }
 

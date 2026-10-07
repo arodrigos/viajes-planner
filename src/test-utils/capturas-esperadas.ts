@@ -4,4 +4,6 @@
 // si alguna falta en artefactos/capturas/<bloque>/<fichero>.
 export const CAPTURAS_ESPERADAS = [
   { bloque: "capturas-ui", fichero: "correo-enmascarado.png" },
+  { bloque: "error-visita-ahora", fichero: "error-claro.png" },
+  { bloque: "error-visita-ahora", fichero: "error-oscuro.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];
