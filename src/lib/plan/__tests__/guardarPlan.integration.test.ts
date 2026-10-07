@@ -75,11 +75,12 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("guardarPlan en bloque (alr-ac1)"
     plan.dias[0].paradas[0].alternativas_intentadas_en = marca;
     await guardarPlan(supabase, plan);
     const v1 = (await recuperarPlan(supabase, planId))!;
-    expect(v1.dias[0].paradas[0].alternativas_intentadas_en).toBe(new Date(marca).toISOString());
+    // PostgREST devuelve el timestamptz como «+00:00»: se compara el instante, no el texto.
+    expect(new Date(v1.dias[0].paradas[0].alternativas_intentadas_en!).toISOString()).toBe(marca);
     await guardarPlan(supabase, v1);
     const v2 = (await recuperarPlan(supabase, planId))!;
     expect(v2.version).toBe(2);
-    expect(v2.dias[0].paradas[0].alternativas_intentadas_en).toBe(v1.dias[0].paradas[0].alternativas_intentadas_en);
+    expect(new Date(v2.dias[0].paradas[0].alternativas_intentadas_en!).toISOString()).toBe(marca);
   });
 
   it("guardarPlan aislado hace ≤ 6 peticiones a /rest/v1/ con 24 paradas y con 1 parada sin alternativas", async () => {
