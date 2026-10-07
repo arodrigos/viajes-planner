@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/salud/route";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
@@ -311,6 +311,27 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
 
     await marcarParada(supabase, "Parada curiosa-id", { curiosidades: { formato: 5, items: [item], frases: [], url: "", seleccion: "modelo", mejora_intentada: true } });
     expect(await leerContador()).toBe(antes);
+  });
+
+  // sal-ac1: con la caché fría, el relleno cuesta UNA llamada a la rpc y ya no
+  // lee plan_versiones ni paradas desde la función de Vercel.
+  describe("peticiones a PostgREST (sal-ac1)", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("con la caché fría hace una petición a rpc/estado_relleno y ninguna a plan_versiones ni paradas", async () => {
+      const original = globalThis.fetch;
+      const urls: string[] = [];
+      vi.spyOn(globalThis, "fetch").mockImplementation((entrada, init) => {
+        urls.push(typeof entrada === "string" ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
+        return original(entrada, init);
+      });
+      _reiniciarCacheRellenoParaTests();
+      const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+      expect(cuerpo).toHaveProperty("relleno");
+      const rutas = urls.map((u) => new URL(u).pathname);
+      expect(rutas.filter((r) => r.endsWith("/rest/v1/rpc/estado_relleno"))).toHaveLength(1);
+      expect(rutas.filter((r) => r.endsWith("/rest/v1/plan_versiones") || r.endsWith("/rest/v1/paradas"))).toEqual([]);
+    });
   });
 
   it("si una consulta de recuento falla, la respuesta omite relleno entero y conserva el resto", async () => {

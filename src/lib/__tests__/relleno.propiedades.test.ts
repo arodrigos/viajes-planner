@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { armarEstadoRelleno, type RecuentosRelleno } from "@/lib/relleno";
+import { armarEstadoRelleno, type RecuentosRelleno } from "./referenciaRelleno";
 
 const entero = fc.integer({ min: 0, max: 100_000 });
 
