@@ -37,6 +37,12 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
   const [cambiando, setCambiando] = useState<{ paradaId: string; alternativaId: string } | null>(null);
   // Un error por parada: cada tarjeta pinta solo el suyo.
   const [errores, setErrores] = useState<ErroresParada>(ERRORES_VACIOS);
+  // El nombre nuevo se pinta en cuanto el servidor confirma la sustitución,
+  // sin esperar a releer el plan entero (varios segundos). Está atado al `dia`
+  // sobre el que se hizo: cuando llega el plan nuevo la referencia cambia y
+  // el nombre provisional deja de aplicarse solo.
+  const [provisional, setProvisional] = useState<{ dia: DiaPublico; nombres: Record<string, string> } | null>(null);
+  const nombresProvisionales = provisional?.dia === dia ? provisional.nombres : null;
   const [avisoCambio, setAvisoCambio] = useState<string | null>(null);
   const [mapaAmpliado, setMapaAmpliado] = useState(false);
 
@@ -71,6 +77,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
         setErrores((e) => fijarError(e, paradaId, { tipo: "cambio", mensaje }));
         return false;
       }
+      setProvisional((previo) => ({ dia, nombres: { ...(previo?.dia === dia ? previo.nombres : {}), [paradaId]: nombreAlternativa } }));
       setAvisoCambio(`Hecho: ahora vas a ${nombreAlternativa}. Para deshacerlo, abre sus alternativas.`);
       onPlanActualizado();
       // El <li> de la parada sobrevive a la recarga (su id externo no cambia),
@@ -233,7 +240,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
                 {paradasDeLaFranja.map((parada) => (
                   <TarjetaParada
                     key={parada.id}
-                    parada={parada}
+                    parada={nombresProvisionales?.[parada.id] ? { ...parada, nombre: nombresProvisionales[parada.id] } : parada}
                     franjaId={franja.id}
                     ciudad={etapa?.ciudad ?? destino}
                     tramo={tramoHasta.get(parada.id)}

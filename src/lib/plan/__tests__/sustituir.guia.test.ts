@@ -76,6 +76,9 @@ describe("intercambiar (alg-ac1)", () => {
         expect(original.curiosidades).toEqual(parada.curiosidades);
         expect(original.guia_intentada_en).toEqual(parada.guia_intentada_en);
         expect(original.guia_formato).toEqual(parada.guia_formato);
+        // El motivo y el coste eran del hueco: sobreviven al ir y volver.
+        expect(original.motivo).toEqual(parada.motivo);
+        expect(original.coste).toEqual(parada.coste);
       }),
     );
   });

@@ -200,6 +200,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("sustituirParada hereda la guía 
               categoria: "monumento",
               coordenadas: { lat: 51.508, lon: -0.076 },
               motivo: "Ideal con niños",
+              coste: { importe_eur: 25, por: "persona", procedencia: "wikivoyage", fecha: "2026-10-01" },
               guia: guia("Consejo T", "https://es.wikivoyage.org/wiki/Londres"),
               curiosidades: { frases: ["T1", "T2"], url: "https://es.wikipedia.org/wiki/Torre_de_Londres" },
               guia_intentada_en: FECHA,
@@ -257,6 +258,10 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("sustituirParada hereda la guía 
     expect(v3?.guia?.consejo).toBe("Consejo T");
     expect(v3?.curiosidades?.frases).toEqual(["T1", "T2"]);
     expect(v3?.curiosidades?.url).toBe("https://es.wikipedia.org/wiki/Torre_de_Londres");
+    // Deshacer devuelve también el motivo y el coste del hueco, que la
+    // alternativa guardó al nacer (defecto hallado en el preview).
+    expect(v3?.motivo).toBe("Ideal con niños");
+    expect(v3?.coste?.importe_eur).toBe(25);
     expect(fecha(v3?.guia_intentada_en)).toBe(fecha(FECHA));
   });
 

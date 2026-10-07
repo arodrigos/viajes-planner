@@ -233,6 +233,11 @@ export interface Alternativa {
   curiosidades?: CuriosidadesParada;
   guia_intentada_en?: string;
   guia_formato?: number;
+  // Solo la alternativa que nace de una parada sustituida: el motivo y el
+  // coste que esa parada tenía en su hueco, para devolvérselos al deshacer.
+  // `motivo` (el texto de alternativa) no sirve: es fijo y lo ve el usuario.
+  motivo_parada?: string;
+  coste_parada?: CosteParada;
 }
 
 export type AnclaAlojamiento =
