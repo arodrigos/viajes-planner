@@ -56,6 +56,9 @@ export function curiosidadesSeguras(c: CuriosidadesParada | null | undefined): C
     frases,
     url: urlValida ? c.url : "",
     ...(items.length > 0 ? { items } : {}),
+    // Sin la marca, guardar lo que se acaba de leer (sustituir una parada)
+    // dejaba las curiosidades como «anteriores» y el trabajador las reprocesaba.
+    ...(typeof c.formato === "number" ? { formato: c.formato } : {}),
     ...(c.seleccion === "modelo" || c.seleccion === "heuristica" ? { seleccion: c.seleccion } : {}),
     ...(c.mejora_intentada === true ? { mejora_intentada: true } : {}),
   };

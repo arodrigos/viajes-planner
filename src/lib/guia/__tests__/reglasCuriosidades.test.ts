@@ -135,6 +135,11 @@ describe("sanearItems con formato", () => {
     const c = curiosidadesSeguras({ frases: [], url: "", formato: 4, items: [item("specimens, the largest such holdings in the world."), item("It opened to the public in 1910.")] });
     expect(c?.items?.map((i) => i.texto)).toEqual(["It opened to the public in 1910."]);
   });
+  it("conserva la marca de formato al leer: guardar lo leído no vuelve «anteriores» las curiosidades", () => {
+    const c = curiosidadesSeguras({ frases: [], url: "", formato: 6, items: [item("It opened to the public in 1910.")] });
+    expect(c?.formato).toBe(6);
+    expect(curiosidadesSeguras({ frases: [], url: "", items: [item("It opened to the public in 1910.")] })?.formato).toBeUndefined();
+  });
   it("es idempotente y nunca devuelve minúscula ni abreviatura de la lista (property)", () => {
     const texto = fc.oneof(fc.string(), fc.constantFrom("Es de Warner Bros.", "specimens, a.", "It opened.", "He met John F.", "D.C.", `Vimos ${ABREVIATURAS_INTERNAS[0]}.`));
     fc.assert(

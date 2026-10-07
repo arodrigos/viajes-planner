@@ -38,8 +38,11 @@ function contenido(p: ParadaApi) {
 test("pv-alg-01: sustituir una parada y deshacerlo deja el plan como estaba (cp-alg-01)", async ({ request }) => {
   const id = planDePrueba();
   const antes = await leerPlan(request);
-  const original = antes.dias.flatMap((d) => d.paradas).find((p) => (p.alternativas?.length ?? 0) > 0 && p.alternativas?.[0].id);
-  expect(original, "el plan de prueba no tiene ninguna parada con alternativas: el caso no se puede juzgar").toBeDefined();
+  // Con motivo (y coste si lo hay): una parada ya sustituida antes no los
+  // tiene y comparar antes y después no podría fallar nunca.
+  const candidatas = antes.dias.flatMap((d) => d.paradas).filter((p) => p.motivo && (p.alternativas?.length ?? 0) > 0 && p.alternativas?.[0].id);
+  const original = candidatas.find((p) => p.coste) ?? candidatas[0];
+  expect(original, "el plan de prueba no tiene ninguna parada con motivo y alternativas: el caso no se puede juzgar").toBeDefined();
   const parada = original!;
   const guardado = antes.dias.flatMap((d) => d.paradas).map(contenido);
 
@@ -54,7 +57,7 @@ test("pv-alg-01: sustituir una parada y deshacerlo deja el plan como estaba (cp-
     const intermedio = (await leerPlan(request)).dias.flatMap((d) => d.paradas).find((p) => p.id === parada.id)!;
     expect(intermedio.nombre).toBe(parada.alternativas![0].nombre);
     // Heredaba la guía de la alternativa, no el motivo ni el coste de la sustituida.
-    if (parada.motivo) expect(intermedio.motivo).not.toBe(parada.motivo);
+    expect(intermedio.motivo).not.toBe(parada.motivo);
 
     const vuelta = intermedio.alternativas?.find((a) => a.nombre === parada.nombre);
     expect(vuelta?.id, "la parada sustituida no está entre las alternativas de la nueva: no se puede volver").toBeTruthy();
