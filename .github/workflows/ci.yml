@@ -248,7 +248,7 @@ jobs:
           # lanzan si falta -sin ella, npm run test:integration entero
           # fallaría, que es justo el fail-closed que corrige esta incisión.
           echo "SUPABASE_SCHEMA=viajes_planner" >> "$GITHUB_ENV"
-      # esquema-ac3(c,d): las 12 tablas y las 3 funciones del catálogo viven
+      # esquema-ac3(c,d): las 13 tablas y las 4 funciones del catálogo viven
       # en `viajes_planner`, y `public` se queda sin un solo objeto del
       # producto -el efecto colateral que esta incisión corrige de raíz.
       - name: contar objetos por esquema (esquema-ac3)
@@ -263,8 +263,12 @@ jobs:
           echo "rutinas: viajes_planner=$rutinas_vp public=$rutinas_public"
           [ "$tablas_vp" -eq 13 ]
           [ "$tablas_public" -eq 0 ]
-          [ "$rutinas_vp" -eq 3 ]
+          [ "$rutinas_vp" -eq 4 ]
           [ "$rutinas_public" -eq 0 ]
+      # sal-ac2: estado_relleno() contra Postgres real por psql directo, la
+      # misma comprobación que el gatekeeper lanza contra su base de prueba.
+      - name: estado_relleno() en la base real (sal-ac2)
+        run: BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh
       # rls-ac1: la política de SELECT sobre trabajos evalúa auth.uid() una
       # sola vez por consulta (subconsulta, no llamada desnuda por fila), y
       # sigue habiendo una única política sobre esa tabla.
