@@ -6,7 +6,7 @@ import type { Alternativa } from "../tipos";
 const alternativa = (nombre: string): Alternativa => ({ id: nombre, nombre, descripcion: "", motivo: "", duracion_min: 60, origen: "modelo" });
 
 // alc-ac1, invariante 3: tras sustituir una parada con k alternativas, la
-// parada nueva tiene min(k, 3): las k-1 no elegidas más la sustituida.
+// parada nueva tiene min(k, 3): hasta 2 de las no elegidas más la sustituida.
 describe("heredarAlternativas (alc-ac1)", () => {
   it("con 2 alternativas, la nueva tiene la no elegida y la sustituida", () => {
     const [pilatos, duenas] = [alternativa("Casa de Pilatos"), alternativa("Palacio de las Dueñas")];
@@ -20,9 +20,23 @@ describe("heredarAlternativas (alc-ac1)", () => {
     expect(resultado.map((a) => a.nombre)).toEqual(["B", "C", "Original"]);
   });
 
+  it("con 4 o más alternativas la sustituida se conserva siempre (se puede deshacer)", () => {
+    for (const k of [4, 6, 10]) {
+      const todas = Array.from({ length: k }, (_, i) => alternativa(`alt-${i}`));
+      const resultado = heredarAlternativas(todas, todas[0], alternativa("Original"));
+      expect(resultado.map((a) => a.nombre)).toEqual(["alt-1", "alt-2", "Original"]);
+    }
+  });
+
+  it("no arrastra nombres repetidos heredados de versiones anteriores", () => {
+    const actuales = ["A", "A", "B", "B", "Original"].map(alternativa);
+    const resultado = heredarAlternativas(actuales, alternativa("elegida"), alternativa("Original"));
+    expect(resultado.map((a) => a.nombre)).toEqual(["A", "B", "Original"]);
+  });
+
   it("invariante 3 sobre cualquier k", () => {
     fc.assert(
-      fc.property(fc.integer({ min: 1, max: 3 }), fc.nat(2), (k, indice) => {
+      fc.property(fc.integer({ min: 1, max: 12 }), fc.nat(11), (k, indice) => {
         const actuales = Array.from({ length: k }, (_, i) => alternativa(`alt-${i}`));
         const elegida = actuales[indice % k];
         const resultado = heredarAlternativas(actuales, elegida, alternativa("sustituida"));

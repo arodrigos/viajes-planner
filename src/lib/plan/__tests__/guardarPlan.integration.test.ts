@@ -68,6 +68,20 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("guardarPlan en bloque (alr-ac1)"
     expect(ultima!.dias[0].paradas.find((p) => p.id === "p-0-0")!.alternativas!.map((a) => a.nombre)).toContain("Sitio 0-0");
   });
 
+  it("la marca alternativas_intentadas_en sobrevive a una versión nueva", async () => {
+    const planId = nuevoId("plan-alt-marca");
+    const plan = planGrande(planId);
+    const marca = "2026-01-01T00:00:00.000Z";
+    plan.dias[0].paradas[0].alternativas_intentadas_en = marca;
+    await guardarPlan(supabase, plan);
+    const v1 = (await recuperarPlan(supabase, planId))!;
+    expect(v1.dias[0].paradas[0].alternativas_intentadas_en).toBe(new Date(marca).toISOString());
+    await guardarPlan(supabase, v1);
+    const v2 = (await recuperarPlan(supabase, planId))!;
+    expect(v2.version).toBe(2);
+    expect(v2.dias[0].paradas[0].alternativas_intentadas_en).toBe(v1.dias[0].paradas[0].alternativas_intentadas_en);
+  });
+
   it("guardarPlan aislado hace ≤ 6 peticiones a /rest/v1/ con 24 paradas y con 1 parada sin alternativas", async () => {
     const { cliente, leer, reiniciar } = clienteContado();
     await guardarPlan(cliente, planGrande(nuevoId("plan-alr-peticiones")));

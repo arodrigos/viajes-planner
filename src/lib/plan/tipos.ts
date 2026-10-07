@@ -135,6 +135,10 @@ export interface Parada {
   // este bloque (decisión de producto) -- ausente o vacío en los anteriores,
   // nunca un array a medias.
   alternativas?: Alternativa[];
+  // Marca del barrido de alternativas: guardarPlan la conserva en cada versión
+  // nueva; sin ella el barrido volvía a insertar cercanos en toda parada ya
+  // atendida y duplicaba sus alternativas.
+  alternativas_intentadas_en?: string;
   // bloque uso-en-destino (dest-ac4): se deriva en repositorio.ts a partir
   // de `visitas`, leída por (plan_id, id_externo) a través de CUALQUIER
   // versión -- nunca se guarda en esta fila, así que sobrevive a una
