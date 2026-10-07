@@ -44,3 +44,53 @@ describe("GET /api/salud con la rpc de relleno caída (sal-ac3)", () => {
     expect(JSON.stringify(cuerpo)).not.toContain("Lisboa");
   });
 });
+
+// ctl-ac4: el objeto google es una lista cerrada de enteros y fuentes.fichas
+// lo declara el endpoint; si la rpc del controlador falla se omite sin tumbar
+// el resto.
+describe("GET /api/salud: bloque google (ctl-ac4)", () => {
+  const CLAVES_GOOGLE = [
+    "clave_navegador",
+    "clave_trabajador",
+    "lugares_casados",
+    "lugares_sin_coincidencia",
+    "text_search_hoy",
+    "text_search_mes",
+    "ui_kit_hoy",
+    "ui_kit_mes",
+  ];
+
+  it("expone exactamente las ocho claves, enteros no negativos, y fuentes.fichas", async () => {
+    rpc.mockImplementation(async (nombre: string) =>
+      nombre === "consumo_google_resumen"
+        ? { data: { text_search_hoy: 3, text_search_mes: 10, ui_kit_hoy: 0, ui_kit_mes: 7 }, error: null }
+        : { data: null, error: { message: "sin relleno" } },
+    );
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(Object.keys(cuerpo.google).sort()).toEqual(CLAVES_GOOGLE);
+    for (const valor of Object.values(cuerpo.google)) {
+      expect(Number.isInteger(valor) && (valor as number) >= 0).toBe(true);
+    }
+    expect(cuerpo.google).toMatchObject({ text_search_hoy: 3, text_search_mes: 10, ui_kit_mes: 7 });
+    expect(cuerpo.fuentes.fichas).toBe("google-ui-kit");
+    expect(JSON.stringify(cuerpo)).not.toContain("AIza");
+  });
+
+  it("si la rpc del controlador falla, omite google y conserva el resto", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "función no disponible" } });
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo).not.toHaveProperty("google");
+    expect(cuerpo).toHaveProperty("supabase", "activa");
+  });
+
+  it("si la rpc devuelve algo fuera de la lista cerrada, no lo publica", async () => {
+    rpc.mockImplementation(async (nombre: string) =>
+      nombre === "consumo_google_resumen"
+        ? { data: { text_search_hoy: 1, text_search_mes: 1, ui_kit_hoy: 1, ui_kit_mes: "Lisboa" }, error: null }
+        : { data: null, error: { message: "x" } },
+    );
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo).not.toHaveProperty("google");
+    expect(JSON.stringify(cuerpo)).not.toContain("Lisboa");
+  });
+});

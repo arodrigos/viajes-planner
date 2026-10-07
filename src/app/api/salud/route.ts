@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { clienteServicio } from "@/lib/db/cliente";
+import { leerEstadoGoogle } from "@/lib/google/resumen";
 import { leerEstadoRelleno } from "@/lib/relleno";
 import {
   construirSalud,
@@ -7,7 +8,7 @@ import {
   ORIGEN_PASADA_ALTERNATIVAS,
   resumirPasadaAlternativas,
   type PasadaAlternativas,
-  type EstadoRelleno, type ResultadoTickTrabajador } from "@/lib/salud";
+  type EstadoGoogle, type EstadoRelleno, type ResultadoTickTrabajador } from "@/lib/salud";
 import { MODELO_ACCESO } from "@/lib/trabajador/config";
 import vercelConfig from "../../../../vercel.json";
 
@@ -98,10 +99,26 @@ async function leerRellenoSinTumbarSalud(): Promise<EstadoRelleno | undefined> {
   }
 }
 
+// ctl-ac4: mismo criterio que el relleno -- si la rpc del controlador falla
+// se omite `google` y el resto de la respuesta sigue.
+async function leerGoogleSinTumbarSalud(): Promise<EstadoGoogle | undefined> {
+  try {
+    return await leerEstadoGoogle(clienteServicio(), {
+      // El trabajador vive en otra máquina: desde aquí solo se sabrá si tiene
+      // clave cuando él mismo lo escriba en su fila de salud (casado-place-id).
+      trabajador: false,
+      navegador: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_CLAVE_NAVEGADOR),
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { estado, vistoHaceSeg, commitSha, ultimoResultado, pasadaAlternativas } = await comprobarSupabase();
   await tocarSiEsElCron(request, estado === "activa");
   const relleno = await leerRellenoSinTumbarSalud();
+  const google = await leerGoogleSinTumbarSalud();
 
   const salud = construirSalud({
     cronsRegistrados: vercelConfig.crons.length,
@@ -115,8 +132,9 @@ export async function GET(request: NextRequest) {
     pasadaAlternativas,
     secretosFaltantes: SECRETOS_REQUERIDOS.filter((nombre) => !process.env[nombre]),
     credencialesModeloEnWeb: VARIABLES_CREDENCIAL_MODELO.some((nombre) => Boolean(process.env[nombre])),
-    fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap", guia: "wikivoyage+wikipedia", eventos: "openholidays+nager+wikidata" },
+    fuentes: { lugares: "osm+wikipedia", mapa: "openfreemap", guia: "wikivoyage+wikipedia", eventos: "openholidays+nager+wikidata", fichas: "google-ui-kit" },
     relleno,
+    google,
   });
   return NextResponse.json(salud, { status: salud.ok ? 200 : 503 });
 }

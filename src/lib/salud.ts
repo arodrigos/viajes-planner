@@ -162,6 +162,7 @@ export interface Fuentes {
   // Opcionales: los consumidores anteriores no las traen.
   guia?: string;
   eventos?: string;
+  fichas?: string;
 }
 
 // sal-ac1/sal-ac3: contadores AGREGADOS del relleno real en DEV, todos
@@ -214,6 +215,19 @@ export interface EstadoRelleno {
   planes_sellados_ciudad_no_encontrada: number;
 }
 
+// Contadores del controlador de la capa gratuita de Google: enteros y claves
+// fijas, sin place_id ni nada que identifique un lugar o un usuario.
+export interface EstadoGoogle {
+  text_search_hoy: number;
+  text_search_mes: number;
+  ui_kit_hoy: number;
+  ui_kit_mes: number;
+  lugares_casados: number;
+  lugares_sin_coincidencia: number;
+  clave_trabajador: number;
+  clave_navegador: number;
+}
+
 export interface RespuestaSalud {
   ok: boolean;
   version: string;
@@ -229,6 +243,7 @@ export interface RespuestaSalud {
   credenciales_modelo_en_web?: boolean;
   fuentes?: Fuentes;
   relleno?: EstadoRelleno;
+  google?: EstadoGoogle;
 }
 
 // Se incrementa a mano cuando una migración cambia una forma que este
@@ -257,6 +272,7 @@ export interface OpcionesSalud {
   credencialesModeloEnWeb?: boolean;
   fuentes?: Fuentes;
   relleno?: EstadoRelleno;
+  google?: EstadoGoogle;
 }
 
 // `ok` es deliberadamente estrecho (commit bien formado + las dependencias
@@ -300,5 +316,6 @@ export function construirSalud(opciones: OpcionesSalud = {}): RespuestaSalud {
       : { credenciales_modelo_en_web: opciones.credencialesModeloEnWeb }),
     ...(opciones.fuentes === undefined ? {} : { fuentes: opciones.fuentes }),
     ...(opciones.relleno === undefined ? {} : { relleno: opciones.relleno }),
+    ...(opciones.google === undefined ? {} : { google: opciones.google }),
   };
 }
