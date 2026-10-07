@@ -35,6 +35,7 @@ textos viven en `src/lib/textos/` y un test los recorre contra estas reglas.
 - No se culpa al usuario ni se promete lo que no existe (papelera, recuperación).
 - Una lista sin datos nunca se queda muda: explica por qué y ofrece el siguiente paso.
 - Las ayudas y los errores no pasan de 140 caracteres.
+- El error de una acción lleva la clase `.mensaje-error` (borde izquierdo de 3 px en `--peligro-borde`, texto en `--peligro-texto` a tamaño base), nunca `.ayuda`. Solo una región `role="alert"` lo anuncia; si el mismo texto se repite en otra tarjeta, esa copia va con `aria-hidden="true"`.
 
 ## Números, fechas y horas
 

@@ -557,6 +557,18 @@ ol {
   opacity: 0.8;
 }
 
+/* Error de una acción (guardar una visita, cambiar una parada). No reutiliza
+   .ayuda: esa es pequeña y atenuada, y un fallo que pide volver a pulsar
+   tiene que leerse como fallo. El texto usa --peligro-texto y no
+   --peligro-borde porque este último no llega a 4.5:1 sobre --superficie. */
+.mensaje-error {
+  margin: 0;
+  padding-left: var(--espacio-2);
+  border-left: 3px solid var(--peligro-borde);
+  color: var(--peligro-texto);
+  font-size: var(--texto-base);
+}
+
 /* Aviso destacado: lo que hay que saber ANTES de actuar (el correo que va
    a hacer falta confirmar) o MIENTRAS SE ESPERA (que la dirección actual
    es la única forma de volver). Un solo mecanismo para los dos usos. */

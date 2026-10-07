@@ -170,7 +170,7 @@ export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, act
                   aria-busy={cambiando?.paradaId === parada.id ? "true" : undefined}
                 >
                   {cambiando?.paradaId === parada.id && <p role="status">Cambiando la parada…</p>}
-                  {error?.tipo === "cambio" && <p role="alert">{error.mensaje}</p>}
+                  {error?.tipo === "cambio" && <p role="alert" className="mensaje-error">{error.mensaje}</p>}
                   <p className="ayuda-alternativas">
                     Cambiar una parada crea una nueva versión del plan; podrás volver a la anterior desde esta misma lista.
                   </p>
@@ -243,7 +243,7 @@ export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, act
               onDesmarcar={() => onAlternarVisita(true)}
             />
           )}
-          {error?.tipo === "visita" && <p role="alert">{error.mensaje}</p>}
+          {error?.tipo === "visita" && <p role="alert" className="mensaje-error">{error.mensaje}</p>}
         </div>
       </li>
     </Fragment>

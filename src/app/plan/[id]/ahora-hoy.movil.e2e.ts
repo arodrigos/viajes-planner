@@ -1,6 +1,7 @@
 import { expect, test, type BrowserContext } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { comprobarAccesibilidad } from "@/app/axe-e2e";
+import { capturar } from "@/test-utils/capturas";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
@@ -151,6 +152,66 @@ test("antes del viaje no hay tarjeta Ahora ni botones de visita en ningún día 
     await expect(pagina.getByRole("region", { name: "Ahora" })).toHaveCount(0);
     await expect(pagina.getByRole("button", { name: "Marcar como visitada" })).toHaveCount(0);
   }
+
+  await contexto.close();
+});
+
+// err-ac1..ac3: si guardar la visita falla, el error se ve como error en las
+// dos tarjetas y se anuncia una sola vez.
+test("el error de visita se ve como error, se anuncia una vez y reintentar funciona (err-ac1, err-ac2, err-ac3)", async ({ browser }) => {
+  const email = "ci-test-ahora-error@example.com";
+  const planId = await sembrar(clienteDePrueba("servicio"), email, "d", true);
+  const { contexto, pagina } = await abrir(browser, email, planId, DURANTE);
+
+  // Falla solo la primera petición de visita; la segunda pasa a la API real.
+  let fallos = 0;
+  await pagina.route(`**/api/plan/${planId}/visitas`, async (ruta) => {
+    if (ruta.request().method() === "POST" && fallos === 0) {
+      fallos += 1;
+      await ruta.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "fallo" }) });
+    } else {
+      await ruta.continue();
+    }
+  });
+
+  const ahora = pagina.getByRole("region", { name: "Ahora" });
+  const boton = ahora.getByRole("button", { name: `Marcar como visitada: ${PARADAS[0].nombre}`, exact: true });
+  await boton.click();
+
+  // El anunciador de rutas de Next también es role=alert: se acota por texto.
+  const alertas = pagina.getByRole("alert").filter({ hasText: "No se ha podido guardar" });
+  await expect(alertas).toHaveCount(1);
+  await expect(alertas).toContainText("No se ha podido guardar la visita");
+  await expect(alertas).toHaveClass(/mensaje-error/);
+
+  const copia = ahora.locator(".mensaje-error");
+  await expect(copia).toHaveCount(1);
+  await expect(copia).toHaveAttribute("aria-hidden", "true");
+  await expect(copia).toHaveText(await alertas.innerText());
+  await expect(ahora.locator(".ayuda", { hasText: "No se ha podido guardar" })).toHaveCount(0);
+
+  // El color calculado es el del token de peligro, no el atenuado de .ayuda.
+  const colores = await pagina.evaluate(() => {
+    const sonda = document.createElement("span");
+    sonda.style.color = "var(--peligro-texto)";
+    document.body.append(sonda);
+    const token = getComputedStyle(sonda).color;
+    sonda.remove();
+    const copiaEl = document.querySelector(".tarjeta-ahora .mensaje-error");
+    return { token, copia: copiaEl ? getComputedStyle(copiaEl).color : "" };
+  });
+  expect(colores.copia).toBe(colores.token);
+  await comprobarAccesibilidad(pagina);
+  await capturar(pagina, "error-visita-ahora", "error-claro");
+  await pagina.emulateMedia({ colorScheme: "dark" });
+  await comprobarAccesibilidad(pagina);
+  await capturar(pagina, "error-visita-ahora", "error-oscuro");
+  await pagina.emulateMedia({ colorScheme: "light" });
+
+  await boton.click();
+  await expect(ahora).toContainText("1 de 3 visitadas");
+  await expect(alertas).toHaveCount(0);
+  await expect(ahora.locator(".mensaje-error")).toHaveCount(0);
 
   await contexto.close();
 });

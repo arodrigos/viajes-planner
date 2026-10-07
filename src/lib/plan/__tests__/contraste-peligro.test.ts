@@ -93,5 +93,14 @@ describe("tokens de peligro (tok-ac1, tok-ac2)", () => {
       const texto = leerToken(bloque, "peligro-texto");
       expect(ratioDeContraste(superficie, texto)).toBeGreaterThanOrEqual(4.5);
     });
+
+    // err-ac2: .mensaje-error pinta --peligro-texto sobre la superficie de la
+    // tarjeta; se audita el par que de verdad se ve, no solo el de fondo.
+    it(`${modo}: .mensaje-error usa --peligro-texto y --peligro-borde y el par cumple 4.5:1 (err-ac2)`, () => {
+      const regla = /\.mensaje-error\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+      expect(regla).toContain("color: var(--peligro-texto)");
+      expect(regla).toContain("border-left: 3px solid var(--peligro-borde)");
+      expect(ratioDeContraste(leerToken(bloque, "superficie"), leerToken(bloque, "peligro-texto"))).toBeGreaterThanOrEqual(4.5);
+    });
   }
 });
