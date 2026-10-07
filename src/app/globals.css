@@ -956,3 +956,15 @@ footer a,
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* ficha-google: el enlace dentro de una frase se distingue por el subrayado
+   (el color hereda y no basta); el de salida a Maps es un objetivo táctil
+   propio, como los de EnlacesParada. */
+.ficha-google a {
+  text-decoration: underline;
+}
+.ficha-google > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--objetivo-tactil);
+}
