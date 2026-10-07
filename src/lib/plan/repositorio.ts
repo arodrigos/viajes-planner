@@ -346,6 +346,18 @@ export async function reemplazarParadaEnNuevaVersion(supabase: SupabaseClient, p
   return { version: filaCopia.version };
 }
 
+// Paso de la lectura que falló: la respuesta 500 de /api/plan/[id] lo repite
+// para poder reproducir el fallo desde fuera, porque nadie del pipeline lee
+// los logs de la función.
+export type PasoLecturaPlan = "plan" | "version" | "paradas" | "alternativas" | "visitas" | "presentar";
+
+export class ErrorLecturaPlan extends Error {
+  constructor(readonly paso: PasoLecturaPlan, mensaje: string) {
+    super(mensaje);
+    this.name = "ErrorLecturaPlan";
+  }
+}
+
 export async function recuperarPlan(
   supabase: SupabaseClient,
   planId: string,
@@ -356,7 +368,7 @@ export async function recuperarPlan(
     .select("id, destino, ciudad")
     .eq("id", planId)
     .maybeSingle();
-  if (errorPlan) throw new Error(`No se pudo leer el plan: ${errorPlan.message}`);
+  if (errorPlan) throw new ErrorLecturaPlan("plan", `No se pudo leer el plan: ${errorPlan.message}`);
   if (!planRow) return null;
 
   let consultaVersion = supabase
@@ -368,7 +380,7 @@ export async function recuperarPlan(
       ? consultaVersion.order("version", { ascending: false }).limit(1)
       : consultaVersion.eq("version", version);
   const { data: versionRows, error: errorVersion } = await consultaVersion;
-  if (errorVersion) throw new Error(`No se pudo leer la versión del plan: ${errorVersion.message}`);
+  if (errorVersion) throw new ErrorLecturaPlan("version", `No se pudo leer la versión del plan: ${errorVersion.message}`);
   const versionRow = versionRows?.[0];
   if (!versionRow) return null;
 
@@ -377,7 +389,7 @@ export async function recuperarPlan(
     .select(COLUMNAS_PARADA)
     .eq("plan_version_id", versionRow.id)
     .order("dia_index", { ascending: true });
-  if (errorParadas) throw new Error(`No se pudieron leer las paradas: ${errorParadas.message}`);
+  if (errorParadas) throw new ErrorLecturaPlan("paradas", `No se pudieron leer las paradas: ${errorParadas.message}`);
 
   // alt-ac5: las alternativas se leen aparte, indexadas por el id INTERNO
   // de la parada (paradas.id, nunca id_externo -- es la clave real de la
@@ -390,12 +402,14 @@ export async function recuperarPlan(
           .select(COLUMNAS_ALTERNATIVA)
           .in("parada_id", idsParadas)
       : { data: [] as never[], error: null };
-  if (errorAlternativas) throw new Error(`No se pudieron leer las alternativas: ${errorAlternativas.message}`);
+  if (errorAlternativas) throw new ErrorLecturaPlan("alternativas", `No se pudieron leer las alternativas: ${errorAlternativas.message}`);
 
   // dest-ac4: a través de CUALQUIER versión de este plan, nunca solo de la
   // que se está leyendo -- es lo que hace que la marca sobreviva a una
   // sustitución (nueva versión, mismo id_externo).
-  const idsVisitados = await idsExternosVisitados(supabase, planId);
+  const idsVisitados = await idsExternosVisitados(supabase, planId).catch((fallo: unknown) => {
+    throw new ErrorLecturaPlan("visitas", fallo instanceof Error ? fallo.message : "error desconocido");
+  });
 
   const alternativasPorParadaId = new Map<string, Alternativa[]>();
   for (const fila of alternativaRows ?? []) {
