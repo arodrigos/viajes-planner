@@ -7,6 +7,27 @@ import { ABREVIATURAS_INTERNAS, empiezaEnMinuscula, sanearItems, terminaEnAbrevi
 import { curiosidadesSeguras } from "../seguridad";
 import { EXTRACTO_MUSEO } from "../__fixtures__/extractoMuseo";
 
+// Lineal ≈ 4 al cuadruplicar la entrada, cuadrático ≈ 16: 6 deja holgura al ruido
+// de un runner compartido sin dejar pasar una complejidad peor que lineal.
+const RAZON_MAXIMA = 6;
+
+function medianaMs(fn: (t: string) => unknown, texto: string): number {
+  const tiempos: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    const t0 = performance.now();
+    fn(texto);
+    tiempos.push(performance.now() - t0);
+  }
+  return tiempos.sort((a, b) => a - b)[2];
+}
+
+function razonDeEscalado(fn: (t: string) => unknown, pequeno: string, grande: string): number {
+  // Una ejecución descartada de cada tamaño: compila las regex y calienta el JIT.
+  fn(pequeno);
+  fn(grande);
+  return medianaMs(fn, grande) / Math.max(medianaMs(fn, pequeno), 0.01);
+}
+
 const item = (texto: string): ItemCuriosidad => ({ texto, fuente: "wikipedia", idioma: "en", seleccion: "modelo", url: "https://en.wikipedia.org/wiki/X" });
 const P571 = { propiedad: "P571" as const, anio: 1066 };
 
@@ -50,11 +71,26 @@ describe("cr-ac2: frasesDeTexto", () => {
       { numRuns: 50 },
     );
   });
-  it("200 kB con muchas iniciales y saltos de línea tardan menos de 200 ms (cr-ac4)", () => {
-    const texto = "John F. Kennedy visitó D.C. el año 1963 y el museo\nabrió sus puertas a las 9. Fue un gran día.\n".repeat(2800).slice(0, 200_000);
-    const t0 = performance.now();
-    frasesDeTexto(texto, "en");
-    expect(performance.now() - t0).toBeLessThan(200);
+  // Un umbral en milisegundos depende de la máquina (en CI rozaba 196 ms frente a
+  // 200): lo que se vigila es la forma del coste, no su valor absoluto.
+  it("el coste crece de forma lineal con el tamaño del texto (cr-ac4)", () => {
+    const bloque = "John F. Kennedy visitó D.C. el año 1963 y el museo\nabrió sus puertas a las 9. Fue un gran día.\n";
+    const texto = (n: number) => bloque.repeat(Math.ceil(n / bloque.length)).slice(0, n);
+    const razon = razonDeEscalado((t) => frasesDeTexto(t, "en"), texto(100_000), texto(400_000));
+    expect(razon).toBeLessThanOrEqual(RAZON_MAXIMA);
+  });
+  it("control: la medida rechaza una variante cuadrática", () => {
+    // Doble bucle sobre las líneas: lo que haría un deduplicado ingenuo. Se mide
+    // sola, sin frasesDeTexto, porque esta devuelve pocas frases y no sirve de base.
+    const cuadratica = (t: string) => {
+      const lineas = t.split("\n");
+      let iguales = 0;
+      for (const a of lineas) for (const b of lineas) if (a.length === b.length) iguales++;
+      return iguales;
+    };
+    const bloque = "Frase número uno del museo y su fachada principal.\n";
+    const texto = (n: number) => bloque.repeat(Math.ceil(n / bloque.length)).slice(0, n);
+    expect(razonDeEscalado(cuadratica, texto(100_000), texto(400_000))).toBeGreaterThan(RAZON_MAXIMA);
   });
 });
 

@@ -43,3 +43,4 @@ textos viven en `src/lib/textos/` y un test los recorre contra estas reglas.
 - Fechas en castellano con día de la semana: «mié 16 oct». Nunca la fecha ISO a la vista.
 - Horas locales del destino, en 24 horas: «11:15».
 - Todo importe pasa por `src/lib/formato/numeros.ts`.
+- Los rangos de viaje («3–5 oct 2026», «28 sept – 2 oct 2026») salen de una tabla propia de meses en `src/lib/viajes/presentar.ts`, no de `Intl.DateTimeFormat.formatRange`: así el texto es idéntico en servidor y navegador y septiembre es «sept». El test `src/lib/viajes/__tests__/presentar.test.ts` lo fija; se vuelve a `formatRange` si ambos entornos comparten ICU y da «sept».

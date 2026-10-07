@@ -67,6 +67,12 @@ function partes(t: number) {
   return { dia: f.getUTCDate(), mes: MESES[f.getUTCMonth()], anio: f.getUTCFullYear() };
 }
 
+// Desviación declarada de Intl.DateTimeFormat.formatRange (diseño del pulido):
+// 1) Motivo: el texto tiene que ser idéntico en servidor y navegador aunque sus
+//    datos ICU difieran (evita avisos de hidratación), y formatRange escribe
+//    «sep» donde la RAE da «sept».
+// 2) Lo fija la tabla de salidas de src/lib/viajes/__tests__/presentar.test.ts.
+// 3) Se vuelve a formatRange si ambos entornos comparten ICU y da «sept».
 export function formatearRangoViaje(inicio: string, fin: string | null): string {
   const ti = aDiaUTC(inicio);
   if (ti === null) return sinISO(inicio);
