@@ -450,6 +450,10 @@ jobs:
             supabase db reset
             npx playwright test --project=movil --retries=0 infografia-previa tramos.movil alternativas.movil
           done
+      # cap-ac1: una captura declarada que no se produjo pone el job en rojo;
+      # el artefacto se sube igualmente (if: always()) para ver qué sí salió.
+      - name: comprobar capturas
+        run: npm run comprobar:capturas
       # inf-ac2: las dos láminas de ejemplo se publican junto a las capturas.
       - run: npm run generar:infografia-ejemplo
       # visual-ac1/pantalla-ac9: el gatekeeper juzga estas capturas (issue

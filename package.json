@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "test:e2e": "playwright test",
+    "comprobar:capturas": "tsx scripts/comprobar-capturas.mjs",
     "verificar:esqueleto": "bash scripts/verificar-esqueleto.sh",
     "trabajador:tick": "tsx --conditions=react-server scripts/trabajador-tick.ts",
     "generar:infografia-ejemplo": "tsx --conditions=react-server scripts/generar-infografia-ejemplo.ts",
