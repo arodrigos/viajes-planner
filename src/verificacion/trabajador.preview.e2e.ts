@@ -6,6 +6,9 @@ import { planDePrueba } from "./entorno";
 // el plan real que acaba de generar. El detalle tick a tick lo cubre el job
 // persistencia del CI (barrido.integration.test.ts y guardarPlan.integration.test.ts).
 test("pv-trabajador: cp-cc-03, cp-alg-03, cp-cur-04 y cp-alr-01 sobre el plan real", async ({ page }) => {
+  // Diez días a 3–5 s de carga cada uno más abrir los paneles de cada parada
+  // no caben en los 30 s por defecto.
+  test.setTimeout(900_000);
   const errores: string[] = [];
   page.on("console", (m) => {
     if (m.type() === "error") errores.push(m.text());
@@ -30,7 +33,11 @@ test("pv-trabajador: cp-cc-03, cp-alg-03, cp-cur-04 y cp-alr-01 sobre el plan re
       const esComprobada = (await t.locator(".procedencia-sin-comprobar").count()) === 0;
       // cp-alr-01: todas las paradas tienen su panel de consejos y, si no hay
       // alternativas, simplemente no lo tienen: nunca una tarjeta rota.
-      await expect(t.locator("summary", { hasText: /^Consejos y curiosidades/ }), nombre).toHaveCount(1);
+      const panelConsejos = t.locator("summary", { hasText: /^Consejos y curiosidades/ });
+      await expect(panelConsejos, nombre).toHaveCount(1);
+      // Los pasos del caso piden abrir el panel: cerrado, sus enlaces y
+      // consejos no son visibles ni medibles.
+      await panelConsejos.click();
 
       // cp-cc-03: ningún consejo acaba en «…» por un corte a 400 caracteres.
       for (const c of await t.getByTestId("consejo-guia").all()) {
@@ -42,6 +49,7 @@ test("pv-trabajador: cp-cc-03, cp-alg-03, cp-cur-04 y cp-alr-01 sobre el plan re
       comprobadas += 1;
       if ((await t.locator("summary", { hasText: /^Alternativas \([1-9]\d*\)$/ }).count()) > 0) {
         conAlternativas += 1;
+        await t.locator("summary", { hasText: /^Alternativas/ }).click();
         const nombres = await t.locator(".tarjeta-alternativa strong").allInnerTexts();
         if (new Set(nombres.map((x) => x.trim())).size !== nombres.length) listasConRepetidos.push(nombre);
       }

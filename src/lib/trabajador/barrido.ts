@@ -134,7 +134,12 @@ async function insertarCercanos(
       !mismasCoordenadas({ lat, lon }, cercano),
   );
   const etiqueta = ETIQUETA_OSM_POR_CATEGORIA[categoria];
-  const elegidos = ajenos.slice(0, MAXIMO_CERCANOS);
+  // Defensa en profundidad: aunque la marca de intento se pierda, nunca se
+  // insertan dos alternativas con el mismo nombre en una parada.
+  const { data: guardadas, error: errorGuardadas } = await supabase.from("paradas_alternativas").select("nombre").eq("parada_id", fila.id);
+  if (errorGuardadas) throw new Error(errorGuardadas.message);
+  const yaPuestas = new Set(((guardadas ?? []) as { nombre: string }[]).map((a) => a.nombre.trim().toLowerCase()));
+  const elegidos = ajenos.filter((cercano) => !yaPuestas.has(cercano.nombre.trim().toLowerCase())).slice(0, MAXIMO_CERCANOS);
   for (const cercano of elegidos) {
     const distanciaM = distanciaMetros({ lat, lon }, cercano);
     const lugar: Lugar = {

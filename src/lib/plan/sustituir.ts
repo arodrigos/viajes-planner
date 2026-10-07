@@ -12,10 +12,19 @@ import type { Alternativa, Parada } from "./tipos";
 const MAXIMO_ALTERNATIVAS = 3;
 
 // alc-ac1: la parada nueva conserva las alternativas no elegidas (en su
-// orden) y la sustituida va al final; el tope es el mismo de siempre, así
-// que con 3 alternativas se recorta la última, nunca se llega a 4.
+// orden) y la sustituida va siempre al final. El recorte se hace ANTES de
+// añadirla: recortar después descartaba justo la sustituida cuando había 4 o
+// más alternativas y el usuario ya no podía deshacer el cambio. Sin nombres
+// repetidos, para no arrastrar los duplicados de versiones anteriores.
 export function heredarAlternativas(actuales: Alternativa[], elegida: Alternativa, sustituida: Alternativa): Alternativa[] {
-  return [...actuales.filter((alternativa) => alternativa !== elegida), sustituida].slice(0, MAXIMO_ALTERNATIVAS);
+  const vistos = new Set<string>([sustituida.nombre.trim().toLowerCase()]);
+  const conservadas = actuales.filter((alternativa) => {
+    const clave = alternativa.nombre.trim().toLowerCase();
+    if (alternativa === elegida || vistos.has(clave)) return false;
+    vistos.add(clave);
+    return true;
+  });
+  return [...conservadas.slice(0, MAXIMO_ALTERNATIVAS - 1), sustituida];
 }
 
 // Pura y exportada para poder probar las invariantes de la herencia con

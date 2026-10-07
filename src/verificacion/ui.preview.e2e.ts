@@ -1,13 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { abrirOpciones } from "../app/plan/[id]/opciones-e2e";
+import { FACTOR_CALLE, UMBRAL_A_PIE_FAMILIAR_KM, UMBRAL_A_PIE_RESTO_KM } from "../lib/plan/tramos";
 import { ANCHO_MOVIL, DIAS_PLAN_PRUEBA, FIRMA_PNG, abrirDia, haversineKm, pngDimensiones } from "./ayudas";
 import { DIRECTORIO, planDePrueba } from "./entorno";
 
 // Las expectativas son estructurales (el plan lo genera el trabajador real y
 // no es determinista); los goldens exactos siguen en el CI.
-test.describe.configure({ mode: "serial" });
-
 test.beforeEach(async ({ page }) => {
   // El camino de descarga es el que se comprueba: sin navigator.share.
   await page.addInitScript(() => {
@@ -165,14 +164,23 @@ test("pv-tra-02: cada tramo muestra minutos y km coherentes con la distancia rea
     const [oLat, oLon] = q.get("origin")!.split(",").map(Number);
     const [dLat, dLon] = q.get("destination")!.split(",").map(Number);
     const recto = haversineKm({ lat: oLat, lon: oLon }, { lat: dLat, lon: dLon });
-    // Estimación por línea recta con un factor de rodeo: el caso pide menos de un 5 % de diferencia.
-    // El km del texto va redondeado a una decimal: en tramos cortos esa décima
-    // pesa más del 5 %, así que se admite también el propio redondeo.
-    expect(Math.abs(km - recto), `${texto} vs ${recto.toFixed(2)} km`).toBeLessThanOrEqual(Math.max(0.05 * recto, 0.06));
-    if (km > 1.6) expect(href).toContain("travelmode=transit");
-    if (km < 1.4) expect(href).toContain("travelmode=walking");
+    // El producto muestra a propósito la línea recta × FACTOR_CALLE (tramos-dia):
+    // el caso pide menos de un 5 % de diferencia con esa estimación. El km del
+    // texto va redondeado a una decimal: en tramos cortos esa décima pesa más
+    // del 5 %, así que se admite también el propio redondeo.
+    const estimado = recto * FACTOR_CALLE;
+    expect(Math.abs(km - estimado), `${texto} vs ${estimado.toFixed(2)} km`).toBeLessThanOrEqual(Math.max(0.05 * estimado, 0.06));
+    // Se exige solo lo que vale para cualquier perfil: por encima del umbral
+    // a pie más alto va en transporte y por debajo del más bajo, a pie.
+    if (km > UMBRAL_A_PIE_RESTO_KM) expect(href).toMatch(/travelmode=(transit|driving)/);
+    if (km <= UMBRAL_A_PIE_FAMILIAR_KM) expect(href).toContain("travelmode=walking");
   }
 });
+
+// pv-alg-02 parte de la parada que deja pv-alr-02: solo estos dos van en serie,
+// para que un fallo ajeno no impida ejecutarlos.
+test.describe("sustitución de paradas", () => {
+test.describe.configure({ mode: "serial" });
 
 let paradaCambiada: { dia: number; original: string; nueva: string } | null = null;
 
@@ -222,6 +230,8 @@ test("pv-alg-02: la parada nueva sigue siendo completa y se puede volver a la an
   await expect(page.locator("li.tarjeta-parada h4", { hasText: original }).first()).toBeVisible({ timeout: 30_000 });
   const ms = (await page.evaluate(() => performance.now())) - inicio;
   expect(ms).toBeLessThan(5_000);
+});
+
 });
 
 test("pv-cur-03: las curiosidades traen enlace verificable, su fuente y el idioma marcado (cp-cur-03)", async ({ page }) => {

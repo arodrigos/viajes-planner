@@ -129,6 +129,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
         curiosidades: parada.curiosidades ?? null,
         guia_intentada_en: parada.guia_intentada_en ?? null,
         guia_formato: parada.guia_formato ?? null,
+        alternativas_intentadas_en: parada.alternativas_intentadas_en ?? null,
       });
 
       // alt-ac3: solo las alternativas que ya pasaron el filtro de
@@ -138,7 +139,13 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
       // sustituir.ts convierte en alternativa puede no tenerla si el modelo
       // nunca la dio), pero la columna es NOT NULL: mismo "otro" de reserva
       // que ya usa el enum para la parada sin categoría.
+      // Sin nombres repetidos por parada: los planes ya duplicados por el
+      // defecto anterior se limpian solos en su siguiente versión.
+      const nombresVistos = new Set<string>();
       for (const alternativa of parada.alternativas ?? []) {
+        const clave = alternativa.nombre.trim().toLowerCase();
+        if (nombresVistos.has(clave)) continue;
+        nombresVistos.add(clave);
         filasAlternativas.push({
           parada_id: paradaId,
           origen: alternativa.origen,
@@ -215,7 +222,7 @@ export async function recuperarPlan(
   const { data: paradaRows, error: errorParadas } = await supabase
     .from("paradas")
     .select(
-      "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, guia_formato, procedencias(fuente)",
+      "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, guia_formato, alternativas_intentadas_en, procedencias(fuente)",
     )
     .eq("plan_version_id", versionRow.id)
     .order("dia_index", { ascending: true });
@@ -311,6 +318,7 @@ export async function recuperarPlan(
           ...(typeof fila.guia_formato === "number" ? { guia_formato: fila.guia_formato } : {}),
           ...(curiosidadesSegurasDe(fila.curiosidades as Parada["curiosidades"])),
           ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
+          ...(fila.alternativas_intentadas_en ? { alternativas_intentadas_en: fila.alternativas_intentadas_en as string } : {}),
           ...(idsVisitados.has(fila.id_externo as string) ? { visitada: true } : {}),
         };
       });

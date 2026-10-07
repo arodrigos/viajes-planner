@@ -43,18 +43,31 @@ test("pv-alg-01: sustituir una parada y deshacerlo deja el plan como estaba (cp-
   const parada = original!;
   const guardado = antes.dias.flatMap((d) => d.paradas).map(contenido);
 
-  const sustituir = await request.post(`/api/plan/${id}/paradas/${parada.id}/sustituir`, { data: { alternativa_id: parada.alternativas![0].id } });
-  expect(sustituir.ok()).toBe(true);
+  // El plan de prueba es compartido: si el caso falla a media sustitución, el
+  // finally devuelve la parada original para no dejar el plan alterado.
+  let sustituida = false;
+  try {
+    const sustituir = await request.post(`/api/plan/${id}/paradas/${parada.id}/sustituir`, { data: { alternativa_id: parada.alternativas![0].id } });
+    expect(sustituir.ok()).toBe(true);
+    sustituida = true;
 
-  const intermedio = (await leerPlan(request)).dias.flatMap((d) => d.paradas).find((p) => p.id === parada.id)!;
-  expect(intermedio.nombre).toBe(parada.alternativas![0].nombre);
-  // Heredaba la guía de la alternativa, no el motivo ni el coste de la sustituida.
-  if (parada.motivo) expect(intermedio.motivo).not.toBe(parada.motivo);
+    const intermedio = (await leerPlan(request)).dias.flatMap((d) => d.paradas).find((p) => p.id === parada.id)!;
+    expect(intermedio.nombre).toBe(parada.alternativas![0].nombre);
+    // Heredaba la guía de la alternativa, no el motivo ni el coste de la sustituida.
+    if (parada.motivo) expect(intermedio.motivo).not.toBe(parada.motivo);
 
-  const vuelta = intermedio.alternativas?.find((a) => a.nombre === parada.nombre);
-  expect(vuelta?.id, "la parada sustituida no está entre las alternativas de la nueva: no se puede volver").toBeTruthy();
-  const deshacer = await request.post(`/api/plan/${id}/paradas/${parada.id}/sustituir`, { data: { alternativa_id: vuelta!.id } });
-  expect(deshacer.ok()).toBe(true);
+    const vuelta = intermedio.alternativas?.find((a) => a.nombre === parada.nombre);
+    expect(vuelta?.id, "la parada sustituida no está entre las alternativas de la nueva: no se puede volver").toBeTruthy();
+    const deshacer = await request.post(`/api/plan/${id}/paradas/${parada.id}/sustituir`, { data: { alternativa_id: vuelta!.id } });
+    expect(deshacer.ok()).toBe(true);
+    sustituida = false;
+  } finally {
+    if (sustituida) {
+      const actual = (await leerPlan(request)).dias.flatMap((d) => d.paradas).find((p) => p.id === parada.id);
+      const vuelta = actual?.alternativas?.find((a) => a.nombre === parada.nombre);
+      if (vuelta?.id) await request.post(`/api/plan/${id}/paradas/${parada.id}/sustituir`, { data: { alternativa_id: vuelta.id } });
+    }
+  }
 
   const despues = (await leerPlan(request)).dias.flatMap((d) => d.paradas).map(contenido);
   expect(despues).toEqual(guardado);
