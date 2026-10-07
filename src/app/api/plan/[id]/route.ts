@@ -22,7 +22,16 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   const trabajo = await trabajoDelPlan(supabase, id, sesion.usuarioId);
   if (!trabajo) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
 
-  const plan = await recuperarPlan(supabase, id);
+  // Un plan que no se puede leer deja la vista en «Cargando…» para siempre:
+  // el mensaje de la causa (sin datos del plan) va al log de la función, que
+  // es lo único que permite diagnosticarlo después.
+  let plan;
+  try {
+    plan = await recuperarPlan(supabase, id);
+  } catch (fallo) {
+    console.error("GET /api/plan: no se pudo leer el plan:", fallo instanceof Error ? fallo.message : "error desconocido");
+    return NextResponse.json({ error: "no se pudo leer el plan" }, { status: 500 });
+  }
   if (!plan) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
 
   // reg-ac4: mientras la regeneración está en vuelo, la versión anterior
@@ -30,5 +39,10 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   // de que se va a sustituir, con el enlace a la pantalla de progreso.
   const regenerando = trabajo.regenerado_en !== null && ESTADOS_EN_VUELO.includes(trabajo.estado);
 
-  return NextResponse.json({ ...aPlanPublico(plan, trabajo.perfil, trabajo.presupuesto_eur, trabajo.transporte), regenerando, trabajoId: trabajo.id });
+  try {
+    return NextResponse.json({ ...aPlanPublico(plan, trabajo.perfil, trabajo.presupuesto_eur, trabajo.transporte), regenerando, trabajoId: trabajo.id });
+  } catch (fallo) {
+    console.error("GET /api/plan: no se pudo presentar el plan:", fallo instanceof Error ? fallo.message : "error desconocido");
+    return NextResponse.json({ error: "no se pudo leer el plan" }, { status: 500 });
+  }
 }

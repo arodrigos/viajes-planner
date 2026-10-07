@@ -38,6 +38,57 @@ async function retirarVersionIncompleta(supabase: SupabaseClient, planVersionId:
   if (procedenciaIds.length > 0) await supabase.from("procedencias").delete().in("id", procedenciaIds);
 }
 
+// Columnas de una parada que dependen de su contenido (no de su sitio en la
+// versión): las comparten guardarPlan y la sustitución, para que una parada
+// retocada se escriba igual que una guardada entera.
+export function camposDeParada(parada: Parada): Record<string, unknown> {
+  return {
+    nombre: parada.nombre,
+    descripcion: parada.descripcion,
+    lat: parada.coordenadas?.lat ?? null,
+    lon: parada.coordenadas?.lon ?? null,
+    duracion_min: parada.duracion_min,
+    prioridad: parada.prioridad,
+    categoria: parada.categoria ?? null,
+    lugar: parada.lugar ?? null,
+    foto: fotoSegura(parada.foto) ?? null,
+    resolucion: parada.resolucion ?? null,
+    foto_intentada_en: parada.foto_intentada_en ?? null,
+    motivo: parada.motivo ?? null,
+    coste: parada.coste ?? null,
+    guia: parada.guia ?? null,
+    curiosidades: parada.curiosidades ?? null,
+    guia_intentada_en: parada.guia_intentada_en ?? null,
+    guia_formato: parada.guia_formato ?? null,
+    alternativas_intentadas_en: parada.alternativas_intentadas_en ?? null,
+  };
+}
+
+// `categoria` es opcional en el tipo (la parada sustituida que sustituir.ts
+// convierte en alternativa puede no tenerla) pero la columna es NOT NULL:
+// mismo "otro" de reserva que usa el enum para la parada sin categoría.
+export function filaDeAlternativa(alternativa: Alternativa, paradaId: string): Record<string, unknown> {
+  return {
+    parada_id: paradaId,
+    origen: alternativa.origen,
+    nombre: alternativa.nombre,
+    descripcion: alternativa.descripcion,
+    motivo: alternativa.motivo,
+    duracion_min: alternativa.duracion_min,
+    categoria: alternativa.categoria ?? "otro",
+    lat: alternativa.coordenadas?.lat ?? null,
+    lon: alternativa.coordenadas?.lon ?? null,
+    lugar: alternativa.lugar ?? null,
+    foto: fotoSegura(alternativa.foto) ?? null,
+    guia: alternativa.guia ?? null,
+    curiosidades: alternativa.curiosidades ?? null,
+    guia_intentada_en: alternativa.guia_intentada_en ?? null,
+    guia_formato: alternativa.guia_formato ?? null,
+    motivo_parada: alternativa.motivo_parada ?? null,
+    coste_parada: alternativa.coste_parada ?? null,
+  };
+}
+
 export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise<{ version: number }> {
   // ciu-ac1: `ciudad` solo se incluye en el upsert cuando el plan la trae
   // -- omitir la clave (en vez de escribir null) deja intacta la ciudad ya
@@ -111,25 +162,8 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
         plan_version_id: planVersionId,
         dia_index: diaIndex,
         franja_id: parada.franja_id,
-        nombre: parada.nombre,
-        descripcion: parada.descripcion,
-        lat: parada.coordenadas?.lat ?? null,
-        lon: parada.coordenadas?.lon ?? null,
-        duracion_min: parada.duracion_min,
-        prioridad: parada.prioridad,
         procedencia_id: procedenciaId,
-        categoria: parada.categoria ?? null,
-        lugar: parada.lugar ?? null,
-        foto: fotoSegura(parada.foto) ?? null,
-        resolucion: parada.resolucion ?? null,
-        foto_intentada_en: parada.foto_intentada_en ?? null,
-        motivo: parada.motivo ?? null,
-        coste: parada.coste ?? null,
-        guia: parada.guia ?? null,
-        curiosidades: parada.curiosidades ?? null,
-        guia_intentada_en: parada.guia_intentada_en ?? null,
-        guia_formato: parada.guia_formato ?? null,
-        alternativas_intentadas_en: parada.alternativas_intentadas_en ?? null,
+        ...camposDeParada(parada),
       });
 
       // alt-ac3: solo las alternativas que ya pasaron el filtro de
@@ -146,23 +180,7 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
         const clave = alternativa.nombre.trim().toLowerCase();
         if (nombresVistos.has(clave)) continue;
         nombresVistos.add(clave);
-        filasAlternativas.push({
-          parada_id: paradaId,
-          origen: alternativa.origen,
-          nombre: alternativa.nombre,
-          descripcion: alternativa.descripcion,
-          motivo: alternativa.motivo,
-          duracion_min: alternativa.duracion_min,
-          categoria: alternativa.categoria ?? "otro",
-          lat: alternativa.coordenadas?.lat ?? null,
-          lon: alternativa.coordenadas?.lon ?? null,
-          lugar: alternativa.lugar ?? null,
-          foto: fotoSegura(alternativa.foto) ?? null,
-          guia: alternativa.guia ?? null,
-          curiosidades: alternativa.curiosidades ?? null,
-          guia_intentada_en: alternativa.guia_intentada_en ?? null,
-          guia_formato: alternativa.guia_formato ?? null,
-        });
+        filasAlternativas.push(filaDeAlternativa(alternativa, paradaId));
       }
     }
   }
@@ -193,6 +211,141 @@ export async function guardarPlan(supabase: SupabaseClient, plan: Plan): Promise
   return { version: siguienteVersion };
 }
 
+export const COLUMNAS_ALTERNATIVA =
+  "id, parada_id, origen, nombre, descripcion, motivo, duracion_min, categoria, lat, lon, lugar, foto, guia, curiosidades, guia_intentada_en, guia_formato, motivo_parada, coste_parada";
+
+export function alternativaDeFila(fila: Record<string, unknown>): Alternativa {
+  const lat = fila.lat as number | null;
+  const lon = fila.lon as number | null;
+  return {
+    id: fila.id as string,
+    nombre: fila.nombre as string,
+    descripcion: fila.descripcion as string,
+    motivo: fila.motivo as string,
+    duracion_min: fila.duracion_min as number,
+    categoria: fila.categoria as Alternativa["categoria"],
+    origen: fila.origen as Alternativa["origen"],
+    ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
+    ...(fila.lugar ? { lugar: fila.lugar as Lugar } : {}),
+    ...(fotoSegura(fila.foto as Alternativa["foto"]) ? { foto: fila.foto as Alternativa["foto"] } : {}),
+    ...(guiaSegura(fila.guia as Alternativa["guia"]) ? { guia: fila.guia as Alternativa["guia"] } : {}),
+    ...(curiosidadesSegurasDe(fila.curiosidades as Alternativa["curiosidades"])),
+    ...(fila.guia_intentada_en ? { guia_intentada_en: fila.guia_intentada_en as string } : {}),
+    ...(typeof fila.guia_formato === "number" ? { guia_formato: fila.guia_formato } : {}),
+    ...(fila.motivo_parada ? { motivo_parada: fila.motivo_parada as string } : {}),
+    ...(fila.coste_parada ? { coste_parada: fila.coste_parada as Alternativa["coste_parada"] } : {}),
+  };
+}
+
+export const COLUMNAS_PARADA =
+  "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, guia_formato, alternativas_intentadas_en, procedencias(fuente)";
+
+export function paradaDeFila(fila: Record<string, unknown>, alternativas: Alternativa[] | undefined, visitada: boolean): Parada {
+  const lat = fila.lat as number | null;
+  const lon = fila.lon as number | null;
+  const lugar = fila.lugar as Lugar | null;
+  // lug-ac1: la procedencia PÚBLICA se deriva aquí a partir de
+  // `lugar`, nunca de la tabla `procedencias` (su CHECK solo admite
+  // 'propuesto-sin-verificar': ver el porqué en tipos.ts).
+  const procedencia: Procedencia = lugar ? { fuente: lugar.fuente, url: lugar.url } : { fuente: "propuesto-sin-verificar" };
+  return {
+    id: fila.id_externo as string,
+    franja_id: fila.franja_id as string,
+    nombre: fila.nombre as string,
+    descripcion: fila.descripcion as string,
+    duracion_min: fila.duracion_min as number,
+    prioridad: fila.prioridad as number,
+    procedencia,
+    ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
+    ...(fila.categoria ? { categoria: fila.categoria as Parada["categoria"] } : {}),
+    ...(lugar ? { lugar } : {}),
+    ...(fotoSegura(fila.foto as Parada["foto"]) ? { foto: fila.foto as Parada["foto"] } : {}),
+    ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
+    ...(fila.motivo ? { motivo: fila.motivo as string } : {}),
+    ...(fila.coste ? { coste: fila.coste as Parada["coste"] } : {}),
+    ...(guiaSegura(fila.guia as Parada["guia"]) ? { guia: fila.guia as Parada["guia"] } : {}),
+    ...(fila.guia_intentada_en ? { guia_intentada_en: fila.guia_intentada_en as string } : {}),
+    ...(typeof fila.guia_formato === "number" ? { guia_formato: fila.guia_formato } : {}),
+    ...(curiosidadesSegurasDe(fila.curiosidades as Parada["curiosidades"])),
+    ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
+    ...(fila.alternativas_intentadas_en ? { alternativas_intentadas_en: fila.alternativas_intentadas_en as string } : {}),
+    ...(visitada ? { visitada: true } : {}),
+  };
+}
+
+// Última versión de un plan con UNA parada y sus alternativas, para
+// sustituir sin leer el plan entero (54 paradas y 134 alternativas tardaban
+// segundos en cruzar PostgREST dos veces).
+export async function recuperarParadaActual(supabase: SupabaseClient, planId: string, idExterno: string): Promise<Parada | null> {
+  const { data: versiones, error: errorVersion } = await supabase
+    .from("plan_versiones")
+    .select("id")
+    .eq("plan_id", planId)
+    .order("version", { ascending: false })
+    .limit(1);
+  if (errorVersion) throw new Error(`No se pudo leer la versión del plan: ${errorVersion.message}`);
+  const versionId = versiones?.[0]?.id as string | undefined;
+  if (!versionId) return null;
+
+  const { data: filas, error: errorParada } = await supabase
+    .from("paradas")
+    .select(COLUMNAS_PARADA)
+    .eq("plan_version_id", versionId)
+    .eq("id_externo", idExterno)
+    .limit(1);
+  if (errorParada) throw new Error(`No se pudo leer la parada: ${errorParada.message}`);
+  const fila = filas?.[0] as unknown as Record<string, unknown> | undefined;
+  if (!fila) return null;
+
+  const { data: alternativas, error: errorAlternativas } = await supabase
+    .from("paradas_alternativas")
+    .select(COLUMNAS_ALTERNATIVA)
+    .eq("parada_id", fila.id as string);
+  if (errorAlternativas) throw new Error(`No se pudieron leer las alternativas: ${errorAlternativas.message}`);
+  return paradaDeFila(fila, ((alternativas ?? []) as unknown as Record<string, unknown>[]).map(alternativaDeFila), false);
+}
+
+// Versión nueva = copia hecha en la base (clonar_version_plan) con una sola
+// parada reescrita. Si el retoque falla, la copia se retira entera: recuperarPlan
+// sirve siempre la versión más reciente y no puede quedarse en una a medias.
+export async function reemplazarParadaEnNuevaVersion(supabase: SupabaseClient, planId: string, parada: Parada): Promise<{ version: number }> {
+  const { data: copia, error: errorCopia } = await supabase.rpc("clonar_version_plan", { p_plan_id: planId });
+  const filaCopia = (copia as { version: number; plan_version_id: string }[] | null)?.[0];
+  if (errorCopia || !filaCopia) throw new Error(`No se pudo copiar la versión del plan: ${errorCopia?.message ?? "sin versión previa"}`);
+
+  try {
+    const { data: actualizadas, error: errorParada } = await supabase
+      .from("paradas")
+      .update(camposDeParada(parada))
+      .eq("plan_version_id", filaCopia.plan_version_id)
+      .eq("id_externo", parada.id)
+      .select("id");
+    const paradaId = actualizadas?.[0]?.id as string | undefined;
+    if (errorParada || !paradaId) throw new Error(`No se pudo reescribir la parada: ${errorParada?.message ?? "no está en la copia"}`);
+
+    const { error: errorBorrado } = await supabase.from("paradas_alternativas").delete().eq("parada_id", paradaId);
+    if (errorBorrado) throw new Error(`No se pudieron retirar las alternativas: ${errorBorrado.message}`);
+    const nombresVistos = new Set<string>();
+    const filas = (parada.alternativas ?? [])
+      .filter((a) => {
+        const clave = a.nombre.trim().toLowerCase();
+        if (nombresVistos.has(clave)) return false;
+        nombresVistos.add(clave);
+        return true;
+      })
+      .map((a) => filaDeAlternativa(a, paradaId));
+    if (filas.length > 0) {
+      const { error: errorInsertar } = await supabase.from("paradas_alternativas").insert(filas);
+      if (errorInsertar) throw new Error(`No se pudieron guardar las alternativas: ${errorInsertar.message}`);
+    }
+  } catch (fallo) {
+    const { data: paradas } = await supabase.from("paradas").select("procedencia_id").eq("plan_version_id", filaCopia.plan_version_id);
+    await retirarVersionIncompleta(supabase, filaCopia.plan_version_id, (paradas ?? []).map((p) => p.procedencia_id as string));
+    throw fallo;
+  }
+  return { version: filaCopia.version };
+}
+
 export async function recuperarPlan(
   supabase: SupabaseClient,
   planId: string,
@@ -221,9 +374,7 @@ export async function recuperarPlan(
 
   const { data: paradaRows, error: errorParadas } = await supabase
     .from("paradas")
-    .select(
-      "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, guia_formato, alternativas_intentadas_en, procedencias(fuente)",
-    )
+    .select(COLUMNAS_PARADA)
     .eq("plan_version_id", versionRow.id)
     .order("dia_index", { ascending: true });
   if (errorParadas) throw new Error(`No se pudieron leer las paradas: ${errorParadas.message}`);
@@ -236,7 +387,7 @@ export async function recuperarPlan(
     idsParadas.length > 0
       ? await supabase
           .from("paradas_alternativas")
-          .select("id, parada_id, origen, nombre, descripcion, motivo, duracion_min, categoria, lat, lon, lugar, foto, guia, curiosidades, guia_intentada_en, guia_formato")
+          .select(COLUMNAS_ALTERNATIVA)
           .in("parada_id", idsParadas)
       : { data: [] as never[], error: null };
   if (errorAlternativas) throw new Error(`No se pudieron leer las alternativas: ${errorAlternativas.message}`);
@@ -248,24 +399,7 @@ export async function recuperarPlan(
 
   const alternativasPorParadaId = new Map<string, Alternativa[]>();
   for (const fila of alternativaRows ?? []) {
-    const lat = fila.lat as number | null;
-    const lon = fila.lon as number | null;
-    const alternativa: Alternativa = {
-      id: fila.id as string,
-      nombre: fila.nombre as string,
-      descripcion: fila.descripcion as string,
-      motivo: fila.motivo as string,
-      duracion_min: fila.duracion_min as number,
-      categoria: fila.categoria as Alternativa["categoria"],
-      origen: fila.origen as Alternativa["origen"],
-      ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
-      ...(fila.lugar ? { lugar: fila.lugar as Lugar } : {}),
-      ...(fotoSegura(fila.foto as Alternativa["foto"]) ? { foto: fila.foto as Alternativa["foto"] } : {}),
-      ...(guiaSegura(fila.guia as Alternativa["guia"]) ? { guia: fila.guia as Alternativa["guia"] } : {}),
-      ...(curiosidadesSegurasDe(fila.curiosidades as Alternativa["curiosidades"])),
-      ...(fila.guia_intentada_en ? { guia_intentada_en: fila.guia_intentada_en as string } : {}),
-      ...(typeof fila.guia_formato === "number" ? { guia_formato: fila.guia_formato } : {}),
-    };
+    const alternativa = alternativaDeFila(fila);
     const listaExistente = alternativasPorParadaId.get(fila.parada_id as string) ?? [];
     listaExistente.push(alternativa);
     alternativasPorParadaId.set(fila.parada_id as string, listaExistente);
@@ -289,39 +423,7 @@ export async function recuperarPlan(
         if (ordenA !== ordenB) return ordenA - ordenB;
         return (a.id_externo as string).localeCompare(b.id_externo as string);
       })
-      .map((fila) => {
-        const lat = fila.lat as number | null;
-        const lon = fila.lon as number | null;
-        const lugar = fila.lugar as Lugar | null;
-        // lug-ac1: la procedencia PÚBLICA se deriva aquí a partir de
-        // `lugar`, nunca de la tabla `procedencias` (su CHECK solo admite
-        // 'propuesto-sin-verificar': ver el porqué en tipos.ts).
-        const procedencia: Procedencia = lugar ? { fuente: lugar.fuente, url: lugar.url } : { fuente: "propuesto-sin-verificar" };
-        const alternativas = alternativasPorParadaId.get(fila.id as string);
-        return {
-          id: fila.id_externo as string,
-          franja_id: fila.franja_id as string,
-          nombre: fila.nombre as string,
-          descripcion: fila.descripcion as string,
-          duracion_min: fila.duracion_min as number,
-          prioridad: fila.prioridad as number,
-          procedencia,
-          ...(lat !== null && lon !== null ? { coordenadas: { lat, lon } } : {}),
-          ...(fila.categoria ? { categoria: fila.categoria as Parada["categoria"] } : {}),
-          ...(lugar ? { lugar } : {}),
-          ...(fotoSegura(fila.foto as Parada["foto"]) ? { foto: fila.foto as Parada["foto"] } : {}),
-          ...(fila.resolucion ? { resolucion: fila.resolucion as Parada["resolucion"] } : {}),
-          ...(fila.motivo ? { motivo: fila.motivo as string } : {}),
-          ...(fila.coste ? { coste: fila.coste as Parada["coste"] } : {}),
-          ...(guiaSegura(fila.guia as Parada["guia"]) ? { guia: fila.guia as Parada["guia"] } : {}),
-          ...(fila.guia_intentada_en ? { guia_intentada_en: fila.guia_intentada_en as string } : {}),
-          ...(typeof fila.guia_formato === "number" ? { guia_formato: fila.guia_formato } : {}),
-          ...(curiosidadesSegurasDe(fila.curiosidades as Parada["curiosidades"])),
-          ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
-          ...(fila.alternativas_intentadas_en ? { alternativas_intentadas_en: fila.alternativas_intentadas_en as string } : {}),
-          ...(idsVisitados.has(fila.id_externo as string) ? { visitada: true } : {}),
-        };
-      });
+      .map((fila) => paradaDeFila(fila, alternativasPorParadaId.get(fila.id as string), idsVisitados.has(fila.id_externo as string)));
     return {
       fecha: diaMeta.fecha,
       ...(diaMeta.etapa !== undefined ? { etapa: diaMeta.etapa } : {}),

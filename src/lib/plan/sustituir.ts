@@ -1,12 +1,12 @@
 // alt-ac5/alt-ac6: cambiar una parada por una de sus alternativas, sin
 // invocar al modelo ni a ninguna fuente externa. Lee la versión actual,
-// construye la siguiente con la parada sustituida (misma franja_id, mismo
-// id externo -- las visitas y la identidad de la parada sobreviven) y la
-// parada anterior pasa a ser la única alternativa de la nueva (deshacer =
-// volver a sustituir). guardarPlan asigna la versión siguiente.
+// copia la versión actual en la base con la parada sustituida (misma
+// franja_id, mismo id externo -- las visitas y la identidad de la parada
+// sobreviven) y la parada anterior pasa a ser una alternativa de la nueva
+// (deshacer = volver a sustituir).
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { guardarPlan, recuperarPlan } from "./repositorio";
+import { recuperarParadaActual, reemplazarParadaEnNuevaVersion } from "./repositorio";
 import type { Alternativa, Parada } from "./tipos";
 
 const MAXIMO_ALTERNATIVAS = 3;
@@ -36,6 +36,8 @@ export function intercambiar(paradaActual: Parada, alternativaElegida: Alternati
     nombre: paradaActual.nombre,
     descripcion: paradaActual.descripcion,
     motivo: "Era la actividad anterior en este hueco.",
+    motivo_parada: paradaActual.motivo,
+    coste_parada: paradaActual.coste,
     duracion_min: paradaActual.duracion_min,
     categoria: paradaActual.categoria,
     origen: "modelo",
@@ -64,9 +66,10 @@ export function intercambiar(paradaActual: Parada, alternativaElegida: Alternati
     resolucion: alternativaElegida.coordenadas ? { estado: "resuelta" as const, intentado_en: new Date().toISOString() } : undefined,
     alternativas: alternativasHeredadas,
     // El motivo y el precio eran del sitio anterior: heredarlos presentaría
-    // una razón y un coste que no corresponden al sitio nuevo.
-    motivo: undefined,
-    coste: undefined,
+    // una razón y un coste que no corresponden al sitio nuevo. Solo los trae
+    // una alternativa que fue parada (deshacer), con los suyos de entonces.
+    motivo: alternativaElegida.motivo_parada,
+    coste: alternativaElegida.coste_parada,
     // La guía sí es del sitio nuevo: la trae su alternativa. Si aún no la
     // tenía (guia_intentada_en ausente), la parada queda pendiente y el
     // barrido la rellena.
@@ -90,37 +93,16 @@ export async function sustituirParada(
   paradaId: string,
   alternativaId: string,
 ): Promise<ResultadoSustitucion> {
-  const plan = await recuperarPlan(supabase, planId);
-  if (!plan) return { estado: "no-encontrado" };
-
-  let diaIndexEncontrado = -1;
-  let paradaIndexEncontrado = -1;
-  plan.dias.forEach((dia, iDia) => {
-    const iParada = dia.paradas.findIndex((p) => p.id === paradaId);
-    if (iParada !== -1) {
-      diaIndexEncontrado = iDia;
-      paradaIndexEncontrado = iParada;
-    }
-  });
-  if (diaIndexEncontrado === -1) return { estado: "no-encontrado" };
-
-  const paradaActual = plan.dias[diaIndexEncontrado].paradas[paradaIndexEncontrado];
+  const paradaActual = await recuperarParadaActual(supabase, planId, paradaId);
+  if (!paradaActual) return { estado: "no-encontrado" };
 
   // alt-ac6: la alternativa tiene que pertenecer a ESTA parada de la
   // versión actual -- se identifica por su id de fila (paradas_alternativas.id,
-  // recuperarPlan lo adjunta a cada Alternativa), nunca por su posición ni
-  // por su nombre.
+  // recuperarParadaActual lo adjunta a cada Alternativa), nunca por su
+  // posición ni por su nombre.
   const alternativaElegida = (paradaActual.alternativas ?? []).find((alternativa) => alternativa.id === alternativaId);
   if (!alternativaElegida) return { estado: "alternativa-invalida" };
 
-  const paradaNueva = intercambiar(paradaActual, alternativaElegida);
-
-  const diasNuevos = plan.dias.map((dia, iDia) => {
-    if (iDia !== diaIndexEncontrado) return dia;
-    const paradasNuevas = dia.paradas.map((parada, iParada) => (iParada === paradaIndexEncontrado ? paradaNueva : parada));
-    return { ...dia, paradas: paradasNuevas };
-  });
-
-  const { version } = await guardarPlan(supabase, { ...plan, dias: diasNuevos });
+  const { version } = await reemplazarParadaEnNuevaVersion(supabase, planId, intercambiar(paradaActual, alternativaElegida));
   return { estado: "sustituida", version };
 }
