@@ -32,6 +32,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer>
           <Link href="/viajes">Mis viajes</Link>
           <Link href="/guia">Guía: cómo funciona esta aplicación</Link>
+          <Link href="/terminos">Términos</Link>
+          <Link href="/privacidad">Privacidad</Link>
         </footer>
       </body>
     </html>

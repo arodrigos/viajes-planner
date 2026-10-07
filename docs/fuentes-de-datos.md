@@ -7,7 +7,7 @@ de estos servicios (`mapa-del-dia`, `fotos-paradas`, `alternativas-equivalentes`
 
 ## Fuentes y políticas de uso
 
-Los cuatro servicios siguientes son los únicos aprobados como decisión de producto
+Los cuatro servicios siguientes son los aprobados como decisión de producto (Google Maps Platform, con alcance acotado, va en su propia sección)
 (2026-10-03): gratuitos, sin cuenta, sin clave. Ninguna otra fuente de
 mapas, lugares o fotos puede usarse sin su aprobación explícita.
 
@@ -123,6 +123,41 @@ búsquedas.
   aprobada: la tarjeta dice «Sin opiniones de visitantes».
 - Cada parada comprobada enlaza a su fuente real (OpenStreetMap o
   Wikipedia) para que cualquiera pueda verificarla.
+
+## Google Maps Platform
+
+Autorizado solo para dos usos, siempre en la capa gratuita:
+
+| Uso | Desde dónde | Qué sale | Qué se guarda |
+| --- | --- | --- | --- |
+| Text Search (solo `places.id` y `places.location`) | Trabajador | Nombre de la parada, ciudad y un rectángulo alrededor de su ubicación comprobada | El `place_id`, su estado y la fecha de comprobación. La ubicación se descarta tras validar la distancia |
+| Places UI Kit (`gmp-place-details`) | Navegador, solo con sesión y solo al abrir el panel de la parada | El `place_id`, más la IP y el agente de usuario por la propia petición | Nada |
+
+Reglas:
+
+- El `place_id` es lo único de Google que se persiste (se permite cachearlo).
+  Reseñas, valoración, horarios, fotos y nombres de Google no se guardan ni se
+  derivan.
+- Nada de Google llega al modelo, a `/guia` ni a ningún texto generado. No se
+  usan los precios de Google.
+- El contenido de Places solo se presenta con el UI Kit, que trae su propia
+  atribución; no se muestra junto al mapa con una API REST.
+- Cupos: la consola de Google es el único corte duro; el controlador propio
+  (tabla de topes y contadores en la base) queda por debajo. Subir un tope exige
+  una migración nueva y el cambio en la consola.
+- `/terminos` y `/privacidad` (públicas, enlazadas en el pie) avisan del
+  contenido de Google Maps, enlazan sus términos adicionales y su política de
+  privacidad y listan qué sale a cada servicio.
+
+Pasos manuales en la consola de Google (no se hacen desde el repo):
+
+1. Clave del trabajador: restringida a Places API (New) y a la IP pública del
+   servidor del trabajador; cuota diaria de Text Search en 50.
+2. Clave de navegador: restringida a Maps JavaScript API y Places UI Kit, con
+   referrer limitado al dominio de la rama `dev`; cuota diaria de cargas del UI
+   Kit en 300. Se da de alta en el despliegue como
+   `NEXT_PUBLIC_GOOGLE_MAPS_CLAVE_NAVEGADOR` antes del build.
+3. Cuota diaria de GetPlace y GetPhotoMedia en 0.
 
 ## Qué datos salen y hacia dónde
 
