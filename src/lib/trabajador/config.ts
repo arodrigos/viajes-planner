@@ -1,12 +1,12 @@
 // Familia Sonnet por defecto (cuota-suscripcion explica por qué: no gastar
 // la asignación de Opus, que es la que consume el pipeline horizontal).
 // Herramientas recortadas a lectura/escritura, nunca ejecución: es la
-// mitigación #1 del modelo de amenazas de trabajador-vps1.
+// mitigación #1 del modelo de amenazas del trabajador.
 export const MODELO_GENERACION = process.env.TRABAJADOR_MODELO ?? "claude-sonnet-5";
 export const HERRAMIENTAS_PERMITIDAS = ["Read", "Write"] as const;
 // /api/salud (esqueleto-ac1) lo expone tal cual: decisión de arquitectura
 // que no cambia con el entorno, a diferencia de MODELO_GENERACION.
-export const MODELO_ACCESO = "suscripcion-vps1";
+export const MODELO_ACCESO = "suscripcion";
 
 export const CERROJO_TTL_MIN = Number(process.env.TRABAJADOR_CERROJO_TTL_MIN ?? 10);
 // Tiempo que el trabajador se queda despierto tras vaciar la cola antes de

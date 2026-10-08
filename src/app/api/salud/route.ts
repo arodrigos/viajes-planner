@@ -6,6 +6,7 @@ import {
   construirSalud,
   ESQUEMA_VERSION,
   ORIGEN_PASADA_ALTERNATIVAS,
+  ORIGEN_TRABAJADOR,
   resumirPasadaAlternativas,
   type PasadaAlternativas,
   type EstadoGoogle, type EstadoRelleno, type ResultadoTickTrabajador } from "@/lib/salud";
@@ -43,7 +44,7 @@ async function comprobarSupabase(): Promise<EstadoSupabase> {
     const { data, error } = await supabase
       .from("salud")
       .select("registrado_en, commit_sha, resultado")
-      .eq("origen", "trabajador-vps1")
+      .eq("origen", ORIGEN_TRABAJADOR)
       .order("registrado_en", { ascending: false })
       .limit(1)
       .maybeSingle();

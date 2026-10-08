@@ -42,7 +42,7 @@ jq -e '.crons_registrados == 1' /tmp/salud.json >/dev/null
 
 # LIMITACIÓN DECLARADA (ver desviaciones en el entregable de desarrollo):
 # este job arranca la app a propósito sin SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY
-# (más abajo, trabajador-vps1, depende de ese vacío para probar su propio
+# (más abajo, trabajador, depende de ese vacío para probar su propio
 # camino de error) y sin un trabajador corriendo tick(). Por eso
 # solo se comprueba que estos campos existen con el TIPO que el smoke_test
 # del manifiesto espera, no los valores "sanos" (supabase: "activa",
@@ -54,7 +54,7 @@ echo "== esqueleto-ac1: /api/salud trae la forma completa que pide el smoke_test
 jq -e '
   (.supabase == "error") and
   (.esquema_version == 2) and
-  (.modelo_acceso == "suscripcion-vps1") and
+  (.modelo_acceso == "suscripcion") and
   (.trabajador.visto_hace_seg == null) and
   (.secretos_faltantes | index("SUPABASE_URL") != null) and
   (.secretos_faltantes | index("SUPABASE_SCHEMA") != null) and
@@ -74,7 +74,7 @@ for dominio in googlesyndication.com doubleclick.net "adsystem.amazon" taboola.c
   fi
 done
 
-echo "== trabajador-vps1: scripts/trabajador-tick.ts carga fuera de Next.js (--conditions=react-server) =="
+echo "== trabajador: scripts/trabajador-tick.ts carga fuera de Next.js (--conditions=react-server) =="
 # El script del cron del trabajador corre con `tsx` puro, sin el bundler de
 # Next.js: sin --conditions=react-server, cada módulo "server-only" que
 # importa (clienteServicio, procesarTrabajo...) lanza al cargar. Aquí no

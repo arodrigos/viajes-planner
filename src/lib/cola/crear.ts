@@ -11,7 +11,7 @@ export type ResultadoCrearTrabajo =
 
 // acceso-ac3: encolar devuelve identificador al instante y el trabajo queda
 // "encolado" desde ese momento — no hay nada más que esperar aquí, el
-// trabajador (bloque trabajador-vps1) es quien tarda.
+// trabajador (bloque trabajador) es quien tarda.
 export async function crearTrabajoGeneracion(
   supabase: SupabaseClient,
   usuarioId: string,

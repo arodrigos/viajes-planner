@@ -1,6 +1,6 @@
 // Lista blanca, no lista negra: el trabajador ejecuta un agente con
 // herramientas alimentado con texto de terceros (modelo_amenazas,
-// trabajador-vps1). El entorno que recibe esa invocación lleva solo lo
+// trabajador). El entorno que recibe esa invocación lleva solo lo
 // imprescindible para que el binario arranque y encuentre la sesión de
 // la cuenta que ejecuta el trabajador (HOME); ninguna clave de Supabase, openrouteservice ni MapTiler
 // pasa nunca por aquí, sean cuales sean sus nombres futuros.
