@@ -97,12 +97,20 @@ describe("FichaGoogle con clave", () => {
     expect(container.querySelectorAll("gmp-place-details")).toHaveLength(1);
   });
 
-  it("gmp-load deja la ficha a la vista", async () => {
+  it("el elemento de Google está visible desde que se monta, antes de gmp-load", async () => {
     const { container } = render(ficha("casado", true));
     await waitFor(() => expect(container.querySelector("gmp-place-details")).not.toBeNull());
-    expect((container.querySelector("gmp-place-details")!.parentElement as HTMLElement).hidden).toBe(true);
+    // Oculto, el elemento oficial nunca pide la ficha y el panel no sale de «Buscando…».
+    expect(container.querySelector("gmp-place-details")!.closest("[hidden]")).toBeNull();
+    expect(screen.getByRole("status")).toBeTruthy();
+  });
+
+  it("gmp-load quita el aviso de carga y deja la ficha montada", async () => {
+    const { container } = render(ficha("casado", true));
+    await waitFor(() => expect(container.querySelector("gmp-place-details")).not.toBeNull());
     act(() => void container.querySelector("gmp-place-details")!.dispatchEvent(new Event("gmp-load")));
-    await waitFor(() => expect((container.querySelector("gmp-place-details")!.parentElement as HTMLElement).hidden).toBe(false));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    expect(container.querySelector("gmp-place-details")!.closest("[hidden]")).toBeNull();
   });
 
   it("429: mensaje de cupo, enlace a Maps y ningún elemento (fic-ac3)", async () => {

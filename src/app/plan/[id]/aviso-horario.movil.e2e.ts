@@ -90,7 +90,13 @@ const SCRIPT_FALSO = `
       const texto = document.createElement("span");
       texto.textContent = "Ficha de prueba";
       this.append(texto);
-      setTimeout(() => this.dispatchEvent(new Event("gmp-load")), 0);
+      const emitir = () => {
+          // Como el real: no carga ni avisa mientras él o un antepasado están ocultos.
+          if (!this.isConnected) return;
+          if (!this.checkVisibility()) { setTimeout(emitir, 50); return; }
+          this.dispatchEvent(new Event("gmp-load"));
+        };
+        setTimeout(emitir, 0);
     }
   }
   if (!customElements.get("gmp-place-details")) customElements.define("gmp-place-details", Falso);
