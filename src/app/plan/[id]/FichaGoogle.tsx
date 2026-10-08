@@ -151,7 +151,8 @@ export function FichaGoogle({ planId, paradaId, estado, abierto, hrefMaps }: Pro
           <a href={hrefMaps} target="_blank" rel="noopener noreferrer">{TEXTOS_FICHA.abrirEnMaps.texto}</a>
         </>
       )}
-      <div ref={contenedor} hidden={vista.tipo !== "ficha"} />
+      {/* El elemento de Google no pide nada mientras está oculto (ni dispara gmp-load): tiene que estar visible desde que se monta, con el aviso de carga al lado. */}
+      <div ref={contenedor} hidden={placeId === null} />
     </div>
   );
 }
