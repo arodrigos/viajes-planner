@@ -86,7 +86,10 @@ function scriptFalso(modo: "carga" | "no-encontrado"): string {
       connectedCallback() {
         if (this.tagName !== "GMP-PLACE-DETAILS") return;
         this.style.display = "block";
-        this.textContent = "Ficha de prueba";
+        // Se añade en vez de asignar textContent: asignarlo borraría el place-request que monta el componente.
+        const texto = document.createElement("span");
+        texto.textContent = "Ficha de prueba";
+        this.append(texto);
         setTimeout(() => this.dispatchEvent(${evento}), 0);
       }
     }
