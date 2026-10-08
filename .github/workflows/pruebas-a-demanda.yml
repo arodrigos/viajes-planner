@@ -36,6 +36,8 @@ jobs:
         run: |
           [[ "$TIPO" =~ ^(e2e|unit)$ ]] || { echo "::error::tipo inválido"; exit 1; }
           [[ "$SPECS" =~ ^[A-Za-z0-9_./*@,\ -]{0,500}$ ]] || { echo "::error::specs con caracteres no permitidos"; exit 1; }
+          # La suite preview usa una sesión real: su registro sería público aquí.
+          [[ "${SPECS,,}" != *preview* ]] || { echo "::error::la suite preview no se ejecuta en Actions"; exit 1; }
           echo "PRUEBAS_SPECS=$SPECS" >> "$GITHUB_ENV"
       - run: npm ci
       - name: unitarios

@@ -5,6 +5,13 @@ import { RUTA_SESION } from "./src/verificacion/entorno";
 // (que no la define) ni lo lista ni arranca nada de él.
 const URL_OBJETIVO = process.env.URL_OBJETIVO;
 
+// La suite preview usa una sesión real y el acceso al despliegue protegido.
+// Si falla una petición, el registro de Playwright vuelca sus cabeceras, y en
+// GitHub Actions de un repo público ese registro es público: nunca allí.
+if (URL_OBJETIVO && process.env.GITHUB_ACTIONS) {
+  throw new Error("La suite preview no se ejecuta en GitHub Actions");
+}
+
 export default defineConfig({
   testDir: "./src",
   testMatch: /.*\.e2e\.ts/,
