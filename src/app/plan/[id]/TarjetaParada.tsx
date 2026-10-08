@@ -7,7 +7,9 @@ import { ConectorTramo } from "./ConectorTramo";
 import { EnlacesParada } from "./EnlacesParada";
 import { FichaGoogle } from "./FichaGoogle";
 import { enlacesDeParada } from "@/lib/plan/enlacesParada";
+import { procedenciaHorario } from "@/lib/plan/procedenciaHorario";
 import { TEXTOS_FICHA } from "@/lib/textos/ficha";
+import { TEXTOS_HORARIO } from "@/lib/textos/horario";
 import { IconoFranja } from "./iconosFranja";
 import { IconoSinFoto } from "./iconoSinFoto";
 import { ConsejosYCuriosidades, contarConsejosYCuriosidades } from "./SeccionesGuia";
@@ -28,6 +30,10 @@ interface Props {
   activa: boolean;
   // Cada incremento pide abrir «Alternativas» (el aviso de paseo del día).
   solicitudAlternativas: number;
+  // Cada incremento pide abrir el panel de Google (el atajo de la tarjeta Ahora).
+  solicitudGoogle: number;
+  // Día de hoy en el destino: la antigüedad del horario se mide contra él.
+  hoy: string;
   esHoy: boolean;
   esSiguiente: boolean;
   hrefComoLlegar?: string;
@@ -44,7 +50,7 @@ interface Props {
 // nativos <details name> que el navegador mantiene exclusivos. El estado se
 // sincroniza con onToggle para poder abrir uno por código sin pelearse con el
 // navegador.
-export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita }: Props) {
+export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita }: Props) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const alternativas = parada.alternativas ?? [];
   const nombreGrupo = `parada-${parada.id}`;
@@ -67,12 +73,25 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
     };
   }
 
+  const [googleAtendida, setGoogleAtendida] = useState(0);
+  if (solicitudGoogle !== googleAtendida) {
+    setGoogleAtendida(solicitudGoogle);
+    if (solicitudGoogle > 0) setAbierto("google");
+  }
+
   async function usar(alternativaId: string, nombre: string) {
     const hecho = await onUsarAlternativa(alternativaId, nombre);
     if (hecho) setAbierto(null);
   }
 
   const hrefMaps = enlacesDeParada(parada, ciudad)[0].href;
+  const procedencia = procedenciaHorario({
+    fechaComprobacion: parada.horario?.fuenteOsm?.comprobadoEn,
+    tieneHorario: Boolean(parada.horario?.fuenteOsm),
+    hoy,
+    casada: parada.google?.estado === "casado",
+    posibleCierre: Boolean(parada.horario?.posibleCierre),
+  });
   const nConsejos = contarConsejosYCuriosidades(parada.guia, parada.curiosidades);
 
   return (
@@ -108,6 +127,18 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
                   {parada.horario.apertura}
                   {parada.horario.aviso && <span className="aviso-horario"> · {parada.horario.aviso}</span>}
                 </p>
+              )}
+              {procedencia.rotulo && (
+                <p className="procedencia-horario" data-testid="procedencia-horario">
+                  {procedencia.rotulo}
+                  {procedencia.aviso && ` · ${procedencia.aviso}`}
+                </p>
+              )}
+              {/* dif-ac2: abre el panel de esta misma tarjeta; si ya estaba montado no hay otra reserva. */}
+              {procedencia.ofrecerGoogle && (
+                <button type="button" className="boton" data-testid="comprobar-en-google" onClick={() => setAbierto("google")}>
+                  {TEXTOS_HORARIO.comprobarEnGoogle.texto}
+                </button>
               )}
             </div>
           </div>

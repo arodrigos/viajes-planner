@@ -28,6 +28,7 @@ textos viven en `src/lib/textos/` y un test los recorre contra estas reglas.
 - Lo que no está comprobado se dice con «Sin comprobar» y se ve siempre, sin plegar.
 - Un tiempo estimado lleva «≈». La explicación se da una vez, en «Cómo leer este plan».
 - Los textos de Wikipedia, Wikidata y Wikivoyage se citan con su atribución y su enlace.
+- Un horario de OpenStreetMap dice de dónde sale y cuándo se comprobó («Horario según OpenStreetMap · comprobado en 2023» o «sin fecha de comprobación»). Sus avisos hablan de lo que «puede» pasar y nombran la fuente, nunca afirman que algo está cerrado. Con más de dos años, sin fecha o con aviso de cierre, la parada casada con Google ofrece «Compruébalo en Google».
 
 ## Errores y estados vacíos
 

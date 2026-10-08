@@ -127,3 +127,37 @@ describe("aPlanPublico expone tramos por día (tra-ac1)", () => {
     expect(aPlanPublico(plan, "familiar").dias[0].tramos).toBeUndefined();
   });
 });
+
+// dif-ac1: lo que la tarjeta necesita saber del horario de OSM, sin recibir el lugar entero.
+describe("aPlanPublico expone la procedencia del horario (dif-ac1)", () => {
+  function conLugar(etiquetas: NonNullable<Plan["dias"][0]["paradas"][0]["lugar"]>["etiquetas"]) {
+    const plan = planConAlternativaYVecinos();
+    plan.dias[0].paradas[1].lugar = {
+      fuente: "osm",
+      id: "osm:node/1",
+      url: "https://www.openstreetmap.org/node/1",
+      nombre_fuente: "Museo del Prado",
+      etiquetas,
+      resuelto_en: "2026-10-04T00:00:00Z",
+    };
+    return aPlanPublico(plan).dias[0].paradas[1].horario;
+  }
+
+  it("con opening_hours y check_date lleva fuenteOsm.comprobadoEn", () => {
+    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00", check_date_opening_hours: "2023-05" })?.fuenteOsm).toEqual({ comprobadoEn: "2023-05" });
+  });
+
+  it("con opening_hours sin check_date lleva fuenteOsm vacía", () => {
+    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00" })?.fuenteOsm).toEqual({});
+  });
+
+  it("sin opening_hours no hay fuenteOsm", () => {
+    expect(conLugar({})?.fuenteOsm).toBeUndefined();
+  });
+
+  it("marca posibleCierre solo cuando el horario dice cerrado ese día", () => {
+    // 2026-10-06 es martes.
+    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00; Tu off" })?.posibleCierre).toBe(true);
+    expect(conLugar({ opening_hours: "Mo-Su 09:00-20:00" })?.posibleCierre).toBeUndefined();
+  });
+});
