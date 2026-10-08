@@ -59,6 +59,15 @@ interface ResultadoNominatim {
   boundingbox: [string, string, string, string];
 }
 
+// Solo se guarda lo que parece una fecha ISO (parcial): el campo es texto
+// libre de un mapa colaborativo y acaba pintado en la tarjeta.
+const FECHA_ISO_PARCIAL = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+
+function fechaComprobacion(extratags: Record<string, string> | undefined): { check_date_opening_hours?: string } {
+  const valor = extratags?.["check_date:opening_hours"] ?? extratags?.check_date;
+  return valor && FECHA_ISO_PARCIAL.test(valor) ? { check_date_opening_hours: valor } : {};
+}
+
 function aCandidatoNominatim(r: ResultadoNominatim): CandidatoLugar {
   const nombresAlternativos = Object.entries(r.namedetails ?? {})
     .filter(([clave]) => clave.startsWith("name") || clave === "alt_name" || clave === "official_name")
@@ -77,6 +86,7 @@ function aCandidatoNominatim(r: ResultadoNominatim): CandidatoLugar {
     tipoOsm: r.type,
     etiquetas: {
       opening_hours: r.extratags?.opening_hours,
+      ...fechaComprobacion(r.extratags),
       wikipedia: r.extratags?.wikipedia,
       wikidata: r.extratags?.wikidata,
       website: r.extratags?.website,

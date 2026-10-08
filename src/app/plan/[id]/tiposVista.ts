@@ -65,7 +65,7 @@ export interface ParadaPublica {
   alternativas?: AlternativaPublica[];
   // horario-local (hor-ac1/hor-ac2): ya resuelto por el servidor en hora
   // local del lugar.
-  horario?: { inicio: string; fin: string; recortada: boolean; aviso?: string; apertura: string };
+  horario?: { inicio: string; fin: string; recortada: boolean; aviso?: string; apertura: string; posibleCierre?: true; fuenteOsm?: { comprobadoEn?: string } };
   // bloque uso-en-destino (dest-ac1/dest-ac4): ausente cuando no está
   // visitada, mismo patrón que el resto de este tipo.
   visitada?: boolean;

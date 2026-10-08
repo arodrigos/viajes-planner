@@ -27,6 +27,8 @@ function pintar(solicitudAlternativas: number, extra: Partial<ParadaPublica> = {
       tarjetaRef={() => undefined}
       activa={false}
       solicitudAlternativas={solicitudAlternativas}
+      solicitudGoogle={0}
+      hoy="2026-10-08"
       esHoy={false}
       esSiguiente={false}
       visitaEnCurso={false}

@@ -60,6 +60,9 @@ export interface CosteParada {
 
 export interface EtiquetasLugar {
   opening_hours?: string;
+  // Cuándo comprobó alguien en el terreno ese horario (check_date:opening_hours
+  // de OSM, o check_date si no hay otro). ISO parcial: «2023», «2023-05»...
+  check_date_opening_hours?: string;
   wikipedia?: string;
   wikidata?: string;
   website?: string;

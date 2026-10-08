@@ -12,6 +12,7 @@ import type { Evento } from "@/lib/eventos/tipos";
 import { EventosDia } from "./SeccionEventos";
 import { IconoFranja } from "./iconosFranja";
 import { calcularComoLlegar, progresoDelDia, puntosDelDia, siguienteSinVisitar, tramoHastaSiguiente } from "./ahora";
+import { claveNavegador } from "@/lib/google/claveNavegador";
 import { TarjetaAhora } from "./TarjetaAhora";
 import { TarjetaParada } from "./TarjetaParada";
 import type { DiaPublico } from "./tiposVista";
@@ -32,6 +33,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
   const [solicitudAlternativas, setSolicitudAlternativas] = useState<{ paradaId: string; veces: number } | null>(null);
+  const [solicitudGoogle, setSolicitudGoogle] = useState<{ paradaId: string; veces: number } | null>(null);
   const [paradaConVisitaEnCurso, setParadaConVisitaEnCurso] = useState<string | null>(null);
   const refsTarjetas = useRef(new Map<string, HTMLLIElement>());
   const [cambiando, setCambiando] = useState<{ paradaId: string; alternativaId: string } | null>(null);
@@ -128,6 +130,14 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
     refsTarjetas.current.get(paradaId)?.focus();
   }
 
+  // dif-ac2: el atajo de «Ahora» abre el panel de Google de la siguiente parada
+  // y lleva el foco a su tarjeta, igual que el aviso de paseo con alternativas.
+  function abrirGoogleDesdeAhora(paradaId: string) {
+    setSolicitudGoogle((previa) => ({ paradaId, veces: previa?.paradaId === paradaId ? previa.veces + 1 : 1 }));
+    seleccionarParada(paradaId);
+    refsTarjetas.current.get(paradaId)?.focus();
+  }
+
   const tramosDelDia = dia.tramos ?? [];
   // Región viva fuera del panel: el panel se cierra al terminar y el aviso
   // de «Hecho» tiene que seguir anunciándose.
@@ -153,11 +163,13 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
           hayUbicadas={puntos.length > 0}
           progreso={progresoDelDia(dia)}
           hrefComoLlegar={hrefComoLlegar}
+          puedeComprobarEnGoogle={siguienteParada !== null && claveNavegador() !== null && dia.paradas.find((p) => p.id === siguienteParada.id)?.google?.estado === "casado"}
           tramo={tramoHastaSiguiente(dia.tramos ?? [], siguienteParada)}
           zona={zona}
           marcando={siguienteParada !== null && paradaConVisitaEnCurso === siguienteParada.id}
           errorVisita={siguienteParada ? leerError(errores, siguienteParada.id)?.mensaje : undefined}
           onMarcar={() => siguienteParada && alternarVisita(siguienteParada.id, false)}
+          onComprobarEnGoogle={() => siguienteParada && abrirGoogleDesdeAhora(siguienteParada.id)}
           onIrARecomendados={onIrAResumen}
         />
       )}
@@ -251,6 +263,8 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
                     }}
                     activa={parada.id === paradaActivaId}
                     solicitudAlternativas={solicitudAlternativas?.paradaId === parada.id ? solicitudAlternativas.veces : 0}
+                    solicitudGoogle={solicitudGoogle?.paradaId === parada.id ? solicitudGoogle.veces : 0}
+                    hoy={hoy}
                     esHoy={esHoy}
                     esSiguiente={siguienteParada?.id === parada.id}
                     hrefComoLlegar={hrefComoLlegar ?? undefined}

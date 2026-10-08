@@ -15,6 +15,7 @@ export interface CajaDelimitadora {
 
 export interface EtiquetasLugar {
   opening_hours?: string;
+  check_date_opening_hours?: string;
   wikipedia?: string;
   wikidata?: string;
   website?: string;

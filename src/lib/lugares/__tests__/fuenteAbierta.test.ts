@@ -236,3 +236,27 @@ describe("crearFuenteAbierta -- buscarLibre y geocodificarCiudad (ciu-ac2, ciu-a
     expect(fuente.geocodificarCiudad.length).toBe(1);
   });
 });
+
+// dif-ac1: el horario de OSM guarda cuándo se comprobó, y solo si parece una fecha.
+describe("fecha de comprobación del horario (dif-ac1)", () => {
+  async function candidatoCon(extratags: Record<string, string>) {
+    const fetchFalso = vi.fn(async () => respuestaJson([{ ...CANDIDATO_NOMINATIM, extratags, boundingbox: ["40", "41", "-4", "-3"] }]));
+    const fuente = crearFuenteAbierta({ fetch: fetchFalso as unknown as typeof fetch, reloj: crearRelojFalso(), cache: cacheSitiosMemoria() });
+    const [candidato] = await fuente.buscarNominatim("Museo del Prado", "Madrid", { minLat: 40, maxLat: 41, minLon: -4, maxLon: -3 });
+    return candidato.etiquetas;
+  }
+
+  it("prefiere check_date:opening_hours a check_date", async () => {
+    const etiquetas = await candidatoCon({ opening_hours: "Mo-Su 10:00-18:00", "check_date:opening_hours": "2023-05-02", check_date: "2025-01-01" });
+    expect(etiquetas.check_date_opening_hours).toBe("2023-05-02");
+  });
+
+  it("usa check_date si no hay otra", async () => {
+    expect((await candidatoCon({ check_date: "2022-11" })).check_date_opening_hours).toBe("2022-11");
+  });
+
+  it("descarta un valor que no es una fecha ISO", async () => {
+    expect((await candidatoCon({ "check_date:opening_hours": "<script>alert(1)</script>" })).check_date_opening_hours).toBeUndefined();
+    expect((await candidatoCon({})).check_date_opening_hours).toBeUndefined();
+  });
+});

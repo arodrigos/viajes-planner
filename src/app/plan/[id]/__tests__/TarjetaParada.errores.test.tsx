@@ -28,6 +28,8 @@ function pintar(p: ParadaPublica, error?: ErrorParada) {
       tarjetaRef={() => undefined}
       activa={false}
       solicitudAlternativas={1}
+      solicitudGoogle={0}
+      hoy="2026-10-08"
       esHoy={true}
       esSiguiente={false}
       visitaEnCurso={false}

@@ -47,6 +47,12 @@ export interface AlternativaPublica {
 export interface HorarioPublico extends HorarioParada {
   aviso?: string;
   apertura: string;
+  // La etiqueta de OSM dice que a esa hora estará cerrado (o cerrará antes de
+  // acabar la visita): alimenta el aviso «puede estar cerrado» de la tarjeta.
+  posibleCierre?: true;
+  // Presente solo si el lugar trae opening_hours de OSM; `comprobadoEn` es su
+  // check_date. La tarjeta no recibe el lugar entero, solo esto.
+  fuenteOsm?: { comprobadoEn?: string };
 }
 
 export interface ParadaPublica extends Omit<Parada, "alternativas"> {
@@ -165,18 +171,25 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
     : { fuente: "propuesto-sin-verificar" };
   const horario = horarios[parada.id];
   const zona = zonaDeParada(parada, caja);
+  const apertura = horario
+    ? calcularApertura(parada.lugar?.etiquetas.opening_hours, { fecha: dia.fecha, inicio: horario.inicio, fin: horario.fin }, zona)
+    : undefined;
   const etiquetaFranja = dia.franjas.find((f) => f.id === parada.franja_id)?.etiqueta ?? "";
   return {
     ...parada,
     foto: fotoSegura(parada.foto),
     procedencia,
     alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(dia, parada, alternativa, horario, zona)),
-    ...(horario
+    ...(horario && apertura
       ? {
           horario: {
             ...horario,
             ...(horario.recortada ? { aviso: avisoRecortada(etiquetaFranja) } : {}),
-            apertura: textoApertura(calcularApertura(parada.lugar?.etiquetas.opening_hours, { fecha: dia.fecha, inicio: horario.inicio, fin: horario.fin }, zona)),
+            apertura: textoApertura(apertura),
+            ...(parada.lugar?.etiquetas.opening_hours
+              ? { fuenteOsm: { ...(parada.lugar.etiquetas.check_date_opening_hours ? { comprobadoEn: parada.lugar.etiquetas.check_date_opening_hours } : {}) } }
+              : {}),
+            ...(apertura.estado === "cerrada" ? { posibleCierre: true as const } : {}),
           },
         }
       : {}),

@@ -338,6 +338,13 @@ h3 {
   margin: 0;
 }
 
+/* bloque aviso-horario-procedencia */
+.procedencia-horario {
+  font-size: var(--texto-pequeno);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 /* bloque motivo-y-presupuesto: el motivo largo (300 caracteres) tiene que
    partirse dentro de los 390 px en vez de desbordar. */
 .motivo-parada,

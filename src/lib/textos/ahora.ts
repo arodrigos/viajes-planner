@@ -5,6 +5,7 @@ export const TEXTOS_AHORA = {
   siguiente: t("ayuda", "Siguiente parada"),
   marcar: t("boton", "Marcar como visitada"),
   comoLlegar: t("enlace", "Cómo llegar"),
+  comprobarHorarioGoogle: t("enlace", "Comprobar el horario de hoy en Google"),
   todoVisitado: t("vacio", "Has visitado todas las paradas de hoy."),
   verRecomendados: t("boton", "Ver más sitios recomendados"),
   sinUbicacion: t("vacio", "Ninguna parada de hoy tiene ubicación comprobada, así que no podemos calcular cómo llegar."),
