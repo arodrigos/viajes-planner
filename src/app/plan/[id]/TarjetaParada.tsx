@@ -5,6 +5,9 @@ import { textoPrecioParada } from "@/lib/presupuesto/texto";
 import { AccionesVisita } from "./AccionesVisita";
 import { ConectorTramo } from "./ConectorTramo";
 import { EnlacesParada } from "./EnlacesParada";
+import { FichaGoogle } from "./FichaGoogle";
+import { enlacesDeParada } from "@/lib/plan/enlacesParada";
+import { TEXTOS_FICHA } from "@/lib/textos/ficha";
 import { IconoFranja } from "./iconosFranja";
 import { IconoSinFoto } from "./iconoSinFoto";
 import { ConsejosYCuriosidades, contarConsejosYCuriosidades } from "./SeccionesGuia";
@@ -12,9 +15,10 @@ import type { ParadaPublica } from "./tiposVista";
 import type { Tramo } from "@/lib/plan/tramos";
 import type { ErrorParada } from "@/lib/plan/erroresParada";
 
-export type PanelParada = "motivo" | "guia" | "alternativas";
+export type PanelParada = "motivo" | "guia" | "alternativas" | "google";
 
 interface Props {
+  planId: string;
   parada: ParadaPublica;
   franjaId: string;
   ciudad: string;
@@ -40,7 +44,7 @@ interface Props {
 // nativos <details name> que el navegador mantiene exclusivos. El estado se
 // sincroniza con onToggle para poder abrir uno por código sin pelearse con el
 // navegador.
-export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita }: Props) {
+export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita }: Props) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const alternativas = parada.alternativas ?? [];
   const nombreGrupo = `parada-${parada.id}`;
@@ -68,6 +72,7 @@ export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, act
     if (hecho) setAbierto(null);
   }
 
+  const hrefMaps = enlacesDeParada(parada, ciudad)[0].href;
   const nConsejos = contarConsejosYCuriosidades(parada.guia, parada.curiosidades);
 
   return (
@@ -227,6 +232,13 @@ export function TarjetaParada({ parada, franjaId, ciudad, tramo, tarjetaRef, act
               )}
             </details>
           )}
+
+          {/* fic-ac1: el panel nunca está en /guia (pública). FichaGoogle no pide nada
+              hasta que se abre por primera vez y se queda montada al cerrarlo. */}
+          <details name={nombreGrupo} className="panel-parada" open={abierto === "google"} onToggle={alAlternar("google")}>
+            <summary>{TEXTOS_FICHA.panel.texto}</summary>
+            <FichaGoogle planId={planId} paradaId={parada.id} estado={parada.google?.estado} abierto={abierto === "google"} hrefMaps={hrefMaps} />
+          </details>
 
           <EnlacesParada parada={parada} ciudad={ciudad} tramo={tramo} />
           {/* dest-ac1..ac3: solo el día de hoy -- un día pasado o futuro no

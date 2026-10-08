@@ -166,7 +166,8 @@ test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui
   await expect(jeronimos.getByTestId("precio-parada")).toHaveText("Precio orientativo: 10\u00a0€/persona · según Wikivoyage");
   await expect(jeronimos.getByTestId("curiosidades-parada")).toContainText("El palacio original se edificó en la Alta Edad Media.");
   await expect(jeronimos.getByTestId("curiosidades-parada")).toContainText("Wikipedia · CC BY-SA");
-  await expect(jeronimos.getByTestId("opiniones-parada")).toHaveText("Opiniones de visitantes: Sin opiniones de visitantes");
+  // ficha-google sustituye el texto fijo por el panel de Google.
+  await expect(jeronimos.locator("summary", { hasText: "Opiniones y horario · Google Maps" })).toBeVisible();
 
   // Precio no numérico: se enseña literal y el estimado se conserva.
   const domingo = pagina.locator("li.tarjeta-parada", { hasText: "Museo gratis en domingo" });
@@ -177,7 +178,7 @@ test("guía con atribución, precio de la fuente y estados vacíos (gui-ac1, gui
   await expect(sinFicha.getByTestId("guia-parada")).toContainText("La guía no tiene ficha de este sitio");
   await expect(sinFicha.getByTestId("curiosidades-parada")).toContainText("No hay curiosidades en Wikipedia para este sitio");
   await expect(sinFicha.getByTestId("precio-parada")).toHaveText("Precio orientativo: 5\u00a0€/persona · estimado");
-  await expect(pagina.getByTestId("opiniones-parada")).toHaveCount(3);
+  await expect(pagina.locator("summary", { hasText: "Opiniones y horario · Google Maps" })).toHaveCount(3);
 
   expect(await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
   await contexto.close();

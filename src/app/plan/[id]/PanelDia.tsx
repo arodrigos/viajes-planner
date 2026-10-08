@@ -240,6 +240,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
                 {paradasDeLaFranja.map((parada) => (
                   <TarjetaParada
                     key={parada.id}
+                    planId={planId}
                     parada={nombresProvisionales?.[parada.id] ? { ...parada, nombre: nombresProvisionales[parada.id] } : parada}
                     franjaId={franja.id}
                     ciudad={etapa?.ciudad ?? destino}

@@ -1,3 +1,4 @@
+import type { EstadoGoogleParada } from "@/lib/google/estados";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { CosteParada, CuriosidadesParada, GuiaParada, EtapaPlan, TrasladoPlan } from "@/lib/plan/tipos";
 import type { Tramo } from "@/lib/plan/tramos";
@@ -75,6 +76,8 @@ export interface ParadaPublica {
   guia?: GuiaParada;
   curiosidades?: CuriosidadesParada;
   guia_intentada_en?: string;
+  // ficha-google: solo el estado; el place_id no llega nunca a la página.
+  google?: { estado: EstadoGoogleParada };
 }
 
 export interface DiaPublico {
