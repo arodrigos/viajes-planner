@@ -13,11 +13,11 @@ test.use({ viewport: { width: 393, height: 851 } });
 
 const DESTINO = "Lisboa";
 const RESUELTO_EN = new Date("2026-10-04").toISOString();
-// El proyecto corre con fullyParallel: cada worker ejecuta su propio beforeAll,
-// así que el sufijo (y con él el correo, el plan y los lugares) es por proceso;
-// con uno fijo, el segundo worker chocaba con «usuario ya registrado».
-const SUFIJO = `${Date.now()}-${process.pid}`;
-const CORREO = `ci-test-ficha-${SUFIJO}@example.com`;
+// El correo tiene que estar en CORREOS_PERMITIDOS del CI, así que es fijo; para
+// que el beforeAll corra una sola vez (y no choque con «usuario ya registrado»)
+// el describe va en modo serial.
+const SUFIJO = "e2e";
+const CORREO = "ci-test-ficha-e2e@example.com";
 const PARADAS = [
   { id: "p-ficha-1", nombre: "Museo de prueba uno", franja: "manana", lugar: `osm:node/ficha-1-${SUFIJO}`, estado: "casado", placeId: "ChIJ-prueba-1" },
   { id: "p-ficha-2", nombre: "Museo de prueba dos", franja: "comida", lugar: `osm:node/ficha-2-${SUFIJO}`, estado: "casado", placeId: "ChIJ-prueba-2" },
@@ -130,6 +130,7 @@ const resumen = (pagina: Page, nombre: string) => tarjeta(pagina, nombre).locato
 const sinScrollHorizontal = (pagina: Page) => pagina.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
 test.describe("panel de Google", () => {
+  test.describe.configure({ mode: "serial" });
   let supabase: SupabaseClient;
   let planId: string;
 
