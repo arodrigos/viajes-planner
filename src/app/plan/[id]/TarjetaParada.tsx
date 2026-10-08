@@ -268,7 +268,7 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
               hasta que se abre por primera vez y se queda montada al cerrarlo. */}
           <details name={nombreGrupo} className="panel-parada" open={abierto === "google"} onToggle={alAlternar("google")}>
             <summary>{TEXTOS_FICHA.panel.texto}</summary>
-            <FichaGoogle planId={planId} paradaId={parada.id} estado={parada.google?.estado} abierto={abierto === "google"} hrefMaps={hrefMaps} />
+            <FichaGoogle planId={planId} paradaId={parada.id} estado={parada.google?.estado} abierto={abierto === "google"} hrefMaps={hrefMaps} conFotos={!parada.foto} />
           </details>
 
           <EnlacesParada parada={parada} ciudad={ciudad} tramo={tramo} />

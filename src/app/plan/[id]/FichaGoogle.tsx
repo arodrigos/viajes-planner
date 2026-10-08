@@ -14,6 +14,10 @@ interface Props {
   // El panel de la tarjeta; no se pide nada a Google hasta la primera apertura.
   abierto: boolean;
   hrefMaps: string;
+  // Las fotos de Google son solo respaldo: con foto propia (Commons) la ficha
+  // va sin ellas. Cada ficha con fotos cuesta hasta 10 GetPhotoMedia, y el UI
+  // Kit no deja pedir menos (gmp-place-media no tiene tope de cantidad).
+  conFotos: boolean;
 }
 
 type Vista = { tipo: "inactiva" } | { tipo: "cargando" } | { tipo: "ficha" } | { tipo: "mensaje"; mensaje: ClaveMensajeFicha };
@@ -50,7 +54,7 @@ function esNotFound(evento: Event): boolean {
   return String(error?.code ?? error?.message ?? "").includes("NOT_FOUND");
 }
 
-export function FichaGoogle({ planId, paradaId, estado, abierto, hrefMaps }: Props) {
+export function FichaGoogle({ planId, paradaId, estado, abierto, hrefMaps, conFotos }: Props) {
   const [vista, setVista] = useState<Vista>({ tipo: "inactiva" });
   const [placeId, setPlaceId] = useState<string | null>(null);
   const iniciada = useRef(false);
@@ -112,7 +116,10 @@ export function FichaGoogle({ planId, paradaId, estado, abierto, hrefMaps }: Pro
     const peticion = document.createElement("gmp-place-details-place-request");
     peticion.setAttribute("place", placeId);
     const configuracion = document.createElement("gmp-place-content-config");
-    for (const nombre of CONTENIDO) configuracion.appendChild(document.createElement(nombre));
+    for (const nombre of CONTENIDO) {
+      if (nombre === "gmp-place-media" && !conFotos) continue;
+      configuracion.appendChild(document.createElement(nombre));
+    }
     elemento.append(peticion, configuracion);
     elemento.addEventListener("gmp-load", () => setVista({ tipo: "ficha" }));
     elemento.addEventListener("gmp-requesterror", (evento) => {

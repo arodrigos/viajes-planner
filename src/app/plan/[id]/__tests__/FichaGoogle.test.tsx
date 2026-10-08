@@ -40,8 +40,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function ficha(estado: EstadoGoogleParada | undefined, abierto: boolean) {
-  return <FichaGoogle planId="plan-1" paradaId="p1" estado={estado} abierto={abierto} hrefMaps={HREF} />;
+function ficha(estado: EstadoGoogleParada | undefined, abierto: boolean, conFotos = true) {
+  return <FichaGoogle planId="plan-1" paradaId="p1" estado={estado} abierto={abierto} hrefMaps={HREF} conFotos={conFotos} />;
 }
 
 describe("FichaGoogle sin clave de navegador (fic-ac7)", () => {
@@ -95,6 +95,18 @@ describe("FichaGoogle con clave", () => {
     rerender(ficha("casado", true));
     expect(posts).toHaveLength(1);
     expect(container.querySelectorAll("gmp-place-details")).toHaveLength(1);
+  });
+
+  it("fotos de Google solo como respaldo: sin foto propia van, con foto propia no", async () => {
+    const sin = render(ficha("casado", true, true));
+    await waitFor(() => expect(sin.container.querySelector("gmp-place-details")).not.toBeNull());
+    expect(sin.container.querySelector("gmp-place-media")).not.toBeNull();
+    sin.unmount();
+    const con = render(ficha("casado", true, false));
+    await waitFor(() => expect(con.container.querySelector("gmp-place-details")).not.toBeNull());
+    expect(con.container.querySelector("gmp-place-media")).toBeNull();
+    expect(con.container.querySelector("gmp-place-reviews")).not.toBeNull();
+    expect(con.container.querySelector("gmp-place-attribution")).not.toBeNull();
   });
 
   it("el elemento de Google está visible desde que se monta, antes de gmp-load", async () => {
