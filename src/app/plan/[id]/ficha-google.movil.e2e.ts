@@ -13,7 +13,11 @@ test.use({ viewport: { width: 393, height: 851 } });
 
 const DESTINO = "Lisboa";
 const RESUELTO_EN = new Date("2026-10-04").toISOString();
-const SUFIJO = Date.now();
+// El proyecto corre con fullyParallel: cada worker ejecuta su propio beforeAll,
+// así que el sufijo (y con él el correo, el plan y los lugares) es por proceso;
+// con uno fijo, el segundo worker chocaba con «usuario ya registrado».
+const SUFIJO = `${Date.now()}-${process.pid}`;
+const CORREO = `ci-test-ficha-${SUFIJO}@example.com`;
 const PARADAS = [
   { id: "p-ficha-1", nombre: "Museo de prueba uno", franja: "manana", lugar: `osm:node/ficha-1-${SUFIJO}`, estado: "casado", placeId: "ChIJ-prueba-1" },
   { id: "p-ficha-2", nombre: "Museo de prueba dos", franja: "comida", lugar: `osm:node/ficha-2-${SUFIJO}`, estado: "casado", placeId: "ChIJ-prueba-2" },
@@ -131,11 +135,11 @@ test.describe("panel de Google", () => {
 
   test.beforeAll(async () => {
     supabase = clienteDePrueba("servicio");
-    planId = await sembrar(supabase, "ci-test-ficha-e2e@example.com");
+    planId = await sembrar(supabase, CORREO);
   });
 
   test("abrir monta la ficha una vez, reserva una carga y reabrir no repite (fic-ac1, fic-ac5)", async ({ browser }) => {
-    const { contexto, pagina, peticionesGoogle, posts } = await abrir(browser, "ci-test-ficha-e2e@example.com", planId);
+    const { contexto, pagina, peticionesGoogle, posts } = await abrir(browser, CORREO, planId);
     expect(peticionesGoogle).toHaveLength(0);
     expect(posts).toHaveLength(0);
 
@@ -160,7 +164,7 @@ test.describe("panel de Google", () => {
   });
 
   test("sin verificar o sin coincidencia: su mensaje, el enlace a Maps y ningún POST (fic-ac3)", async ({ browser }) => {
-    const { contexto, pagina, posts } = await abrir(browser, "ci-test-ficha-e2e@example.com", planId);
+    const { contexto, pagina, posts } = await abrir(browser, CORREO, planId);
     await resumen(pagina, "Sitio sin verificar").click();
     await expect(tarjeta(pagina, "Sitio sin verificar").getByText("Este sitio no tiene la ubicación comprobada; sin ella no buscamos opiniones, para no confundirlo con otro.")).toBeVisible();
     await expect(tarjeta(pagina, "Sitio sin verificar").getByRole("link", { name: "Abrir en Google Maps" })).toBeVisible();
@@ -174,7 +178,7 @@ test.describe("panel de Google", () => {
   });
 
   test("cupo agotado (429): mensaje, enlace a Maps y ningún elemento (fic-ac1, fic-ac3)", async ({ browser }) => {
-    const { contexto, pagina } = await abrir(browser, "ci-test-ficha-e2e@example.com", planId);
+    const { contexto, pagina } = await abrir(browser, CORREO, planId);
     await pagina.route("**/api/google/ficha", (ruta) => ruta.fulfill({ status: 429, json: { motivo: "cupo-agotado" } }));
     await resumen(pagina, "Museo de prueba dos").click();
     const carta = tarjeta(pagina, "Museo de prueba dos");
@@ -187,7 +191,7 @@ test.describe("panel de Google", () => {
   });
 
   test("un place_id que Google no reconoce se marca obsoleto y Reintentar hace otro POST (fic-ac3, fic-ac6)", async ({ browser }) => {
-    const { contexto, pagina, posts } = await abrir(browser, "ci-test-ficha-e2e@example.com", planId, "no-encontrado");
+    const { contexto, pagina, posts } = await abrir(browser, CORREO, planId, "no-encontrado");
     await resumen(pagina, "Museo de prueba dos").click();
     const carta = tarjeta(pagina, "Museo de prueba dos");
     await expect(carta.getByRole("alert")).toContainText("No se ha podido cargar la ficha de Google");
@@ -204,7 +208,7 @@ test.describe("panel de Google", () => {
   });
 
   test("a 320 px el panel abierto no desborda y /guia no tiene el panel (fic-ac4, fic-ac5)", async ({ browser }) => {
-    const { contexto, pagina } = await abrir(browser, "ci-test-ficha-e2e@example.com", planId);
+    const { contexto, pagina } = await abrir(browser, CORREO, planId);
     await pagina.setViewportSize({ width: 320, height: 740 });
     await resumen(pagina, "Museo de prueba uno").click();
     await expect(tarjeta(pagina, "Museo de prueba uno").locator("gmp-place-details")).toBeVisible();
