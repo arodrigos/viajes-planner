@@ -37,7 +37,8 @@ async function sembrar(supabase: SupabaseClient, email: string) {
   for (const p of PARADAS) {
     const { data: procedencia, error: errorProcedencia } = await supabase
       .from("procedencias")
-      .insert({ fuente: p.lugar ? "osm" : "propuesto-sin-verificar" })
+      // El CHECK de procedencias solo admite este valor; que el lugar esté comprobado lo dice paradas.lugar.
+      .insert({ fuente: "propuesto-sin-verificar" })
       .select("id")
       .single();
     if (errorProcedencia || !procedencia) throw new Error(`No se pudo sembrar la procedencia: ${errorProcedencia?.message}`);
