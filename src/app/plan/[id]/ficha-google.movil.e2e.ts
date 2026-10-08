@@ -113,7 +113,8 @@ async function abrir(browser: Browser, email: string, planId: string, modo: "car
   pagina.on("request", (r) => {
     if (r.url().endsWith("/api/google/ficha") && r.method() === "POST") posts.push(r.postDataJSON());
   });
-  await pagina.goto(`/plan/${planId}`);
+  // Un plan con fecha futura aterriza en «Resumen», que no pinta tarjetas de parada.
+  await pagina.goto(`/plan/${planId}?dia=1`);
   return { contexto, pagina, peticionesGoogle, posts };
 }
 
