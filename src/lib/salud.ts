@@ -118,6 +118,11 @@ export type PublicoResultadoTick = Omit<ResultadoTickTrabajador, "error"> & { ca
 // al pisado del resultado del tick siguiente.
 export const ORIGEN_PASADA_ALTERNATIVAS = "pasada-alternativas";
 
+// Origen de las filas de `salud` que deja cada tick del trabajador, y que
+// /api/salud lee para decir cuándo se le vio por última vez. Configurable
+// por si conviven varios trabajadores; por defecto, un nombre genérico.
+export const ORIGEN_TRABAJADOR = process.env.SALUD_ORIGEN_TRABAJADOR?.trim() || "trabajador";
+
 export interface PasadaAlternativas {
   registrada_hace_seg: number;
   commit_sha: string | null;

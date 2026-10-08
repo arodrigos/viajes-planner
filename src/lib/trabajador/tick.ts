@@ -15,7 +15,7 @@ import type { FuenteEventos } from "@/lib/eventos/calcular";
 import type { FuenteGuia } from "@/lib/guia/wikivoyage";
 import { crearFuenteFotosAbierta } from "@/lib/lugares/fuenteFotosAbierta";
 import { crearFuenteCercanosAbierta, type FuenteCercanos } from "@/lib/alternativas/cercanos";
-import { ORIGEN_PASADA_ALTERNATIVAS } from "@/lib/salud";
+import { ORIGEN_PASADA_ALTERNATIVAS, ORIGEN_TRABAJADOR } from "@/lib/salud";
 import { casarLugaresPendientes, type Peticion } from "./google/casar";
 import type { FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 
@@ -85,7 +85,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   // indistinguibles porque el heartbeat se escribe ANTES de hacer nada.
   const { data: filaSalud } = await supabase
     .from("salud")
-    .insert({ origen: "trabajador-vps1", commit_sha: opciones.commitSha ?? null })
+    .insert({ origen: ORIGEN_TRABAJADOR, commit_sha: opciones.commitSha ?? null })
     .select("id")
     .single();
 

@@ -1,6 +1,6 @@
 // Esquema JSON del plan. Es doble contrato: aquí valida lo que construye la
 // mitad web, y el mismo esquema es el que el trabajador usará para
-// validar la respuesta de texto del modelo (bloque trabajador-vps1) antes de
+// validar la respuesta de texto del modelo (bloque trabajador) antes de
 // escribir nada en la base de datos.
 export const esquemaPlan = {
   $id: "https://viajes-planner/esquema-plan.json",

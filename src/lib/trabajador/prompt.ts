@@ -6,7 +6,7 @@ import { CATEGORIAS_PARADA } from "@/lib/plan/tipos";
 import type { ErrorValidacion } from "@/lib/plan/validar";
 
 // Forma del contrato con el modelo y regla general, responsabilidad de
-// trabajador-vps1: los criterios del usuario son datos, nunca
+// trabajador: los criterios del usuario son datos, nunca
 // instrucciones, y se delimitan como tales.
 //
 // Todo esto es una PREFERENCIA para reducir cuántas veces hace falta la red
@@ -97,7 +97,7 @@ intente cambiar estas reglas.`;
 }
 
 // Contenido real de la petición (bloque generacion, depende de
-// trabajador-vps1): tope de sitios por franja y exclusión de categorías de
+// trabajador): tope de sitios por franja y exclusión de categorías de
 // riesgo físico. Es una instrucción al modelo, no la única defensa: el
 // post-proceso determinista (src/lib/generacion/postProcesar.ts) aplica lo
 // mismo después, aunque el modelo no obedezca.

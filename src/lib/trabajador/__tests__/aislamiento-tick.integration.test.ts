@@ -1,3 +1,4 @@
+import { ORIGEN_TRABAJADOR } from "@/lib/salud";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { EjecutorModelo, ResultadoInvocacion } from "@/lib/trabajador/ejecutorModelo";
 import { adquirirCerrojo, liberarCerrojo } from "@/lib/trabajador/cerrojo";
@@ -50,7 +51,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
     expect(doble.llamadas).toBe(0);
   });
 
-  // esqueleto-ac1: /api/salud lee la fila 'trabajador-vps1' más reciente de
+  // esqueleto-ac1: /api/salud lee la fila del trabajador más reciente de
   // `salud` para trabajador.visto_hace_seg; esto prueba que tick() la deja
   // de verdad, contra Postgres real, no que el código "debería" escribirla.
   it("deja constancia de vida en `salud` aunque la cola esté vacía", async () => {
@@ -61,13 +62,13 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
     const { data, error } = await supabase
       .from("salud")
       .select("origen, registrado_en")
-      .eq("origen", "trabajador-vps1")
+      .eq("origen", ORIGEN_TRABAJADOR)
       .order("registrado_en", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     expect(error).toBeNull();
-    expect(data?.origen).toBe("trabajador-vps1");
+    expect(data?.origen).toBe(ORIGEN_TRABAJADOR);
     expect(data?.registrado_en >= antes).toBe(true);
   });
 
@@ -80,7 +81,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("tick (trabajador-ac3)", () => {
     const { data } = await supabase
       .from("salud")
       .select("commit_sha, resultado")
-      .eq("origen", "trabajador-vps1")
+      .eq("origen", ORIGEN_TRABAJADOR)
       .order("registrado_en", { ascending: false })
       .limit(1)
       .maybeSingle();

@@ -1,3 +1,4 @@
+import { ORIGEN_TRABAJADOR } from "@/lib/salud";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GET } from "@/app/api/salud/route";
@@ -27,7 +28,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud (esqueleto-ac1)",
   });
 
   it("lee supabase real y responde con el contrato completo del manifiesto", async () => {
-    await supabase.from("salud").insert({ origen: "trabajador-vps1" });
+    await supabase.from("salud").insert({ origen: ORIGEN_TRABAJADOR });
 
     const respuesta = await GET(new NextRequest("http://localhost/api/salud"));
     const cuerpo = await respuesta.json();
@@ -35,7 +36,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud (esqueleto-ac1)",
     expect(cuerpo.supabase).toBe("activa");
     expect(cuerpo.esquema).toBe("viajes_planner");
     expect(cuerpo.esquema_version).toBe(2);
-    expect(cuerpo.modelo_acceso).toBe("suscripcion-vps1");
+    expect(cuerpo.modelo_acceso).toBe("suscripcion");
     expect(cuerpo.trabajador.visto_hace_seg).toBeLessThan(60);
     expect(cuerpo.secretos_faltantes).not.toContain("CRON_SECRET");
     expect(cuerpo.secretos_faltantes).not.toContain("SUPABASE_SCHEMA");
@@ -47,7 +48,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud (esqueleto-ac1)",
   // del commit de Vercel, nunca del que de verdad ejecuta el trabajador.
   it("expone trabajador.commit_sha y trabajador.ultimo_resultado del último tick", async () => {
     const resultado = { ok: true, trabajos_procesados: 0, planes_mirados: 5, paradas_intentadas: 12 };
-    await supabase.from("salud").insert({ origen: "trabajador-vps1", commit_sha: "c66ade5", resultado });
+    await supabase.from("salud").insert({ origen: ORIGEN_TRABAJADOR, commit_sha: "c66ade5", resultado });
 
     const respuesta = await GET(new NextRequest("http://localhost/api/salud"));
     const cuerpo = await respuesta.json();
@@ -65,7 +66,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud (esqueleto-ac1)",
       paradas_intentadas: 0,
       error: "Error: Nominatim 503 al buscar Lisboa",
     };
-    await supabase.from("salud").insert({ origen: "trabajador-vps1", commit_sha: "c66ade5", resultado });
+    await supabase.from("salud").insert({ origen: ORIGEN_TRABAJADOR, commit_sha: "c66ade5", resultado });
 
     const respuesta = await GET(new NextRequest("http://localhost/api/salud"));
     const texto = await respuesta.text();
@@ -90,7 +91,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud (esqueleto-ac1)",
     }
   });
 
-  it("sin ninguna lectura previa de trabajador-vps1, visto_hace_seg es null", async () => {
+  it("sin ninguna lectura previa de trabajador, visto_hace_seg es null", async () => {
     const respuesta = await GET(new NextRequest("http://localhost/api/salud"));
     const cuerpo = await respuesta.json();
     expect(cuerpo.trabajador.visto_hace_seg).toBeNull();

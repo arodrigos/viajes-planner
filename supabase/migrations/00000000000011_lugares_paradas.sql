@@ -1,6 +1,6 @@
 -- Bloque lugares-resolucion: coordenadas y procedencia reales por parada,
 -- resueltas contra las fuentes abiertas (Nominatim/OSM y Wikipedia) en el
--- trabajador de VPS1. Puramente aditiva (ADD COLUMN, CREATE INDEX): no se
+-- trabajador. Puramente aditiva (ADD COLUMN, CREATE INDEX): no se
 -- toca ningún CHECK existente -procedencias.fuente sigue admitiendo solo
 -- 'propuesto-sin-verificar' (migración 005); la procedencia pública se
 -- deriva en repositorio.ts a partir de `lugar`, no se guarda aquí.

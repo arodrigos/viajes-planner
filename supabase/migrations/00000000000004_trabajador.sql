@@ -1,4 +1,4 @@
--- Bloque trabajador-vps1: solo un trabajador vivo a la vez (trabajador-ac4).
+-- Bloque trabajador: solo un trabajador vivo a la vez (trabajador-ac4).
 -- No usa pg_try_advisory_lock: supabase-js habla con Postgres a través de
 -- PostgREST, sin conexión persistente por trabajador, y un lock consultivo
 -- de sesión se soltaría solo en cuanto termina la petición HTTP que lo pidió.
