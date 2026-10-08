@@ -58,10 +58,17 @@ describe("FichaGoogle sin clave de navegador (fic-ac7)", () => {
     expect(container.querySelector("gmp-place-details")).toBeNull();
   });
 
-  it("una parada sin ubicación enseña su propio mensaje", async () => {
+  it.each([
+    ["sin-ubicacion", "sinUbicacion"],
+    ["pendiente", "pendiente"],
+    ["sin-coincidencia", "sinCoincidencia"],
+  ] as const)("una parada %s enseña su propio mensaje, no el de sin clave", async (estado, mensaje) => {
     mocks.clave = null;
-    render(ficha("sin-ubicacion", true));
-    expect(await screen.findByText(TEXTO_MENSAJE_FICHA.sinClave)).toBeTruthy();
+    render(ficha(estado, true));
+    expect(await screen.findByText(TEXTO_MENSAJE_FICHA[mensaje])).toBeTruthy();
+    expect(screen.queryByText(TEXTO_MENSAJE_FICHA.sinClave)).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(mocks.importLibrary).not.toHaveBeenCalled();
   });
 });
 

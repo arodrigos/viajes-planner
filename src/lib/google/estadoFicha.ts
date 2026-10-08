@@ -13,13 +13,14 @@ export const TEXTO_MENSAJE_FICHA: Record<ClaveMensajeFicha, string> = {
 };
 
 // Qué mensaje corresponde ANTES de pedir nada: null significa que la parada
-// está casada y se puede intentar la carga. Sin clave de navegador gana
-// siempre, para que ni el POST ni ningún script salgan hacia Google.
+// está casada y se puede intentar la carga. Sin clave de navegador nunca se
+// pide nada, pero «sinClave» solo es verdad para la parada casada: a las demás
+// la clave no les cambia nada (no tendrán ficha aunque exista), y decirles que
+// «aún no está disponible» prometería una ficha que no va a llegar.
 export function mensajeSinPeticion(tieneClave: boolean, estado: EstadoGoogleParada | undefined): ClaveMensajeFicha | null {
-  if (!tieneClave) return "sinClave";
   switch (estado) {
     case "casado":
-      return null;
+      return tieneClave ? null : "sinClave";
     case "sin-ubicacion":
       return "sinUbicacion";
     case "sin-coincidencia":
