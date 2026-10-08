@@ -93,7 +93,9 @@ leer los logs de la función.
 
 Cada título lleva el id del caso: `pv-ie2e-01`, `pv-ie2e-02`, `pv-ip-01`,
 `pv-enl-01`, `pv-cc-02`, `pv-tra-02`, `pv-alr-02`, `pv-alg-02`, `pv-cur-03`
-(UI), `pv-nps-02` y `pv-alg-01` (API) y `pv-trabajador`. Los casos de la base
+(UI), `pv-nps-02` y `pv-alg-01` (API), `pv-trabajador` y `pv-ficha-real`
+(ficha de Google; necesita la clave de navegador real en el despliegue y, sin
+ella, se salta en vez de fallar). Los casos de la base
 de datos van en `scripts/verificar-bd-prueba.sh` (`BD_URL` con la URL de la
 base de prueba).
 
