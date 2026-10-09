@@ -194,6 +194,7 @@ Están en `.env.example`. Nunca se suben al repo.
 | `CRON_SECRET` | Autoriza el cron diario de Vercel sobre `/api/salud` |
 | `CORREOS_PERMITIDOS` | Lista blanca de correos que pueden pedir acceso. El build falla si está vacía |
 | `NEXT_PUBLIC_GOOGLE_MAPS_CLAVE_NAVEGADOR` | Clave de navegador de Google (Maps JavaScript API y Places UI Kit) para la ficha. Se fija antes del build. Opcional: sin ella el panel avisa y enlaza a Google Maps |
+| `SALUD_ORIGEN_TRABAJADOR` | Origen con el que el **trabajador** apunta sus filas de salud y que `/api/salud` busca: si se fija, con el mismo valor en los dos entornos. Opcional: por defecto `trabajador` |
 | `GOOGLE_PLACES_CLAVE` | Solo en el entorno del **trabajador**, nunca en la web. Clave de Places API (New) para Text Search. Sin ella no se casa nada |
 
 Ninguna variable de modelo entra en el despliegue web. Las restricciones y
@@ -273,6 +274,12 @@ gh workflow run "Pruebas a demanda" --ref <rama> -f tipo=unit -f specs="src/lib/
     real contra un despliegue publicado, solo con `URL_OBJETIVO`.
   - **Pruebas a demanda** (#215): workflow manual con entradas `tipo` y
     `specs`.
+  - **Origen de salud del trabajador** (#245): el origen con el que el
+    trabajador apunta sus filas de salud sale de `SALUD_ORIGEN_TRABAJADOR`
+    (por defecto `trabajador`), y `/api/salud` publica el modo de acceso al
+    modelo como `suscripcion`.
+  - **Fotos de la ficha de Google** (#246): la ficha solo muestra las fotos
+    de Google cuando la parada no tiene foto propia.
 - **Curiosidades** (#160, #163, #171, #191, #192):
   - frases literales de Wikipedia y Wikidata elegidas por el modelo, que no
     las redacta;
