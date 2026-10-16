@@ -22,54 +22,16 @@ export interface CandidatoCiudad {
   apoyo: number;
 }
 
-// bar-ac2/bar-ac4 (feedback del gatekeeper, 2026-10-04): un "sin-ciudad-
-// identificable" no es una conclusión sobre el PLAN, es una conclusión
-// sobre lo que supo decidir la lógica vigente cuando se escribió. Si esa
-// lógica cambia (como en ciu-ac2), los planes ya marcados por una versión
-// anterior se quedarían bloqueados para siempre -- bar-ac2 dice, con toda
-// razón, que un "sin-ciudad-identificable" no genera peticiones, pero eso
-// solo tiene sentido si el veredicto es el de la lógica ACTUAL. Subir este
-// número cada vez que `elegirGanador`/`deducirPorParadas`/
-// `intentarCajaDelDestino` cambien su criterio de decisión es lo que deja
-// que esos planes se reintenten UNA vez (y solo una) en el siguiente tick.
-//
-// Subida a 3 (bar-ac4, feedback del gatekeeper, 2026-10-04): `elegirGanador`
-// ya no devuelve "abarca una zona demasiado grande" cuando en realidad no
-// hubo caja que verificar, y un rechazo en el nivel "ciudad" ya no cancela
-// los niveles "distrito" y "región" -- los 27 planes reales sellados con la
-// versión 2 (como el de "Londres en familia con niños", que el gatekeeper
-// midió que SÍ resuelve con la lógica corregida) tienen que reintentarse
-// una vez más contra esta versión del criterio.
-//
-// Subida a 4 (bar-ac4, feedback del gatekeeper, 2026-10-04): las claves de
-// caché de `buscarLibre`/`geocodificarCiudad` en fuenteAbierta.ts no llevaban
-// la versión del resolutor, así que un reintento contra la versión 3 podía
-// seguir leyendo el resultado negativo que había escrito la lógica rota de
-// la versión 1 o 2 -- el plan se resellaba sin haber preguntado nada de
-// verdad. Ahora la clave incluye la versión, así que esta subida es la que
-// de verdad fuerza una pregunta nueva a Nominatim para los planes sellados
-// con una versión anterior (Londres incluido).
-//
-// Subida a 5 (bar-ac4, feedback del gatekeeper, 2026-10-04, ronda 7): nuevo
-// escalón `intentarCandidatosDesdeTexto` entre la caja del destino entero y
-// la deducción por paradas -- IMPRESCINDIBLE subir la versión en el MISMO
-// commit, porque el reintento único de la versión 4 para los 3 planes
-// sellados (categoria_motivo=sin-candidato-claro, Londres incluido) ya está
-// gastado: sin esta subida, la clave de caché `ciudad:v4:...` del nivel de
-// deducción seguiría siendo válida y el plan ni siquiera llegaría a probar
-// el escalón nuevo con una pregunta real a Nominatim.
-//
-// Subida a 6 (bar-ac4, feedback del gatekeeper, 2026-10-04, ronda 8): medido
-// contra el despliegue real por el gatekeeper, `ordenDeterminista` elegía la
-// muestra de validación empezando por los nombres con MÁS tokens -- en un
-// plan mixto eso llena la muestra con paradas descriptivas ("Tarde libre en
-// familia por el centro de la ciudad") y nunca llega a los nombres de sitio
-// cortos (monumentos), así que "Londres" se descartaba por 1 de 5 aceptadas
-// en vez de 2. Ahora el orden prioriza POCOS tokens primero (más corto,
-// luego alfabético) y la muestra de validación crece hasta encontrar 2
-// aceptadas en vez de cortar siempre en 5 -- otra vez IMPRESCINDIBLE subir
-// la versión en el mismo commit: el reintento único de la versión 5 para los
-// 3 planes sellados por este mismo sesgo ya está gastado.
+// bar-ac2/bar-ac4: un "sin-ciudad-identificable" es una conclusión sobre lo
+// que supo decidir la lógica vigente, no sobre el plan; si esa lógica cambia,
+// los planes ya sellados se quedarían bloqueados para siempre. Subir este
+// número cada vez que `elegirGanador`, `deducirPorParadas`,
+// `intentarCajaDelDestino` o `intentarCandidatosDesdeTexto` cambien su
+// criterio de decisión deja que esos planes se reintenten una vez (y solo
+// una) en el siguiente tick. Va en el mismo commit que el cambio de criterio:
+// la versión forma parte de las claves de caché de fuenteAbierta.ts, y sin
+// subirla el reintento leería el negativo que dejó la lógica anterior sin
+// preguntar nada nuevo a Nominatim.
 export const VERSION_RESOLUTOR_ACTUAL = 6;
 
 // bar-ac4: categoría cerrada del motivo de sellado, para poder contar por
@@ -142,18 +104,14 @@ const MINIMO_VOTOS_PRESUPUESTO_AGOTADO = 3;
 
 type NivelDireccion = "ciudad" | "distrito" | "region";
 
-// ciu-ac2/invariante de orden -- reordenado en bar-ac4 (feedback del
-// gatekeeper, 2026-10-04, ronda 8): deduplica por nombre normalizado (se
-// queda con la primera grafía original encontrada) y ordena por MENOS
-// tokens primero, luego más CORTO, luego alfabético. Es un orden total que
-// no depende de la posición de entrada (el invariante de permutación sigue
-// cumpliéndose), pero ya no es el de ciu-ac2 ("más tokens, luego más
-// largo"): esa letra se escribió asumiendo que un nombre largo y
-// descriptivo era tan buen candidato de muestra como uno corto, y medido
-// contra Nominatim real no lo es -- los nombres de SITIO (los que de verdad
-// geocodifican) son casi siempre los más cortos ("Hyde Park" frente a
-// "Tarde libre en familia por el centro de la ciudad"). Desviación
-// declarada en `desviaciones` del entregable de esta pasada.
+// ciu-ac2/invariante de orden: deduplica por nombre normalizado (se queda
+// con la primera grafía original encontrada) y ordena por MENOS tokens
+// primero, luego más CORTO, luego alfabético. Es un orden total que no
+// depende de la posición de entrada. Prioriza los nombres cortos porque los
+// nombres de SITIO, que son los que de verdad geocodifican, casi siempre lo
+// son ("Hyde Park" frente a "Tarde libre en familia por el centro de la
+// ciudad"): medido contra Nominatim, empezar por los largos llenaba la
+// muestra de validación con paradas descriptivas.
 function ordenDeterminista(nombres: string[]): string[] {
   const vistos = new Map<string, string>();
   for (const nombre of nombres) {
@@ -175,9 +133,8 @@ function clavesDeNivel(direccion: CandidatoLugar["direccion"], nivel: NivelDirec
   if (!direccion) return [];
   // nivel "distrito": state_district/county son los campos "de libro" de
   // Nominatim, pero para Londres (y otras ciudades con boroughs) la API
-  // real no los rellena -- usa borough/city_district/suburb en su lugar
-  // (verificado contra la API real el 2026-10-04). Se prueban en ese
-  // orden, de más administrativo a más local.
+  // real no los rellena -- usa borough/city_district/suburb en su lugar.
+  // Se prueban en ese orden, de más administrativo a más local.
   const valores =
     nivel === "ciudad"
       ? [direccion.city, direccion.town, direccion.village, direccion.municipality]
@@ -241,8 +198,7 @@ interface GanadorRechazado {
   top3: CandidatoCiudad[];
 }
 
-// ciu-ac2, calibrado con datos reales (feedback del gatekeeper del
-// 2026-10-04): con direcciones REALES de Nominatim, una ciudad grande con
+// ciu-ac2: con direcciones reales de Nominatim, una ciudad grande con
 // "ciudades" internas (Londres/"City of Westminster") reparte el voto de
 // nivel "ciudad" entre la ciudad grande y su sub-ciudad sin que ninguna
 // llegue a la ventaja mínima -- y el nivel "distrito" (boroughs) no ayuda
@@ -263,12 +219,10 @@ async function elegirGanador(fuente: FuenteCiudad, escrutinio: Escrutinio): Prom
   const caja = await fuente.geocodificarCiudad(primero.nombre);
   const paradasDentro = caja ? paradasVotantesPrimero.filter((voto) => enCaja(voto.candidato, caja)).length : 0;
 
-  // bar-ac4 (feedback del gatekeeper, 2026-10-04): antes estos dos casos
-  // compartían el mismo motivo ("abarca una zona demasiado grande"), que es
-  // justo lo que el usuario lee en el aviso de ciudad-a-mano -- y es FALSO
-  // cuando lo que pasó es que `geocodificarCiudad` no devolvió caja (no se
-  // pudo verificar, no que la zona fuera grande). Con datos reales esto
-  // importa: dice cuál de las dos ramas se tomó de verdad.
+  // bar-ac4: los dos casos llevan motivos distintos porque el motivo es lo
+  // que el usuario lee en el aviso de ciudad-a-mano, y "abarca una zona
+  // demasiado grande" es FALSO cuando `geocodificarCiudad` no devolvió caja
+  // (no se pudo verificar, no que la zona fuera grande).
   if (!caja) {
     return { rechazado: { nombre: primero.nombre, motivo: `la ciudad candidata «${primero.nombre}» no se pudo verificar geográficamente (sin caja)`, categoria: "sin-caja", top3 } };
   }
@@ -307,13 +261,11 @@ function enCaja(candidato: CandidatoLugar, caja: CajaDelimitadora): boolean {
   );
 }
 
-// bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): una caja de 0x0
-// grados no es una ciudad, es un único punto sin área -- medido contra
-// Nominatim real: geocodificarDestino("Ciudad con niños") devuelve
-// exactamente boundingbox [X,X,Y,Y]. Antes pasaba `spanValido` porque
-// 0 <= SPAN_MAXIMO_GRADOS, y solo no causaba daño porque ninguna parada
-// real cae dentro de un área de superficie cero. Exigir span > 0 en ambos
-// ejes lo rechaza explícitamente en vez de confiar en ese efecto lateral.
+// bar-ac4: una caja de 0x0 grados no es una ciudad, es un único punto sin
+// área -- Nominatim la devuelve para destinos descriptivos como "Ciudad con
+// niños" (boundingbox [X,X,Y,Y]). Exigir span > 0 en ambos ejes la rechaza
+// explícitamente en vez de confiar en que ninguna parada real cae dentro de
+// un área de superficie cero.
 function spanValido(caja: CajaDelimitadora): boolean {
   const spanLat = caja.maxLat - caja.minLat;
   const spanLon = caja.maxLon - caja.minLon;
@@ -329,12 +281,11 @@ async function intentarCajaDelDestino(
   const bbox = await fuente.geocodificarDestino(destino);
   if (!bbox) return { descartado: "" };
 
-  // bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 8): no cortar
-  // siempre en TAMANO_MUESTRA_DESTINO -- con el nuevo orden (pocos tokens
-  // primero) la mayoría de los planes aceptan ya en la muestra pequeña,
-  // pero si no llega a las 2 aceptadas se sigue recorriendo hasta
-  // MUESTRA_MAXIMA_DESTINO antes de rendirse. El presupuesto de 180 s por
-  // tick lo permite y evita sellar un plan que sí tenía la información.
+  // bar-ac4: la muestra no se corta siempre en TAMANO_MUESTRA_DESTINO. Con
+  // los nombres cortos primero la mayoría de los planes aceptan ya en la
+  // muestra pequeña, pero si no llega a las 2 aceptadas se sigue recorriendo
+  // hasta MUESTRA_MAXIMA_DESTINO antes de rendirse: el presupuesto de 180 s
+  // por tick lo permite y evita sellar un plan que sí tenía la información.
   const muestra = nombresOrdenados.slice(0, MUESTRA_MAXIMA_DESTINO);
   let aceptadas = 0;
   let intentadas = 0;
@@ -366,10 +317,10 @@ async function intentarCajaDelDestino(
   return { descartado: `la caja del destino no resolvió ninguna parada (${aceptadas} de ${intentadas})` };
 }
 
-// bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): colas
-// cualificadoras conocidas que el usuario antepone/pospone al nombre real de
-// la ciudad en un destino descriptivo. De más larga a más corta para que
-// "en familia con niños" se quite entera antes que "con niños" sola.
+// bar-ac4: colas cualificadoras conocidas que el usuario antepone/pospone
+// al nombre real de la ciudad en un destino descriptivo. De más larga a más
+// corta para que "en familia con niños" se quite entera antes que "con
+// niños" sola.
 const COLAS_CUALIFICADORAS_DESTINO = [
   "en familia con niños",
   "en familia con ninos",
@@ -386,13 +337,12 @@ function escaparRegExp(texto: string): string {
   return texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): genera hasta 3
-// candidatos de nombre de ciudad A PARTIR del texto del destino, para el
-// escalón intermedio `intentarCandidatosDesdeTexto`. Dos estrategias, en
-// este orden: (1) quitar colas cualificadoras conocidas del final del
-// texto, repitiendo hasta que no quede ninguna ("Londres en familia con
-// niños" -> "Londres"); (2) prefijos por token (primero 1, luego 2) para
-// los destinos sin una cola reconocida. Nunca se devuelve el destino
+// bar-ac4: genera hasta 3 candidatos de nombre de ciudad A PARTIR del texto
+// del destino, para el escalón intermedio `intentarCandidatosDesdeTexto`.
+// Dos estrategias, en este orden: (1) quitar colas cualificadoras conocidas
+// del final del texto, repitiendo hasta que no quede ninguna ("Londres en
+// familia con niños" -> "Londres"); (2) prefijos por token (primero 1, luego
+// 2) para los destinos sin una cola reconocida. Nunca se devuelve el destino
 // completo tal cual -- eso ya lo prueba `intentarCajaDelDestino` antes.
 function candidatosDesdeTextoDestino(destino: string): string[] {
   const destinoNormalizado = destino.trim();
@@ -423,13 +373,10 @@ function candidatosDesdeTextoDestino(destino: string): string[] {
   return candidatos.slice(0, 3);
 }
 
-// bar-ac4 (feedback del gatekeeper, 2026-10-04, ronda 7): el escalón que
-// faltaba entre "caja del destino entero" y "deducción por paradas".
-// Medido contra Nominatim real: geocodificarDestino/geocodificarCiudad del
-// texto entero "Londres en familia con niños" no devuelven caja, pero
-// geocodificarCiudad("Londres") sí -- la ciudad nombrada en el destino está
-// a una sola petición de distancia y la escalera nunca la pedía. La
-// validación contra la MISMA muestra de 5 paradas que usa
+// bar-ac4: escalón entre "caja del destino entero" y "deducción por
+// paradas". Un destino descriptivo ("Londres en familia con niños") no
+// geocodifica entero, pero la ciudad que nombra está a una sola petición de
+// distancia. La validación contra la MISMA muestra de paradas que usa
 // `intentarCajaDelDestino` no es opcional: geocodificarCiudad("Ciudad")
 // TAMBIÉN devuelve una caja real (de un asentamiento que se llama así),
 // así que aceptar la caja de un candidato sin comprobar que resuelve
@@ -439,8 +386,8 @@ async function intentarCandidatosDesdeTexto(
   destino: string,
   nombresOrdenados: string[],
 ): Promise<{ nombre: string; caja: CajaDelimitadora } | null> {
-  // bar-ac4 (ronda 8): mismo crecimiento de muestra que intentarCajaDelDestino
-  // -- ver su comentario.
+  // Mismo crecimiento de muestra que intentarCajaDelDestino -- ver su
+  // comentario.
   const muestra = nombresOrdenados.slice(0, MUESTRA_MAXIMA_DESTINO);
 
   for (const candidato of candidatosDesdeTextoDestino(destino)) {
@@ -500,13 +447,11 @@ async function deducirPorParadas(
   // el umbral de proporción se mide contra ellas, no contra las 8 previstas.
   const nConsultadas = votosPorParada.length;
 
-  // bar-ac4 (feedback del gatekeeper, 2026-10-04): un ganador RECHAZADO en
-  // un nivel no cancela los dos siguientes -- la arquitectura describe una
-  // escalera de TRES niveles (ciudad -> distrito -> región), y antes un
-  // rechazo en "ciudad" devolvía sin-ciudad-identificable sin probar nunca
-  // "distrito" ni "región". Solo se devuelve el negativo al agotar los
-  // tres, con el motivo del ÚLTIMO rechazo (el del nivel más específico
-  // que llegó a tener un ganador, aunque no se pudiera aceptar).
+  // bar-ac4: un ganador RECHAZADO en un nivel no cancela los dos
+  // siguientes -- la escalera tiene TRES niveles (ciudad -> distrito ->
+  // región). Solo se devuelve el negativo al agotar los tres, con el motivo
+  // del ÚLTIMO rechazo (el del nivel más específico que llegó a tener un
+  // ganador, aunque no se pudiera aceptar).
   let ultimoRechazo: GanadorRechazado | undefined;
   for (const nivel of ["ciudad", "distrito", "region"] as const) {
     const escrutinio = escrutar(votosPorParada, nivel, nConsultadas);
