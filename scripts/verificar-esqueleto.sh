@@ -74,6 +74,23 @@ for dominio in googlesyndication.com doubleclick.net "adsystem.amazon" taboola.c
   fi
 done
 
+echo "== map-ac1: el build sirve el worker de MapLibre que fija MapaDia.tsx =="
+# public/maplibre/ no se versiona: lo rellena el postinstall. Si un build lo
+# saltara, el mapa montaría sin pedir una sola tesela y ningún test de
+# pantalla lo vería, porque en local y en CI el fichero siempre está. Se
+# compara con el de node_modules para cazar también una copia de otra versión.
+for fichero in maplibre-gl-worker.mjs maplibre-gl-shared.mjs; do
+  servido="$(mktemp)"
+  if ! curl -fsS -o "$servido" "$VIAJES_URL/maplibre/$fichero"; then
+    echo "FALLO: el build no sirve /maplibre/$fichero" >&2
+    exit 1
+  fi
+  if ! cmp -s "$servido" "node_modules/maplibre-gl/dist/$fichero"; then
+    echo "FALLO: /maplibre/$fichero no coincide con el de la versión instalada de maplibre-gl" >&2
+    exit 1
+  fi
+done
+
 echo "== trabajador: scripts/trabajador-tick.ts carga fuera de Next.js (--conditions=react-server) =="
 # El script del cron del trabajador corre con `tsx` puro, sin el bundler de
 # Next.js: sin --conditions=react-server, cada módulo "server-only" que
