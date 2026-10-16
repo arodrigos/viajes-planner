@@ -9,6 +9,10 @@
 # CORREOS_PERMITIDOS -nunca se escribe aquí ni en el repositorio-. Contra el
 # despliegue real la pone el dueño del producto; en CI reutiliza ci-test@example.com, que
 # ya está en la lista de prueba del job.
+#
+# No envía cabecera de bypass: contra un despliegue con protección delante
+# de la app falla en vez de dar OK, porque exige el 401 y el cuerpo exactos
+# de la ruta.
 set -euo pipefail
 
 : "${VIAJES_URL:=}"
@@ -87,6 +91,24 @@ fi
 
 if grep -qi '^set-cookie:' "$CABECERAS_AUTORIZADO" || grep -qi '^set-cookie:' "$CABECERAS_AJENO"; then
   echo "FALLO: alguna respuesta trae Set-Cookie" >&2
+  FALLO=1
+fi
+
+# Que las dos respuestas coincidan no basta: un despliegue roto de forma
+# uniforme (500 por configuración, 404 si la ruta desaparece, una capa de
+# protección delante de la app) también responde igual a los dos correos.
+# Basta con mirar un lado porque las comprobaciones de arriba ya exigen que
+# los dos coincidan en estado y cuerpo.
+CUERPO_ESPERADO='{"error":"código incorrecto o caducado"}'
+
+if [ "$CODIGO_HTTP_AUTORIZADO" != "401" ]; then
+  echo "FALLO: se esperaba 401 y llegó $CODIGO_HTTP_AUTORIZADO" >&2
+  FALLO=1
+fi
+
+if [ "$(cat "$CUERPO_AUTORIZADO")" != "$CUERPO_ESPERADO" ]; then
+  echo "FALLO: el cuerpo no es el de código incorrecto o caducado" >&2
+  echo "-- recibido --" >&2; cat "$CUERPO_AUTORIZADO" >&2; echo >&2
   FALLO=1
 fi
 
