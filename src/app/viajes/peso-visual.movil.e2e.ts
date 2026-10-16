@@ -109,6 +109,7 @@ test("peso-visual: la acción principal pesa más que «Eliminar», y en el diá
     const peligroBorde = hexARgb(leerToken(bloque, "peligro-borde"));
     const peligroFondo = hexARgb(leerToken(bloque, "peligro-fondo"));
     const peligroTexto = hexARgb(leerToken(bloque, "peligro-texto"));
+    const foco = hexARgb(leerToken(bloque, "foco"));
 
     // peso-ac1: en cada tarjeta, el enlace principal pesa más que «Eliminar»
     // -comparados sus estilos COMPUTADOS, nunca una lista de valores escritos
@@ -129,6 +130,15 @@ test("peso-visual: la acción principal pesa más que «Eliminar», y en el diá
         estiloBoton.color === peligroBorde || estiloBoton.borderColor === peligroBorde,
         `${modo}/${textoEnlace}: Eliminar debe resolver al color de peligro de globals.css`,
       ).toBe(true);
+      // Que difieran no dice cuál manda: una inversión que devolviera el
+      // énfasis a la acción destructiva seguiría teniendo dos diferencias y
+      // un «Eliminar» rojo. Esto fija la dirección.
+      expect(estiloEnlace.borderColor, `${modo}/${textoEnlace}: el enlace principal debe llevar el borde de foco`).toBe(foco);
+      expect(estiloBoton.borderColor, `${modo}/${textoEnlace}: Eliminar no debe llevar el borde de foco`).not.toBe(foco);
+      expect(
+        Number(estiloEnlace.fontWeight),
+        `${modo}/${textoEnlace}: el enlace principal no debe pesar menos que Eliminar`,
+      ).toBeGreaterThanOrEqual(Number(estiloBoton.fontWeight));
     }
 
     // peso-ac2: dentro del diálogo, «Cancelar» y «Eliminar de verdad» ya no
@@ -151,6 +161,9 @@ test("peso-visual: la acción principal pesa más que «Eliminar», y en el diá
     expect(estiloEliminarDeVerdad.borderColor, `${modo}: Eliminar de verdad debe resolver al borde de peligro`).toBe(peligroBorde);
     expect(estiloCancelar.color, `${modo}: Cancelar no debe llevar la marca de peligro`).not.toBe(peligroTexto);
     expect(estiloCancelar.borderColor, `${modo}: Cancelar no debe llevar la marca de peligro`).not.toBe(peligroBorde);
+    // Dirección del diálogo: el relleno de peligro es de la acción
+    // irreversible, nunca de la salida segura que recibe el foco.
+    expect(estiloCancelar.backgroundColor, `${modo}: Cancelar no debe llevar el relleno de peligro`).not.toBe(peligroFondo);
 
     // peso-ac7: el texto del diálogo sigue nombrando el destino y diciendo
     // que no se puede deshacer, y sigue sin prometer papelera ni recuperación.
