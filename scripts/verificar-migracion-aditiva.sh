@@ -35,6 +35,25 @@ MIGRACIONES_PRE_AUTOMATIZACION=(
   "00000000000009_recomendaciones_sitios.sql"
 )
 
+# La lista solo sigue siendo cierta si cada nombre existe en disco y es
+# anterior a la frontera de la 010: así un fichero renombrado, o una
+# migración nueva añadida a la lista para esquivar el filtro, rompen el
+# paso en vez de quedar excluidos en silencio.
+FRONTERA_AUTOMATIZACION="00000000000010"
+faltan=0
+for candidata in "${MIGRACIONES_PRE_AUTOMATIZACION[@]}"; do
+  if [ ! -f "supabase/migrations/$candidata" ]; then
+    echo "MIGRACIONES_PRE_AUTOMATIZACION nombra una migración que no existe: supabase/migrations/$candidata"
+    faltan=1
+  elif [[ ! "$candidata" < "$FRONTERA_AUTOMATIZACION" ]]; then
+    echo "MIGRACIONES_PRE_AUTOMATIZACION nombra una migración posterior a la automatización: $candidata"
+    faltan=1
+  fi
+done
+if [ "$faltan" -eq 1 ]; then
+  exit 1
+fi
+
 linea_patron=$(grep -m1 '^PATRON_NO_ADITIVO=' "$FICHERO_FUENTE" || true)
 if [ -z "$linea_patron" ]; then
   echo "No se pudo extraer PATRON_NO_ADITIVO de $FICHERO_FUENTE -- ¿cambió de forma?"

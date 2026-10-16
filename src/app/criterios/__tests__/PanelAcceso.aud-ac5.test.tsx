@@ -47,4 +47,20 @@ describe("PanelAcceso (aud-ac5)", () => {
       expect(contenido, `${plantilla} nombra el producto`).not.toMatch(/viajes|planner/i);
     }
   });
+
+  // La pila local tiene enable_confirmations = false y sirve TODOS los
+  // correos con magic_link.html, así que ningún e2e llega a enviar
+  // confirmation.html, que es la que Supabase Cloud usa en el primer acceso
+  // de un correo nuevo. Exigir que las dos sean el mismo correo (cuerpo y
+  // asunto) hace que lo que los e2e comprueban con una valga para la otra.
+  it("confirmation.html es el mismo correo que magic_link.html, cuerpo y asunto", () => {
+    const [magicLink, confirmacion] = PLANTILLAS.map((plantilla) => readFileSync(path.join(RAIZ, plantilla), "utf-8"));
+    expect(confirmacion, "confirmation.html difiere de magic_link.html").toBe(magicLink);
+
+    const config = readFileSync(path.join(RAIZ, "supabase/config.toml"), "utf-8");
+    const asunto = (plantilla: string) =>
+      config.match(new RegExp(`\\[auth\\.email\\.template\\.${plantilla}\\]\\s*\\nsubject\\s*=\\s*"([^"]*)"`))?.[1];
+    expect(asunto("magic_link"), "falta el asunto de magic_link en config.toml").toBeTruthy();
+    expect(asunto("confirmation"), "el asunto de confirmation difiere del de magic_link").toBe(asunto("magic_link"));
+  });
 });
