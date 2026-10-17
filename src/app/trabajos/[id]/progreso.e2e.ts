@@ -151,14 +151,15 @@ test("un trabajo completado deja de girar y enlaza al plan, no a la barra de pro
   // botón que el CTA de la portada -no texto corrido sin marcar.
   await expect(enlace).toHaveClass(/\bboton-principal\b/);
 
-  // (b) el aviso se mueve, no desaparece: ahora señala la dirección del
-  // PLAN como la que hay que guardar, no la de esta pantalla. Ya no lleva
+  // (b) el aviso se mueve, no desaparece: ahora dice que el plan queda en
+  // «Mis viajes», sin dirección que guardar. Ya no lleva
   // la caja con borde destacado (`.aviso`) que competía en peso visual con
   // el enlace principal: es una nota secundaria (`.ayuda`).
-  const aviso = page.getByText(/dirección que conviene guardar es la del plan/);
+  const aviso = page.getByText(/El plan queda guardado en «Mis viajes»/);
   await expect(aviso).toBeVisible();
   expect((await aviso.innerText()).length).toBeGreaterThanOrEqual(60);
   await expect(aviso).toHaveClass(/\bayuda\b/);
+  await expect(page.getByText(/única forma/)).toHaveCount(0);
 });
 
 // final-ac4: estado límite sin dato -una fila completada antes de esta
