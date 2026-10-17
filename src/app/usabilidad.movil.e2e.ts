@@ -71,15 +71,16 @@ for (const [nombre, fixture] of [
   ["pausado-por-cuota", TRABAJO_PAUSADO],
 ] as const) {
   // usabilidad-ac8(b): >=80 caracteres visibles explicando el estado, más el
-  // aviso de que la dirección es la única forma de volver -no una espera
-  // muda ni un simple "espera, por favor".
-  test(`el estado "${nombre}" explica qué pasa y avisa de guardar la dirección`, async ({ page }) => {
+  // aviso de cómo volver a encontrarlo («Mis viajes») -no una espera muda
+  // ni un simple "espera, por favor".
+  test(`el estado "${nombre}" explica qué pasa y dice cómo volver a encontrarlo`, async ({ page }) => {
     await page.route("**/api/trabajos/*", (route) => route.fulfill({ json: fixture }));
     await page.goto(`/trabajos/${fixture.id}`);
 
     const texto = await page.locator("main, body").first().innerText();
     expect(texto.trim().length).toBeGreaterThanOrEqual(80);
-    await expect(page.getByText(/esta dirección es la única forma de encontrar este trabajo/)).toBeVisible();
+    await expect(page.getByText(/encontrarás este viaje en «Mis viajes»/)).toBeVisible();
+    await expect(page.getByText(/única forma/)).toHaveCount(0);
   });
 }
 
