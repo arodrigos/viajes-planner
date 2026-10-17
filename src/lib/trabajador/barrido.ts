@@ -12,13 +12,23 @@ import { resolverFoto } from "@/lib/lugares/resolverFotos";
 import { PETICIONES_MAXIMAS_POR_PLAN, resolverCiudadEfectiva, VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { relojReal, type Reloj } from "@/lib/lugares/limitador";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
-import { crearPresupuestoPeticiones, type CajaDelimitadora, type FuenteCiudad, type FuenteFotos, type FuenteLugares } from "@/lib/lugares/tipos";
+import { crearPresupuestoPeticiones, PresupuestoAgotado, type CajaDelimitadora, type FuenteCiudad, type FuenteFotos, type FuenteLugares } from "@/lib/lugares/tipos";
 import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
 import { inferirCategoria } from "@/lib/alternativas/categorizar";
 import { ETIQUETA_OSM_POR_CATEGORIA, FalloFuenteCercanos, type FuenteCercanos } from "@/lib/alternativas/cercanos";
 import { distanciaMetros, mismasCoordenadas } from "@/lib/alternativas/equivalencia";
 import { duracionParaCercano } from "@/lib/alternativas/duraciones";
 import { esLaMismaParadaDelPlan } from "@/lib/alternativas/resolverAlternativas";
+import {
+  crearPresupuestoTick,
+  fuenteCercanosConTope,
+  fuenteCiudadConTope,
+  fuenteFotosConTope,
+  fuenteLugaresConTope,
+  presupuestoAnidado,
+  PRESUPUESTO_PETICIONES_POR_TICK,
+  type PresupuestoTick,
+} from "./presupuestoTick";
 
 const MAXIMO_CERCANOS = 3;
 
@@ -45,6 +55,9 @@ const PRESUPUESTO_GUIA_MS = 60_000;
 const LIMITE_EVENTOS = 10;
 const PRESUPUESTO_EVENTOS_MS = 60_000;
 const DIAS_CADUCIDAD_NO_RESUELTA = 30;
+// resolverNombre pide como mucho Nominatim y, si no casa, Wikipedia: una
+// parada solo empieza si caben las dos, para no dejarla en «error» a medias.
+const PETICIONES_MAXIMAS_POR_UBICACION = 2;
 
 export interface CandidatoPendiente {
   paradaId: string;
@@ -77,11 +90,13 @@ export async function procesarDentroDePresupuesto<T>(
   presupuestoMs: number,
   reloj: Reloj,
   ejecutar: (candidato: T) => Promise<void>,
+  puedeEmpezar: () => boolean = () => true,
 ): Promise<number> {
   const inicio = reloj.ahora();
   let procesados = 0;
   for (const candidato of seleccionados) {
     if (reloj.ahora() - inicio >= presupuestoMs) break;
+    if (!puedeEmpezar()) break;
     await ejecutar(candidato);
     procesados++;
   }
@@ -140,8 +155,11 @@ async function insertarCercanos(
   if (errorGuardadas) throw new Error(errorGuardadas.message);
   const yaPuestas = new Set(((guardadas ?? []) as { nombre: string }[]).map((a) => a.nombre.trim().toLowerCase()));
   const elegidos = ajenos.filter((cercano) => !yaPuestas.has(cercano.nombre.trim().toLowerCase())).slice(0, MAXIMO_CERCANOS);
+  // Todas las fotos antes de la primera inserción: si el presupuesto del tick
+  // se agota a mitad, no queda ninguna alternativa a medias y la parada se
+  // repite entera en el siguiente tick, sin pasar nunca de tres cercanos.
+  const conFoto = [];
   for (const cercano of elegidos) {
-    const distanciaM = distanciaMetros({ lat, lon }, cercano);
     const lugar: Lugar = {
       fuente: "osm",
       id: cercano.id,
@@ -151,6 +169,10 @@ async function insertarCercanos(
       resuelto_en: new Date().toISOString(),
     };
     const foto = await fotoDeAlternativa(fuenteFotos, lugar, categoria, { lat: cercano.lat, lon: cercano.lon });
+    conFoto.push({ cercano, lugar, foto });
+  }
+  for (const { cercano, lugar, foto } of conFoto) {
+    const distanciaM = distanciaMetros({ lat, lon }, cercano);
     const { error: errorInsert } = await supabase.from("paradas_alternativas").insert({
       parada_id: fila.id,
       origen: "cercano",
@@ -170,7 +192,8 @@ async function insertarCercanos(
 }
 
 // Un fallo de Wikipedia/Commons deja la alternativa sin foto, nunca sin
-// alternativa ni tumba el tick.
+// alternativa ni tumba el tick. Quedarse sin presupuesto no es un fallo de la
+// fuente: se propaga para que el llamador no gaste el intento.
 async function fotoDeAlternativa(
   fuenteFotos: FuenteFotos | undefined,
   lugar: Lugar | undefined,
@@ -180,7 +203,8 @@ async function fotoDeAlternativa(
   if (!fuenteFotos) return undefined;
   try {
     return await resolverFoto(fuenteFotos, lugar, categoria, coordenadas);
-  } catch {
+  } catch (error) {
+    if (error instanceof PresupuestoAgotado) throw error;
     return undefined;
   }
 }
@@ -274,6 +298,9 @@ export async function resolverPuertaDeCiudad(
   // el tick (solo el entero, para salud.resultado). Aparte de `contadores`
   // porque ese objeto se compara entero en los tests de bar-ac2.
   peticionesNominatim?: { total: number },
+  // Cupo compartido del tick: sin él (tests de esta función) solo rige el
+  // tope por plan, como antes.
+  presupuestoTick?: PresupuestoTick,
 ): Promise<{ nombre: string; caja: CajaDelimitadora } | null> {
   let ciudad = version.ciudad;
 
@@ -293,9 +320,15 @@ export async function resolverPuertaDeCiudad(
   }
 
   if (ciudad === null || marcadoPorVersionAnterior) {
+    // Sin cupo no se empieza: un intento a medias acabaría «inconcluso» y
+    // contado como fallo de red sin haber preguntado nada.
+    if (presupuestoTick && presupuestoTick.restantes() === 0) return null;
     if (contadores) contadores.reintentados++;
-    const presupuesto = crearPresupuestoPeticiones(PETICIONES_MAXIMAS_POR_PLAN);
-    const resultado = await resolverCiudadEfectiva(fuente, version.destino, nombresTodasLasParadas, presupuesto);
+    const presupuesto = presupuestoTick
+      ? presupuestoAnidado(presupuestoTick, PETICIONES_MAXIMAS_POR_PLAN)
+      : crearPresupuestoPeticiones(PETICIONES_MAXIMAS_POR_PLAN);
+    const fuenteCiudad = presupuestoTick && !fuente.conPresupuesto ? fuenteCiudadConTope(fuente, presupuesto) : fuente;
+    const resultado = await resolverCiudadEfectiva(fuenteCiudad, version.destino, nombresTodasLasParadas, presupuesto);
     if (peticionesNominatim) peticionesNominatim.total += presupuesto.consumidas();
     if (resultado === null) {
       if (contadores) contadores.saltadosPorRed++;
@@ -305,6 +338,9 @@ export async function resolverPuertaDeCiudad(
     await supabase.from("planes").update({ ciudad }).eq("id", version.planId);
   } else if (ciudad.estado === "pendiente-manual") {
     const nombrePedido = ciudad.nombre_pedido ?? "";
+    // La ciudad escrita a mano se queda pendiente para el siguiente tick si
+    // ya no cabe su petición.
+    if (nombrePedido && presupuestoTick && !presupuestoTick.consumir()) return null;
     const caja = nombrePedido ? await fuente.geocodificarCiudad(nombrePedido) : null;
     const ahora = new Date().toISOString();
     ciudad = caja
@@ -343,6 +379,9 @@ export interface ResultadoBarrido {
   planesSaltadosSellados: number;
   planesSaltadosPorRed: number;
   peticionesNominatimCiudad: number;
+  // Llamadas a fuentes externas gastadas del cupo único del tick, todas las
+  // fases juntas (ciudad, ubicación, fotos y alternativas).
+  peticionesExternas: number;
   alternativas: ContadoresAlternativas;
   // guia-abierta: ausente si el barrido no recibió fuente de guía.
   guia?: ResultadoGuia;
@@ -404,7 +443,20 @@ export async function completarParadasPendientes(
   fuenteGuia?: FuenteGuia,
   fuenteEventos?: FuenteEventos,
   curiosidadesDeps?: DependenciasCuriosidades,
+  presupuestoPeticiones: number = PRESUPUESTO_PETICIONES_POR_TICK,
 ): Promise<ResultadoBarrido> {
+  // Un solo cupo para todas las fases con red, en este orden de prioridad:
+  // ciudad, ubicación, fotos, alternativas nuevas y pasada única. La guía,
+  // las curiosidades y los eventos siguen con su propio tope de tiempo.
+  const presupuesto = crearPresupuestoTick(presupuestoPeticiones);
+  // Las ciudades van primero porque sin ellas no se ubica nada de su plan,
+  // pero no pueden llevarse más de la mitad: diez planes sin ciudad dejarían
+  // si no al resto de planes sin una sola parada ubicada en ese tick.
+  const presupuestoCiudades = presupuestoAnidado(presupuesto, Math.ceil(presupuestoPeticiones / 2));
+  const fuenteUbicacion = fuenteLugaresConTope(fuente, presupuesto);
+  const fotosConTope = fuenteFotos ? fuenteFotosConTope(fuenteFotos, presupuesto) : undefined;
+  const cercanosConTope = fuenteCercanos ? fuenteCercanosConTope(fuenteCercanos, presupuesto) : undefined;
+
   // bar-ac1: el alcance ya no parte de `trabajos` -- parte de TODO plan con
   // al menos una versión, viva o no. Un plan sin ninguna fila en
   // `plan_versiones` (el caso "Oporto") simplemente no aparece aquí.
@@ -445,6 +497,7 @@ export async function completarParadasPendientes(
       planesSaltadosSellados: 0,
       planesSaltadosPorRed: 0,
       peticionesNominatimCiudad: 0,
+      peticionesExternas: 0,
       alternativas: contadoresAlternativasVacios(),
     };
   }
@@ -522,6 +575,7 @@ export async function completarParadasPendientes(
       nombresPorVersion.get(versionId) ?? [],
       contadoresCiudad,
       peticionesCiudad,
+      presupuestoCiudades,
     );
     if (!cualificador) continue;
 
@@ -541,7 +595,7 @@ export async function completarParadasPendientes(
 
   const procesados = await procesarDentroDePresupuesto(seleccionados, presupuestoMs, reloj, async (candidato) => {
     try {
-      const resultado = await resolverNombre(fuente, candidato.nombre, candidato.categoria, candidato.cualificador, candidato.bbox);
+      const resultado = await resolverNombre(fuenteUbicacion, candidato.nombre, candidato.categoria, candidato.cualificador, candidato.bbox);
       const { error: errorUpdate } = await supabase
         .from("paradas")
         .update({
@@ -564,7 +618,7 @@ export async function completarParadasPendientes(
         })
         .eq("id", candidato.paradaId);
     }
-  });
+  }, () => presupuesto.restantes() >= PETICIONES_MAXIMAS_POR_UBICACION);
 
   // fot-ac4: segundo barrido, después del de ubicación y dentro del mismo
   // tope -- paradas YA resueltas (de este barrido o de uno anterior, o de
@@ -572,7 +626,7 @@ export async function completarParadasPendientes(
   // intentado. Un fallo en una foto concreta nunca tumba el tick: deja
   // constancia del intento (foto_intentada_en) y sigue con la siguiente.
   // bar-ac1: `versionIds` ya cubre TODOS los planes con versión, vivos o no.
-  if (fuenteFotos) {
+  if (fotosConTope) {
     const { data: paradasSinFoto, error: errorFotos } = await supabase
       .from("paradas")
       .select("id, categoria, lat, lon, lugar")
@@ -584,17 +638,20 @@ export async function completarParadasPendientes(
     if (errorFotos) throw new Error(`No se pudieron leer las paradas sin foto: ${errorFotos.message}`);
 
     for (const fila of paradasSinFoto ?? []) {
+      if (presupuesto.restantes() === 0) break;
       try {
         const lugar = (fila.lugar as Lugar | null) ?? undefined;
         const categoria = (fila.categoria as CategoriaParada | null) ?? undefined;
         const coordenadas =
           fila.lat !== null && fila.lon !== null ? { lat: fila.lat as number, lon: fila.lon as number } : undefined;
-        const foto = await resolverFoto(fuenteFotos, lugar, categoria, coordenadas);
+        const foto = await resolverFoto(fotosConTope, lugar, categoria, coordenadas);
         await supabase
           .from("paradas")
           .update({ foto: foto ?? null, foto_intentada_en: new Date().toISOString() })
           .eq("id", fila.id);
-      } catch {
+      } catch (error) {
+        // Sin cupo la foto no se ha intentado de verdad: no se marca.
+        if (error instanceof PresupuestoAgotado) break;
         await supabase.from("paradas").update({ foto_intentada_en: new Date().toISOString() }).eq("id", fila.id);
       }
     }
@@ -615,7 +672,7 @@ export async function completarParadasPendientes(
   // Overpass para no volver a preguntar en el siguiente tick. Consulta
   // fresca a la BD, igual que el barrido de fotos de arriba, para que una
   // parada recién resuelta en ESTE mismo tick entre también.
-  if (fuenteCercanos) {
+  if (cercanosConTope) {
     const { data: paradasSinAlternativas, error: errorAlternativas } = await supabase
       .from("paradas")
       .select("id, nombre, lugar, categoria, lat, lon, plan_version_id, duracion_min")
@@ -628,7 +685,7 @@ export async function completarParadasPendientes(
     const sinIntentar = (paradasSinAlternativas as FilaParadaParaAlternativas[] | null) ?? [];
     contadoresAlt.candidatas += sinIntentar.length;
     for (const fila of sinIntentar) {
-      if (overpassCaido) break;
+      if (overpassCaido || presupuesto.restantes() === 0) break;
       const identidades = identidadesPorVersion.get(fila.plan_version_id) ?? new Set<string>();
       try {
         const categoria = await asegurarCategoria(supabase, fila, contadoresAlt);
@@ -638,10 +695,12 @@ export async function completarParadasPendientes(
           continue;
         }
         contadoresAlt.intentadas += 1;
-        const insertadas = await insertarCercanos(supabase, { ...fila, categoria, lat: fila.lat, lon: fila.lon }, identidades, fuenteCercanos, fuenteFotos);
+        const insertadas = await insertarCercanos(supabase, { ...fila, categoria, lat: fila.lat, lon: fila.lon }, identidades, cercanosConTope, fotosConTope);
         if (insertadas > 0) contadoresAlt.conCercanos += 1;
         await supabase.from("paradas").update({ alternativas_intentadas_en: marcaIntento() }).eq("id", fila.id);
       } catch (error) {
+        // Sin cupo tampoco: la parada vuelve entera en el siguiente tick.
+        if (error instanceof PresupuestoAgotado) break;
         // Un fallo de Overpass no consume el intento (la parada vuelve en
         // el siguiente tick) y corta el resto del tick para no martillear.
         if (error instanceof FalloFuenteCercanos) {
@@ -661,7 +720,7 @@ export async function completarParadasPendientes(
   // filtro nuevo; con alternativas sin foto, se busca su foto. El marcado
   // usa max(ahora, corte) para que la parada no vuelva a entrar aunque el
   // reloj aún no haya alcanzado el corte (invariante: como mucho una vez).
-  if (fuenteCercanos) {
+  if (cercanosConTope) {
     const { data: antiguas, error: errorAntiguas } = await supabase
       .from("paradas")
       .select("id, nombre, lugar, categoria, lat, lon, plan_version_id, duracion_min")
@@ -696,7 +755,7 @@ export async function completarParadasPendientes(
       await marcar(candidatas.filter((fila) => !necesitaTrabajo(fila)).map((fila) => fila.id));
 
       for (const fila of candidatas.filter(necesitaTrabajo).slice(0, limite)) {
-        if (overpassCaido) break;
+        if (overpassCaido || presupuesto.restantes() === 0) break;
         try {
           const guardadas = porParada.get(fila.id) ?? [];
           if (guardadas.length === 0) {
@@ -708,8 +767,8 @@ export async function completarParadasPendientes(
                 supabase,
                 { ...fila, categoria, lat: fila.lat, lon: fila.lon },
                 identidades,
-                fuenteCercanos,
-                fuenteFotos,
+                cercanosConTope,
+                fotosConTope,
               );
               if (insertadas > 0) contadoresAlt.conCercanos += 1;
             } else {
@@ -719,7 +778,7 @@ export async function completarParadasPendientes(
             for (const alternativa of guardadas.filter((a) => !a.foto)) {
               if (alternativa.lat === null || alternativa.lon === null) continue;
               const foto = await fotoDeAlternativa(
-                fuenteFotos,
+                fotosConTope,
                 alternativa.lugar ?? undefined,
                 alternativa.categoria,
                 { lat: alternativa.lat, lon: alternativa.lon },
@@ -728,8 +787,10 @@ export async function completarParadasPendientes(
             }
           }
         } catch (error) {
-          // Solo un fallo de la fuente deja el intento sin gastar; cualquier
-          // otro error se marca igual para que la pasada sea única.
+          // Solo un fallo de la fuente o quedarse sin cupo deja el intento
+          // sin gastar; cualquier otro error se marca igual para que la
+          // pasada sea única. Las fotos ya guardadas no se repiten.
+          if (error instanceof PresupuestoAgotado) break;
           if (error instanceof FalloFuenteCercanos) {
             overpassCaido = true;
             contadoresAlt.falloFuente += 1;
@@ -741,6 +802,32 @@ export async function completarParadasPendientes(
         await marcar([fila.id]);
       }
     }
+  }
+
+  // Un plan sellado «sin ciudad» por un resolutor anterior (o sin sello) al
+  // que ya no le queda ninguna parada pendiente nunca vuelve a cruzar la
+  // puerta de arriba, así que su ciudad no se corregía nunca sola. Se le da
+  // un reintento con lo que sobre del cupo: uno por tick, el más antiguo, y
+  // solo si cabe entero su tope por plan. Al sellarse con la versión vigente
+  // deja de entrar aquí.
+  const selladoAntiguo = [...versionPorId.values()]
+    .filter(
+      (version) =>
+        !pendientesPorVersion.has(version.id) &&
+        version.ciudad?.estado === "sin-ciudad-identificable" &&
+        (version.ciudad.version_resolutor ?? 0) < VERSION_RESOLUTOR_ACTUAL,
+    )
+    .sort((a, b) => (a.ciudad?.intentado_en ?? "").localeCompare(b.ciudad?.intentado_en ?? ""))[0];
+  if (selladoAntiguo && presupuesto.restantes() >= PETICIONES_MAXIMAS_POR_PLAN) {
+    await resolverPuertaDeCiudad(
+      supabase,
+      fuente,
+      selladoAntiguo,
+      nombresPorVersion.get(selladoAntiguo.id) ?? [],
+      contadoresCiudad,
+      peticionesCiudad,
+      presupuesto,
+    );
   }
 
   // guia-abierta: el último paso porque es el único con una espera de ritmo
@@ -787,6 +874,7 @@ export async function completarParadasPendientes(
     planesSaltadosSellados: contadoresCiudad.saltadosSellados,
     planesSaltadosPorRed: contadoresCiudad.saltadosPorRed,
     peticionesNominatimCiudad: peticionesCiudad.total,
+    peticionesExternas: presupuesto.consumidas(),
     alternativas: contadoresAlt,
     ...(guia ? { guia } : {}),
     ...(curiosidades ? { curiosidades } : {}),
