@@ -225,6 +225,25 @@ export function PanelViajes() {
 
   return (
     <div className="pila">
+      {/* otro-ac1: solo en la rama con viajes -el estado vacío ya tiene su
+          propio enlace a /criterios ("Cuéntanos tu viaje") y duplicarlo
+          sería un segundo camino, justo lo que el diseño prohíbe (otro-ac3).
+          Va lo primero bajo el título, antes de la fila de la cuenta y del
+          <ul>, para que se vea sin scroll aunque haya muchos viajes -era la
+          queja del dueño del producto: no encontrarlo mirando la pantalla
+          entera- y sin quedar pegado a «Cerrar sesión». Mismo destino que el
+          enlace principal de la portada, pero con el estilo neutro de
+          `.boton`: lo encuentra su posición, y el énfasis (`.boton-principal`)
+          queda para la acción de cada tarjeta, que con varios viajes ya no
+          compite con un segundo control igual de marcado. */}
+      {viajes.length > 0 && (
+        <p>
+          <a href="/criterios" className="boton">
+            {T.pedirOtro.texto}
+          </a>
+        </p>
+      )}
+
       <div className="fila">
         {/* viajes-ac4: texto de ayuda que aclara de qué cuenta es la lista. */}
         <p className="ayuda">Estos son los viajes de la cuenta ligada a {correo}.</p>
@@ -232,21 +251,6 @@ export function PanelViajes() {
           {cerrandoSesion ? T.cerrandoSesion.texto : T.cerrarSesion.texto}
         </button>
       </div>
-
-      {/* otro-ac1: solo en la rama con viajes -el estado vacío ya tiene su
-          propio enlace a /criterios ("Cuéntanos tu viaje") y duplicarlo
-          sería un segundo camino, justo lo que el diseño prohíbe (otro-ac3).
-          Va ANTES del <ul>, para que se vea sin scroll aunque haya muchos
-          viajes -era la queja del dueño del producto: no encontrarlo mirando la pantalla
-          entera. Mismo destino y mismo estilo que el enlace principal de la
-          portada, sin formulario ni ruta nueva. */}
-      {viajes.length > 0 && (
-        <p>
-          <a href="/criterios" className="boton boton-principal">
-            {T.pedirOtro.texto}
-          </a>
-        </p>
-      )}
 
       {viajes.length === 0 && (
         <div className="aviso">

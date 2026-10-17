@@ -79,9 +79,17 @@ test("pedir-otro-viaje: «Mis viajes» con viajes lleva a pedir uno nuevo, y pul
   if (!cajaControl || !cajaPrimerLi) throw new Error("No se pudo medir la posición del control o de la lista de viajes");
   expect(cajaControl.y, "otro-ac1: el control va por encima del primer viaje de la lista").toBeLessThan(cajaPrimerLi.y);
 
+  // El control no lleva el énfasis de la acción de cada tarjeta (que ya es
+  // `.boton-principal`), y va por encima de «Cerrar sesión», no pegado debajo.
+  await expect(control).not.toHaveClass(/\bboton-principal\b/);
+  await expect(pagina.locator("li").first().getByRole("link", { name: "Ver el itinerario" })).toHaveClass(/\bboton-principal\b/);
+  const cajaCerrar = await pagina.getByRole("button", { name: "Cerrar sesión" }).boundingBox();
+  if (!cajaCerrar) throw new Error("No se pudo medir «Cerrar sesión»");
+  expect(cajaControl.y, "el control va por encima de «Cerrar sesión»").toBeLessThan(cajaCerrar.y);
+
   // otro-ac4: capturas reales de «Mis viajes» CON viajes, a 393x851, en los
-  // dos modos -para que el gatekeeper juzgue si el control se ve y se
-  // entiende sin competir con «Ver el itinerario» ni con «Eliminar».
+  // dos modos -para juzgar si el control se ve y se entiende sin competir
+  // con «Ver el itinerario» ni con «Eliminar».
   await pagina.screenshot({ path: "artefactos/capturas/mis-viajes-con-viajes-claro.png", fullPage: true });
   await pagina.emulateMedia({ colorScheme: "dark" });
   await pagina.screenshot({ path: "artefactos/capturas/mis-viajes-con-viajes-oscuro.png", fullPage: true });
