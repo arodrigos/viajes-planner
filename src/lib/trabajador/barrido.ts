@@ -804,6 +804,32 @@ export async function completarParadasPendientes(
     }
   }
 
+  // Un plan sellado «sin ciudad» por un resolutor anterior (o sin sello) al
+  // que ya no le queda ninguna parada pendiente nunca vuelve a cruzar la
+  // puerta de arriba, así que su ciudad no se corregía nunca sola. Se le da
+  // un reintento con lo que sobre del cupo: uno por tick, el más antiguo, y
+  // solo si cabe entero su tope por plan. Al sellarse con la versión vigente
+  // deja de entrar aquí.
+  const selladoAntiguo = [...versionPorId.values()]
+    .filter(
+      (version) =>
+        !pendientesPorVersion.has(version.id) &&
+        version.ciudad?.estado === "sin-ciudad-identificable" &&
+        (version.ciudad.version_resolutor ?? 0) < VERSION_RESOLUTOR_ACTUAL,
+    )
+    .sort((a, b) => (a.ciudad?.intentado_en ?? "").localeCompare(b.ciudad?.intentado_en ?? ""))[0];
+  if (selladoAntiguo && presupuesto.restantes() >= PETICIONES_MAXIMAS_POR_PLAN) {
+    await resolverPuertaDeCiudad(
+      supabase,
+      fuente,
+      selladoAntiguo,
+      nombresPorVersion.get(selladoAntiguo.id) ?? [],
+      contadoresCiudad,
+      peticionesCiudad,
+      presupuesto,
+    );
+  }
+
   // guia-abierta: el último paso porque es el único con una espera de ritmo
   // de 30 s entre páginas; hasta un minuto más, y lo que no quepa queda sin
   // marcar para el siguiente tick.

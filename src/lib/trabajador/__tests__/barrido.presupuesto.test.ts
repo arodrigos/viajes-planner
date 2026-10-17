@@ -5,6 +5,7 @@ import { crearPresupuestoTick, presupuestoAnidado, PRESUPUESTO_PETICIONES_POR_TI
 import type { FuenteCercanos } from "@/lib/alternativas/cercanos";
 import type { CajaDelimitadora, FuenteCiudad, FuenteFotos, FuenteLugares } from "@/lib/lugares/tipos";
 import type { Reloj } from "@/lib/lugares/limitador";
+import { PETICIONES_MAXIMAS_POR_PLAN, VERSION_RESOLUTOR_ACTUAL } from "@/lib/lugares/ciudad";
 
 // Un tick del barrido con dobles que cuentan cada llamada a una fuente
 // externa. Sin red y sin Supabase: la base es un doble en memoria que solo
@@ -256,5 +257,89 @@ describe("presupuesto único de peticiones externas por tick", () => {
     while (otro.consumir()) otras++;
     expect(otras).toBe(8);
     expect(tick.restantes()).toBe(0);
+  });
+});
+
+// Plan sellado «sin ciudad» con todas sus paradas ya intentadas hace poco:
+// la puerta de ciudad normal nunca lo vuelve a mirar.
+function anadirPlanSellado(base: ReturnType<typeof escenario>, id: string, versionResolutor?: number) {
+  base.tablas.planes.push({
+    id,
+    destino: `Ruta ${id} con niños`,
+    ciudad: {
+      estado: "sin-ciudad-identificable",
+      motivo: "no hay una ciudad clara",
+      intentado_en: "2026-09-20T00:00:00Z",
+      ...(versionResolutor !== undefined ? { version_resolutor: versionResolutor } : {}),
+    },
+  });
+  base.tablas.plan_versiones.push({ id: `v-${id}`, plan_id: id, version: 1, dias: [{ fecha: "2026-11-01" }], etapas: null });
+  for (let j = 0; j < 3; j++) {
+    base.tablas.paradas.push({
+      id: `${id}-${j}`,
+      nombre: `Sitio ${id} ${j}`,
+      categoria: "monumento",
+      dia_index: 0,
+      plan_version_id: `v-${id}`,
+      resolucion: { estado: "no-resuelta", intentado_en: new Date().toISOString() },
+      lat: null,
+      lon: null,
+      lugar: null,
+      duracion_min: 60,
+      alternativas_intentadas_en: null,
+      foto: null,
+      foto_intentada_en: null,
+    });
+  }
+}
+
+function ciudadDe(base: ReturnType<typeof escenario>, id: string) {
+  return base.tablas.planes.find((p) => p.id === id)?.ciudad as { estado: string; version_resolutor?: number };
+}
+
+describe("reintento de la ciudad de un plan sellado sin versión del resolutor", () => {
+  it("se reintenta con el cupo que sobra, queda sellado con la versión vigente y no vuelve a gastar nada", async () => {
+    const base = escenario({ planesSinCiudad: 0, pendientes: 0, resueltas: 0, antiguas: 0 });
+    anadirPlanSellado(base, "sellado");
+    const primero = await correrTick(base);
+    expect(primero.resultado.planesReintentados).toBe(1);
+    expect(primero.resultado.peticionesNominatimCiudad).toBeGreaterThan(0);
+    expect(primero.resultado.peticionesNominatimCiudad).toBeLessThanOrEqual(PETICIONES_MAXIMAS_POR_PLAN);
+    expect(primero.llamadas).toBe(primero.resultado.peticionesExternas);
+    expect(ciudadDe(base, "sellado").version_resolutor).toBe(VERSION_RESOLUTOR_ACTUAL);
+
+    const segundo = await correrTick(base);
+    expect(segundo.resultado.planesReintentados).toBe(0);
+    expect(segundo.llamadas).toBe(0);
+  });
+
+  it("solo un plan por tick, el sellado hace más tiempo", async () => {
+    const base = escenario({ planesSinCiudad: 0, pendientes: 0, resueltas: 0, antiguas: 0 });
+    anadirPlanSellado(base, "reciente");
+    anadirPlanSellado(base, "viejo");
+    (base.tablas.planes.find((p) => p.id === "viejo")?.ciudad as { intentado_en: string }).intentado_en = "2026-08-01T00:00:00Z";
+    const { resultado } = await correrTick(base);
+    expect(resultado.planesReintentados).toBe(1);
+    expect(ciudadDe(base, "viejo").version_resolutor).toBe(VERSION_RESOLUTOR_ACTUAL);
+    expect(ciudadDe(base, "reciente").version_resolutor).toBeUndefined();
+  });
+
+  it("no le quita cupo al resto: con el tick lleno de trabajo no se reintenta y el total no pasa del cupo", async () => {
+    const base = escenario({ planesSinCiudad: 0, pendientes: 200, resueltas: 0, antiguas: 0 });
+    anadirPlanSellado(base, "sellado");
+    const { resultado, llamadas } = await correrTick(base);
+    expect(resultado.paradasIntentadas).toBe(PRESUPUESTO_PETICIONES_POR_TICK / 2);
+    expect(resultado.planesReintentados).toBe(0);
+    expect(resultado.peticionesNominatimCiudad).toBe(0);
+    expect(llamadas).toBeLessThanOrEqual(PRESUPUESTO_PETICIONES_POR_TICK);
+    expect(ciudadDe(base, "sellado").version_resolutor).toBeUndefined();
+  });
+
+  it("un plan sellado ya con la versión vigente no se reintenta", async () => {
+    const base = escenario({ planesSinCiudad: 0, pendientes: 0, resueltas: 0, antiguas: 0 });
+    anadirPlanSellado(base, "al-dia", VERSION_RESOLUTOR_ACTUAL);
+    const { resultado, llamadas } = await correrTick(base);
+    expect(resultado.planesReintentados).toBe(0);
+    expect(llamadas).toBe(0);
   });
 });
