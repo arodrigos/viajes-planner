@@ -180,6 +180,13 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
         "planes_sellados_sin_ventaja",
         "planes_sellados_sin_candidato_claro",
         "planes_sellados_ciudad_no_encontrada",
+        "paradas_no_resueltas_sin_candidatos",
+        "paradas_no_resueltas_fuera_de_caja",
+        "paradas_no_resueltas_nombre_distinto",
+        "paradas_no_resueltas_tipo_incompatible",
+        "paradas_no_resueltas_motivo_desconocido",
+        "paradas_con_toponimo",
+        "paradas_sin_intentar_ultima_version",
       ].sort(),
     );
     expect(new Set(Object.values(relleno).map((v) => typeof v))).toEqual(new Set(["number"]));
@@ -208,6 +215,11 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     expect(relleno.planes_sellados_sin_contencion).toBe(0);
     expect(relleno.planes_sellados_sin_ventaja).toBe(0);
     expect(relleno.planes_sellados_ciudad_no_encontrada).toBe(0);
+    // «Parque infantil» se marcó sin categoria_motivo, como las filas antiguas.
+    expect(relleno.paradas_no_resueltas_motivo_desconocido).toBe(1);
+    expect(relleno.paradas_no_resueltas_sin_candidatos).toBe(0);
+    expect(relleno.paradas_con_toponimo).toBe(3);
+    expect(relleno.paradas_sin_intentar_ultima_version).toBe(1); // British Museum
 
     // Modelo de amenazas: `relleno` no puede contener ni un destino, ni un
     // nombre de parada, ni un correo, ni un identificador de usuario.
@@ -282,7 +294,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     expect(relleno.versiones_multiciudad).toBe(1);
     expect(relleno.trabajos_inviables).toBe(1);
     expect(relleno.paradas_con_motivo).toBe(2);
-    expect(Object.keys(relleno)).toHaveLength(26);
+    expect(Object.keys(relleno)).toHaveLength(33);
     expect(new Set(Object.values(relleno).map((v) => typeof v))).toEqual(new Set(["number"]));
 
     const texto = JSON.stringify(relleno).toLowerCase();
@@ -291,6 +303,44 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
     }
     expect(texto).not.toMatch(/@/);
     expect(texto).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
+  });
+
+  // Desglose de las no-resueltas por resolucion.categoria_motivo: las cinco
+  // suman paradas_no_resueltas, y paradas_con_toponimo descuenta solo las
+  // que no casaron con ningún nombre dentro de la caja.
+  it("desglosa las no-resueltas por motivo y mide sobre topónimos y sobre la última versión", async () => {
+    const ahora = new Date().toISOString();
+    const casos: Array<[string, Record<string, unknown> | null]> = [
+      ["Tarde de juegos", { estado: "no-resuelta", intentado_en: ahora, motivo: "ningún candidato aceptable", categoria_motivo: "sin-candidatos" }],
+      ["Merienda con vistas", { estado: "no-resuelta", intentado_en: ahora, motivo: "ningún candidato aceptable", categoria_motivo: "nombre-distinto" }],
+      ["Museo lejano", { estado: "no-resuelta", intentado_en: ahora, motivo: "ningún candidato aceptable", categoria_motivo: "fuera-de-caja" }],
+      ["Museo raro", { estado: "no-resuelta", intentado_en: ahora, motivo: "ningún candidato aceptable", categoria_motivo: "tipo-incompatible" }],
+      ["Antigua", { estado: "no-resuelta", intentado_en: ahora, motivo: "ningún candidato aceptable" }],
+      ["Resuelta", { estado: "resuelta", intentado_en: ahora }],
+      ["Pendiente", null],
+    ];
+    const plan: Plan = { id: `${PREFIJO}motivos-no-resuelta`, version: 1, destino: "Motivos", personas: 2, dias: [diaConParadas(casos.map(([n]) => n))] };
+    await guardarPlan(supabase, plan);
+    for (const [nombre, resolucion] of casos) await marcarParada(supabase, `${nombre}-id`, { resolucion });
+    // Una versión nueva sin paradas deja las de la v1 fuera del alcance del barrido.
+    const viejo: Plan = { id: `${PREFIJO}version-vieja`, version: 1, destino: "Vieja", personas: 2, dias: [diaConParadas(["Sin tocar"])] };
+    await guardarPlan(supabase, viejo);
+    const { error } = await supabase.from("plan_versiones").insert({ plan_id: viejo.id, version: 2, personas: 2, dias: [] });
+    if (error) throw new Error(`No se pudo sembrar la segunda versión: ${error.message}`);
+
+    _reiniciarCacheRellenoParaTests();
+    const relleno = (await (await GET(new NextRequest("http://localhost/api/salud"))).json()).relleno;
+    expect(relleno.paradas_no_resueltas).toBe(5);
+    expect(relleno.paradas_no_resueltas_sin_candidatos).toBe(1);
+    expect(relleno.paradas_no_resueltas_nombre_distinto).toBe(1);
+    expect(relleno.paradas_no_resueltas_fuera_de_caja).toBe(1);
+    expect(relleno.paradas_no_resueltas_tipo_incompatible).toBe(1);
+    expect(relleno.paradas_no_resueltas_motivo_desconocido).toBe(1);
+    expect(relleno.paradas_total).toBe(8);
+    expect(relleno.paradas_con_toponimo).toBe(6);
+    expect(relleno.paradas_sin_intentar).toBe(2);
+    expect(relleno.paradas_sin_intentar_ultima_version).toBe(1);
+    expect(JSON.stringify(relleno).toLowerCase()).not.toMatch(/tarde de juegos|merienda|sin-candidatos|nombre-distinto/);
   });
 
   // rp-ac4: el contador sube con una parada de formato antiguo y vuelve a
@@ -331,6 +381,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("GET /api/salud -- relleno (sal-a
       expect(cuerpo).toHaveProperty("relleno");
       const rutas = urls.map((u) => new URL(u).pathname);
       expect(rutas.filter((r) => r.endsWith("/rest/v1/rpc/estado_relleno"))).toHaveLength(1);
+      expect(rutas.filter((r) => r.endsWith("/rest/v1/rpc/estado_relleno_motivos"))).toHaveLength(1);
       expect(rutas.filter((r) => r.endsWith("/rest/v1/plan_versiones") || r.endsWith("/rest/v1/paradas"))).toEqual([]);
     });
   });

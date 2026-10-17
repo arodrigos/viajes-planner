@@ -42,18 +42,24 @@ const recuentos: fc.Arbitrary<RecuentosRelleno> = fc
       planesSelladosSinVentaja: 0,
       planesSelladosSinCandidatoClaro: 0,
       planesSelladosCiudadNoEncontrada: 0,
+      // Las cuatro categorías conocidas reparten una parte de las no-resueltas.
+      paradasNoResueltasSinCandidatos: Math.floor(noResueltas * fracciones[0] * 0.25),
+      paradasNoResueltasFueraDeCaja: Math.floor(noResueltas * fracciones[1] * 0.25),
+      paradasNoResueltasNombreDistinto: Math.floor(noResueltas * fracciones[2] * 0.25),
+      paradasNoResueltasTipoIncompatible: Math.floor(noResueltas * fracciones[3] * 0.25),
+      paradasSinIntentarUltimaVersion: Math.floor(sinIntentar * fracciones[4]),
     }));
   });
 
 // sco-ac3: las invariantes valen para cualquier combinación, no solo para
 // el ejemplo sembrado en el test de integración.
 describe("armarEstadoRelleno (sco-ac3)", () => {
-  it("siempre las 26 claves, todas enteros >= 0", () => {
+  it("siempre las 33 claves, todas enteros >= 0", () => {
     fc.assert(
       fc.property(recuentos, (r) => {
         const estado = armarEstadoRelleno(r);
         const valores = Object.values(estado);
-        expect(valores).toHaveLength(26);
+        expect(valores).toHaveLength(33);
         expect(valores.every((v) => Number.isInteger(v) && v >= 0)).toBe(true);
       }),
     );
@@ -67,6 +73,25 @@ describe("armarEstadoRelleno (sco-ac3)", () => {
         for (const c of [e.paradas_con_motivo, e.paradas_con_guia, e.paradas_con_alternativas, e.paradas_con_foto]) {
           expect(c).toBeLessThanOrEqual(e.paradas_total);
         }
+      }),
+    );
+  });
+
+  it("el desglose por motivo suma paradas_no_resueltas y paradas_con_toponimo no supera el total", () => {
+    fc.assert(
+      fc.property(recuentos, (r) => {
+        const e = armarEstadoRelleno(r);
+        const desglose = [
+          e.paradas_no_resueltas_sin_candidatos!,
+          e.paradas_no_resueltas_fuera_de_caja!,
+          e.paradas_no_resueltas_nombre_distinto!,
+          e.paradas_no_resueltas_tipo_incompatible!,
+          e.paradas_no_resueltas_motivo_desconocido!,
+        ];
+        expect(desglose.reduce((a, b) => a + b, 0)).toBe(e.paradas_no_resueltas);
+        expect(e.paradas_con_toponimo!).toBeLessThanOrEqual(e.paradas_total);
+        expect(e.paradas_con_toponimo!).toBeGreaterThanOrEqual(e.paradas_resueltas);
+        expect(e.paradas_sin_intentar_ultima_version!).toBeLessThanOrEqual(e.paradas_sin_intentar);
       }),
     );
   });
