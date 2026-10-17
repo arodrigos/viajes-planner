@@ -126,7 +126,11 @@ navegador, sin casar o sin cupo, el panel lo dice y enlaza a Google Maps.
   Salen de una sola llamada por rpc a la función SQL `estado_relleno`, a la
   que se pasa el `FORMATO_CURIOSIDADES` vigente, con 60 s de caché en
   memoria. Solo se publica si trae exactamente las claves esperadas y todas
-  son enteros no negativos;
+  son enteros no negativos. Una segunda rpc, `estado_relleno_motivos`, añade
+  por qué quedan paradas «no-resuelta» (`paradas_no_resueltas_*`, por
+  `resolucion.categoria_motivo`), el denominador `paradas_con_toponimo` y
+  `paradas_sin_intentar_ultima_version`; si falla o aún no existe, `relleno`
+  sale igual sin esas siete claves;
 - `google`: `text_search_hoy`, `text_search_mes`, `ui_kit_hoy` y `ui_kit_mes`
   (por rpc a `consumo_google_resumen`, con el día de Google, hora del
   Pacífico), `lugares_casados` y `lugares_sin_coincidencia` (recuentos de
@@ -247,6 +251,13 @@ gh workflow run "Pruebas a demanda" --ref <rama> -f tipo=unit -f specs="src/lib/
 
 ## Changelog de cambios relevantes
 
+- **2026-10-17**:
+  - **Motivo de las paradas no resueltas** (migración 028): el resolutor
+    guarda `resolucion.categoria_motivo` (`sin-candidatos`, `fuera-de-caja`,
+    `nombre-distinto`, `tipo-incompatible`), y la función nueva
+    `estado_relleno_motivos` suma a `/api/salud.relleno` siete contadores: el
+    desglose por motivo, `paradas_con_toponimo` y
+    `paradas_sin_intentar_ultima_version`. `estado_relleno` no cambia.
 - **2026-10-08**:
   - **Curiosidades** (#207): `MIN_FRASE` baja de 20 a 15, los umbrales entran
     en la huella y `FORMATO_CURIOSIDADES` sube a 6.

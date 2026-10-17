@@ -107,6 +107,53 @@ describe("construirSalud", () => {
     expect(Object.keys(salud.relleno!).sort()).toEqual(Object.keys(relleno).sort());
   });
 
+  // El desglose de las no-resueltas por motivo y los denominadores sobre
+  // topónimos y sobre la última versión salen tal cual en /api/salud.
+  it("expone el desglose por motivo de las no-resueltas junto a las claves de siempre", () => {
+    const relleno = {
+      paradas_total: 487,
+      paradas_resueltas: 274,
+      paradas_no_resueltas: 203,
+      paradas_en_error: 0,
+      paradas_sin_intentar: 10,
+      paradas_con_foto: 0,
+      paradas_con_alternativas: 0,
+      paradas_con_categoria: 0,
+      paradas_con_guia: 0,
+      versiones_con_eventos: 0,
+      versiones_multiciudad: 0,
+      trabajos_inviables: 0,
+      paradas_con_motivo: 0,
+      curiosidades_formato_antiguo: 0,
+      planes_total: 37,
+      planes_sin_version: 0,
+      planes_sin_trabajo_vivo: 0,
+      planes_con_ciudad: 34,
+      planes_sin_ciudad_identificable: 1,
+      planes_sellados_pocas_paradas: 0,
+      planes_sellados_sin_caja: 0,
+      planes_sellados_zona_grande: 0,
+      planes_sellados_sin_contencion: 0,
+      planes_sellados_sin_ventaja: 0,
+      planes_sellados_sin_candidato_claro: 1,
+      planes_sellados_ciudad_no_encontrada: 0,
+      paradas_no_resueltas_sin_candidatos: 120,
+      paradas_no_resueltas_fuera_de_caja: 0,
+      paradas_no_resueltas_nombre_distinto: 60,
+      paradas_no_resueltas_tipo_incompatible: 13,
+      paradas_no_resueltas_motivo_desconocido: 10,
+      paradas_con_toponimo: 307,
+      paradas_sin_intentar_ultima_version: 0,
+    };
+    const salud = construirSalud({ relleno });
+    expect(salud.relleno).toEqual(relleno);
+    const r = salud.relleno!;
+    expect(
+      r.paradas_no_resueltas_sin_candidatos! + r.paradas_no_resueltas_fuera_de_caja! + r.paradas_no_resueltas_nombre_distinto! +
+        r.paradas_no_resueltas_tipo_incompatible! + r.paradas_no_resueltas_motivo_desconocido!,
+    ).toBe(r.paradas_no_resueltas);
+  });
+
   it("no incluye relleno cuando no se pasa", () => {
     expect(construirSalud()).not.toHaveProperty("relleno");
   });
