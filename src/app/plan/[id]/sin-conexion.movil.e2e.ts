@@ -302,6 +302,15 @@ test.describe("plan sin conexión", () => {
     const oceanario = tarjeta(pagina, "Oceanario de Lisboa");
     await expect(oceanario.locator(".foto-ausente")).toContainText("Foto no disponible sin conexión");
     await expect(oceanario.locator("img.foto-parada")).toHaveCount(0);
+    // El texto y el icono caben dentro de la caja del marcador, sin salir por ningún borde.
+    const cabe = await oceanario.locator(".foto-ausente").evaluate((caja) => {
+      const c = caja.getBoundingClientRect();
+      return [...caja.children].every((h) => {
+        const r = h.getBoundingClientRect();
+        return r.top >= c.top && r.bottom <= c.bottom && r.left >= c.left && r.right <= c.right;
+      });
+    });
+    expect(cabe).toBe(true);
     await capturar(pagina, BLOQUE, "fotos-sin-red");
 
     // sc-ac4: un plan nunca abierto en el dispositivo no aparece.
