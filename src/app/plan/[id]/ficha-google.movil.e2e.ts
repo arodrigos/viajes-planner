@@ -192,7 +192,8 @@ test.describe("panel de Google", () => {
     await expect(carta.getByText("Hoy ya se ha consultado Google todas las veces previstas para no pagar; vuelve mañana.")).toBeVisible();
     await expect(carta.getByRole("link", { name: "Abrir en Google Maps" })).toBeVisible();
     await expect(carta.locator("gmp-place-details")).toHaveCount(0);
-    expect(await sinScrollHorizontal(pagina)).toBe(true);
+    // El ancho se asienta tras pintar el mensaje: se sondea el mismo predicado en vez de medirlo en un instante.
+    await expect.poll(() => sinScrollHorizontal(pagina)).toBe(true);
     await capturar(pagina, "ficha-google", "cupo");
     await contexto.close();
   });
