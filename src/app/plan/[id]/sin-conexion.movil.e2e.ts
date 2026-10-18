@@ -149,7 +149,7 @@ async function esperarControlador(pagina: Page) {
 
 // Lee la hora de «Disponible sin conexión · guardado a las HH:MM».
 async function leerLinea(pagina: Page): Promise<string> {
-  const linea = pagina.getByText(/Disponible sin conexión · guardado a las \d{2}:\d{2}/);
+  const linea = pagina.getByText(/Disponible sin conexión · guardado a las \d{2}:\d{2}/).first();
   await expect(linea).toBeVisible({ timeout: 30_000 });
   const texto = (await linea.textContent()) ?? "";
   return /(\d{2}:\d{2})/.exec(texto)?.[1] ?? "";
@@ -233,7 +233,7 @@ test.describe("plan sin conexión", () => {
     // sc-ac1: la copia, con su franja, en /sin-conexion.
     await expect(pagina).toHaveURL(new RegExp(`/sin-conexion\\?plan=${planId}&dia=1$`));
     await expect(pagina.getByText("Monasterio de los Jerónimos").first()).toBeVisible();
-    await expect(pagina.getByText("Pastelería de Belém")).toBeVisible();
+    await expect(pagina.getByText("Pastelería de Belém").first()).toBeVisible();
     await expect(pagina.getByRole("link", { name: /^Día 2/ })).toBeVisible();
     await expect(pagina.getByRole("region", { name: "Ahora" })).toBeVisible();
     await expect(franja(pagina)).toContainText(horaGuardada);
@@ -274,7 +274,7 @@ test.describe("plan sin conexión", () => {
     const jeronimos = tarjeta(pagina, "Monasterio de los Jerónimos");
     await jeronimos.locator("summary", { hasText: /^Consejos y curiosidades/ }).click();
     await expect(jeronimos.getByTestId("consejo-guia")).toContainText(CONSEJO);
-    await expect(jeronimos.getByText(CURIOSIDAD)).toBeVisible();
+    await expect(jeronimos.getByText(CURIOSIDAD).first()).toBeVisible();
     await capturar(pagina, BLOQUE, "guia-sin-red");
 
     // sc-ac9: la ficha dice que necesita conexión y no lanza ningún POST.
@@ -283,14 +283,14 @@ test.describe("plan sin conexión", () => {
       if (r.method() === "POST" && r.url().includes("/api/google/")) posts.push(r.url());
     });
     await jeronimos.locator("summary", { hasText: "Opiniones y horario · Google Maps" }).click();
-    await expect(jeronimos.getByText("La ficha de Google necesita conexión")).toBeVisible();
+    await expect(jeronimos.getByText("La ficha de Google necesita conexión").first()).toBeVisible();
     expect(posts).toHaveLength(0);
     await jeronimos.scrollIntoViewIfNeeded();
     await capturar(pagina, BLOQUE, "ficha-sin-red");
 
     // sc-ac10: el mapa degrada con su aviso y las paradas siguen debajo.
-    await expect(pagina.getByText("El mapa no está disponible ahora.")).toBeVisible({ timeout: 20_000 });
-    await expect(pagina.getByText("Pastelería de Belém")).toBeVisible();
+    await expect(pagina.getByText("El mapa no está disponible ahora.").first()).toBeVisible({ timeout: 20_000 });
+    await expect(pagina.getByText("Pastelería de Belém").first()).toBeVisible();
     await capturar(pagina, BLOQUE, "mapa-sin-red");
 
     // sc-ac3: el día 3 nunca se abrió con red; su foto es el marcador, no un icono roto.
