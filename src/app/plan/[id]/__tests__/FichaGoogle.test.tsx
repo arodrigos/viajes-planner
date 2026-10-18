@@ -222,3 +222,17 @@ describe("invariantes de FichaGoogle (property tests)", () => {
     );
   });
 });
+
+describe("FichaGoogle sin conexión (sc-ac9)", () => {
+  it("con navigator.onLine false enseña el aviso y el enlace a Maps, sin ningún POST ni carga de Google", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const { container } = render(ficha("casado", true));
+    expect(await screen.findByText(TEXTO_MENSAJE_FICHA.sinConexion)).toBeTruthy();
+    expect(TEXTO_MENSAJE_FICHA.sinConexion).toBe("La ficha de Google necesita conexión.");
+    expect(screen.getByRole("link", { name: "Abrir en Google Maps" }).getAttribute("href")).toBe(HREF);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(mocks.importLibrary).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-estado-ficha]")?.getAttribute("data-estado-ficha")).toBe("mensaje");
+    vi.restoreAllMocks();
+  });
+});

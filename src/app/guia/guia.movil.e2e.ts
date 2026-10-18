@@ -64,8 +64,8 @@ test("el contenido de /guia tiene la extensión y estructura exigidas", async ({
 
   const numeroDePalabras = await page.evaluate(() => document.body.innerText.trim().split(/\s+/).length);
   expect(numeroDePalabras).toBeGreaterThan(120);
-  // El diseño de PWA añade la sección «Instalar en el móvil» (~90 palabras): el tope sube de 450 a 600.
-  expect(numeroDePalabras).toBeLessThan(600);
+  // El diseño de PWA añade «Instalar en el móvil» (~90 palabras) y «Usarlo sin conexión» (~65): el tope sube de 450 a 700.
+  expect(numeroDePalabras).toBeLessThan(700);
 
   const pasos = await page.locator("ol > li").count();
   expect(pasos).toBeGreaterThanOrEqual(5);

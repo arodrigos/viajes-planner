@@ -80,6 +80,12 @@ export function FichaGoogle({ planId, paradaId, estado, abierto, hrefMaps, conFo
       setVista({ tipo: "mensaje", mensaje: previo ?? "sinClave" });
       return;
     }
+    // Sin red no se reserva nada ni se monta el UI Kit: el POST y la carga de
+    // Google fallarían igual y gastarían la reserva de la apertura.
+    if (!navigator.onLine) {
+      setVista({ tipo: "mensaje", mensaje: "sinConexion" });
+      return;
+    }
     setVista({ tipo: "cargando" });
     try {
       const respuesta = await fetch("/api/google/ficha", {

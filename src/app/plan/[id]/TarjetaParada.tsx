@@ -13,6 +13,7 @@ import { TEXTOS_HORARIO } from "@/lib/textos/horario";
 import { IconoFranja } from "./iconosFranja";
 import { IconoSinFoto } from "./iconoSinFoto";
 import { ConsejosYCuriosidades, contarConsejosYCuriosidades } from "./SeccionesGuia";
+import { FotoPlan } from "./FotoPlan";
 import type { ParadaPublica } from "./tiposVista";
 import type { Tramo } from "@/lib/plan/tramos";
 import type { ErrorParada } from "@/lib/plan/erroresParada";
@@ -111,7 +112,7 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
             {/* fot-ac2/fot-ac3: la foto procede de resolverFotos.ts (server-only); sin
                 ella, el marcador de posición es digno, nunca un hueco roto. */}
             {parada.foto ? (
-              <img src={parada.foto.url} alt={parada.nombre} loading="lazy" className="foto-parada" width={88} height={88} />
+              <FotoPlan src={parada.foto.url} alt={parada.nombre} className="foto-parada" width={88} height={88} />
             ) : (
               <div className="foto-ausente">
                 <IconoSinFoto />
@@ -223,7 +224,7 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
                     {alternativas.map((alternativa, indice) => (
                       <li key={alternativa.id ?? `${parada.id}-${indice}`} className="tarjeta-alternativa">
                         {alternativa.foto ? (
-                          <img src={alternativa.foto.url} alt={alternativa.nombre} loading="lazy" className="foto-alternativa" />
+                          <FotoPlan src={alternativa.foto.url} alt={alternativa.nombre} className="foto-alternativa" />
                         ) : (
                           <div className="foto-ausente">
                             <IconoSinFoto />

@@ -86,6 +86,12 @@ export default function GuiaPage() {
         Antes de viajar, abre el plan una vez desde la app instalada, con conexión. En el iPhone lo que se vio en
         Safari no está en la app instalada, y el plan solo se podrá consultar sin cobertura desde donde lo abriste.
       </p>
+      <h2>Usarlo sin conexión</h2>
+      <p>
+        Un plan que ya has abierto una vez con conexión se sigue viendo sin cobertura: la tarjeta «Ahora», las paradas,
+        la guía, las curiosidades y las fotos que ya viste. Arriba aparece un aviso con la fecha de la copia guardada.
+        No funcionan sin conexión el mapa, la ficha de Google ni los cambios en el plan. Al cerrar sesión se borra la copia.
+      </p>
     </main>
   );
 }
