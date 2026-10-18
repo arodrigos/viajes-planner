@@ -11,6 +11,7 @@ export const TEXTOS_FICHA = {
   sinCoincidencia: t("vacio", "No lo hemos encontrado en Google Maps con seguridad, así que no enseñamos opiniones de otro sitio."),
   cupoAgotado: t("vacio", "Hoy ya se ha consultado Google todas las veces previstas para no pagar; vuelve mañana."),
   errorGoogle: t("error", "No se ha podido cargar la ficha de Google. Vuelve a intentarlo o ábrelo en Google Maps."),
+  sinConexion: t("vacio", "La ficha de Google necesita conexión."),
   reintentar: t("boton", "Reintentar"),
   abrirEnMaps: t("enlace", "Abrir en Google Maps"),
 } as const;

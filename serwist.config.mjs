@@ -18,6 +18,8 @@ export default serwist({
   // (entradas en conflicto). El manifiesto es una ruta de Next, no un fichero.
   additionalPrecacheEntries: [
     { url: "/manifest.webmanifest", revision: commit },
+    // Página de respaldo sin sesión: es del build actual, así que nunca apunta a chunks borrados.
+    { url: "/sin-conexion", revision: commit },
   ],
   esbuildOptions: { define: { __COMMIT_BUILD__: JSON.stringify(commit) } },
 });

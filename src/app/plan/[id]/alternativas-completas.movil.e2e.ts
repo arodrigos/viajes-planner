@@ -108,7 +108,7 @@ test("«Usar esta» conserva las alternativas, se vuelve con otro «Usar esta» 
   if (errorTrabajo) throw new Error(`No se pudo sembrar el trabajo de prueba: ${errorTrabajo.message}`);
 
   const contexto = await browser.newContext({ viewport: { width: 393, height: 851 } });
-  await contexto.route("https://upload.wikimedia.org/**", (ruta) => ruta.fulfill({ status: 200, contentType: "image/png", body: PNG_1X1 }));
+  await contexto.route("https://upload.wikimedia.org/**", (ruta) => ruta.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1X1 }));
   const pagina = await contexto.newPage();
 
   const respuestaSolicitud = await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email: EMAIL } });

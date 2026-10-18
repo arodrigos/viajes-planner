@@ -975,3 +975,15 @@ footer a,
   align-items: center;
   min-height: var(--objetivo-tactil);
 }
+
+.franja-copia {
+  margin: 0;
+  padding: var(--espacio-2);
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+  font-size: var(--texto-pequeno);
+}
+
+.estado-copia {
+  margin: 0;
+}
