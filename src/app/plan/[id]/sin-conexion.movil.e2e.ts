@@ -232,7 +232,7 @@ test.describe("plan sin conexión", () => {
 
     // sc-ac1: la copia, con su franja, en /sin-conexion.
     await expect(pagina).toHaveURL(new RegExp(`/sin-conexion\\?plan=${planId}&dia=1$`));
-    await expect(pagina.getByText("Monasterio de los Jerónimos")).toBeVisible();
+    await expect(pagina.getByText("Monasterio de los Jerónimos").first()).toBeVisible();
     await expect(pagina.getByText("Pastelería de Belém")).toBeVisible();
     await expect(pagina.getByRole("link", { name: /^Día 2/ })).toBeVisible();
     await expect(pagina.getByRole("region", { name: "Ahora" })).toBeVisible();
@@ -316,7 +316,7 @@ test.describe("plan sin conexión", () => {
     await capturar(pagina, BLOQUE, "planes-guardados");
     await entrada.click();
     await expect(pagina).toHaveURL(new RegExp(`/sin-conexion\\?plan=${planId}`));
-    await expect(pagina.getByText("Monasterio de los Jerónimos")).toBeVisible();
+    await expect(pagina.getByText("Monasterio de los Jerónimos").first()).toBeVisible();
 
     // sc-ac8: al volver la red, la franja se va sola y la línea enseña la hora nueva.
     await contexto.setOffline(false);
@@ -364,7 +364,7 @@ test.describe("plan sin conexión", () => {
     const pagina = await contexto.newPage();
     await iniciarSesion(contexto);
     await pagina.goto(`/plan/${planId}?dia=1`);
-    await expect(pagina.getByText("Monasterio de los Jerónimos")).toBeVisible();
+    await expect(pagina.getByText("Monasterio de los Jerónimos").first()).toBeVisible();
     // Se da tiempo a que el sondeo (30 × 500 ms) se agote antes de afirmar la ausencia.
     await pagina.waitForTimeout(1_000);
     await expect(pagina.getByText(/Disponible sin conexión/)).toHaveCount(0);
