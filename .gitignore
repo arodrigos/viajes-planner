@@ -51,3 +51,9 @@ artefactos/
 # no se versiona: viaja con la versión instalada de maplibre-gl, nunca
 # suelto en el repo para no quedarse desincronizado tras un bump.
 /public/maplibre/
+
+# pwa-ac2: lo genera `serwist build` tras `next build`; versionarlo dejaría
+# un worker con el manifiesto de precache de otro commit.
+/public/sw.js
+/public/sw.js.map
+/public/swe-worker-*.js
