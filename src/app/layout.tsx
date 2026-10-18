@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   title: "Viajes",
   description: "Planificador de viajes turísticos personal y familiar",
   appleWebApp: { capable: true, title: "Viajes", statusBarStyle: "default" },
+  // Next 16 solo emite mobile-web-app-capable; iOS Safari aún lee la variante con prefijo.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 // Sin esto, un móvil renderiza la página a un ancho de viewport virtual
