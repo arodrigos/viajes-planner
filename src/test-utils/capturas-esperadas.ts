@@ -13,4 +13,5 @@ export const CAPTURAS_ESPERADAS = [
   { bloque: "ficha-google", fichero: "sin-coincidencia.png" },
   { bloque: "aviso-horario-procedencia", fichero: "linea-horario.png" },
   { bloque: "aviso-horario-procedencia", fichero: "boton.png" },
+  { bloque: "pwa-instalable", fichero: "guia-instalar.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];

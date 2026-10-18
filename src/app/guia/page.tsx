@@ -67,6 +67,25 @@ export default function GuiaPage() {
         </li>
         <li>«Regenerar este viaje» pide una versión nueva, como mucho una vez por hora.</li>
       </ol>
+
+      <h2>Instalar en el móvil</h2>
+      <p>
+        La aplicación se puede instalar como una app más, sin tienda. No hay botón propio: se instala desde el
+        navegador.
+      </p>
+      <ul>
+        <li>
+          <strong>Android (Chrome):</strong> abre el menú del navegador y pulsa «Instalar aplicación» (o «Añadir a la
+          pantalla de inicio»).
+        </li>
+        <li>
+          <strong>iPhone (Safari):</strong> pulsa Compartir y después «Añadir a pantalla de inicio».
+        </li>
+      </ul>
+      <p>
+        Antes de viajar, abre el plan una vez desde la app instalada, con conexión. En el iPhone lo que se vio en
+        Safari no está en la app instalada, y el plan solo se podrá consultar sin cobertura desde donde lo abriste.
+      </p>
     </main>
   );
 }
