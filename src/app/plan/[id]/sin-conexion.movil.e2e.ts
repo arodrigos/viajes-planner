@@ -202,7 +202,7 @@ test.describe("plan sin conexión", () => {
     // sc-ac1 / sc-ac11: una sola visita con red, sin recargar, y la línea aparece.
     await pagina.goto(`/plan/${planId}`);
     await esperarControlador(pagina);
-    const horaGuardada = await leerLinea(pagina);
+    await leerLinea(pagina);
     await capturar(pagina, BLOQUE, "disponible-sin-conexion");
     // sc-ac3: el día 1 se ve con red y sus fotos quedan en la caché de fotos.
     await expect(pagina.locator("img.foto-parada").first()).toBeVisible();
@@ -216,7 +216,8 @@ test.describe("plan sin conexión", () => {
     await expect(tarjeta(pagina, "Monasterio de los Jerónimos").locator("gmp-place-details")).toBeVisible();
     await pagina.goto("/viajes");
     await pagina.goto(`/plan/${planId}`);
-    await leerLinea(pagina);
+    // La copia que sobrevive al corte es la de esta última lectura: su hora puede ser de un minuto posterior a la primera.
+    const horaGuardada = await leerLinea(pagina);
     const conTodo = await claves(pagina);
     const todasLasUrls = Object.entries(conTodo).flatMap(([cache, urls]) => urls.map((url) => ({ cache, url: new URL(url) })));
     for (const { cache, url } of todasLasUrls) {
