@@ -370,8 +370,12 @@ test.describe("plan sin conexión", () => {
     await contexto.addCookies(cookiesSesion);
     await pagina.goto(`/plan/${planId}?dia=1`);
     await expect(pagina.getByText("Monasterio de los Jerónimos").first()).toBeVisible();
-    // Se da tiempo a que el sondeo (30 × 500 ms) se agote antes de afirmar la ausencia.
-    await pagina.waitForTimeout(1_000);
+    // Sin controlador y sin copia en caché la línea no puede aparecer: se afirma
+    // el estado real que la condiciona, no una espera por tiempo.
+    expect(await pagina.evaluate(() => navigator.serviceWorker.controller === null)).toBe(true);
+    await expect
+      .poll(() => pagina.evaluate(async () => (await caches.keys()).length))
+      .toBe(0);
     await expect(pagina.getByText(/Disponible sin conexión/)).toHaveCount(0);
     await contexto.close();
   });
