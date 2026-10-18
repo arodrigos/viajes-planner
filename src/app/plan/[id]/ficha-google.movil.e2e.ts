@@ -164,7 +164,7 @@ test.describe("panel de Google", () => {
     await expect(ficha).toHaveCount(1);
     expect(posts).toHaveLength(1);
 
-    expect(await sinScrollHorizontal(pagina)).toBe(true);
+    await expect.poll(() => sinScrollHorizontal(pagina)).toBe(true);
     await comprobarAccesibilidad(pagina, ["gmp-place-details"]);
     await capturar(pagina, "ficha-google", "casada");
     await contexto.close();
@@ -179,7 +179,7 @@ test.describe("panel de Google", () => {
     await resumen(pagina, "Sitio sin coincidencia").click();
     await expect(tarjeta(pagina, "Sitio sin coincidencia").getByText("No lo hemos encontrado en Google Maps con seguridad, así que no enseñamos opiniones de otro sitio.")).toBeVisible();
     expect(posts).toHaveLength(0);
-    expect(await sinScrollHorizontal(pagina)).toBe(true);
+    await expect.poll(() => sinScrollHorizontal(pagina)).toBe(true);
     await capturar(pagina, "ficha-google", "sin-coincidencia");
     await contexto.close();
   });
@@ -192,7 +192,8 @@ test.describe("panel de Google", () => {
     await expect(carta.getByText("Hoy ya se ha consultado Google todas las veces previstas para no pagar; vuelve mañana.")).toBeVisible();
     await expect(carta.getByRole("link", { name: "Abrir en Google Maps" })).toBeVisible();
     await expect(carta.locator("gmp-place-details")).toHaveCount(0);
-    expect(await sinScrollHorizontal(pagina)).toBe(true);
+    // El ancho se asienta tras pintar el mensaje: se sondea el mismo predicado en vez de medirlo en un instante.
+    await expect.poll(() => sinScrollHorizontal(pagina)).toBe(true);
     await capturar(pagina, "ficha-google", "cupo");
     await contexto.close();
   });
@@ -219,7 +220,7 @@ test.describe("panel de Google", () => {
     await pagina.setViewportSize({ width: 320, height: 740 });
     await resumen(pagina, "Museo de prueba uno").click();
     await expect(tarjeta(pagina, "Museo de prueba uno").locator("gmp-place-details")).toBeVisible();
-    expect(await sinScrollHorizontal(pagina)).toBe(true);
+    await expect.poll(() => sinScrollHorizontal(pagina)).toBe(true);
 
     const llamadas: string[] = [];
     pagina.on("request", (r) => llamadas.push(r.url()));

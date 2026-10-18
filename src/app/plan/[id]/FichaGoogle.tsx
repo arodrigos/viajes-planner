@@ -122,11 +122,18 @@ export function FichaGoogle({ planId, paradaId, estado, abierto, hrefMaps, conFo
     }
     elemento.append(peticion, configuracion);
     elemento.addEventListener("gmp-load", () => setVista({ tipo: "ficha" }));
-    elemento.addEventListener("gmp-requesterror", (evento) => {
+    // Según la versión del UI Kit el fallo llega como gmp-requesterror o como
+    // gmp-error; si llegaran los dos, el lugar se marca obsoleto una sola vez.
+    let fallado = false;
+    const alFallar = (evento: Event) => {
+      if (fallado) return;
+      fallado = true;
       if (esNotFound(evento)) void marcarObsoleto();
       setPlaceId(null);
       setVista({ tipo: "mensaje", mensaje: "errorGoogle" });
-    });
+    };
+    elemento.addEventListener("gmp-requesterror", alFallar);
+    elemento.addEventListener("gmp-error", alFallar);
     destino.appendChild(elemento);
     return () => elemento.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- marcarObsoleto solo usa props estables
@@ -137,8 +144,9 @@ export function FichaGoogle({ planId, paradaId, estado, abierto, hrefMaps, conFo
     void cargar();
   }
 
+  // data-estado-ficha es el contrato de las pruebas: el contenido de gmp-place-details es un shadow DOM cerrado que Playwright no atraviesa.
   return (
-    <div className="ficha-google">
+    <div className="ficha-google" data-estado-ficha={vista.tipo}>
       {tieneClave && estado === "casado" && (
         <p className="ayuda">
           {TEXTOS_FICHA.privacidad.texto} <Link href="/privacidad">{TEXTOS_FICHA.privacidadEnlace.texto}</Link>
