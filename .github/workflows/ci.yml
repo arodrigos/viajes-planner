@@ -137,7 +137,7 @@ concurrency:
 # para no competir por el mismo createUser ni compartir límite de
 # trabajos por hora con el test anterior.
 env:
-  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com,ci-test-peso-visual@example.com,ci-test-peso-visual-vacio@example.com,ci-test-contraste-eliminar@example.com,ci-test-otro-viaje@example.com,ci-test-procedencia@example.com,ci-test-mapa@example.com,ci-test-mapa-vacio@example.com,ci-test-mapa-caido@example.com,ci-test-fotos@example.com,ci-test-alternativas@example.com,ci-test-alternativas-vacio@example.com,ci-test-alternativas-completas@example.com,ci-test-sustituir@example.com,ci-test-regenerar@example.com,ci-test-regenerar-ac4@example.com,ci-test-destino@example.com,ci-test-destino-no-hoy@example.com,ci-test-calendario@example.com,ci-test-horario@example.com,ci-test-encaje@example.com,ci-test-paseo@example.com,ci-test-ciudad@example.com,ci-test-ciudad-manual@example.com,ci-test-presupuesto@example.com,ci-test-transporte@example.com,ci-test-inviable@example.com,ci-test-inviable-dueno@example.com,ci-test-inviable-otro@example.com,ci-test-ruta-etapas@example.com,ci-test-ruta-dias@example.com,ci-test-ruta-tren@example.com,ci-test-ruta-coche@example.com,ci-test-guia@example.com,ci-test-eventos@example.com,ci-test-infografia@example.com,ci-test-infografia-e2e@example.com,ci-test-infografia-multi-e2e@example.com,ci-test-infografia-larga-e2e@example.com,ci-test-infografia-previa-e2e@example.com,ci-test-infografia-previa-estados-e2e@example.com,ci-test-infografia-previa-sinsesion-e2e@example.com,ci-test-enlaces-e2e@example.com,ci-test-guia-consejo@example.com,ci-test-tramos-e2e@example.com,ci-test-tramos-cerca-e2e@example.com,ci-test-tramos-una-e2e@example.com,ci-test-alternativas-estado@example.com,ci-test-alternativas-error@example.com,ci-test-alternativas-doble@example.com,ci-test-alternativas-guia@example.com,ci-test-alternativas-singuia@example.com,ci-test-guia-curiosidades@example.com,ci-test-formato-miles@example.com,ci-test-formato-curiosidades@example.com,ci-test-proximos-pasados@example.com,ci-test-ahora@example.com,ci-test-ahora-sin-ubicar@example.com,ci-test-ahora-antes@example.com,ci-test-ahora-error@example.com,ci-test-sal-ac1@example.com,ci-test-sal-ac2a@example.com,ci-test-sal-ac2b@example.com,ci-test-sal-ac3@example.com,ci-test-mis-viajes-fechas@example.com,ci-test-ficha@example.com,ci-test-ficha-e2e@example.com,ci-test-aviso-horario@example.com"
+  CORREOS_PERMITIDOS: "ci-test@example.com,ci-test-acceso-ac6c@example.com,ci-test-final-ac2@example.com,ci-test-cod-ac1@example.com,ci-test-cod-ac2@example.com,ci-test-cod-ac3@example.com,ci-test-pantalla-ac5@example.com,ci-test-pantalla-ac6-existente@example.com,ci-test-pantalla-ac6-nuevo@example.com,ci-test-pantalla-ac8a@example.com,ci-test-pantalla-ac8b@example.com,ci-test-pantalla-ac8c@example.com,ci-test-pantalla-ac8d-autorizado@example.com,ci-test-pantalla-ac8d-rastro-autorizado@example.com,ci-test-guia-ac11@example.com,ci-test-aud-ac4@example.com,ci-test-textos-ac1@example.com,ci-test-plan-timeline@example.com,ci-test-viajes-ac2@example.com,ci-test-mis-viajes@example.com,ci-test-eliminar@example.com,ci-test-recomendaciones@example.com,ci-test-recorrido@example.com,ci-test-unif-ac1@example.com,ci-test-peso-visual@example.com,ci-test-peso-visual-vacio@example.com,ci-test-contraste-eliminar@example.com,ci-test-otro-viaje@example.com,ci-test-procedencia@example.com,ci-test-mapa@example.com,ci-test-mapa-vacio@example.com,ci-test-mapa-caido@example.com,ci-test-fotos@example.com,ci-test-alternativas@example.com,ci-test-alternativas-vacio@example.com,ci-test-alternativas-completas@example.com,ci-test-sustituir@example.com,ci-test-regenerar@example.com,ci-test-regenerar-ac4@example.com,ci-test-destino@example.com,ci-test-destino-no-hoy@example.com,ci-test-calendario@example.com,ci-test-horario@example.com,ci-test-encaje@example.com,ci-test-paseo@example.com,ci-test-ciudad@example.com,ci-test-ciudad-manual@example.com,ci-test-presupuesto@example.com,ci-test-transporte@example.com,ci-test-inviable@example.com,ci-test-inviable-dueno@example.com,ci-test-inviable-otro@example.com,ci-test-ruta-etapas@example.com,ci-test-ruta-dias@example.com,ci-test-ruta-tren@example.com,ci-test-ruta-coche@example.com,ci-test-guia@example.com,ci-test-eventos@example.com,ci-test-infografia@example.com,ci-test-infografia-e2e@example.com,ci-test-infografia-multi-e2e@example.com,ci-test-infografia-larga-e2e@example.com,ci-test-infografia-previa-e2e@example.com,ci-test-infografia-previa-estados-e2e@example.com,ci-test-infografia-previa-sinsesion-e2e@example.com,ci-test-enlaces-e2e@example.com,ci-test-guia-consejo@example.com,ci-test-tramos-e2e@example.com,ci-test-tramos-cerca-e2e@example.com,ci-test-tramos-una-e2e@example.com,ci-test-alternativas-estado@example.com,ci-test-alternativas-error@example.com,ci-test-alternativas-doble@example.com,ci-test-alternativas-guia@example.com,ci-test-alternativas-singuia@example.com,ci-test-guia-curiosidades@example.com,ci-test-formato-miles@example.com,ci-test-formato-curiosidades@example.com,ci-test-proximos-pasados@example.com,ci-test-ahora@example.com,ci-test-ahora-sin-ubicar@example.com,ci-test-ahora-antes@example.com,ci-test-ahora-error@example.com,ci-test-sal-ac1@example.com,ci-test-sal-ac2a@example.com,ci-test-sal-ac2b@example.com,ci-test-sal-ac3@example.com,ci-test-mis-viajes-fechas@example.com,ci-test-ficha@example.com,ci-test-ficha-e2e@example.com,ci-test-aviso-horario@example.com,ci-test-obsoleto-a@example.com,ci-test-obsoleto-b@example.com"
   # Clave ficticia y no secreta: solo ejercita el camino «con clave» de la ficha de Google; el script de Google se intercepta en los e2e.
   NEXT_PUBLIC_GOOGLE_MAPS_CLAVE_NAVEGADOR: "clave-de-prueba-ci"
 
@@ -250,7 +250,7 @@ jobs:
           # lanzan si falta -sin ella, npm run test:integration entero
           # fallaría, que es justo el fail-closed que corrige esta incisión.
           echo "SUPABASE_SCHEMA=viajes_planner" >> "$GITHUB_ENV"
-      # esquema-ac3(c,d): las 16 tablas y las 6 funciones del catálogo viven
+      # esquema-ac3(c,d): las tablas y funciones del catálogo viven
       # en `viajes_planner`, y `public` se queda sin un solo objeto del
       # producto -el efecto colateral que esta incisión corrige de raíz.
       - name: contar objetos por esquema (esquema-ac3)
@@ -263,9 +263,9 @@ jobs:
           rutinas_public=$(contar "select count(*) from information_schema.routines where routine_schema = 'public'")
           echo "tablas: viajes_planner=$tablas_vp public=$tablas_public"
           echo "rutinas: viajes_planner=$rutinas_vp public=$rutinas_public"
-          [ "$tablas_vp" -eq 17 ]
+          [ "$tablas_vp" -eq 18 ]
           [ "$tablas_public" -eq 0 ]
-          [ "$rutinas_vp" -eq 8 ]
+          [ "$rutinas_vp" -eq 9 ]
           [ "$rutinas_public" -eq 0 ]
       # sal-ac2: estado_relleno() contra Postgres real por psql directo, la
       # misma comprobación que el gatekeeper lanza contra su base de prueba.
@@ -282,6 +282,17 @@ jobs:
             -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "Content-Profile: viajes_planner" -H "Content-Type: application/json" -d '{"p_sku": "ui_kit"}')
           echo "rpc/reservar_cupo_google con clave anónima: HTTP $codigo"
+          [ "$codigo" != "200" ]
+      # obs-ac1 y obs-ac4: el límite de marcas de obsoleto (#240) aguanta
+      # concurrencia y solo service_role llega a la función y la tabla.
+      - name: límite de marcas de obsoleto (obs-ac1, obs-ac4)
+        run: |
+          BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh obsoleto
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/registrar_obsoleto_google" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Profile: viajes_planner" -H "Content-Type: application/json" \
+            -d '{"p_usuario": "00000000-0000-4000-8000-0000000000c3", "p_clave": "x"}')
+          echo "rpc/registrar_obsoleto_google con clave anónima: HTTP $codigo"
           [ "$codigo" != "200" ]
       # cas-ac3: esquema y permisos de lugares_google.
       - name: esquema y permisos de lugares_google (cas-ac3)
