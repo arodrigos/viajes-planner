@@ -174,6 +174,9 @@ test.describe("plan sin conexión", () => {
   let usuarioId: string;
   let planId: string;
   let otroPlanId: string;
+  // Los tests siguientes reutilizan la sesión del primero: pedir otro código al mismo
+  // correo en seguida lo deja sin entregar (límite de envíos de Auth).
+  let cookiesSesion: Awaited<ReturnType<BrowserContext["cookies"]>> = [];
 
   test.beforeAll(async () => {
     supabase = clienteDePrueba("servicio");
@@ -327,6 +330,7 @@ test.describe("plan sin conexión", () => {
 
     // sc-ac7: con la sesión caducada, la API contesta 401 y la copia buena no se pisa.
     const cookies = await contexto.cookies();
+    cookiesSesion = cookies;
     await contexto.clearCookies();
     await pagina.goto(`/plan/${planId}`).catch(() => undefined);
     await contexto.setOffline(true);
@@ -348,7 +352,7 @@ test.describe("plan sin conexión", () => {
   test("sin ninguna copia, /viajes sin red enseña el estado vacío (sc-ac5)", async ({ browser }) => {
     const contexto = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "allow" });
     const pagina = await contexto.newPage();
-    await iniciarSesion(contexto);
+    await contexto.addCookies(cookiesSesion);
     await pagina.goto("/guia");
     await esperarControlador(pagina);
     await contexto.setOffline(true);
@@ -362,7 +366,7 @@ test.describe("plan sin conexión", () => {
   test("con el service worker bloqueado no se promete nada (sc-ac11)", async ({ browser }) => {
     const contexto = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
     const pagina = await contexto.newPage();
-    await iniciarSesion(contexto);
+    await contexto.addCookies(cookiesSesion);
     await pagina.goto(`/plan/${planId}?dia=1`);
     await expect(pagina.getByText("Monasterio de los Jerónimos").first()).toBeVisible();
     // Se da tiempo a que el sondeo (30 × 500 ms) se agote antes de afirmar la ausencia.
