@@ -4,6 +4,10 @@ import { clasificar, destinoSinConexion, esGuardable, esHostGoogle, idDeClavePla
 
 const ORIGEN = "https://viajes.example.org";
 const UUID = fc.uuid();
+// El navegador resuelve los segmentos «..» antes de que la petición llegue al
+// SW: «/api/plan/<id>/../-» llega ya como «/api/plan/-», que sí es una clave
+// válida. Generarlos haría que el test afirmase algo falso.
+const RESTO_RUTA = fc.stringMatching(/^[a-z0-9/_.-]{0,30}$/).filter((r) => !r.split("/").some((s) => s === ".." || s === "."));
 const SUBDOMINIOS = fc.array(fc.stringMatching(/^[a-z][a-z0-9-]{0,8}$/), { maxLength: 3 }).map((p) => p.join("."));
 const DOMINIOS_GOOGLE = ["googleapis.com", "gstatic.com", "google.com", "googleusercontent.com", "ggpht.com"];
 const METODOS = fc.constantFrom("GET", "POST", "PUT", "DELETE", "HEAD");
@@ -21,7 +25,7 @@ describe("clasificar", () => {
 
   it("cualquier /api/ del mismo origen que no sea /api/plan/<id> exacto, y cualquier método que no sea GET, es «red»", () => {
     fc.assert(
-      fc.property(fc.stringMatching(/^[a-z0-9/_.-]{0,30}$/), UUID, METODOS, (resto, id, metodo) => {
+      fc.property(RESTO_RUTA, UUID, METODOS, (resto, id, metodo) => {
         expect(clasificar({ url: `${ORIGEN}/api/${resto}`, metodo: "GET", modo: "cors" }, ORIGEN)).not.toBe("foto");
         // Subrutas del plan: infografia.png, calendario.ics, paradas...
         expect(clasificar({ url: `${ORIGEN}/api/plan/${id}/${resto || "x"}`, metodo: "GET", modo: "cors" }, ORIGEN)).toBe("red");
@@ -116,7 +120,7 @@ describe("idDeClavePlan", () => {
   it("solo acepta claves /api/plan/<id> exactas", () => {
     const id = "12345678-1234-4234-8234-123456789abc";
     fc.assert(
-      fc.property(fc.stringMatching(/^[a-z0-9/_.-]{1,20}$/), (resto) => {
+      fc.property(RESTO_RUTA.filter((r) => r.length > 0), (resto) => {
         expect(idDeClavePlan(`${ORIGEN}/api/plan/${id}/${resto}`)).toBeNull();
         expect(idDeClavePlan(`${ORIGEN}/plan/${id}`)).toBeNull();
       }),
