@@ -31,10 +31,7 @@ test("pwa-ac1: /viajes deja un service worker que controla la página tras recar
   }
 
   await expect(page.locator("link[rel=apple-touch-icon]")).toHaveCount(1);
-  await expect(page.locator("meta[name=mobile-web-app-capable], meta[name=apple-mobile-web-app-capable]").first()).toHaveAttribute(
-    "content",
-    "yes",
-  );
+  await expect(page.locator("meta[name=apple-mobile-web-app-capable]")).toHaveAttribute("content", "yes");
   expect(errores).toEqual([]);
 });
 
