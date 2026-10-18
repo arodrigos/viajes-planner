@@ -5,7 +5,7 @@
 # la base se queda como estaba, así que se puede lanzar también contra una
 # que ya tenga datos (por eso los asertos son deltas y no valores absolutos).
 #
-# Uso: BD_URL=postgresql://... bash scripts/verificar-bd-prueba.sh [relleno|cupo|permisos]
+# Uso: BD_URL=postgresql://... bash scripts/verificar-bd-prueba.sh [relleno|cupo|permisos|lugares|obsoleto]
 # Sin argumento comprueba estado_relleno() y estado_relleno_motivos(); `cupo` y `permisos` son los casos
 # del controlador de cupo de Google (ctl-ac1 y ctl-ac2).
 set -euo pipefail
@@ -347,10 +347,69 @@ SQL
   echo "OK: lugares_google tiene 4 columnas y authenticated solo lee clave y estado."
 }
 
+# obs-ac1 y obs-ac4 (#240): registrar_obsoleto_google aguanta la concurrencia
+# (una marca por terna, cinco por usuario y día) y anon/authenticated no llegan
+# a la función ni a la tabla. Hace commit en conexiones distintas, así que
+# limpia lo suyo al salir.
+obsoleto() {
+  usuario_a="00000000-0000-4000-8000-0000000000c1"
+  usuario_b="00000000-0000-4000-8000-0000000000c2"
+  limpiar() {
+    psql "$BD_URL" -q -c "delete from auth.users where id in ('$usuario_a', '$usuario_b');" >/dev/null
+  }
+  trap limpiar EXIT
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q -c "insert into auth.users (id) values ('$usuario_a'), ('$usuario_b');" >/dev/null
+
+  local salida ok repetidos topes filas
+  salida=$(seq 20 | xargs -P 10 -I{} psql "$BD_URL" -tAc "select viajes_planner.registrar_obsoleto_google('$usuario_a', 'osm:node/vbd-misma')")
+  ok=$(grep -c '^ok$' <<<"$salida" || true)
+  repetidos=$(grep -c '^repetido$' <<<"$salida" || true)
+  filas=$(psql "$BD_URL" -tAc "select count(*) from viajes_planner.marcas_obsoleto_google where usuario_id = '$usuario_a'")
+  [ "$ok" = "1" ] && [ "$repetidos" = "19" ] && [ "$filas" = "1" ] || {
+    echo "obsoleto-misma-terna: esperaba 1 ok, 19 repetido y 1 fila; salió $ok, $repetidos y $filas" >&2; exit 1; }
+
+  salida=$(seq 10 | xargs -P 10 -I{} psql "$BD_URL" -tAc "select viajes_planner.registrar_obsoleto_google('$usuario_b', 'osm:node/vbd-' || {})")
+  ok=$(grep -c '^ok$' <<<"$salida" || true)
+  topes=$(grep -c '^tope-usuario$' <<<"$salida" || true)
+  filas=$(psql "$BD_URL" -tAc "select count(*) from viajes_planner.marcas_obsoleto_google where usuario_id = '$usuario_b'")
+  [ "$ok" = "5" ] && [ "$topes" = "5" ] && [ "$filas" = "5" ] || {
+    echo "obsoleto-tope-usuario: esperaba 5 ok, 5 tope-usuario y 5 filas; salió $ok, $topes y $filas" >&2; exit 1; }
+
+  local rol
+  for rol in anon authenticated; do
+    psql "$BD_URL" -v ON_ERROR_STOP=1 -q <<SQL
+begin;
+set local role $rol;
+set local request.jwt.claims = '{"role": "$rol"}';
+do \$\$
+declare consulta text;
+begin
+  foreach consulta in array array[
+    'select viajes_planner.registrar_obsoleto_google(''$usuario_a'', ''x'')',
+    'select * from viajes_planner.marcas_obsoleto_google',
+    'insert into viajes_planner.marcas_obsoleto_google (usuario_id, clave, dia) values (''$usuario_a'', ''x'', current_date)'
+  ] loop
+    begin
+      execute consulta;
+      raise exception '$rol pudo ejecutar: %', consulta;
+    exception when insufficient_privilege then
+      null;
+    end;
+  end loop;
+end \$\$;
+rollback;
+SQL
+  done
+  [ "$(psql "$BD_URL" -tAc "select relrowsecurity from pg_class where oid = 'viajes_planner.marcas_obsoleto_google'::regclass")" = "t" ] || {
+    echo "marcas_obsoleto_google sin RLS" >&2; exit 1; }
+  echo "OK: registrar_obsoleto_google da 1 ok por terna y 5 por usuario con concurrencia, y anon/authenticated no llegan."
+}
+
 case "$modo" in
   relleno) relleno ;;
   cupo) cupo ;;
   permisos) permisos ;;
   lugares) lugares ;;
-  *) echo "Modo desconocido: $modo (relleno, cupo, permisos o lugares)" >&2; exit 2 ;;
+  obsoleto) obsoleto ;;
+  *) echo "Modo desconocido: $modo (relleno, cupo, permisos, lugares u obsoleto)" >&2; exit 2 ;;
 esac
