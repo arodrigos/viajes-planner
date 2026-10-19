@@ -444,7 +444,9 @@ SQL
   rechaza orden-invalido 1 5 "$ok"
 
   # Dos llamadas a la vez con la misma base: una crea la versión 2 y la otra pierde.
-  local a="$TMPDIR/orden-a.txt" b="$TMPDIR/orden-b.txt"
+  # mktemp -d: en el CI no hay TMPDIR definida y con `set -u` rompía aquí.
+  local carpeta; carpeta=$(mktemp -d)
+  local a="$carpeta/orden-a.txt" b="$carpeta/orden-b.txt"
   psql "$BD_URL" -tAc "select version from viajes_planner.reordenar_dia_plan('$plan', 1, 0, '$ok'::jsonb)" >"$a" 2>&1 &
   local pa=$!
   psql "$BD_URL" -tAc "select version from viajes_planner.reordenar_dia_plan('$plan', 1, 0, '[{\"id\":\"p1\",\"franja_id\":\"manana\"},{\"id\":\"p2\",\"franja_id\":\"manana\"},{\"id\":\"p3\",\"franja_id\":\"comida\"},{\"id\":\"p4\",\"franja_id\":\"tarde\"},{\"id\":\"p5\",\"franja_id\":\"tarde\"}]'::jsonb)" >"$b" 2>&1 &
