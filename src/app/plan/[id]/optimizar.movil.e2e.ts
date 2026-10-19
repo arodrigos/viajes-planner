@@ -10,10 +10,14 @@ import { abrirPlan, ordenPintado, parada, sembrarDia, ultimaVersionDelDia } from
 // opt-ac1..ac7: «Optimizar orden» contra la API real. El alojamiento es el
 // inicio del recorrido; las paradas están sobre un meridiano, a ~0,9 km una de otra.
 test.use({ viewport: { width: 390, height: 844 } });
+// Un solo trabajador: el envío de códigos de Supabase limita las peticiones seguidas.
+test.describe.configure({ mode: "serial" });
 
 const ALOJAMIENTO = { lat: 37.17, lon: -3.59 };
 const ANCLA = { tipo: "zona-propuesta" as const, centroide: ALOJAMIENTO, radio_m: 500 };
-const sitio = (n: number, franja = "manana", id = `s${n}`): Parada => ({ ...parada(id, `Sitio ${n}`, franja, n), descripcion: "Visita de prueba" });
+// La lectura ordena por id_externo mientras no haya orden guardado, así que el
+// id lleva la posición de partida: es lo que fija el orden con el que se siembra.
+const sitio = (n: number, id: string, franja = "manana"): Parada => parada(id, `Sitio ${n}`, franja, n);
 const sinUbicar = (id: string, nombre: string, franja = "manana"): Parada => ({ ...parada(id, nombre, franja, 0), coordenadas: undefined });
 const OPTIMIZAR = { name: "Optimizar orden" };
 
@@ -38,7 +42,7 @@ async function versiones(supabase: ReturnType<typeof clienteDePrueba>, planId: s
 test("optimizar un zigzag lo ordena al momento, guarda una versión y se puede deshacer (opt-ac1, opt-ac3, opt-ac6)", async ({ browser }) => {
   const supabase = clienteDePrueba("servicio");
   const email = "ci-test-optimizar@example.com";
-  const planId = await sembrarDia(supabase, email, "zigzag", [1, 5, 2, 4, 3].map((n) => sitio(n)), "2027-06-09", ANCLA);
+  const planId = await sembrarDia(supabase, email, "zigzag", [1, 5, 2, 4, 3].map((n, i) => sitio(n, `p${i}`)), "2027-06-09", ANCLA);
   const { contexto, pagina } = await abrirPlan(browser, email, planId);
 
   expect(await ordenPintado(pagina)).toEqual(nombres(1, 5, 2, 4, 3));
@@ -81,7 +85,7 @@ test("optimizar un zigzag lo ordena al momento, guarda una versión y se puede d
 
   const guardada = await ultimaVersionDelDia(supabase, planId);
   expect(guardada.version).toBe(2);
-  expect(guardada.paradas.map((p) => p.id_externo)).toEqual(["s1", "s2", "s3", "s4", "s5"]);
+  expect(guardada.paradas.map((p) => p.id_externo)).toEqual(["p0", "p2", "p4", "p3", "p1"]);
   // Tramos y horas salen del plan que devolvió el guardado, en el orden nuevo.
   expect(await pagina.getByTestId("tramo-parada").count()).toBe(4);
   await comprobarAccesibilidad(pagina);
@@ -92,7 +96,7 @@ test("optimizar un zigzag lo ordena al momento, guarda una versión y se puede d
   expect(await ordenPintado(pagina)).toEqual(nombres(1, 5, 2, 4, 3));
   const tras = await ultimaVersionDelDia(supabase, planId);
   expect(tras.version).toBe(3);
-  expect(tras.paradas.map((p) => p.id_externo)).toEqual(["s1", "s5", "s2", "s4", "s3"]);
+  expect(tras.paradas.map((p) => p.id_externo)).toEqual(["p0", "p1", "p2", "p3", "p4"]);
   await capturar(pagina, "optimizar-orden", "deshecho");
 
   // Optimizar otra vez propone de nuevo el orden corto.
@@ -104,7 +108,7 @@ test("optimizar un zigzag lo ordena al momento, guarda una versión y se puede d
 test("un día que ya va en el orden más corto no cambia ni crea versión (opt-ac4)", async ({ browser }) => {
   const supabase = clienteDePrueba("servicio");
   const email = "ci-test-optimizar-ya@example.com";
-  const planId = await sembrarDia(supabase, email, "ya", [1, 2, 3, 4].map((n) => sitio(n)), "2027-06-09", ANCLA);
+  const planId = await sembrarDia(supabase, email, "ya", [1, 2, 3, 4].map((n, i) => sitio(n, `p${i}`)), "2027-06-09", ANCLA);
   const { contexto, pagina } = await abrirPlan(browser, email, planId);
 
   const posts: string[] = [];
@@ -126,8 +130,9 @@ test("un día que ya va en el orden más corto no cambia ni crea versión (opt-a
 test("con menos de 3 o más de 9 sitios ubicados el botón está desactivado y lo explica (opt-ac5)", async ({ browser }) => {
   const supabase = clienteDePrueba("servicio");
   const email = "ci-test-optimizar-limites@example.com";
-  const pocas = await sembrarDia(supabase, email, "pocas", [sitio(1), sitio(2), sinUbicar("x", "Sin ubicar")], "2027-06-09", ANCLA);
-  const muchas = await sembrarDia(supabase, email, "muchas", Array.from({ length: 10 }, (_, i) => sitio(i + 1)), "2027-06-09", ANCLA);
+  const emailMuchas = "ci-test-optimizar-muchas@example.com";
+  const pocas = await sembrarDia(supabase, email, "pocas", [sitio(1, "p0"), sitio(2, "p1"), sinUbicar("x", "Sin ubicar")], "2027-06-09", ANCLA);
+  const muchas = await sembrarDia(supabase, emailMuchas, "muchas", Array.from({ length: 10 }, (_, i) => sitio(i + 1, `p${i}`)), "2027-06-09", ANCLA);
 
   const a = await abrirPlan(browser, email, pocas);
   await expect(a.pagina.getByRole("button", OPTIMIZAR)).toBeDisabled();
@@ -136,7 +141,7 @@ test("con menos de 3 o más de 9 sitios ubicados el botón está desactivado y l
   await capturar(a.pagina, "optimizar-orden", "pocas");
   await a.contexto.close();
 
-  const b = await abrirPlan(browser, email, muchas);
+  const b = await abrirPlan(browser, emailMuchas, muchas);
   await expect(b.pagina.getByRole("button", OPTIMIZAR)).toBeDisabled();
   await expect(b.pagina.getByText("Optimizar admite hasta 9 sitios ubicados por día")).toBeVisible();
   await capturar(b.pagina, "optimizar-orden", "muchas");
@@ -166,6 +171,7 @@ test("optimizar respeta las franjas: la comida sigue en la comida (opt-ac7)", as
     }
     return grupos;
   };
+  await ordenPintado(pagina);
   const antes = await porFranja();
   const titulos = Object.keys(antes);
   expect(titulos).toHaveLength(3);
