@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { capturar } from "@/test-utils/capturas";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { NOMBRES, abrirPlan, ordenPintado, parada, sembrarDia } from "./orden-e2e";
 
@@ -30,6 +31,8 @@ test("Ahora, Sal a las y el mapa siguen el orden nuevo (reo-ac5)", async ({ brow
   await expect(ahora).not.toContainText("Alfa");
   await expect(pagina.locator('.marcador-parada[data-orden="1"]')).toHaveAttribute("data-parada-id", "b");
   await expect(pagina.locator('.marcador-parada[data-orden="2"]')).toHaveAttribute("data-parada-id", "a");
+
+  await capturar(pagina, "reordenar-dia", "ahora-tras-ordenar");
 
   // Marcar la primera (ahora Beta) hace que «Sal a las» hable de Alfa.
   await ahora.getByRole("button", { name: "Marcar como visitada" }).click();

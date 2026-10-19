@@ -34,4 +34,5 @@ export const CAPTURAS_ESPERADAS = [
   { bloque: "reordenar-dia", fichero: "error-red.png" },
   { bloque: "reordenar-dia", fichero: "una-parada.png" },
   { bloque: "reordenar-dia", fichero: "sin-conexion.png" },
+  { bloque: "reordenar-dia", fichero: "ahora-tras-ordenar.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];
