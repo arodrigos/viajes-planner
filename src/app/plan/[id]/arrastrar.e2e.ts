@@ -37,7 +37,10 @@ async function arrastrarAsa(pagina: import("@playwright/test").Page, desde: stri
   // y una pausa para que React pinte el arrastre; después, el recorrido al destino.
   await pagina.mouse.move(cx, cy + (destino!.y < cy ? -8 : 8), { steps: 3 });
   await pagina.locator("[data-dnd-dragging]").first().waitFor({ timeout: 5000 });
-  await pagina.mouse.move(destino!.x + destino!.width / 2, destino!.y + 20, { steps: 20 });
+  // Borde superior del destino y no su interior: la colisión del orden dentro de un grupo
+  // se decide por el cruce de la mitad, y solo así «el primer puesto» es inequívoco.
+  const haciaArriba = destino!.y < cy;
+  await pagina.mouse.move(destino!.x + destino!.width / 2, destino!.y + (haciaArriba ? 3 : destino!.height - 3), { steps: 20 });
   if (soltar) await pagina.mouse.up();
 }
 
