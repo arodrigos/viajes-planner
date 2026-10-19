@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
+import { aplicarOrden, type EntradaOrden } from "@/lib/plan/reordenar";
 import { formatearFechaDia } from "@/lib/plan/dias";
 import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada } from "@/lib/plan/erroresParada";
 import { TEXTOS_AHORA } from "@/lib/textos/ahora";
@@ -28,7 +29,13 @@ const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue 
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zona, onPlanActualizado, onIrAResumen }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void }) {
+export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void }) {
+  // El orden de la pantalla se adelanta al del servidor mientras se guarda;
+  // la copia del servidor se conserva para atar lo provisional a ella.
+  const diaServidor = diaDelServidor;
+  const dia = ordenPendiente ? { ...diaServidor, paradas: aplicarOrden(diaServidor.paradas, ordenPendiente) } : diaServidor;
+  const recalculando = ordenPendiente !== undefined;
+  const conControles = onMover !== undefined && dia.paradas.length >= 2;
   const tieneAlgunaParada = dia.paradas.length > 0;
   const puntos = puntosDelDia(dia);
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
@@ -44,7 +51,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
   // sobre el que se hizo: cuando llega el plan nuevo la referencia cambia y
   // el nombre provisional deja de aplicarse solo.
   const [provisional, setProvisional] = useState<{ dia: DiaPublico; nombres: Record<string, string> } | null>(null);
-  const nombresProvisionales = provisional?.dia === dia ? provisional.nombres : null;
+  const nombresProvisionales = provisional?.dia === diaServidor ? provisional.nombres : null;
   const [avisoCambio, setAvisoCambio] = useState<string | null>(null);
   const [mapaAmpliado, setMapaAmpliado] = useState(false);
 
@@ -79,7 +86,7 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
         setErrores((e) => fijarError(e, paradaId, { tipo: "cambio", mensaje }));
         return false;
       }
-      setProvisional((previo) => ({ dia, nombres: { ...(previo?.dia === dia ? previo.nombres : {}), [paradaId]: nombreAlternativa } }));
+      setProvisional((previo) => ({ dia: diaServidor, nombres: { ...(previo?.dia === diaServidor ? previo.nombres : {}), [paradaId]: nombreAlternativa } }));
       setAvisoCambio(`Hecho: ahora vas a ${nombreAlternativa}. Para deshacerlo, abre sus alternativas.`);
       onPlanActualizado();
       // El <li> de la parada sobrevive a la recarga (su id externo no cambia),
@@ -156,6 +163,11 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
         Día {indice + 1} · {formatearFechaDia(dia.fecha)}
         {etapa ? ` · ${etapa.ciudad}` : ""}
       </h2>
+      {conControles && (
+        <p className="ayuda ayuda-orden" id="ayuda-orden">
+          Cambia el orden con ↑ ↓. Se guarda solo y puedes deshacerlo.
+        </p>
+      )}
       {/* hoy-ac1: solo el día de hoy, y lo primero del panel. */}
       {esHoy && (
         <TarjetaAhora
@@ -229,7 +241,12 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
           </div>
         ))}
 
-      <div className="tramo-dia">
+      {recalculando && (
+        <p role="status" className="ayuda recalculando">
+          Recalculando…
+        </p>
+      )}
+      <div className={recalculando ? "tramo-dia tramo-dia-recalculando" : "tramo-dia"} aria-busy={recalculando ? "true" : undefined}>
         {dia.franjas.map((franja) => {
           const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
           if (paradasDeLaFranja.length === 0) return null;
@@ -273,6 +290,16 @@ export function PanelDia({ dia, indice, etapa, destino, eventos, planId, hoy, zo
                     error={leerError(errores, parada.id)}
                     onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
                     onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
+                    orden={
+                      conControles
+                        ? {
+                            numero: dia.paradas.indexOf(parada) + 1,
+                            esPrimera: dia.paradas[0] === parada,
+                            esUltima: dia.paradas[dia.paradas.length - 1] === parada,
+                            onMover: (direccion) => onMover(parada.id, direccion),
+                          }
+                        : undefined
+                    }
                   />
                 ))}
               </ul>

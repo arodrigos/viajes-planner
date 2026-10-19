@@ -1,0 +1,95 @@
+// Funciones puras del orden de un día, compartidas por la ruta (servidor) y
+// por el hook del cliente: así lo que el navegador muestra al pulsar y lo que
+// el servidor acepta se calculan con la misma regla. Sin imports de
+// server-only.
+
+export interface EntradaOrden {
+  // id_externo de la parada.
+  id: string;
+  franja_id: string;
+}
+
+export interface PeticionOrden {
+  version_base: number;
+  dia_index: number;
+  orden: EntradaOrden[];
+}
+
+function indiceFranja(franjas: readonly { id: string }[], franjaId: string): number {
+  return franjas.findIndex((f) => f.id === franjaId);
+}
+
+// Mover a mano puede cambiar de franja (decisión de Adrián, opción A): una
+// parada que ya es la primera de su franja y sube toma la franja inmediata
+// anterior aunque esté vacía, y la última que baja toma la siguiente. Así
+// cada pulsación es un paso y volver atrás es la pulsación contraria.
+export function moverParada(
+  orden: readonly EntradaOrden[],
+  franjas: readonly { id: string }[],
+  id: string,
+  direccion: "arriba" | "abajo",
+): EntradaOrden[] {
+  const i = orden.findIndex((e) => e.id === id);
+  const copia = orden.map((e) => ({ ...e }));
+  if (i < 0) return copia;
+  const vecino = direccion === "arriba" ? i - 1 : i + 1;
+  if (vecino < 0 || vecino >= orden.length) return copia;
+
+  if (orden[vecino].franja_id === orden[i].franja_id) {
+    [copia[i], copia[vecino]] = [copia[vecino], copia[i]];
+    return copia;
+  }
+
+  const actual = indiceFranja(franjas, orden[i].franja_id);
+  const destino = actual + (direccion === "arriba" ? -1 : 1);
+  if (actual < 0 || destino < 0 || destino >= franjas.length) return copia;
+  copia[i] = { id: orden[i].id, franja_id: franjas[destino].id };
+  return copia;
+}
+
+export type ResultadoValidacion = { ok: true } | { ok: false; motivo: string };
+
+// Misma comprobación que hace reordenar_dia_plan en la base: permutación
+// exacta de las paradas del día, franjas del día y secuencia de franjas que
+// no retrocede.
+export function validarOrden(
+  base: readonly EntradaOrden[],
+  nuevo: readonly EntradaOrden[],
+  franjas: readonly { id: string }[],
+): ResultadoValidacion {
+  if (nuevo.length !== base.length) return { ok: false, motivo: "no es una permutación del día" };
+  const idsBase = new Set(base.map((e) => e.id));
+  const vistos = new Set<string>();
+  let previo = -1;
+  for (const entrada of nuevo) {
+    if (!idsBase.has(entrada.id)) return { ok: false, motivo: "hay una parada que no es del día" };
+    if (vistos.has(entrada.id)) return { ok: false, motivo: "hay una parada repetida" };
+    vistos.add(entrada.id);
+    const indice = indiceFranja(franjas, entrada.franja_id);
+    if (indice < 0) return { ok: false, motivo: "hay una franja que no es del día" };
+    if (indice < previo) return { ok: false, motivo: "las franjas no pueden retroceder" };
+    previo = indice;
+  }
+  return { ok: true };
+}
+
+// Aplica un orden a una lista de paradas del día: devuelve las mismas paradas
+// en el orden pedido y con la franja pedida. Lo que no está en el orden no se
+// inventa: se descarta (validarOrden ya ha comprobado la permutación).
+export function aplicarOrden<T extends { id: string; franja_id: string }>(paradas: readonly T[], orden: readonly EntradaOrden[]): T[] {
+  const porId = new Map(paradas.map((p) => [p.id, p]));
+  const salida: T[] = [];
+  for (const entrada of orden) {
+    const parada = porId.get(entrada.id);
+    if (parada) salida.push({ ...parada, franja_id: entrada.franja_id });
+  }
+  return salida;
+}
+
+export function ordenDeParadas(paradas: readonly { id: string; franja_id: string }[]): EntradaOrden[] {
+  return paradas.map((p) => ({ id: p.id, franja_id: p.franja_id }));
+}
+
+export function mismoOrden(a: readonly EntradaOrden[], b: readonly EntradaOrden[]): boolean {
+  return a.length === b.length && a.every((e, i) => e.id === b[i].id && e.franja_id === b[i].franja_id);
+}

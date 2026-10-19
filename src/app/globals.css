@@ -994,3 +994,62 @@ footer a,
 .estado-copia {
   margin: 0;
 }
+
+/* Reordenar las paradas de un día (bloque reordenar-dia). Los botones miden
+   al menos el objetivo táctil: WCAG 2.5.7 los exige como alternativa al arrastre. */
+.numero-parada {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  font-size: var(--texto-pequeno);
+  font-weight: 600;
+}
+
+.controles-orden {
+  display: flex;
+  gap: var(--espacio-2);
+  margin-block: var(--espacio-2);
+}
+
+.boton-orden {
+  min-width: var(--objetivo-tactil);
+  min-height: var(--objetivo-tactil);
+  gap: var(--espacio-1, 0.25rem);
+}
+
+.boton-orden:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tramo-dia-recalculando .horario-parada,
+.tramo-dia-recalculando .tramo-parada {
+  opacity: 0.45;
+}
+
+.aviso-orden-vivo {
+  position: sticky;
+  bottom: var(--espacio-2);
+  z-index: 5;
+}
+
+.aviso-orden {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-2);
+  padding: var(--espacio-2) var(--espacio-4);
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+  background: var(--superficie);
+}
+
+.aviso-orden-error {
+  color: var(--peligro-texto);
+}

@@ -9,7 +9,11 @@ import { PanelDia } from "./PanelDia";
 import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
 import { PanelResumen } from "./PanelResumen";
 import { SelectorDias } from "./SelectorDias";
+import { AvisoOrden } from "./AvisoOrden";
+import { useOrdenDia } from "./useOrdenDia";
 import type { PlanPublico } from "./tiposVista";
+
+const PLAN_VACIO: PlanPublico = { id: "", version: 0, destino: "", dias: [], avisos: [], recomendaciones: [], regenerando: false, trabajoId: "" };
 
 export function VistaPlan({ id }: { id: string }) {
   const router = useRouter();
@@ -53,6 +57,13 @@ export function VistaPlan({ id }: { id: string }) {
   }, [id, recargarContador]);
 
   const esCopia = lectura?.esCopia === true;
+
+  // El plan que devuelve el guardado del orden sustituye al de la pantalla; una
+  // copia guardada (sin red) no se reordena: los controles no se pintan.
+  const orden = useOrdenDia(plan ?? PLAN_VACIO, (nuevo) => {
+    setPlan(nuevo);
+    setLectura({ leidoEn: new Date().toISOString(), esCopia: false });
+  });
 
   // Al volver la conexión, la copia se sustituye sola por la versión fresca.
   useEffect(() => {
@@ -147,10 +158,13 @@ export function VistaPlan({ id }: { id: string }) {
                   zona={plan.zona}
                   onPlanActualizado={() => setRecargarContador((n) => n + 1)}
                   onIrAResumen={() => elegir("resumen")}
+                  ordenPendiente={orden.recalculando(indice) ? orden.ordenEnPantalla(indice) : undefined}
+                  onMover={esCopia ? undefined : (idParada, direccion) => orden.mover(indice, idParada, direccion)}
                 />
               );
             })()
           )}
+          <AvisoOrden orden={orden} />
         </>
       )}
     </div>
