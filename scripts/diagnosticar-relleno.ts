@@ -1,7 +1,8 @@
 // Diagnóstico de solo lectura del relleno de planes: recuentos agregados de la
 // última versión de cada plan, sin destinos, nombres ni ids. La URL de la base
 // se pasa por DIAGNOSTICO_DB_URL (el rol de solo lectura) y nunca se escribe en
-// el repo. Uso: DIAGNOSTICO_DB_URL=... npx tsx scripts/diagnosticar-relleno.ts
+// el repo. Las cifras leídas con él están en docs/relleno-de-planes.md
+// (sección «Diagnóstico del relleno a cero»). Uso: DIAGNOSTICO_DB_URL=... npx tsx scripts/diagnosticar-relleno.ts
 import { execFileSync } from "node:child_process";
 import { CONSULTA_DIAGNOSTICO, construirResumen, extraerJson } from "../src/lib/trabajador/diagnosticoRelleno";
 
