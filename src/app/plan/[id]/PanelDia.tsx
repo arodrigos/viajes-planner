@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
-import { aplicarOrden, ordenDeParadas, type EntradaOrden } from "@/lib/plan/reordenar";
+import { aplicarOrden, ordenDeParadas, puedeMoverParada, type EntradaOrden } from "@/lib/plan/reordenar";
 import { MAX_UBICADAS_OPTIMIZAR, MEJORA_MINIMA_KM, MIN_UBICADAS_OPTIMIZAR, optimizarOrdenDia, ubicadasDelDia } from "@/lib/plan/optimizarOrden";
 import { formatearFechaDia } from "@/lib/plan/dias";
 import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada } from "@/lib/plan/erroresParada";
@@ -176,6 +176,8 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
   const todoAPie = tramosDelDia.every((t) => t.modo === "a-pie");
   const tramos = puntos.length > 0 ? urlRecorridoDia(puntos.map((p) => ({ lat: p.lat, lon: p.lon })), todoAPie) : [];
 
+  const ordenActual = ordenDeParadas(dia.paradas);
+
   const franjasDelDia = (conAsa: boolean) =>
     dia.franjas.map((franja) => {
           const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
@@ -225,8 +227,8 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                       conControles
                         ? {
                             numero: dia.paradas.indexOf(parada) + 1,
-                            esPrimera: dia.paradas[0] === parada,
-                            esUltima: dia.paradas[dia.paradas.length - 1] === parada,
+                            esPrimera: !puedeMoverParada(ordenActual, dia.franjas, parada.id, "arriba"),
+                            esUltima: !puedeMoverParada(ordenActual, dia.franjas, parada.id, "abajo"),
                             onMover: (direccion) => onMover(parada.id, direccion),
                           }
                         : undefined
