@@ -123,7 +123,9 @@ test("soltar en otra franja le da esa franja a la parada (opción A)", async ({ 
   const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 2200 } });
 
   await arrastrarAsa(pagina, "Gamma", "Alfa");
-  await expect(pagina.getByText("Orden guardado")).toBeVisible();
+  await expect
+    .poll(async () => `${(await ordenPintado(pagina)).join(",")} | ${await pagina.locator(".aviso-orden-vivo").innerText()}`, { timeout: 15_000 })
+    .toContain("Orden guardado");
   const guardada = await ultimaVersionDelDia(supabase, planId);
   expect(guardada.paradas.map((p) => `${p.id_externo}:${p.franja_id}`)).toEqual(["c:manana", "a:manana", "b:manana", "d:comida"]);
   await contexto.close();
