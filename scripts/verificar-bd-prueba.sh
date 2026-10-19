@@ -5,7 +5,7 @@
 # la base se queda como estaba, así que se puede lanzar también contra una
 # que ya tenga datos (por eso los asertos son deltas y no valores absolutos).
 #
-# Uso: BD_URL=postgresql://... bash scripts/verificar-bd-prueba.sh [relleno|cupo|permisos|lugares|obsoleto]
+# Uso: BD_URL=postgresql://... bash scripts/verificar-bd-prueba.sh [relleno|cupo|permisos|lugares|obsoleto|orden]
 # Sin argumento comprueba estado_relleno() y estado_relleno_motivos(); `cupo` y `permisos` son los casos
 # del controlador de cupo de Google (ctl-ac1 y ctl-ac2).
 set -euo pipefail
@@ -405,11 +405,102 @@ SQL
   echo "OK: registrar_obsoleto_google da 1 ok por terna y 5 por usuario con concurrencia, y anon/authenticated no llegan."
 }
 
+# dat-ac2..dat-ac5: reordenar_dia_plan contra Postgres real. Siembra un plan
+# propio (id vbd-orden-*), lo limpia al salir y solo cuenta filas de ese plan,
+# así que vale contra una base con datos.
+orden() {
+  local plan="vbd-orden-$$"
+  limpiar() { psql "$BD_URL" -q -c "delete from viajes_planner.planes where id like 'vbd-orden-%'" >/dev/null 2>&1 || true; }
+  trap limpiar EXIT
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q <<SQL
+set search_path = viajes_planner, public, extensions;
+insert into planes (id, destino) values ('$plan', 'Destino de control');
+insert into plan_versiones (plan_id, version, personas, dias) values ('$plan', 1, 2,
+  '[{"fecha": "2026-11-07", "franjas": [{"id": "manana"}, {"id": "comida"}, {"id": "tarde"}]},
+    {"fecha": "2026-11-08", "franjas": [{"id": "manana"}]}]'::jsonb);
+with proc as (insert into procedencias (fuente) values ('propuesto-sin-verificar') returning id),
+     ver as (select id from plan_versiones where plan_id = '$plan' and version = 1)
+insert into paradas (id_externo, plan_version_id, dia_index, franja_id, nombre, lat, lon, descripcion, duracion_min, prioridad, procedencia_id)
+select m.ide, ver.id, m.dia, m.franja, m.ide, 0, 0, '', 30, 50, proc.id
+  from ver, proc, (values ('p1', 0, 'manana'), ('p2', 0, 'manana'), ('p3', 0, 'comida'), ('p4', 0, 'tarde'), ('p5', 0, 'tarde'), ('q1', 1, 'manana')) as m(ide, dia, franja);
+SQL
+  local ok='[{"id":"p2","franja_id":"manana"},{"id":"p1","franja_id":"manana"},{"id":"p3","franja_id":"comida"},{"id":"p5","franja_id":"tarde"},{"id":"p4","franja_id":"tarde"}]'
+  local filas_antes filas_despues
+  filas_antes() { psql "$BD_URL" -tAc "select (select count(*) from viajes_planner.plan_versiones where plan_id = '$plan') || '/' || (select count(*) from viajes_planner.paradas pa join viajes_planner.plan_versiones pv on pv.id = pa.plan_version_id where pv.plan_id = '$plan')"; }
+  rechaza() {
+    local esperado="$1" base="$2" dia="$3" cuerpo="$4" antes despues salida
+    antes=$(filas_antes)
+    salida=$(psql "$BD_URL" -tAc "select * from viajes_planner.reordenar_dia_plan('$plan', $base, $dia, '$cuerpo'::jsonb)" 2>&1 || true)
+    despues=$(filas_antes)
+    grep -q "$esperado" <<<"$salida" || { echo "orden: esperaba '$esperado' y salió: $salida" >&2; exit 1; }
+    [ "$antes" = "$despues" ] || { echo "orden: una llamada rechazada dejó filas ($antes -> $despues)" >&2; exit 1; }
+  }
+  rechaza version-desfasada 7 0 "$ok"
+  rechaza orden-invalido 1 0 '[{"id":"p1","franja_id":"manana"},{"id":"p1","franja_id":"manana"},{"id":"p3","franja_id":"comida"},{"id":"p4","franja_id":"tarde"},{"id":"p5","franja_id":"tarde"}]'
+  rechaza orden-invalido 1 0 '[{"id":"p1","franja_id":"manana"},{"id":"p2","franja_id":"manana"},{"id":"p3","franja_id":"comida"},{"id":"p4","franja_id":"tarde"}]'
+  rechaza orden-invalido 1 0 '[{"id":"p1","franja_id":"manana"},{"id":"p2","franja_id":"manana"},{"id":"p3","franja_id":"comida"},{"id":"p4","franja_id":"tarde"},{"id":"q1","franja_id":"tarde"}]'
+  rechaza orden-invalido 1 0 '[{"id":"p4","franja_id":"tarde"},{"id":"p5","franja_id":"tarde"},{"id":"p1","franja_id":"manana"},{"id":"p2","franja_id":"manana"},{"id":"p3","franja_id":"comida"}]'
+  rechaza orden-invalido 1 0 '[{"id":"p1","franja_id":"manana"},{"id":"p2","franja_id":"manana"},{"id":"p3","franja_id":"noche"},{"id":"p4","franja_id":"tarde"},{"id":"p5","franja_id":"tarde"}]'
+  rechaza orden-invalido 1 5 "$ok"
+
+  # Dos llamadas a la vez con la misma base: una crea la versión 2 y la otra pierde.
+  # mktemp -d: en el CI no hay TMPDIR definida y con `set -u` rompía aquí.
+  local carpeta; carpeta=$(mktemp -d)
+  local a="$carpeta/orden-a.txt" b="$carpeta/orden-b.txt"
+  psql "$BD_URL" -tAc "select version from viajes_planner.reordenar_dia_plan('$plan', 1, 0, '$ok'::jsonb)" >"$a" 2>&1 &
+  local pa=$!
+  psql "$BD_URL" -tAc "select version from viajes_planner.reordenar_dia_plan('$plan', 1, 0, '[{\"id\":\"p1\",\"franja_id\":\"manana\"},{\"id\":\"p2\",\"franja_id\":\"manana\"},{\"id\":\"p3\",\"franja_id\":\"comida\"},{\"id\":\"p4\",\"franja_id\":\"tarde\"},{\"id\":\"p5\",\"franja_id\":\"tarde\"}]'::jsonb)" >"$b" 2>&1 &
+  local pb=$!
+  wait "$pa" || true; wait "$pb" || true
+  [ "$(cat "$a" "$b" | grep -c '^2$')" = "1" ] && [ "$(cat "$a" "$b" | grep -c 'version-desfasada')" = "1" ] \
+    && [ "$(psql "$BD_URL" -tAc "select count(*) from viajes_planner.plan_versiones where plan_id = '$plan'")" = "2" ] || {
+    echo "orden-concurrencia: esperaba una versión 2 y un version-desfasada; salió: $(cat "$a" "$b")" >&2; exit 1; }
+
+  # La versión 2 conserva todo salvo el orden del día 0 (una de las dos llamadas ganó):
+  # comprobamos las invariantes sin depender de cuál.
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q <<SQL
+do \$\$
+declare v1 uuid; v2 uuid;
+begin
+  select id into v1 from viajes_planner.plan_versiones where plan_id = '$plan' and version = 1;
+  select id into v2 from viajes_planner.plan_versiones where plan_id = '$plan' and version = 2;
+  if exists (select 1 from viajes_planner.paradas where plan_version_id = v1 and orden is not null) then
+    raise exception 'la version 1 cambio';
+  end if;
+  if (select array_agg(id_externo order by id_externo) from viajes_planner.paradas where plan_version_id = v2)
+     is distinct from (select array_agg(id_externo order by id_externo) from viajes_planner.paradas where plan_version_id = v1) then
+    raise exception 'el multiconjunto de id_externo cambio';
+  end if;
+  if (select array_agg(orden order by orden) from viajes_planner.paradas where plan_version_id = v2 and dia_index = 0) <> array[0,1,2,3,4] then
+    raise exception 'orden no es 0..n-1 sin huecos';
+  end if;
+  if exists (select 1 from viajes_planner.paradas where plan_version_id = v2 and dia_index = 1 and orden is not null) then
+    raise exception 'el dia 1 no deberia tener orden';
+  end if;
+end \$\$;
+SQL
+
+  # Clonar de nuevo (como hace sustituir) conserva orden.
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q -c "select * from viajes_planner.clonar_version_plan('$plan')" >/dev/null
+  [ "$(psql "$BD_URL" -tAc "select count(*) from viajes_planner.paradas pa join viajes_planner.plan_versiones pv on pv.id = pa.plan_version_id where pv.plan_id = '$plan' and pv.version = 3 and pa.dia_index = 0 and pa.orden is not null")" = "5" ] || {
+    echo "orden: clonar_version_plan no copia orden" >&2; exit 1; }
+
+  # Permisos: solo service_role ejecuta la RPC.
+  local rol esperado
+  for rol in anon authenticated service_role; do
+    esperado=f; [ "$rol" = "service_role" ] && esperado=t
+    [ "$(psql "$BD_URL" -tAc "select has_function_privilege('$rol', 'viajes_planner.reordenar_dia_plan(text, integer, integer, jsonb)', 'execute')")" = "$esperado" ] || {
+      echo "orden-permisos: $rol con execute distinto de $esperado" >&2; exit 1; }
+  done
+  echo "OK: reordenar_dia_plan crea la version N+1 con el dia reordenado, rechaza lo invalido sin dejar filas, resuelve la concurrencia con una sola ganadora y solo service_role la ejecuta."
+}
+
 case "$modo" in
   relleno) relleno ;;
   cupo) cupo ;;
   permisos) permisos ;;
   lugares) lugares ;;
   obsoleto) obsoleto ;;
-  *) echo "Modo desconocido: $modo (relleno, cupo, permisos, lugares u obsoleto)" >&2; exit 2 ;;
+  orden) orden ;;
+  *) echo "Modo desconocido: $modo (relleno, cupo, permisos, lugares, obsoleto u orden)" >&2; exit 2 ;;
 esac
