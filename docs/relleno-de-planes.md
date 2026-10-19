@@ -119,32 +119,40 @@ durante los primeros minutos.
 Síntoma: con los datos de DEV el relleno ubicaba 0 de 467 paradas
 (`relleno.paradas_resueltas = 0`). Solo se había probado con destinos limpios.
 
-**Lo que no se pudo medir en la etapa de desarrollo.** La sesión que escribió
-el arreglo no tiene el bypass de solo lectura del despliegue de dev ni el rol
-de lectura de la base, así que las cifras agregadas de `/api/salud`
-(`relleno.*` y `trabajador.ultimoResultado`) no están aquí. Quien juzga el
-bloque las toma con `GET /api/salud` **antes** de que el trabajador ejecute el
-commit del arreglo y las deja en la tabla de abajo; las cifras «después» salen
-de rel-ac5. Hasta entonces las celdas dicen «pendiente de lectura» y no se
-inventa ninguna. Solo enteros y categorías: ningún destino, nombre de parada,
-id ni correo entra en este documento.
+**Lo que no se pudo medir: la lectura previa al arreglo.** La lectura «antes»
+de `/api/salud` no se tomó: el trabajador ejecuta la cabeza de `dev` en cuanto
+se mergea, así que cuando hubo acceso al despliegue ya corría el arreglo. Las
+cifras de abajo son por tanto **«después del arreglo»**, tomadas por quien
+juzgó el bloque con `GET /api/salud`. Solo enteros y categorías: ningún
+destino, nombre de parada, id ni correo entra en este documento.
 
-| Lectura de `/api/salud` (antes del arreglo) | Valor |
-| --- | --- |
-| `relleno.paradas_total` (todas las versiones) | pendiente de lectura |
-| `relleno.paradas_resueltas` | pendiente de lectura |
-| `relleno.paradas_no_resueltas` / `paradas_en_error` | pendiente de lectura |
-| `relleno.paradas_sin_intentar` / `paradas_sin_intentar_ultima_version` | pendiente de lectura |
-| `relleno.paradas_con_toponimo` | pendiente de lectura |
-| `relleno.planes_con_version` / `planes_con_ciudad` / `planes_sin_ciudad_identificable` / `versiones_multiciudad` | pendiente de lectura |
-| `trabajador.ultimoResultado`: `planes_mirados`, `paradas_intentadas`, `planes_saltados_sellados`, `planes_saltados_por_red`, `peticiones_nominatim_ciudad` | pendiente de lectura |
+| Lectura de `/api/salud` (después del arreglo) | Hito 1 (19/10, 09:00 UTC, trabajador en `e6d9695`, primer commit con el arreglo) | Juicio final (19/10, 13:20 UTC, trabajador y despliegue en `bedcc57`) |
+| --- | --- | --- |
+| `relleno.paradas_total` (todas las versiones) | 222 | 1374 |
+| `relleno.paradas_resueltas` | 156 | 1110 |
+| `relleno.paradas_no_resueltas` / `paradas_en_error` | 66 / 0 | 264 / 0 |
+| `relleno.paradas_sin_intentar` / `paradas_sin_intentar_ultima_version` | 0 / n.d. | 0 / 0 |
+| `relleno.paradas_con_toponimo` | 221 | 1343 |
+| `relleno.planes_total` / `planes_sin_version` | n.d. | 5 / 0 |
+| `relleno.planes_con_ciudad` / `planes_sin_ciudad_identificable` / `versiones_multiciudad` | 2 / 0 / 3 | 2 / 0 / 33 |
+| `trabajador.ultimoResultado`: `planes_mirados`, `paradas_intentadas`, `planes_saltados_sellados`, `planes_saltados_por_red`, `planes_saltados_por_presupuesto` | n.d. | 0, 0, 0, 0, 0 |
+
+Motivos de las no resueltas en el juicio final: `tipo_incompatible` 175,
+`sin_candidatos` 31, `motivo_desconocido` 58.
+
+Segunda lectura del juicio final (19/10, 13:38 UTC, 18 min después, mismo
+commit `bedcc57`): `paradas_resueltas` 1821, `planes_saltados_por_presupuesto`
+0 y `planes_saltados_por_red` 0; la suma de `planes_con_ciudad`,
+`planes_sin_ciudad_identificable` y `versiones_multiciudad` es 52, frente a 5 planes con versión (rel-ac5).
 
 ### Hipótesis
 
-- **(a) Planes sellados con la versión vigente.** Pendiente de cifra
-  (`planes_saltados_sellados` frente a `planes_mirados`). El código no la
-  sostiene por sí sola: un sellado solo se salta con `version_resolutor` igual
-  a la vigente, y la 6 se subió en el último cambio de criterio.
+- **(a) Planes sellados con la versión vigente.** **Descartada como causa
+  residual.** Tras subir a la VERSION 7, `planes_saltados_sellados` es 0 con
+  `planes_mirados` 0 en el juicio final: ningún plan queda saltado por un
+  sello. Antes del arreglo el código no la sostenía por sí sola: un sellado
+  solo se salta con `version_resolutor` igual a la vigente, y la 6 se subió en
+  el último cambio de criterio.
 - **(b) Planes inconclusos tick tras tick por presupuesto.** **Confirmada en
   código y reproducida** con `relleno-descriptivo.test.ts` (falla en el commit
   anterior al arreglo). Con un destino descriptivo cuya caja es un punto sin
@@ -155,20 +163,27 @@ id ni correo entra en este documento.
   tope de 12 por plan se agota antes de `deducirPorParadas`, el resultado es
   inconcluso y se contaba como fallo de red. Cifra de la reproducción: 0
   paradas ubicadas y ciudad `null` tras el primer tick con el código anterior;
-  ciudad resuelta por paradas con el arreglo.
+  ciudad resuelta por paradas con el arreglo. Tras el arreglo,
+  `planes_saltados_por_presupuesto` y `planes_saltados_por_red` son 0 en las
+  dos lecturas del final.
 - **(c) Negativos cacheados reutilizados.** **Confirmada en código.** La clave
   de `buscarNominatim` (`nominatim:<cualificador>:<nombre>`) no llevaba la
   caja, así que un `[]` obtenido con `bounded=1` en una caja degenerada se
-  reutilizaba 30 días para el mismo cualificador. Cifra real de entradas
-  afectadas: pendiente de lectura.
-- **(d) Paradas que son frases de actividad.** Existen (el fixture las
-  reproduce) y no se ubican por diseño; no explican un cero total, solo un
-  techo por debajo del 100 %. Cifra: `paradas_con_toponimo` frente a
-  `paradas_total`, pendiente de lectura.
-- **(e) La cifra 467 cuenta versiones antiguas.** **Plausible, sin cifra.**
-  `paradas_total` suma todas las versiones y el barrido solo toca la última
-  (`paradas_sin_intentar_ultima_version` lo separa). Explica que el
-  denominador sea grande, no que el numerador sea cero.
+  reutilizaba 30 días para el mismo cualificador. `/api/salud` no publica el
+  número de entradas de caché afectadas, así que no hay cifra de DEV; la
+  evidencia es la reproducción (el test de regresión falla con la clave sin
+  caja) y `scripts/diagnosticar-relleno.ts` para el recuento por estado de
+  plan.
+- **(d) Paradas que son frases de actividad.** **Confirmada como techo, no
+  como causa del cero.** Existen (el fixture las reproduce) y no se ubican por
+  diseño: `paradas_con_toponimo` es 1343 de 1374 `paradas_total` en el juicio
+  final (221 de 222 en el hito 1). Solo explican un techo por debajo del 100 %.
+- **(e) La cifra 467 cuenta versiones antiguas.** **Confirmada como
+  denominador, no como causa del cero.** `paradas_total` suma todas las
+  versiones y el barrido solo toca la última: pasó de 222 a 2254 en el día,
+  sobre todo por las versiones que crean los cambios de orden, mientras que
+  `paradas_sin_intentar_ultima_version` es 0. Explica que el denominador sea
+  grande, no que el numerador fuera cero.
 
 ### Arreglo
 
