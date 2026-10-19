@@ -203,7 +203,7 @@ export function useOrdenDia(plan: PlanPublico, alActualizar: (plan: PlanPublico)
   const mover = useCallback(
     (diaIndex: number, id: string, direccion: "arriba" | "abajo") => {
       const base = pendientesRef.current[diaIndex] ?? guardadoDe(diaIndex);
-      const nuevo = moverParada(base, planRef.current.dias[diaIndex].franjas, id, direccion);
+      const nuevo = moverParada(base, id, direccion);
       if (mismoOrden(base, nuevo)) return;
       aplicarOrden(diaIndex, nuevo);
     },

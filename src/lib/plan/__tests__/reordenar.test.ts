@@ -16,7 +16,7 @@ describe("moverParada (invariantes)", () => {
   it("devuelve siempre una permutación de su entrada", () => {
     fc.assert(
       fc.property(diaValido, fc.nat(), fc.constantFrom("arriba", "abajo" as const), (dia, k, direccion) => {
-        const resultado = moverParada(dia, FRANJAS, dia[k % dia.length].id, direccion);
+        const resultado = moverParada(dia, dia[k % dia.length].id, direccion);
         expect(resultado.map((e) => e.id).sort()).toEqual(dia.map((e) => e.id).sort());
       }),
     );
@@ -25,7 +25,7 @@ describe("moverParada (invariantes)", () => {
   it("mantiene la secuencia de franjas sin decrecer", () => {
     fc.assert(
       fc.property(diaValido, fc.nat(), fc.constantFrom("arriba", "abajo" as const), (dia, k, direccion) => {
-        const resultado = moverParada(dia, FRANJAS, dia[k % dia.length].id, direccion).map(indiceDeFranja);
+        const resultado = moverParada(dia, dia[k % dia.length].id, direccion).map(indiceDeFranja);
         expect(resultado).toEqual([...resultado].sort((a, b) => a - b));
       }),
     );
@@ -35,8 +35,8 @@ describe("moverParada (invariantes)", () => {
     fc.assert(
       fc.property(diaValido, fc.nat(), (dia, k) => {
         const id = dia[k % dia.length].id;
-        const arriba = moverParada(dia, FRANJAS, id, "arriba");
-        const vuelta = moverParada(arriba, FRANJAS, id, "abajo");
+        const arriba = moverParada(dia, id, "arriba");
+        const vuelta = moverParada(arriba, id, "abajo");
         const i = dia.findIndex((e) => e.id === id);
         const j = arriba.findIndex((e) => e.id === id);
         // Extremo del día: el primer movimiento no hace nada o el de vuelta cae en el borde.
@@ -51,8 +51,8 @@ describe("moverParada (invariantes)", () => {
     fc.assert(
       fc.property(diaValido, fc.nat(), (dia, k) => {
         const id = dia[k % dia.length].id;
-        const abajo = moverParada(dia, FRANJAS, id, "abajo");
-        const vuelta = moverParada(abajo, FRANJAS, id, "arriba");
+        const abajo = moverParada(dia, id, "abajo");
+        const vuelta = moverParada(abajo, id, "arriba");
         const i = dia.findIndex((e) => e.id === id);
         const j = abajo.findIndex((e) => e.id === id);
         fc.pre(i < dia.length - 1 && j > 0);
@@ -65,11 +65,22 @@ describe("moverParada (invariantes)", () => {
   it("validarOrden acepta lo que produce moverParada y rechaza lo que no es una permutación", () => {
     fc.assert(
       fc.property(diaValido, fc.nat(), fc.constantFrom("arriba", "abajo" as const), (dia, k, direccion) => {
-        expect(validarOrden(dia, moverParada(dia, FRANJAS, dia[k % dia.length].id, direccion), FRANJAS)).toEqual({ ok: true });
+        expect(validarOrden(dia, moverParada(dia, dia[k % dia.length].id, direccion), FRANJAS)).toEqual({ ok: true });
         // Quitar una parada, repetir una o inventar un id nunca es válido.
         expect(validarOrden(dia, dia.slice(1), FRANJAS).ok).toBe(false);
         expect(validarOrden(dia, [...dia.slice(1), dia[1 % dia.length]], FRANJAS).ok).toBe(dia.length === 1 ? true : false);
         expect(validarOrden(dia, [{ id: "inventada", franja_id: "f0" }, ...dia.slice(1)], FRANJAS).ok).toBe(false);
+      }),
+    );
+  });
+});
+
+describe("puedeMoverParada (invariante)", () => {
+  it("la primera del día no sube y la última no baja, con cualquier reparto de franjas", () => {
+    fc.assert(
+      fc.property(diaValido, (dia) => {
+        expect(puedeMoverParada(dia, dia[0].id, "arriba")).toBe(false);
+        expect(puedeMoverParada(dia, dia[dia.length - 1].id, "abajo")).toBe(false);
       }),
     );
   });
@@ -84,33 +95,29 @@ describe("moverParada (ejemplos)", () => {
   ];
 
   it("dentro de la franja intercambia con la vecina", () => {
-    expect(moverParada(dia, FRANJAS, "A", "abajo").map((e) => e.id)).toEqual(["B", "A", "C", "D"]);
+    expect(moverParada(dia, "A", "abajo").map((e) => e.id)).toEqual(["B", "A", "C", "D"]);
   });
 
   it("al subir la primera de la tarde pasa a la franja anterior, en el mismo puesto", () => {
-    const resultado = moverParada(dia, FRANJAS, "C", "arriba");
+    const resultado = moverParada(dia, "C", "arriba");
     expect(resultado.map((e) => `${e.id}:${e.franja_id}`)).toEqual(["A:f0", "B:f0", "C:f0", "D:f1"]);
   });
 
   it("toma la franja de la vecina, no la inmediata si está vacía (reo-ac4)", () => {
     const conHueco: EntradaOrden[] = [{ id: "A", franja_id: "f0" }, { id: "C", franja_id: "f2" }];
-    expect(moverParada(conHueco, FRANJAS, "C", "arriba")[1].franja_id).toBe("f0");
+    expect(moverParada(conHueco, "C", "arriba")[1].franja_id).toBe("f0");
     const bajando: EntradaOrden[] = [{ id: "A", franja_id: "f0" }, { id: "C", franja_id: "f3" }];
-    expect(moverParada(bajando, FRANJAS, "A", "abajo")[0].franja_id).toBe("f3");
+    expect(moverParada(bajando, "A", "abajo")[0].franja_id).toBe("f3");
   });
 
-  it("la última del día que subió vuelve a la última franja al bajar", () => {
-    const inicial: EntradaOrden[] = [{ id: "A", franja_id: "f1" }, { id: "B", franja_id: "f3" }];
-    const arriba = moverParada(inicial, FRANJAS, "B", "arriba");
-    expect(arriba[1].franja_id).toBe("f1");
-    expect(puedeMoverParada(arriba, FRANJAS, "B", "abajo")).toBe(true);
-    expect(moverParada(arriba, FRANJAS, "B", "abajo")).toEqual(inicial);
-  });
-
-  it("en los extremos sin franja a la que ir devuelve la lista igual", () => {
-    expect(mismoOrden(moverParada(dia, FRANJAS, "A", "arriba"), dia)).toBe(true);
-    const ultima: EntradaOrden[] = [{ id: "A", franja_id: "f0" }, { id: "D", franja_id: "f3" }];
-    expect(puedeMoverParada(ultima, FRANJAS, "D", "abajo")).toBe(false);
+  it("en los extremos del día no cambia nada aunque la primera y la última franja estén vacías (reo-ac1, reo-ac7)", () => {
+    // Caso real: ninguna parada en la primera ni en la última franja.
+    const real: EntradaOrden[] = [{ id: "A", franja_id: "f1" }, { id: "B", franja_id: "f1" }, { id: "C", franja_id: "f2" }];
+    expect(mismoOrden(moverParada(real, "A", "arriba"), real)).toBe(true);
+    expect(mismoOrden(moverParada(real, "C", "abajo"), real)).toBe(true);
+    expect(puedeMoverParada(real, "A", "arriba")).toBe(false);
+    expect(puedeMoverParada(real, "C", "abajo")).toBe(false);
+    expect(puedeMoverParada(real, "B", "abajo")).toBe(true);
   });
 });
 

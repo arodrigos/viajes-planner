@@ -227,8 +227,8 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                       conControles
                         ? {
                             numero: dia.paradas.indexOf(parada) + 1,
-                            esPrimera: !puedeMoverParada(ordenActual, dia.franjas, parada.id, "arriba"),
-                            esUltima: !puedeMoverParada(ordenActual, dia.franjas, parada.id, "abajo"),
+                            esPrimera: !puedeMoverParada(ordenActual, parada.id, "arriba"),
+                            esUltima: !puedeMoverParada(ordenActual, parada.id, "abajo"),
                             onMover: (direccion) => onMover(parada.id, direccion),
                           }
                         : undefined
