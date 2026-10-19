@@ -27,6 +27,36 @@ const sensores = [
   KeyboardSensor,
 ];
 
+interface FuenteOrdenable {
+  id?: unknown;
+  group?: unknown;
+  initialGroup?: unknown;
+  index?: unknown;
+  initialIndex?: unknown;
+}
+
+// `move` de la librería está pensado para onDragOver: en onDragEnd depende de
+// `operation.target`, que puede ser nulo al soltar (el hueco ya se reordenó en
+// vivo y el puntero queda sobre la propia tarjeta o sobre un borde), y entonces
+// devuelve la lista sin tocar mientras la pantalla enseña el orden nuevo. El
+// destino fiable es lo que el propio useSortable ya calculó: grupo e índice
+// finales de la fuente.
+export function aplicarSoltar(grupos: Record<string, string[]>, evento: DragEndEvent): Record<string, string[]> {
+  const fuente = evento.operation.source as FuenteOrdenable | null;
+  if (fuente && typeof fuente.initialIndex === "number" && typeof fuente.index === "number" && fuente.initialGroup != null && fuente.group != null) {
+    const de = String(fuente.initialGroup);
+    const a = String(fuente.group);
+    const id = String(fuente.id);
+    if (grupos[de]?.[fuente.initialIndex] === id && grupos[a]) {
+      const sinFuente = { ...grupos, [de]: grupos[de].filter((_, i) => i !== fuente.initialIndex) };
+      const destino = sinFuente[a];
+      const indice = Math.max(0, Math.min(fuente.index, destino.length));
+      return { ...sinFuente, [a]: [...destino.slice(0, indice), id, ...destino.slice(indice)] };
+    }
+  }
+  return move(grupos, evento) as Record<string, string[]>;
+}
+
 export function reducirMovimiento(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -93,7 +123,7 @@ export function ProveedorArrastre({ orden, franjas, nombres, onReordenar, activo
         }
         onDragEnd={(evento) => {
           if (evento.canceled) return;
-          const nuevo = ordenDesdeGrupos(move(agruparPorFranja(orden, franjas), evento), franjas);
+          const nuevo = ordenDesdeGrupos(aplicarSoltar(agruparPorFranja(orden, franjas), evento), franjas);
           if (!mismoOrden(orden, nuevo)) onReordenar(nuevo);
         }}
       >
