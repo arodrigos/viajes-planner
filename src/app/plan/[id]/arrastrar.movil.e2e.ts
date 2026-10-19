@@ -40,10 +40,10 @@ test("deslizar el dedo fuera del asa desplaza la página y no cambia el orden (a
   const cdp = await contexto.newCDPSession(pagina);
   // Desde arriba del todo, para que haya recorrido; el punto es uno de la ventana
   // sobre una tarjeta y que no sea un botón (el asa es el único sitio que arrastra).
-  await pagina.evaluate(() => window.scrollTo(0, 0));
+  await pagina.locator("li.tarjeta-parada").first().evaluate((el) => el.scrollIntoView({ block: "start" }));
   const y0 = await pagina.evaluate(() => window.scrollY);
   const punto = await pagina.evaluate(() => {
-    for (let y = 300; y < 600; y += 20) {
+    for (let y = 120; y < 600; y += 20) {
       const e = document.elementFromPoint(180, y);
       if (e && e.closest("li.tarjeta-parada") && !e.closest("button, a, summary")) return { x: 180, y };
     }

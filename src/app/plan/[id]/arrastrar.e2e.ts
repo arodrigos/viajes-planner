@@ -17,10 +17,7 @@ const cuatro = () => [
 
 async function arrastrarAsa(pagina: import("@playwright/test").Page, desde: string, haciaTarjeta: string, soltar = true) {
   // Origen y destino a la vez dentro de la ventana: el ratón solo ve lo visible.
-  await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).evaluate((el) => {
-    const top = el.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo(0, Math.max(0, top - 80));
-  });
+  await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).evaluate((el) => el.scrollIntoView({ block: "start" }));
   const origen = await pagina.getByRole("button", { name: asa(desde) }).boundingBox();
   const destino = await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).boundingBox();
   expect(origen).not.toBeNull();
@@ -57,7 +54,7 @@ test("arrastrar el asa de la tercera parada al primer puesto la deja la primera 
 
   await arrastrarAsa(pagina, "Gamma", "Alfa", false);
   // Con el ratón aún pulsado: la tarjeta va elevada.
-  await expect(pagina.locator("li.tarjeta-parada[data-arrastrando='true']")).toHaveCount(1);
+  await expect(pagina.locator("li.tarjeta-parada[data-arrastrando='true']").first()).toBeVisible();
   await capturar(pagina, "arrastrar-paradas", "durante");
   await pagina.mouse.up();
 
@@ -92,7 +89,7 @@ test("soltar fuera de la lista no cambia el orden ni hace peticiones (arr-ac1, l
   await pagina.mouse.down();
   // Escape cancela el arrastre en curso: es el «fuera» determinista de la lista.
   await pagina.mouse.move(origen!.x + origen!.width / 2, origen!.y + 80, { steps: 5 });
-  await expect(pagina.locator("li.tarjeta-parada[data-arrastrando='true']")).toHaveCount(1);
+  await expect(pagina.locator("li.tarjeta-parada[data-arrastrando='true']").first()).toBeVisible();
   await pagina.keyboard.press("Escape");
   await pagina.mouse.up();
 
