@@ -56,7 +56,9 @@ test("arrastrar el asa de la tercera parada al primer puesto la deja la primera 
   await arrastrarAsa(pagina, "Gamma", "Alfa", false);
   // Con el ratón aún pulsado: la tarjeta va elevada.
   await expect(pagina.locator("li.tarjeta-parada[data-arrastrando='true']").first()).toBeVisible();
-  await capturar(pagina, "arrastrar-paradas", "durante");
+  // fullPage redimensiona el viewport a mitad de arrastre y la librería lo cancela: solo lo visible.
+  await capturar(pagina, "arrastrar-paradas", "durante", { fullPage: false });
+  await expect(pagina.locator("[data-dnd-dragging]").first()).toBeVisible();
   await pagina.mouse.up();
 
   await expect(pagina.getByText("Orden guardado")).toBeVisible();
