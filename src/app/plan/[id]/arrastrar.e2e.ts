@@ -18,7 +18,11 @@ const cuatro = () => [
 
 async function arrastrarAsa(pagina: import("@playwright/test").Page, desde: string, haciaTarjeta: string, soltar = true) {
   // Origen y destino a la vez dentro de la ventana: el ratón solo ve lo visible.
-  await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+  await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).evaluate((el) => {
+    el.scrollIntoView({ block: "start", behavior: "instant" });
+    // El selector de días es fijo arriba (sticky) y taparía el borde del destino.
+    window.scrollBy({ top: -160, behavior: "instant" });
+  });
   const origen = await pagina.getByRole("button", { name: asa(desde) }).boundingBox();
   const destino = await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).boundingBox();
   expect(origen).not.toBeNull();
