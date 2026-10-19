@@ -143,6 +143,9 @@ test("cruzar con una franja vacía en medio va a la última visible y Bajar la d
   let guardada = await ultimaVersionDelDia(supabase, planId);
   expect(guardada.paradas.map((p) => `${p.id_externo}:${p.franja_id}`)).toEqual(["a:manana", "b:manana", "c:tarde"]);
   await capturar(pagina, "reordenar-dia", "cruzar-franja-vacia");
+  // Extremos del día: no hay vecina y la parada no salta a una franja vacía.
+  await expect(pagina.getByRole("button", { name: subir("Alfa") })).toBeDisabled();
+  await expect(pagina.getByRole("button", { name: bajar("Gamma") })).toBeDisabled();
 
   // Beta sigue teniendo vecina debajo, así que Bajar la devuelve a la tarde.
   await expect(pagina.getByRole("button", { name: bajar("Beta") })).toBeEnabled();
