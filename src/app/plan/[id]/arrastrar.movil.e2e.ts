@@ -57,7 +57,8 @@ test("deslizar el dedo fuera del asa desplaza la página y no cambia el orden (a
   await toque("touchStart", punto!.y);
   for (let i = 1; i <= 12; i++) {
     await toque("touchMove", punto!.y - i * 20);
-    await pagina.waitForTimeout(16);
+    // Un fotograma entre movimientos, por evento y no por tiempo fijo (e2e-ac2).
+    await pagina.evaluate(() => new Promise<void>((ok) => requestAnimationFrame(() => ok())));
   }
   await toque("touchEnd", punto!.y - 240);
   await expect.poll(() => pagina.evaluate(() => window.scrollY)).toBeGreaterThan(y0);
