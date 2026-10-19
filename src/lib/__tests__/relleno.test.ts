@@ -31,19 +31,35 @@ const CLAVES = [
   "planes_sellados_sin_ventaja",
   "planes_sellados_sin_candidato_claro",
   "planes_sellados_ciudad_no_encontrada",
+  "paradas_no_resueltas_sin_candidatos",
+  "paradas_no_resueltas_fuera_de_caja",
+  "paradas_no_resueltas_nombre_distinto",
+  "paradas_no_resueltas_tipo_incompatible",
+  "paradas_no_resueltas_motivo_desconocido",
+  "paradas_con_toponimo",
+  "paradas_sin_intentar_ultima_version",
 ] as const;
 
-const relleno = (valor: number): Record<string, number> => Object.fromEntries(CLAVES.map((clave) => [clave, valor]));
+// Las del desglose por motivo salen de estado_relleno_motivos(); las otras
+// veintiséis, de estado_relleno(), que no cambia.
+const CLAVES_BASE = CLAVES.slice(0, 26);
+const CLAVES_MOTIVOS = CLAVES.slice(26);
+
+const relleno = (valor: number): Record<string, number> => Object.fromEntries(CLAVES_BASE.map((clave) => [clave, valor]));
+const motivos = (valor: number): Record<string, number> => Object.fromEntries(CLAVES_MOTIVOS.map((clave) => [clave, valor]));
+
+type Respuesta = { data: unknown; error: { message: string } | null };
 
 // Doble mínimo del cliente: lo único que importa es cuántas llamadas hace y
-// con qué nombre, porque la función SQL se comprueba contra Postgres real en
-// el test de integración y en scripts/verificar-bd-prueba.sh.
-function clienteFalso(respuesta: { data: unknown; error: { message: string } | null }) {
+// con qué nombre, porque las funciones SQL se comprueban contra Postgres real
+// en el test de integración y en scripts/verificar-bd-prueba.sh.
+function clienteFalso(respuesta: Respuesta, respuestaMotivos: Respuesta | (() => never) = { data: motivos(0), error: null }) {
   const llamadas: Array<{ nombre: string; argumentos: unknown }> = [];
   return {
-    rpc: (nombre: string, argumentos: unknown) => {
+    rpc: (nombre: string, argumentos?: unknown) => {
       llamadas.push({ nombre, argumentos });
-      return Promise.resolve(respuesta);
+      if (nombre !== "estado_relleno_motivos") return Promise.resolve(respuesta);
+      return typeof respuestaMotivos === "function" ? respuestaMotivos() : Promise.resolve(respuestaMotivos);
     },
     from: () => {
       throw new Error("leerEstadoRelleno no debe leer tablas");
@@ -56,15 +72,18 @@ beforeEach(() => {
   _reiniciarCacheRellenoParaTests();
 });
 
-// sal-ac1/sal-ac2: una sola llamada rpc, cacheada 60 s.
+// sal-ac1/sal-ac2: una sola lectura (las dos rpc), cacheada 60 s.
 describe("leerEstadoRelleno (sal-ac1, sal-ac2)", () => {
-  it("diez lecturas dentro de 60 s hacen una sola llamada rpc con el formato vigente", async () => {
+  it("diez lecturas dentro de 60 s hacen una sola llamada a cada rpc, con el formato vigente", async () => {
     const cliente = clienteFalso({ data: relleno(1), error: null });
     const inicio = 1_000_000;
     for (let i = 0; i < 10; i++) {
       await leerEstadoRelleno(cliente as never, inicio + i * 1_000);
     }
-    expect(cliente.llamadas).toEqual([{ nombre: "estado_relleno", argumentos: { p_formato_curiosidades: FORMATO_CURIOSIDADES } }]);
+    expect(cliente.llamadas).toEqual([
+      { nombre: "estado_relleno", argumentos: { p_formato_curiosidades: FORMATO_CURIOSIDADES } },
+      { nombre: "estado_relleno_motivos", argumentos: undefined },
+    ]);
   });
 
   it("tras 61 s desde la última llamada, se vuelve a consultar", async () => {
@@ -72,15 +91,34 @@ describe("leerEstadoRelleno (sal-ac1, sal-ac2)", () => {
     const inicio = 2_000_000;
     await leerEstadoRelleno(cliente as never, inicio);
     await leerEstadoRelleno(cliente as never, inicio + 61_000);
-    expect(cliente.llamadas).toHaveLength(2);
+    expect(cliente.llamadas.filter((l) => l.nombre === "estado_relleno")).toHaveLength(2);
   });
 
-  it("el resultado tiene las veintiséis claves del objeto relleno", async () => {
-    const resultado = await leerEstadoRelleno(clienteFalso({ data: relleno(3), error: null }) as never, 3_000_000);
+  it("el resultado junta las veintiséis claves de siempre y las siete del desglose", async () => {
+    const resultado = await leerEstadoRelleno(clienteFalso({ data: relleno(3), error: null }, { data: motivos(2), error: null }) as never, 3_000_000);
     expect(Object.keys(resultado).sort()).toEqual([...CLAVES].sort());
+    expect(resultado).toEqual({ ...relleno(3), ...motivos(2) });
   });
 
-  it("un error de la rpc se propaga para que /api/salud omita relleno", async () => {
+  // Entre el despliegue y la migración la función nueva no existe: el resto
+  // de `relleno` se publica igual.
+  it("si estado_relleno_motivos falla, no existe, lanza o no valida, publica las veintiséis sin el desglose", async () => {
+    const fallos: Array<Respuesta | (() => never)> = [
+      { data: null, error: { message: "Could not find the function viajes_planner.estado_relleno_motivos" } },
+      () => {
+        throw new Error("red caída");
+      },
+      { data: { ...motivos(1), destino: 1 }, error: null },
+      { data: { ...motivos(1), paradas_con_toponimo: -1 }, error: null },
+      { data: "texto", error: null },
+    ];
+    for (const fallo of fallos) {
+      _reiniciarCacheRellenoParaTests();
+      expect(await leerEstadoRelleno(clienteFalso({ data: relleno(2), error: null }, fallo) as never)).toEqual(relleno(2));
+    }
+  });
+
+  it("un error de la rpc de siempre se propaga para que /api/salud omita relleno", async () => {
     await expect(leerEstadoRelleno(clienteFalso({ data: null, error: { message: "boom" } }) as never)).rejects.toThrow("boom");
   });
 
@@ -92,13 +130,13 @@ describe("leerEstadoRelleno (sal-ac1, sal-ac2)", () => {
       fc.constant(null),
       fc.string(),
       fc.array(fc.integer()),
-      fc.constantFrom(...CLAVES).map((faltante) => {
+      fc.constantFrom(...CLAVES_BASE).map((faltante) => {
         const sin = relleno(1);
         delete sin[faltante];
         return sin;
       }),
-      fc.string({ minLength: 1 }).filter((c) => !(CLAVES as readonly string[]).includes(c)).map((extra) => ({ ...relleno(1), [extra]: 1 })),
-      fc.tuple(fc.constantFrom(...CLAVES), fc.oneof(fc.integer({ max: -1 }), fc.double({ noInteger: true, noNaN: true }), fc.string(), fc.constant(null))).map(([clave, valor]) => ({
+      fc.string({ minLength: 1 }).filter((c) => !(CLAVES_BASE as readonly string[]).includes(c)).map((extra) => ({ ...relleno(1), [extra]: 1 })),
+      fc.tuple(fc.constantFrom(...CLAVES_BASE), fc.oneof(fc.integer({ max: -1 }), fc.double({ noInteger: true, noNaN: true }), fc.string(), fc.constant(null))).map(([clave, valor]) => ({
         ...relleno(1),
         [clave]: valor,
       })),
@@ -117,7 +155,10 @@ describe("leerEstadoRelleno (sal-ac1, sal-ac2)", () => {
       fc.asyncProperty(fc.array(fc.nat(), { minLength: CLAVES.length, maxLength: CLAVES.length }), async (valores) => {
         _reiniciarCacheRellenoParaTests();
         const data = Object.fromEntries(CLAVES.map((clave, i) => [clave, valores[i]]));
-        expect(await leerEstadoRelleno(clienteFalso({ data, error: null }) as never)).toEqual(data);
+        const base = Object.fromEntries(CLAVES_BASE.map((clave) => [clave, data[clave]]));
+        const desglose = Object.fromEntries(CLAVES_MOTIVOS.map((clave) => [clave, data[clave]]));
+        const cliente = clienteFalso({ data: base, error: null }, { data: desglose, error: null });
+        expect(await leerEstadoRelleno(cliente as never)).toEqual(data);
       }),
       { numRuns: 30 },
     );

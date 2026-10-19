@@ -5,8 +5,8 @@
 # la base se queda como estaba, así que se puede lanzar también contra una
 # que ya tenga datos (por eso los asertos son deltas y no valores absolutos).
 #
-# Uso: BD_URL=postgresql://... bash scripts/verificar-bd-prueba.sh [relleno|cupo|permisos]
-# Sin argumento comprueba estado_relleno(); `cupo` y `permisos` son los casos
+# Uso: BD_URL=postgresql://... bash scripts/verificar-bd-prueba.sh [relleno|cupo|permisos|lugares|obsoleto]
+# Sin argumento comprueba estado_relleno() y estado_relleno_motivos(); `cupo` y `permisos` son los casos
 # del controlador de cupo de Google (ctl-ac1 y ctl-ac2).
 set -euo pipefail
 
@@ -23,6 +23,7 @@ begin;
 set local search_path = viajes_planner, public, extensions;
 
 create temp table _antes as select viajes_planner.estado_relleno() as j;
+create temp table _antes_motivos as select viajes_planner.estado_relleno_motivos() as j;
 
 -- Con las tablas vacías las claves valen 0 (ni null ni ausentes). Si la base
 -- ya trae datos, este límite no se puede comprobar sin borrarlos: se avisa.
@@ -36,6 +37,9 @@ begin
     end if;
   else
     raise notice 'Base con datos: el límite de tablas vacías no se comprueba';
+  end if;
+  if (select count(*) from _antes_motivos, jsonb_object_keys(j)) <> 7 then
+    raise exception 'estado_relleno_motivos() no devuelve exactamente 7 claves';
   end if;
 end $$;
 
@@ -59,15 +63,17 @@ with proc as (
 ), ver as (
   select id from plan_versiones where plan_id = 'vbd-motivos' and version = 1
 )
+-- Tres no-resueltas (una con categoría que descarta el topónimo, otra con
+-- una que no, otra sin categoría como las filas antiguas) y una sin intentar.
 insert into paradas (id_externo, plan_version_id, dia_index, franja_id, nombre, lat, lon,
-                     descripcion, duracion_min, prioridad, procedencia_id, motivo)
-select m.id_externo, ver.id, 0, 'manana', m.id_externo, 0, 0, '', 30, 50, proc.id, m.motivo
+                     descripcion, duracion_min, prioridad, procedencia_id, motivo, resolucion)
+select m.id_externo, ver.id, 0, 'manana', m.id_externo, 0, 0, '', 30, 50, proc.id, m.motivo, m.resolucion
 from ver, proc, (values
-  ('vbd-p1', 'Ideal con niños'),
-  ('vbd-p2', 'Vistas al río'),
-  ('vbd-p3', ''),
-  ('vbd-p4', null)
-) as m(id_externo, motivo);
+  ('vbd-p1', 'Ideal con niños', '{"estado": "no-resuelta", "intentado_en": "2026-10-01T00:00:00Z", "categoria_motivo": "sin-candidatos"}'::jsonb),
+  ('vbd-p2', 'Vistas al río', '{"estado": "no-resuelta", "intentado_en": "2026-10-01T00:00:00Z", "categoria_motivo": "tipo-incompatible"}'::jsonb),
+  ('vbd-p3', '', '{"estado": "no-resuelta", "intentado_en": "2026-10-01T00:00:00Z"}'::jsonb),
+  ('vbd-p4', null, null)
+) as m(id_externo, motivo, resolucion);
 
 do $$
 declare
@@ -100,6 +106,52 @@ begin
   end if;
 end $$;
 
+-- estado_relleno_motivos(): siete enteros, el desglose suma las no-resueltas
+-- y los deltas cuadran con las cuatro paradas sembradas.
+do $$
+declare
+  v_antes jsonb;
+  v_despues jsonb := viajes_planner.estado_relleno_motivos();
+  v_relleno jsonb := viajes_planner.estado_relleno();
+  v_delta_no_resueltas int;
+begin
+  select j into v_antes from _antes_motivos;
+  select (v_relleno ->> 'paradas_no_resueltas')::int - (j ->> 'paradas_no_resueltas')::int into v_delta_no_resueltas from _antes;
+  if (select count(*) from jsonb_object_keys(v_despues)) <> 7 then
+    raise exception 'estado_relleno_motivos() no devuelve exactamente 7 claves';
+  end if;
+  if exists (select 1 from jsonb_each(v_despues) where jsonb_typeof(value) <> 'number') then
+    raise exception 'estado_relleno_motivos() devuelve un valor que no es numérico';
+  end if;
+  if v_delta_no_resueltas <> 3 then
+    raise exception 'paradas_no_resueltas debía subir 3';
+  end if;
+  if (v_despues ->> 'paradas_no_resueltas_sin_candidatos')::int - (v_antes ->> 'paradas_no_resueltas_sin_candidatos')::int <> 1 then
+    raise exception 'paradas_no_resueltas_sin_candidatos debía subir 1';
+  end if;
+  if (v_despues ->> 'paradas_no_resueltas_tipo_incompatible')::int - (v_antes ->> 'paradas_no_resueltas_tipo_incompatible')::int <> 1 then
+    raise exception 'paradas_no_resueltas_tipo_incompatible debía subir 1';
+  end if;
+  if (v_despues ->> 'paradas_no_resueltas_motivo_desconocido')::int - (v_antes ->> 'paradas_no_resueltas_motivo_desconocido')::int <> 1 then
+    raise exception 'paradas_no_resueltas_motivo_desconocido debía subir 1';
+  end if;
+  if (v_relleno ->> 'paradas_no_resueltas')::int <>
+     (v_despues ->> 'paradas_no_resueltas_sin_candidatos')::int + (v_despues ->> 'paradas_no_resueltas_fuera_de_caja')::int
+     + (v_despues ->> 'paradas_no_resueltas_nombre_distinto')::int + (v_despues ->> 'paradas_no_resueltas_tipo_incompatible')::int
+     + (v_despues ->> 'paradas_no_resueltas_motivo_desconocido')::int then
+    raise exception 'el desglose por motivo no suma paradas_no_resueltas';
+  end if;
+  if (v_despues ->> 'paradas_con_toponimo')::int - (v_antes ->> 'paradas_con_toponimo')::int <> 3 then
+    raise exception 'paradas_con_toponimo debía subir 3 (4 paradas menos la sin-candidatos)';
+  end if;
+  if (v_despues ->> 'paradas_sin_intentar_ultima_version')::int - (v_antes ->> 'paradas_sin_intentar_ultima_version')::int <> 1 then
+    raise exception 'paradas_sin_intentar_ultima_version debía subir 1';
+  end if;
+  if v_despues::text ~* 'Ideal con ni|Vistas al r|@|[0-9a-f]{8}-[0-9a-f]{4}|vbd-' then
+    raise exception 'La salida de estado_relleno_motivos() contiene texto de los datos';
+  end if;
+end $$;
+
 -- anon y authenticated no pueden leer recuentos de toda la base. El role se
 -- restaura solo: set local dentro de un bloque con excepción se deshace con él.
 do $$
@@ -118,11 +170,28 @@ begin
 exception when insufficient_privilege then
   null;
 end $$;
+do $$
+begin
+  set local role anon;
+  perform viajes_planner.estado_relleno_motivos();
+  raise exception 'anon pudo ejecutar estado_relleno_motivos()';
+exception when insufficient_privilege then
+  null;
+end $$;
+do $$
+begin
+  set local role authenticated;
+  perform viajes_planner.estado_relleno_motivos();
+  raise exception 'authenticated pudo ejecutar estado_relleno_motivos()';
+exception when insufficient_privilege then
+  null;
+end $$;
 
 rollback;
 SQL
 
 echo "OK: estado_relleno() cumple cp-sco-01 (26 claves numéricas, contadores nuevos, sin texto, sin acceso anon/authenticated)."
+echo "OK: estado_relleno_motivos() da 7 enteros que cuadran con las no-resueltas, sin texto y sin acceso anon/authenticated."
 }
 
 # ctl-ac1: las reservas concurrentes no pasan de los topes. Aquí no hay
@@ -278,10 +347,69 @@ SQL
   echo "OK: lugares_google tiene 4 columnas y authenticated solo lee clave y estado."
 }
 
+# obs-ac1 y obs-ac4 (#240): registrar_obsoleto_google aguanta la concurrencia
+# (una marca por terna, cinco por usuario y día) y anon/authenticated no llegan
+# a la función ni a la tabla. Hace commit en conexiones distintas, así que
+# limpia lo suyo al salir.
+obsoleto() {
+  usuario_a="00000000-0000-4000-8000-0000000000c1"
+  usuario_b="00000000-0000-4000-8000-0000000000c2"
+  limpiar() {
+    psql "$BD_URL" -q -c "delete from auth.users where id in ('$usuario_a', '$usuario_b');" >/dev/null
+  }
+  trap limpiar EXIT
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q -c "insert into auth.users (id) values ('$usuario_a'), ('$usuario_b');" >/dev/null
+
+  local salida ok repetidos topes filas
+  salida=$(seq 20 | xargs -P 10 -I{} psql "$BD_URL" -tAc "select viajes_planner.registrar_obsoleto_google('$usuario_a', 'osm:node/vbd-misma')")
+  ok=$(grep -c '^ok$' <<<"$salida" || true)
+  repetidos=$(grep -c '^repetido$' <<<"$salida" || true)
+  filas=$(psql "$BD_URL" -tAc "select count(*) from viajes_planner.marcas_obsoleto_google where usuario_id = '$usuario_a'")
+  [ "$ok" = "1" ] && [ "$repetidos" = "19" ] && [ "$filas" = "1" ] || {
+    echo "obsoleto-misma-terna: esperaba 1 ok, 19 repetido y 1 fila; salió $ok, $repetidos y $filas" >&2; exit 1; }
+
+  salida=$(seq 10 | xargs -P 10 -I{} psql "$BD_URL" -tAc "select viajes_planner.registrar_obsoleto_google('$usuario_b', 'osm:node/vbd-' || {})")
+  ok=$(grep -c '^ok$' <<<"$salida" || true)
+  topes=$(grep -c '^tope-usuario$' <<<"$salida" || true)
+  filas=$(psql "$BD_URL" -tAc "select count(*) from viajes_planner.marcas_obsoleto_google where usuario_id = '$usuario_b'")
+  [ "$ok" = "5" ] && [ "$topes" = "5" ] && [ "$filas" = "5" ] || {
+    echo "obsoleto-tope-usuario: esperaba 5 ok, 5 tope-usuario y 5 filas; salió $ok, $topes y $filas" >&2; exit 1; }
+
+  local rol
+  for rol in anon authenticated; do
+    psql "$BD_URL" -v ON_ERROR_STOP=1 -q <<SQL
+begin;
+set local role $rol;
+set local request.jwt.claims = '{"role": "$rol"}';
+do \$\$
+declare consulta text;
+begin
+  foreach consulta in array array[
+    'select viajes_planner.registrar_obsoleto_google(''$usuario_a'', ''x'')',
+    'select * from viajes_planner.marcas_obsoleto_google',
+    'insert into viajes_planner.marcas_obsoleto_google (usuario_id, clave, dia) values (''$usuario_a'', ''x'', current_date)'
+  ] loop
+    begin
+      execute consulta;
+      raise exception '$rol pudo ejecutar: %', consulta;
+    exception when insufficient_privilege then
+      null;
+    end;
+  end loop;
+end \$\$;
+rollback;
+SQL
+  done
+  [ "$(psql "$BD_URL" -tAc "select relrowsecurity from pg_class where oid = 'viajes_planner.marcas_obsoleto_google'::regclass")" = "t" ] || {
+    echo "marcas_obsoleto_google sin RLS" >&2; exit 1; }
+  echo "OK: registrar_obsoleto_google da 1 ok por terna y 5 por usuario con concurrencia, y anon/authenticated no llegan."
+}
+
 case "$modo" in
   relleno) relleno ;;
   cupo) cupo ;;
   permisos) permisos ;;
   lugares) lugares ;;
-  *) echo "Modo desconocido: $modo (relleno, cupo, permisos o lugares)" >&2; exit 2 ;;
+  obsoleto) obsoleto ;;
+  *) echo "Modo desconocido: $modo (relleno, cupo, permisos, lugares u obsoleto)" >&2; exit 2 ;;
 esac

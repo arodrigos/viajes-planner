@@ -1,6 +1,6 @@
 import "server-only";
 import type { CategoriaParada, InfoResolucion, Lugar, Parada, Plan } from "@/lib/plan/tipos";
-import { elegirMejorCandidato } from "./aceptacion";
+import { categoriaMasAvanzada, elegirMejorCandidato } from "./aceptacion";
 import { limpiarNombreBusqueda } from "./normalizar";
 import type { CajaDelimitadora, CandidatoLugar, FuenteLugares } from "./tipos";
 
@@ -75,7 +75,15 @@ export async function resolverNombre(
       return lugarResuelto(elegidoWikipedia.candidato, ahora);
     }
 
-    return { resolucion: { estado: "no-resuelta", intentado_en: ahora, motivo: elegidoWikipedia.motivo } };
+    // Se combina lo que ya rechazaron las dos fuentes, sin otra petición.
+    return {
+      resolucion: {
+        estado: "no-resuelta",
+        intentado_en: ahora,
+        motivo: elegidoWikipedia.motivo,
+        categoria_motivo: categoriaMasAvanzada(elegidoNominatim.categoria, elegidoWikipedia.categoria),
+      },
+    };
   } catch (error) {
     return {
       resolucion: {

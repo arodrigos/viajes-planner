@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
+import RegistroSinConexion from "./RegistroSinConexion";
 
 export const metadata: Metadata = {
   title: "Viajes",
   description: "Planificador de viajes turísticos personal y familiar",
+  appleWebApp: { capable: true, title: "Viajes", statusBarStyle: "default" },
+  // Next 16 solo emite mobile-web-app-capable; iOS Safari aún lee la variante con prefijo.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 // Sin esto, un móvil renderiza la página a un ancho de viewport virtual
@@ -28,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body>
+        <RegistroSinConexion />
         {children}
         <footer>
           <Link href="/viajes">Mis viajes</Link>

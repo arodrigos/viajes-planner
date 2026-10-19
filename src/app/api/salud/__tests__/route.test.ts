@@ -47,6 +47,58 @@ describe("GET /api/salud con la rpc de relleno caída (sal-ac3)", () => {
   });
 });
 
+// El desglose por motivo de las no-resueltas llega a la respuesta tal cual,
+// y una clave fuera de la lista sigue tumbando `relleno` entero.
+describe("GET /api/salud: motivo de las paradas no resueltas", () => {
+  const anteriores = {
+    paradas_total: 5, paradas_resueltas: 1, paradas_no_resueltas: 3, paradas_en_error: 0, paradas_sin_intentar: 1,
+    paradas_con_foto: 0, paradas_con_alternativas: 0, paradas_con_categoria: 0, paradas_con_guia: 0, paradas_con_motivo: 0,
+    curiosidades_formato_antiguo: 0, versiones_con_eventos: 0, versiones_multiciudad: 0, trabajos_inviables: 0,
+    planes_total: 1, planes_sin_version: 0, planes_sin_trabajo_vivo: 0, planes_con_ciudad: 1, planes_sin_ciudad_identificable: 0,
+    planes_sellados_pocas_paradas: 0, planes_sellados_sin_caja: 0, planes_sellados_zona_grande: 0, planes_sellados_sin_contencion: 0,
+    planes_sellados_sin_ventaja: 0, planes_sellados_sin_candidato_claro: 0, planes_sellados_ciudad_no_encontrada: 0,
+  };
+  const nuevas = {
+    paradas_no_resueltas_sin_candidatos: 1, paradas_no_resueltas_fuera_de_caja: 0, paradas_no_resueltas_nombre_distinto: 1,
+    paradas_no_resueltas_tipo_incompatible: 0, paradas_no_resueltas_motivo_desconocido: 1, paradas_con_toponimo: 3,
+    paradas_sin_intentar_ultima_version: 1,
+  };
+  const responder = (base: unknown, desglose: { data: unknown; error: { message: string } | null }) =>
+    rpc.mockImplementation((nombre: string) =>
+      Promise.resolve(
+        nombre === "estado_relleno"
+          ? { data: base, error: null }
+          : nombre === "estado_relleno_motivos"
+            ? desglose
+            : { data: null, error: { message: "sin cupo" } },
+      ),
+    );
+
+  it("publica las claves de estado_relleno_motivos junto a las de siempre", async () => {
+    responder(anteriores, { data: nuevas, error: null });
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo.relleno).toEqual({ ...anteriores, ...nuevas });
+  });
+
+  it("sin la función nueva (antes de la migración) publica las de siempre, sin las nuevas", async () => {
+    responder(anteriores, { data: null, error: { message: "Could not find the function viajes_planner.estado_relleno_motivos" } });
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo.relleno).toEqual(anteriores);
+  });
+
+  it("una clave que no está en la lista cerrada de la función de siempre omite relleno", async () => {
+    responder({ ...anteriores, paradas_no_resueltas_otro: 1 }, { data: nuevas, error: null });
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo).not.toHaveProperty("relleno");
+  });
+
+  it("una clave ajena en el desglose solo descarta el desglose", async () => {
+    responder(anteriores, { data: { ...nuevas, destino: 1 }, error: null });
+    const cuerpo = await (await GET(new NextRequest("http://localhost/api/salud"))).json();
+    expect(cuerpo.relleno).toEqual(anteriores);
+  });
+});
+
 // ctl-ac4: el objeto google es una lista cerrada de enteros y fuentes.fichas
 // lo declara el endpoint; si la rpc del controlador falla se omite sin tumbar
 // el resto.

@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { ANCHO_MOVIL, DIAS_PLAN_PRUEBA, abrirDia } from "./ayudas";
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import { ANCHO_MOVIL, abrirDia, leerPlan, type ParadaApi } from "./ayudas";
 import { DIRECTORIO } from "./entorno";
 
 async function cargasHoy(peticiones: APIRequestContext): Promise<number> {
@@ -14,52 +14,44 @@ async function claveConfigurada(peticiones: APIRequestContext): Promise<boolean>
   return cuerpo.google?.clave_navegador === 1;
 }
 
-// Cada panel se abre una sola vez: una parada casada sin reseñas en Google
-// enseña lo que Google dé, y el caso pasa a la siguiente (límite del caso).
-// Devuelve las cargas del UI Kit justo antes de abrir el panel que sí cargó,
-// para medir el coste de esa única apertura.
-async function abrirPrimeraFicha(page: Page, peticiones: APIRequestContext): Promise<number | null> {
-  for (let dia = 1; dia <= DIAS_PLAN_PRUEBA; dia++) {
-    await abrirDia(page, dia);
-    const paneles = page.locator("li.tarjeta-parada summary", { hasText: /^Opiniones y horario/ });
-    for (let i = 0; i < (await paneles.count()); i++) {
-      const antes = await cargasHoy(peticiones);
-      await paneles.nth(i).click();
-      const tarjeta = page.locator("li.tarjeta-parada").filter({ has: paneles.nth(i) });
-      // La ficha cargada ya lleva la atribución de Google; el elemento solo "attached" aún puede estar buscando.
-      const cargada = await tarjeta
-        .locator("gmp-place-details")
-        .getByText("Google Maps")
-        .first()
-        .waitFor({ state: "visible", timeout: 15_000 })
-        .then(() => true, () => false);
-      if (cargada) return antes;
-    }
-  }
-  return null;
-}
-
 // fic-ac2 (ficha-real): necesita la clave de navegador real, que es un paso
 // manual. Sin ella el caso queda pendiente de esa acción y no falla.
-test("pv-ficha-real: la ficha de una parada casada enseña valoración, reseña con autor y atribución (fic-ac2)", async ({ page, request }) => {
+// La ficha la pinta gmp-place-details con shadow DOM cerrado: no se afirma
+// nada sobre su contenido (valoración, reseña, atribución van en la captura),
+// solo sobre data-estado-ficha, que FichaGoogle fija con los eventos públicos.
+test("pv-ficha-real: la ficha de una parada casada carga con una sola reserva de UI Kit (fpv-ac1)", async ({ page, request }) => {
   test.skip(!(await claveConfigurada(request)), "Paso manual de la clave de navegador pendiente (clave_navegador = 0)");
-  test.setTimeout(300_000);
-  const antes = await abrirPrimeraFicha(page, request);
-  expect(antes, "ninguna parada casada abrió su ficha").not.toBeNull();
+  test.setTimeout(120_000);
 
-  const ficha = page.locator("gmp-place-details").first();
-  await expect(ficha).toBeVisible({ timeout: 10_000 });
-  // Los localizadores atraviesan el shadow DOM abierto del elemento de Google.
-  await expect(ficha.getByText(/\d[,.]\d/).first()).toBeVisible();
-  await expect(ficha.getByText("Google Maps").first()).toBeVisible();
-  await expect(ficha.locator("gmp-place-reviews, [class*='review' i]").first()).toBeVisible();
-  // El autor de la reseña es un enlace a su perfil de Google; sin él la reseña no cumple la atribución.
-  const autor = ficha.locator("a[href*='/maps/contrib/']").first();
-  await expect(autor).toBeVisible();
-  expect((await autor.innerText()).trim().length).toBeGreaterThan(0);
+  // Una parada casada conocida, para abrir un solo panel en vez de buscar abriendo.
+  const plan = (await leerPlan(request)) as { dias: { paradas: (ParadaApi & { google?: { estado?: string } })[] }[] };
+  let dia = 0;
+  let nombre = "";
+  plan.dias.forEach((d, i) => {
+    const casada = d.paradas.find((p) => p.google?.estado === "casado");
+    if (!nombre && casada) {
+      dia = i + 1;
+      nombre = casada.nombre;
+    }
+  });
+  expect(nombre, "el plan de prueba no tiene ninguna parada casada").not.toBe("");
 
+  const posts: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/google/ficha") posts.push(r.postData() ?? "");
+  });
+
+  await abrirDia(page, dia);
+  const tarjeta = page.locator("li.tarjeta-parada").filter({ hasText: nombre }).first();
+  const antes = await cargasHoy(request);
+  await tarjeta.locator("summary", { hasText: /^Opiniones y horario/ }).click();
+
+  const ficha = tarjeta.locator(".ficha-google");
+  await expect(ficha).toHaveAttribute("data-estado-ficha", "ficha", { timeout: 20_000 });
+
+  expect(posts).toHaveLength(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(ANCHO_MOVIL);
-  expect((await cargasHoy(request)) - (antes as number)).toBe(1);
+  expect((await cargasHoy(request)) - antes).toBe(1);
 
   mkdirSync(`${DIRECTORIO}/capturas`, { recursive: true });
   await page.screenshot({ path: `${DIRECTORIO}/capturas/pv-ficha-real.png`, fullPage: true });

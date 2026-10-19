@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Plan } from "@/lib/plan/tipos";
-import { resolverPlan } from "../resolverPlan";
+import { resolverNombre, resolverPlan } from "../resolverPlan";
 import { crearFuenteLugaresGrabada } from "../fuenteGrabada";
 import type { CandidatoLugar } from "../tipos";
 
@@ -55,6 +55,7 @@ describe("resolverPlan (lug-ac1)", () => {
     expect(monasterio.coordenadas).toBeUndefined();
     expect(monasterio.resolucion?.estado).toBe("no-resuelta");
     expect(monasterio.resolucion?.motivo).toBeTruthy();
+    expect(monasterio.resolucion?.categoria_motivo).toBe("sin-candidatos");
 
     expect(debod.coordenadas).toEqual({ lat: 40.4238, lon: -3.7175 });
     expect(debod.lugar?.fuente).toBe("wikipedia");
@@ -110,5 +111,55 @@ describe("resolverPlan (lug-ac1)", () => {
 
     expect(parada.resolucion?.estado).toBe("resuelta");
     expect(parada.lugar?.nombre_fuente).toBe("Ruzafa");
+  });
+});
+
+// El motivo de "no-resuelta" combina lo que rechazaron las dos fuentes sin
+// pedir nada más: la fase más avanzada gana.
+describe("resolverNombre: categoria_motivo de una parada no-resuelta", () => {
+  it("Nominatim da el sitio con un tipo incompatible y Wikipedia otro nombre: queda «tipo-incompatible» con solo esas dos búsquedas", async () => {
+    const fuente = crearFuenteLugaresGrabada({
+      destinos: {},
+      nominatim: {
+        "Museo del Prado::Madrid": [candidatoReal({ nombreFuente: "Museo del Prado", lat: 40.4137925, lon: -3.6920407, categoriaOsm: "highway" })],
+      },
+      wikipedia: {
+        "Museo del Prado::Madrid": [candidatoReal({ fuente: "wikipedia", nombreFuente: "Estación de Atocha", lat: 40.4063, lon: -3.6919 })],
+      },
+    });
+    const llamadas: string[] = [];
+    const contada = {
+      ...fuente,
+      buscarNominatim: (...args: Parameters<typeof fuente.buscarNominatim>) => (llamadas.push("nominatim"), fuente.buscarNominatim(...args)),
+      buscarWikipedia: (...args: Parameters<typeof fuente.buscarWikipedia>) => (llamadas.push("wikipedia"), fuente.buscarWikipedia(...args)),
+    };
+
+    const resultado = await resolverNombre(contada, "Museo del Prado", "museo", "Madrid", BBOX_MADRID);
+
+    expect(resultado.resolucion).toMatchObject({ estado: "no-resuelta", motivo: "ningún candidato aceptable", categoria_motivo: "tipo-incompatible" });
+    expect(resultado.coordenadas).toBeUndefined();
+    expect(llamadas).toEqual(["nominatim", "wikipedia"]);
+  });
+
+  it("una frase de actividad que solo devuelve otros nombres queda «nombre-distinto»", async () => {
+    const fuente = crearFuenteLugaresGrabada({
+      destinos: {},
+      nominatim: {
+        "Tarde de juegos en familia::Madrid": [candidatoReal({ nombreFuente: "Centro", lat: 40.42, lon: -3.7, categoriaOsm: "place" })],
+      },
+      wikipedia: {},
+    });
+    const resultado = await resolverNombre(fuente, "Tarde de juegos en familia", "otro", "Madrid", BBOX_MADRID);
+    expect(resultado.resolucion.categoria_motivo).toBe("nombre-distinto");
+  });
+
+  it("las paradas resueltas o en error no llevan categoria_motivo", async () => {
+    const fuente = crearFuenteLugaresGrabada({
+      destinos: {},
+      nominatim: { "Museo del Prado::Madrid": [candidatoReal({ nombreFuente: "Museo del Prado", lat: 40.4137925, lon: -3.6920407, categoriaOsm: "tourism" })] },
+      wikipedia: {},
+    });
+    expect((await resolverNombre(fuente, "Museo del Prado", "museo", "Madrid", BBOX_MADRID)).resolucion).not.toHaveProperty("categoria_motivo");
+    expect((await resolverNombre(fuente, "Museo del Prado", "museo", "Madrid", null)).resolucion).not.toHaveProperty("categoria_motivo");
   });
 });

@@ -1,7 +1,7 @@
 import { TEXTOS_FICHA } from "@/lib/textos/ficha";
 import type { EstadoGoogleParada } from "./estados";
 
-export type ClaveMensajeFicha = "sinClave" | "sinUbicacion" | "pendiente" | "sinCoincidencia" | "cupoAgotado" | "errorGoogle";
+export type ClaveMensajeFicha = "sinClave" | "sinUbicacion" | "pendiente" | "sinCoincidencia" | "cupoAgotado" | "errorGoogle" | "sinConexion";
 
 export const TEXTO_MENSAJE_FICHA: Record<ClaveMensajeFicha, string> = {
   sinClave: TEXTOS_FICHA.sinClave.texto,
@@ -10,6 +10,7 @@ export const TEXTO_MENSAJE_FICHA: Record<ClaveMensajeFicha, string> = {
   sinCoincidencia: TEXTOS_FICHA.sinCoincidencia.texto,
   cupoAgotado: TEXTOS_FICHA.cupoAgotado.texto,
   errorGoogle: TEXTOS_FICHA.errorGoogle.texto,
+  sinConexion: TEXTOS_FICHA.sinConexion.texto,
 };
 
 // Qué mensaje corresponde ANTES de pedir nada: null significa que la parada

@@ -3,6 +3,7 @@ import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { conCupo } from "@/lib/google/cupo";
 import { buscarFicha, marcarObsoleto } from "@/lib/google/ficha";
+import { registrarObsoleto } from "@/lib/google/obsoleto";
 import { planPerteneceAUsuario } from "@/lib/plan/propiedad";
 
 const SIN_CACHE = { "cache-control": "no-store" };
@@ -46,8 +47,12 @@ export async function POST(request: NextRequest) {
   if (ficha.tipo === "no-encontrada") return noEncontrado();
   if (ficha.tipo === "sin-ficha") return NextResponse.json({ motivo: "sin-ficha" }, { status: 404, headers: SIN_CACHE });
 
-  // NOT_FOUND de Google: no cuesta cupo, solo pide al trabajador que vuelva a casar.
+  // NOT_FOUND de Google: no cuesta cupo de UI Kit, pero cada marca obliga al
+  // trabajador a repetir un Text Search, así que está limitada por usuario (#240).
   if (cuerpo.obsoleto) {
+    const registro = await registrarObsoleto(supabase, sesion.usuarioId, ficha.clave);
+    if (registro === "error") return NextResponse.json({ motivo: "no-disponible" }, { status: 503, headers: SIN_CACHE });
+    if (registro !== "ok") return NextResponse.json({ motivo: "limite-obsoleto" }, { status: 429, headers: SIN_CACHE });
     await marcarObsoleto(supabase, ficha.clave);
     return NextResponse.json({ ok: true }, { headers: SIN_CACHE });
   }

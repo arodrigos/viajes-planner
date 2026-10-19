@@ -44,6 +44,11 @@ export interface RecuentosRelleno {
   planesSelladosSinVentaja: number;
   planesSelladosSinCandidatoClaro: number;
   planesSelladosCiudadNoEncontrada: number;
+  paradasNoResueltasSinCandidatos: number;
+  paradasNoResueltasFueraDeCaja: number;
+  paradasNoResueltasNombreDistinto: number;
+  paradasNoResueltasTipoIncompatible: number;
+  paradasSinIntentarUltimaVersion: number;
 }
 
 // Pura y aparte de las consultas para poder comprobar con propiedades que
@@ -77,6 +82,19 @@ export function armarEstadoRelleno(r: RecuentosRelleno): EstadoRelleno {
     planes_sellados_sin_ventaja: r.planesSelladosSinVentaja,
     planes_sellados_sin_candidato_claro: r.planesSelladosSinCandidatoClaro,
     planes_sellados_ciudad_no_encontrada: r.planesSelladosCiudadNoEncontrada,
+    paradas_no_resueltas_sin_candidatos: r.paradasNoResueltasSinCandidatos,
+    paradas_no_resueltas_fuera_de_caja: r.paradasNoResueltasFueraDeCaja,
+    paradas_no_resueltas_nombre_distinto: r.paradasNoResueltasNombreDistinto,
+    paradas_no_resueltas_tipo_incompatible: r.paradasNoResueltasTipoIncompatible,
+    // Sin categoría, o con una fuera de la lista: lo que no suman las cuatro.
+    paradas_no_resueltas_motivo_desconocido:
+      r.paradasNoResueltas -
+      r.paradasNoResueltasSinCandidatos -
+      r.paradasNoResueltasFueraDeCaja -
+      r.paradasNoResueltasNombreDistinto -
+      r.paradasNoResueltasTipoIncompatible,
+    paradas_con_toponimo: r.paradasTotal - r.paradasNoResueltasSinCandidatos - r.paradasNoResueltasNombreDistinto,
+    paradas_sin_intentar_ultima_version: r.paradasSinIntentarUltimaVersion,
   };
 }
 
@@ -107,7 +125,7 @@ async function paginar<T>(pagina: (desde: number, hasta: number) => PromiseLike<
 // Solo cuenta la última versión de cada plan, que es la única que rehace el
 // trabajador. Trae únicamente la columna jsonb de curiosidades (nunca nombres
 // ni ids hacia fuera: lo que sale de aquí es un entero).
-async function contarCuriosidadesFormatoAntiguo(supabase: SupabaseClient): Promise<number> {
+async function idsUltimaVersion(supabase: SupabaseClient): Promise<string[]> {
   const versiones = await paginar<{ id: string; plan_id: string; version: number }>((d, h) =>
     supabase.from("plan_versiones").select("id, plan_id, version").order("id").range(d, h),
   );
@@ -116,7 +134,23 @@ async function contarCuriosidadesFormatoAntiguo(supabase: SupabaseClient): Promi
     const previa = ultima.get(v.plan_id);
     if (!previa || v.version > previa.version) ultima.set(v.plan_id, { id: v.id, version: v.version });
   }
-  const ids = [...ultima.values()].map((v) => v.id);
+  return [...ultima.values()].map((v) => v.id);
+}
+
+async function contarSinIntentarUltimaVersion(supabase: SupabaseClient): Promise<number> {
+  const ids = await idsUltimaVersion(supabase);
+  let total = 0;
+  for (let i = 0; i < ids.length; i += VERSIONES_POR_CONSULTA) {
+    const lote = ids.slice(i, i + VERSIONES_POR_CONSULTA);
+    total += await contar(() =>
+      supabase.from("paradas").select("id", { count: "exact", head: true }).in("plan_version_id", lote).is("resolucion", null),
+    );
+  }
+  return total;
+}
+
+async function contarCuriosidadesFormatoAntiguo(supabase: SupabaseClient): Promise<number> {
+  const ids = await idsUltimaVersion(supabase);
   let total = 0;
   for (let i = 0; i < ids.length; i += VERSIONES_POR_CONSULTA) {
     const lote = ids.slice(i, i + VERSIONES_POR_CONSULTA);
@@ -165,6 +199,11 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     trabajosInviables,
     paradasConMotivo,
     curiosidadesFormatoAntiguo,
+    paradasNoResueltasSinCandidatos,
+    paradasNoResueltasFueraDeCaja,
+    paradasNoResueltasNombreDistinto,
+    paradasNoResueltasTipoIncompatible,
+    paradasSinIntentarUltimaVersion,
   ] = await Promise.all([
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true })),
     contar(() => supabase.from("paradas").select("id", { count: "exact", head: true }).eq("resolucion->>estado", "resuelta")),
@@ -211,6 +250,16 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
       supabase.from("paradas").select("id", { count: "exact", head: true }).not("motivo", "is", null).neq("motivo", ""),
     ),
     contarCuriosidadesFormatoAntiguo(supabase),
+    ...(["sin-candidatos", "fuera-de-caja", "nombre-distinto", "tipo-incompatible"] as const).map((categoria) =>
+      contar(() =>
+        supabase
+          .from("paradas")
+          .select("id", { count: "exact", head: true })
+          .eq("resolucion->>estado", "no-resuelta")
+          .eq("resolucion->>categoria_motivo", categoria),
+      ),
+    ),
+    contarSinIntentarUltimaVersion(supabase),
   ]);
 
   return armarEstadoRelleno({
@@ -240,6 +289,11 @@ async function calcular(supabase: SupabaseClient): Promise<EstadoRelleno> {
     planesSelladosSinVentaja,
     planesSelladosSinCandidatoClaro,
     planesSelladosCiudadNoEncontrada,
+    paradasNoResueltasSinCandidatos,
+    paradasNoResueltasFueraDeCaja,
+    paradasNoResueltasNombreDistinto,
+    paradasNoResueltasTipoIncompatible,
+    paradasSinIntentarUltimaVersion,
   });
 }
 

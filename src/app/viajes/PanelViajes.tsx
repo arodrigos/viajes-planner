@@ -12,6 +12,7 @@ import {
   situacionViaje,
   textoSituacion,
 } from "@/lib/viajes/presentar";
+import { borrarCopiaPlan, borrarCopias } from "@/lib/sinConexion/borrar";
 import { PanelAcceso } from "../criterios/PanelAcceso";
 
 interface ViajeListado {
@@ -75,7 +76,13 @@ export function PanelViajes() {
     setCerrandoSesion(true);
     try {
       await fetch("/api/auth/cerrar-sesion", { method: "POST" });
+    } catch {
+      // Sin red el POST falla; la copia local se borra igual y la sesión del
+      // servidor caduca por su cuenta.
     } finally {
+      // ses-ac1: las copias se van aunque el POST falle (sin red justo al
+      // pulsar), porque el dispositivo puede ser de otra persona al minuto.
+      await borrarCopias();
       setCerrandoSesion(false);
       setViajes(null);
       setNecesitaAcceso(true);
@@ -95,6 +102,8 @@ export function PanelViajes() {
         setErrorEliminarId(id);
         return;
       }
+      const planId = (viajes ?? []).find((v) => v.id === id)?.plan_id;
+      if (planId) await borrarCopiaPlan(planId);
       setViajes((actuales) => (actuales ?? []).filter((v) => v.id !== id));
       setConfirmandoId(null);
     } catch {
@@ -108,6 +117,8 @@ export function PanelViajes() {
     return (
       <PanelAcceso
         onVerificado={() => {
+          // ses-ac2: copias de una sesión anterior en este navegador.
+          void borrarCopias();
           setNecesitaAcceso(false);
           setRecargaId((n) => n + 1);
         }}

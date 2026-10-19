@@ -39,6 +39,29 @@ público y sin autenticar no se convierta en un amplificador de carga:
   cuántos están en `'sin-ciudad-identificable'` -- el primer indicio público
   de que el bloque `ciudad-a-mano` hace falta de verdad en DEV.
 
+Las siete siguientes salen de otra función, `estado_relleno_motivos()`, para
+no cambiar la salida de `estado_relleno()`; si esa función falla o aún no
+existe, `relleno` se publica sin ellas.
+
+- `paradas_no_resueltas_sin_candidatos`, `_fuera_de_caja`,
+  `_nombre_distinto`, `_tipo_incompatible` y `_motivo_desconocido`: por qué
+  quedan paradas en `no-resuelta`, según `resolucion.categoria_motivo`. Es
+  la fase más avanzada de la regla de aceptación (`lugares/aceptacion.ts`) a
+  la que llegó algún candidato de Nominatim o de Wikipedia: sin candidatos,
+  todos fuera de la caja, ninguno con un nombre parecido, o con nombre pero
+  de un tipo incompatible con la categoría. `_motivo_desconocido` son las
+  guardadas antes de existir la categoría; bajan solas cuando el barrido
+  las reintenta. Las cinco suman `paradas_no_resueltas`.
+- `paradas_con_toponimo`: el total menos las no-resueltas por
+  `sin-candidatos` o `nombre-distinto` (nada en la caja se llama así: casi
+  siempre una frase de actividad, no un sitio). Es el denominador para medir
+  cuántas paradas con nombre de sitio están ubicadas
+  (`paradas_resueltas / paradas_con_toponimo`). Aproximado: un sitio real
+  mal escrito también se descuenta, y las de motivo desconocido aún cuentan.
+- `paradas_sin_intentar_ultima_version`: las sin intentar solo en la última
+  versión de cada plan, el mismo alcance que el barrido; las de versiones
+  antiguas siguen en `paradas_sin_intentar` y nunca bajarán.
+
 Estos números no distinguen entre "recién sembrado" y "el barrido lleva
 ya varios ticks": eso lo juzga quien lee dos capturas de `/api/salud`
 separadas en el tiempo, nunca una lectura aislada.

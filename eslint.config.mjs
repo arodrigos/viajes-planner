@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     // (scripts/copiar-worker-maplibre.mjs), minificada y de un tercero -no
     // es código del repo, ignorada igual que .next/**.
     "public/maplibre/**",
+    // pwa-ac2: worker generado por `serwist build`.
+    "public/sw.js",
   ]),
 ]);
 

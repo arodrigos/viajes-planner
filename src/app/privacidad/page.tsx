@@ -56,6 +56,28 @@ export default function PrivacidadPage() {
         </a>
         .
       </p>
+
+      <h2>Copia del plan en este dispositivo</h2>
+      <p>
+        Para que puedas ver un plan sin cobertura, la aplicación guarda en este dispositivo una copia de los planes
+        que has abierto.
+      </p>
+      <ul>
+        <li>
+          <strong>Qué se guarda:</strong> los datos del plan abierto y las fotos de Wikimedia Commons que ya has visto.
+          Nunca nada de Google.
+        </li>
+        <li>
+          <strong>Dónde:</strong> en el almacenamiento del navegador, o de la aplicación instalada, de este
+          dispositivo. No sale de él.
+        </li>
+        <li>
+          <strong>Cuánto tiempo:</strong> hasta 90 días, o hasta que cierres sesión.
+        </li>
+        <li>
+          <strong>Cómo borrarla:</strong> cierra sesión en Mis viajes, o elimina el viaje.
+        </li>
+      </ul>
     </main>
   );
 }
