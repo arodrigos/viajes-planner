@@ -285,7 +285,14 @@ h3 {
   flex-shrink: 0;
   box-sizing: border-box;
   width: 88px;
-  height: 88px;
+  /* Altura mínima y no fija: con «Foto no disponible sin conexión» el texto
+     ocupa cuatro líneas y una caja de 88 px lo dejaba salir por el borde. */
+  height: auto;
+  min-height: 88px;
+  padding: var(--espacio-1, 4px);
+  gap: 2px;
+  font-size: 0.75rem;
+  line-height: 1.2;
   margin-top: 0;
   flex-direction: column;
   justify-content: center;
@@ -974,4 +981,16 @@ footer a,
   display: inline-flex;
   align-items: center;
   min-height: var(--objetivo-tactil);
+}
+
+.franja-copia {
+  margin: 0;
+  padding: var(--espacio-2);
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+  font-size: var(--texto-pequeno);
+}
+
+.estado-copia {
+  margin: 0;
 }

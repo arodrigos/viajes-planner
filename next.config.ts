@@ -16,6 +16,15 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       },
+      // Un sw.js cacheado por el navegador o por un intermediario dejaría
+      // código viejo vivo tras un push a dev.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
     ];
   },
 };

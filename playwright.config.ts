@@ -31,6 +31,10 @@ export default defineConfig({
     // Una traza solo cuando un test reintenta: deja el porqué de un fallo
     // inestable en el artefacto sin pagar su coste en cada ejecución.
     trace: "on-first-retry",
+    // La suite existente dobla la red con page.route, que el service worker
+    // saltaría: bloqueado por defecto, y las specs de la copia sin conexión
+    // lo activan con test.use({ serviceWorkers: "allow" }).
+    serviceWorkers: "block",
   },
   projects: [
     // Los e2e de escritorio que ya existían siguen corriendo tal cual,

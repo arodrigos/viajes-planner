@@ -6,6 +6,7 @@ import { diaPorDefecto, hoyEnZona, leerDiaDeUrl, valorParaUrl, type DiaElegido }
 import { eventosDelDia } from "./SeccionEventos";
 import { CabeceraPlan } from "./CabeceraPlan";
 import { PanelDia } from "./PanelDia";
+import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
 import { PanelResumen } from "./PanelResumen";
 import { SelectorDias } from "./SelectorDias";
 import type { PlanPublico } from "./tiposVista";
@@ -15,6 +16,8 @@ export function VistaPlan({ id }: { id: string }) {
   const parametros = useSearchParams();
   const [plan, setPlan] = useState<PlanPublico | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Hora de lectura de lo que se está viendo y si viene de la copia del SW.
+  const [lectura, setLectura] = useState<{ leidoEn: string | null; esCopia: boolean } | null>(null);
   // alt-ac5: recargar (tras usar una alternativa) es volver a pedir
   // /api/plan/[id] -- esa ruta devuelve siempre la versión más reciente,
   // así que no hace falta nada más que repetir la misma petición.
@@ -33,7 +36,11 @@ export function VistaPlan({ id }: { id: string }) {
           return;
         }
         const datos: PlanPublico = await respuesta.json();
-        if (!cancelado) setPlan(datos);
+        if (!cancelado) {
+          setPlan(datos);
+          setError(null);
+          setLectura({ leidoEn: respuesta.headers?.get("x-plan-leido-en") ?? null, esCopia: respuesta.headers?.get("x-copia-guardada") === "1" });
+        }
       } catch {
         if (!cancelado) setError("No se ha podido cargar el plan: revisa tu conexión y vuelve a intentarlo.");
       }
@@ -45,6 +52,30 @@ export function VistaPlan({ id }: { id: string }) {
     };
   }, [id, recargarContador]);
 
+  const esCopia = lectura?.esCopia === true;
+
+  // Al volver la conexión, la copia se sustituye sola por la versión fresca.
+  useEffect(() => {
+    if (!esCopia) return;
+    const alVolver = () => setRecargarContador((n) => n + 1);
+    window.addEventListener("online", alVolver);
+    return () => window.removeEventListener("online", alVolver);
+  }, [esCopia]);
+
+  // Primera visita: el SW toma el control después de cargar, así que ni el plan
+  // ni las fotos ya pintadas pasaron por él. Se repiten para que queden guardados.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || navigator.serviceWorker.controller) return;
+    const alControlar = () => {
+      setRecargarContador((n) => n + 1);
+      for (const img of document.querySelectorAll<HTMLImageElement>("img.foto-parada, img.foto-alternativa")) {
+        if (img.complete && img.naturalWidth > 0) void fetch(img.currentSrc || img.src, { mode: "cors" }).catch(() => undefined);
+      }
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", alControlar, { once: true });
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", alControlar);
+  }, []);
+
   const fechas = useMemo(() => plan?.dias.map((d) => d.fecha) ?? [], [plan]);
   const hoy = hoyEnZona(plan?.zona);
   const dePorDefecto = diaPorDefecto(fechas, hoy);
@@ -52,13 +83,16 @@ export function VistaPlan({ id }: { id: string }) {
   // conserva el día y un ?dia inválido cae en el valor por defecto.
   const dia: DiaElegido = elegidoPorUsuario ?? leerDiaDeUrl(parametros.get("dia"), fechas.length) ?? dePorDefecto;
 
-  // La URL refleja siempre el día visible. replace y no push: Atrás sale del
-  // plan en vez de recorrer los días vistos.
+  // La URL refleja siempre el día visible. replaceState y no router.replace:
+  // Next lo integra con useSearchParams sin pedir nada al servidor (sin red no
+  // habría respuesta RSC), y Atrás sale del plan en vez de recorrer los días.
   const valorUrl = valorParaUrl(dia);
   useEffect(() => {
     if (!plan || parametros.get("dia") === valorUrl) return;
-    router.replace(`?dia=${valorUrl}`, { scroll: false });
-  }, [plan, valorUrl, parametros, router]);
+    const url = new URL(window.location.href);
+    url.searchParams.set("dia", valorUrl);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [plan, valorUrl, parametros]);
 
   // Tras cambiar de día el foco pasa al encabezado del panel, para que un
   // lector de pantalla anuncie dónde está.
@@ -91,6 +125,7 @@ export function VistaPlan({ id }: { id: string }) {
             onRegenerado={(trabajoId) => router.push(`/trabajos/${trabajoId}`)}
             onCiudadGuardada={() => setRecargarContador((n) => n + 1)}
           />
+          {esCopia && lectura?.leidoEn ? <FranjaCopia leidoEn={lectura.leidoEn} /> : lectura?.leidoEn ? <EstadoCopia planId={id} leidoEn={lectura.leidoEn} /> : null}
           <SelectorDias fechas={fechas} elegido={dia} hoy={hoy} onElegir={elegir} />
           {dia === "resumen" ? (
             <PanelResumen plan={plan} onElegirDia={elegir} />

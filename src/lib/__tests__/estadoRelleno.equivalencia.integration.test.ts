@@ -31,6 +31,11 @@ const resolucion = fc.constantFrom<unknown>(
   null,
   { estado: "resuelta" },
   { estado: "no-resuelta" },
+  { estado: "no-resuelta", categoria_motivo: "sin-candidatos" },
+  { estado: "no-resuelta", categoria_motivo: "fuera-de-caja" },
+  { estado: "no-resuelta", categoria_motivo: "nombre-distinto" },
+  { estado: "no-resuelta", categoria_motivo: "tipo-incompatible" },
+  { estado: "no-resuelta", categoria_motivo: "otra-que-no-existe" },
   { estado: "error" },
 );
 const motivoParada = fc.constantFrom<string | null>(null, "", "Ideal con niños");
@@ -91,8 +96,9 @@ function planVacio(id: string, nombres: string[]): Plan {
   };
 }
 
-// sal-ac2: estado_relleno() (SQL) tiene que devolver exactamente lo mismo que
-// la implementación anterior en TypeScript, para cualquier contenido de las
+// sal-ac2: estado_relleno() y estado_relleno_motivos() (SQL), juntas, tienen
+// que devolver exactamente lo mismo que la implementación anterior en
+// TypeScript, para cualquier contenido de las
 // tablas; no solo para el ejemplo sembrado de los otros tests.
 describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("estado_relleno() equivale a la implementación anterior (sal-ac2)", () => {
   const supabase = clienteDePrueba();
@@ -101,7 +107,7 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("estado_relleno() equivale a la i
     await supabase.from("planes").delete().not("id", "is", null);
   });
 
-  it("da los mismos veintiséis valores con datos generados", async () => {
+  it("da los mismos treinta y tres valores con datos generados", async () => {
     await fc.assert(
       fc.asyncProperty(mundo, async (planes) => {
         await supabase.from("planes").delete().not("id", "is", null);
@@ -168,7 +174,9 @@ describe.skipIf(!SUPABASE_URL || !SERVICE_KEY)("estado_relleno() equivale a la i
         const referencia = await calcularRellenoReferencia(supabase);
         const { data, error } = await supabase.rpc("estado_relleno", { p_formato_curiosidades: FORMATO_CURIOSIDADES });
         expect(error).toBeNull();
-        expect(data).toEqual(referencia);
+        const { data: motivos, error: errorMotivos } = await supabase.rpc("estado_relleno_motivos");
+        expect(errorMotivos).toBeNull();
+        expect({ ...data, ...motivos }).toEqual(referencia);
       }),
       { numRuns: 12 },
     );

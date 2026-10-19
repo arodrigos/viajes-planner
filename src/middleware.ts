@@ -8,7 +8,8 @@ import { createServerClient } from "@supabase/ssr";
 //
 // `/guia`, `/terminos` y `/privacidad` son explícitamente públicas y sin
 // sesión por diseño: quedan fuera del matcher para que la renovación de
-// sesión nunca las toque.
+// sesión nunca las toque. Igual el service worker, el manifiesto y los iconos:
+// el navegador los pide solo, a menudo sin cookies, y getUser no pinta nada ahí.
 export async function middleware(request: NextRequest) {
   let respuesta = NextResponse.next({ request });
 
@@ -35,5 +36,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|guia|terminos|privacidad).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|guia|terminos|privacidad|sw.js|manifest.webmanifest|iconos|apple-icon.png|sin-conexion).*)"],
 };

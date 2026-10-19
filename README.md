@@ -59,6 +59,13 @@ Dos mitades que no se pisan:
   - En cada tick también rellena y reprocesa lo guardado con un formato
     antiguo (`docs/relleno-de-planes.md`) y casa con Google los lugares
     pendientes (ver más abajo).
+  - Todas las fases del barrido de un tick comparten un único cupo de **120
+    peticiones** a servicios externos (Nominatim, Wikipedia/Commons,
+    Overpass; `PRESUPUESTO_PETICIONES_POR_TICK` en
+    `src/lib/trabajador/presupuestoTick.ts`), repartido en orden de
+    prioridad: lo que no cabe espera al siguiente tick. Cuenta también las
+    llamadas que resuelve la caché, así que es una cota superior. El
+    resultado del tick lo publica como `peticiones_externas`.
 
 ### Curiosidades verificadas
 
@@ -126,7 +133,11 @@ navegador, sin casar o sin cupo, el panel lo dice y enlaza a Google Maps.
   Salen de una sola llamada por rpc a la función SQL `estado_relleno`, a la
   que se pasa el `FORMATO_CURIOSIDADES` vigente, con 60 s de caché en
   memoria. Solo se publica si trae exactamente las claves esperadas y todas
-  son enteros no negativos;
+  son enteros no negativos. Una segunda rpc, `estado_relleno_motivos`, añade
+  por qué quedan paradas «no-resuelta» (`paradas_no_resueltas_*`, por
+  `resolucion.categoria_motivo`), el denominador `paradas_con_toponimo` y
+  `paradas_sin_intentar_ultima_version`; si falla o aún no existe, `relleno`
+  sale igual sin esas siete claves;
 - `google`: `text_search_hoy`, `text_search_mes`, `ui_kit_hoy` y `ui_kit_mes`
   (por rpc a `consumo_google_resumen`, con el día de Google, hora del
   Pacífico), `lugares_casados` y `lugares_sin_coincidencia` (recuentos de
@@ -247,6 +258,17 @@ gh workflow run "Pruebas a demanda" --ref <rama> -f tipo=unit -f specs="src/lib/
 
 ## Changelog de cambios relevantes
 
+- **2026-10-17**:
+  - **Cupo único de peticiones por tick** (#251): antes cada fase del barrido
+    tenía su propio tope de 120, así que un tick podía sumar varias veces ese
+    número; ahora comparten uno solo (`peticiones_externas` en el resultado
+    del tick).
+  - **Motivo de las paradas no resueltas** (migración 028): el resolutor
+    guarda `resolucion.categoria_motivo` (`sin-candidatos`, `fuera-de-caja`,
+    `nombre-distinto`, `tipo-incompatible`), y la función nueva
+    `estado_relleno_motivos` suma a `/api/salud.relleno` siete contadores: el
+    desglose por motivo, `paradas_con_toponimo` y
+    `paradas_sin_intentar_ultima_version`. `estado_relleno` no cambia.
 - **2026-10-08**:
   - **Curiosidades** (#207): `MIN_FRASE` baja de 20 a 15, los umbrales entran
     en la huella y `FORMATO_CURIOSIDADES` sube a 6.

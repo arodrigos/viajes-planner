@@ -81,10 +81,18 @@ export interface Lugar {
 
 export type EstadoResolucion = "resuelta" | "no-resuelta" | "error";
 
+// Por qué una parada quedó "no-resuelta", en lista cerrada para poder
+// agregarlo en /api/salud sin leer el texto libre de `motivo` (mismo patrón
+// que `categoria_motivo` de la ciudad del plan). Es la fase más avanzada de
+// la regla de aceptación a la que llegó algún candidato de cualquiera de
+// las dos fuentes. Las filas guardadas antes de existir no lo traen.
+export type CategoriaNoResuelta = "sin-candidatos" | "fuera-de-caja" | "nombre-distinto" | "tipo-incompatible";
+
 export interface InfoResolucion {
   estado: EstadoResolucion;
   intentado_en: string;
   motivo?: string;
+  categoria_motivo?: CategoriaNoResuelta;
 }
 
 // Foto de la parada (bloque fotos-paradas, se deja el tipo preparado aquí

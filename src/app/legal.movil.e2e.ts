@@ -32,6 +32,15 @@ test("leg-ac1: /privacidad y /terminos cargan sin sesión con los avisos y los e
   await expect(page.locator(`main a[href="${ENLACE_PRIVACIDAD_GOOGLE}"]`)).toHaveCount(1);
   await comprobarAccesibilidad(page);
   await capturar(page, "reglas-y-legal-google", "privacidad");
+  // ses-ac4: qué se guarda, dónde, cuánto tiempo y cómo borrarlo.
+  const seccion = page.getByRole("heading", { level: 2, name: "Copia del plan en este dispositivo" });
+  await expect(seccion).toBeVisible();
+  const texto = await page.locator("main").innerText();
+  for (const parte of ["Qué se guarda", "Dónde", "Cuánto tiempo", "Cómo borrarla", "90 días", "Nunca nada de Google"]) {
+    expect(texto).toContain(parte);
+  }
+  await seccion.scrollIntoViewIfNeeded();
+  await capturar(page, "copia-y-sesion", "privacidad-copia");
 
   const terminos = await page.goto("/terminos");
   expect(terminos?.status()).toBe(200);

@@ -100,6 +100,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
   let planesSaltadosSellados = 0;
   let planesSaltadosPorRed = 0;
   let peticionesNominatimCiudad = 0;
+  let peticionesExternas = 0;
   let alternativas: ContadoresAlternativas | null = null;
   let googleClave: number | undefined;
   let googlePeticiones = 0;
@@ -142,6 +143,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         planesSaltadosSellados = resultadoBarrido.planesSaltadosSellados;
         planesSaltadosPorRed = resultadoBarrido.planesSaltadosPorRed;
         peticionesNominatimCiudad = resultadoBarrido.peticionesNominatimCiudad;
+        peticionesExternas = resultadoBarrido.peticionesExternas;
         alternativas = resultadoBarrido.alternativas;
         if (opciones.google) {
           googleClave = opciones.google.clave ? 1 : 0;
@@ -174,6 +176,7 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
         planes_saltados_sellados: planesSaltadosSellados,
         planes_saltados_por_red: planesSaltadosPorRed,
         peticiones_nominatim_ciudad: peticionesNominatimCiudad,
+        peticiones_externas: peticionesExternas,
         ...(googleClave !== undefined ? { google_clave: googleClave, google_peticiones: googlePeticiones } : {}),
         ...(alternativas
           ? {

@@ -125,6 +125,30 @@ describe("FichaGoogle con clave", () => {
     expect(container.querySelector("gmp-place-details")!.closest("[hidden]")).toBeNull();
   });
 
+  it("gmp-error NOT_FOUND se trata como gmp-requesterror y marca obsoleto una sola vez (fpv-ac2)", async () => {
+    const { container } = render(ficha("casado", true));
+    await waitFor(() => expect(container.querySelector("gmp-place-details")).not.toBeNull());
+    const elemento = container.querySelector("gmp-place-details")!;
+    act(() => {
+      elemento.dispatchEvent(Object.assign(new Event("gmp-error"), { error: { code: "NOT_FOUND" } }));
+      elemento.dispatchEvent(Object.assign(new Event("gmp-requesterror"), { error: { code: "NOT_FOUND" } }));
+    });
+    expect((await screen.findByRole("alert")).textContent).toBe(TEXTO_MENSAJE_FICHA.errorGoogle);
+    expect(posts.filter((p) => (p as { obsoleto?: boolean }).obsoleto)).toHaveLength(1);
+    expect(container.querySelector(".ficha-google")!.getAttribute("data-estado-ficha")).toBe("mensaje");
+  });
+
+  it("data-estado-ficha recorre inactiva, cargando y ficha (fpv-ac2)", async () => {
+    const { container, rerender } = render(ficha("casado", false));
+    const estado = () => container.querySelector(".ficha-google")!.getAttribute("data-estado-ficha");
+    expect(estado()).toBe("inactiva");
+    rerender(ficha("casado", true));
+    await waitFor(() => expect(container.querySelector("gmp-place-details")).not.toBeNull());
+    expect(estado()).toBe("cargando");
+    act(() => void container.querySelector("gmp-place-details")!.dispatchEvent(new Event("gmp-load")));
+    await waitFor(() => expect(estado()).toBe("ficha"));
+  });
+
   it("429: mensaje de cupo, enlace a Maps y ningún elemento (fic-ac3)", async () => {
     respuestas = [{ status: 429, cuerpo: { motivo: "cupo-agotado" } }];
     const { container } = render(ficha("casado", true));
@@ -196,5 +220,19 @@ describe("invariantes de FichaGoogle (property tests)", () => {
       }),
       { numRuns: 30 },
     );
+  });
+});
+
+describe("FichaGoogle sin conexión (sc-ac9)", () => {
+  it("con navigator.onLine false enseña el aviso y el enlace a Maps, sin ningún POST ni carga de Google", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const { container } = render(ficha("casado", true));
+    expect(await screen.findByText(TEXTO_MENSAJE_FICHA.sinConexion)).toBeTruthy();
+    expect(TEXTO_MENSAJE_FICHA.sinConexion).toBe("La ficha de Google necesita conexión.");
+    expect(screen.getByRole("link", { name: "Abrir en Google Maps" }).getAttribute("href")).toBe(HREF);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(mocks.importLibrary).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-estado-ficha]")?.getAttribute("data-estado-ficha")).toBe("mensaje");
+    vi.restoreAllMocks();
   });
 });

@@ -221,6 +221,27 @@ export interface EstadoRelleno {
   planes_sellados_sin_ventaja: number;
   planes_sellados_sin_candidato_claro: number;
   planes_sellados_ciudad_no_encontrada: number;
+  // Por qué quedan paradas "no-resuelta" (resolucion.categoria_motivo, lista
+  // cerrada). `motivo_desconocido` son las guardadas antes de existir la
+  // categoría: bajan solas cuando el barrido las reintenta. Las cinco suman
+  // paradas_no_resueltas. Estas siete salen de estado_relleno_motivos(), y
+  // son opcionales: si esa función aún no existe o falla, `relleno` se
+  // publica igual sin ellas.
+  paradas_no_resueltas_sin_candidatos?: number;
+  paradas_no_resueltas_fuera_de_caja?: number;
+  paradas_no_resueltas_nombre_distinto?: number;
+  paradas_no_resueltas_tipo_incompatible?: number;
+  paradas_no_resueltas_motivo_desconocido?: number;
+  // Denominador para medir la resolución sobre nombres de sitio: el total
+  // menos las no-resueltas cuyo nombre no casó con nada en la caja
+  // ("sin-candidatos" o "nombre-distinto", típicamente frases de
+  // actividad). Es una aproximación: un sitio real mal escrito también
+  // cae fuera, y las de motivo desconocido aún cuentan dentro.
+  paradas_con_toponimo?: number;
+  // Paradas sin intentar solo en la última versión de cada plan, que es lo
+  // único que el barrido rehace; paradas_sin_intentar cuenta también las
+  // de versiones antiguas, que nunca bajarán.
+  paradas_sin_intentar_ultima_version?: number;
 }
 
 // Contadores del controlador de la capa gratuita de Google: enteros y claves

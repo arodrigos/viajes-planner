@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CajaDelimitadora, CandidatoLugar } from "../tipos";
-import { categoriaCompatible, elegirMejorCandidato, evaluarCandidato } from "../aceptacion";
+import { categoriaCompatible, categoriaMasAvanzada, elegirMejorCandidato, evaluarCandidato } from "../aceptacion";
 
 // Bounding boxes reales (Nominatim, 2026-10-03): geocodificar "Madrid" y
 // "Valencia" con q=<destino>&format=jsonv2&limit=1.
@@ -150,5 +150,49 @@ describe("elegirMejorCandidato (lug-ac2)", () => {
     );
     expect(resultado.candidato).toBeNull();
     expect(resultado.motivo).toBeTruthy();
+  });
+});
+
+// Motivo estable de "no-resuelta": la fase más avanzada a la que llegó algún
+// candidato, para poder agregarlo en /api/salud sin leer texto libre.
+describe("categoría de rechazo de elegirMejorCandidato", () => {
+  const prado = (parcial: Partial<CandidatoLugar>) =>
+    candidato({ nombreFuente: "Museo del Prado", lat: 40.4137925, lon: -3.6920407, categoriaOsm: "tourism", ...parcial });
+
+  it("sin candidatos es «sin-candidatos»", () => {
+    const resultado = elegirMejorCandidato("Tarde de juegos en familia", [], BBOX_MADRID, "otro");
+    expect(resultado).toEqual({ candidato: null, motivo: "ningún candidato aceptable", categoria: "sin-candidatos" });
+  });
+
+  it("todos fuera de la caja es «fuera-de-caja»", () => {
+    const resultado = elegirMejorCandidato("Museo del Prado", [prado({ lat: 39.47, lon: -0.37 })], BBOX_MADRID, "museo");
+    expect(resultado.candidato === null && resultado.categoria).toBe("fuera-de-caja");
+  });
+
+  it("dentro de la caja pero con otro nombre es «nombre-distinto»", () => {
+    const resultado = elegirMejorCandidato("Museo del Prado", [prado({ nombreFuente: "Estación de Atocha" })], BBOX_MADRID, "museo");
+    expect(resultado.candidato === null && resultado.categoria).toBe("nombre-distinto");
+  });
+
+  it("caja y nombre bien pero tipo incompatible es «tipo-incompatible»", () => {
+    const resultado = elegirMejorCandidato("Museo del Prado", [prado({ categoriaOsm: "highway" })], BBOX_MADRID, "museo");
+    expect(resultado.candidato === null && resultado.categoria).toBe("tipo-incompatible");
+  });
+
+  it("con rechazos mezclados se queda con la fase más avanzada, sea cual sea el orden", () => {
+    const candidatos = [prado({ lat: 39.47, lon: -0.37 }), prado({ categoriaOsm: "highway" }), prado({ nombreFuente: "Otra cosa" })];
+    for (const orden of [candidatos, [...candidatos].reverse()]) {
+      const resultado = elegirMejorCandidato("Museo del Prado", orden, BBOX_MADRID, "museo");
+      expect(resultado.candidato === null && resultado.categoria).toBe("tipo-incompatible");
+    }
+  });
+
+  it("categoriaMasAvanzada es conmutativa y respeta el orden de la regla", () => {
+    const fases = ["sin-candidatos", "fuera-de-caja", "nombre-distinto", "tipo-incompatible"] as const;
+    fases.forEach((a, i) =>
+      fases.forEach((b, j) => {
+        expect(categoriaMasAvanzada(a, b)).toBe(fases[Math.max(i, j)]);
+      }),
+    );
   });
 });

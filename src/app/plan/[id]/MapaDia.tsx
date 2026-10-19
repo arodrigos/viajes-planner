@@ -56,6 +56,21 @@ function calcularBounds(puntos: PuntoMapaDia[]): [[number, number], [number, num
 
 export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisitados, centroParadaId, cajaEtapa, alto = 280 }: PropiedadesMapaDia) {
   const [fallo, setFallo] = useState(false);
+  // Sin red, el estilo de OpenFreeMap no llega y MapLibre no siempre emite
+  // error a tiempo (el día que se carga con la página ya sin conexión se
+  // quedaba el hueco): el aviso sale por el estado del navegador, y se
+  // retira solo al volver la conexión.
+  const [sinRed, setSinRed] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+  useEffect(() => {
+    const alCambiar = () => setSinRed(!navigator.onLine);
+    window.addEventListener("online", alCambiar);
+    window.addEventListener("offline", alCambiar);
+    alCambiar();
+    return () => {
+      window.removeEventListener("online", alCambiar);
+      window.removeEventListener("offline", alCambiar);
+    };
+  }, []);
   const mapaRef = useRef<MapRef>(null);
 
   const puntosOrdenados = useMemo(() => [...puntos].sort((a, b) => a.orden - b.orden), [puntos]);
@@ -81,7 +96,7 @@ export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisita
     [puntosOrdenados],
   );
 
-  if (fallo) {
+  if (fallo || sinRed) {
     // map-ac5: el fallo del mapa no esconde la lista de paradas ni los
     // enlaces a Google Maps -ambos viven fuera de este componente, en
     // VistaPlan.tsx.
