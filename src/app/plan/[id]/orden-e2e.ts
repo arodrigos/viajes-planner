@@ -65,6 +65,7 @@ export async function abrirPlan(browser: Browser, email: string, planId: string,
 
 // Nombres de las tarjetas en el orden en que se pintan.
 export async function ordenPintado(pagina: Page): Promise<string[]> {
+  await pagina.getByTestId("numero-parada").first().waitFor();
   return pagina.locator("li:has([data-testid='numero-parada']) h4").allInnerTexts();
 }
 

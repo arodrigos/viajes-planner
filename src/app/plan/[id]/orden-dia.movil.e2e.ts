@@ -13,7 +13,7 @@ const subir = (n: string) => `Subir «${n}»`;
 const tres = () => [
   parada("a", NOMBRES.a, "manana", 0),
   parada("b", NOMBRES.b, "manana", 1),
-  parada("c", NOMBRES.c, "tarde", 2),
+  parada("c", NOMBRES.c, "comida", 2),
 ];
 
 test("bajar una parada la mueve al instante, se guarda con Deshacer y sobrevive a recargar (reo-ac1, reo-ac2)", async ({ browser }) => {
@@ -105,7 +105,7 @@ test("una ráfaga de pulsaciones es un solo POST y una sola versión (reo-ac3)",
   await contexto.close();
 });
 
-test("subir la primera de la tarde la pasa a la mañana (reo-ac4)", async ({ browser }) => {
+test("subir la primera de la comida la pasa a la mañana (reo-ac4)", async ({ browser }) => {
   const supabase = clienteDePrueba("servicio");
   const email = "ci-test-orden-dia4@example.com";
   const planId = await sembrarDia(supabase, email, "ac4", tres());
@@ -155,14 +155,15 @@ test("sin conexión avisa y Reintentar guarda; una versión nueva en otra pantal
     p_orden: [
       { id: "a", franja_id: "manana" },
       { id: "b", franja_id: "manana" },
-      { id: "c", franja_id: "tarde" },
+      { id: "c", franja_id: "comida" },
     ],
   });
   expect(error).toBeNull();
   await pagina.getByRole("button", { name: bajar("Gamma") }).waitFor();
   await pagina.getByRole("button", { name: bajar("Beta") }).click();
   await expect(pagina.getByText("Este plan ha cambiado en otra pantalla.", { exact: false })).toBeVisible();
-  expect(await ordenPintado(pagina)).toEqual(["Alfa", "Beta", "Gamma"]);
+  // Primero llega el 409 y luego la lectura del plan más reciente.
+  await expect.poll(() => ordenPintado(pagina)).toEqual(["Alfa", "Beta", "Gamma"]);
   await contexto.close();
 });
 
