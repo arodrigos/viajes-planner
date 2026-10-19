@@ -115,4 +115,32 @@ describe("useOrdenDia (reo-ac3)", () => {
       unmount();
     }
   });
+
+  it("aplicarOrden inmediato guarda sin esperar la agrupación y usa su aviso (opt-ac1)", async () => {
+    const guardado = planCon(2, ["B", "A"]);
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST" ? respuesta(200, { plan: guardado }) : respuesta(200, guardado),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useOrdenDia(planCon(1, ["A", "B"]), vi.fn()));
+
+    act(() =>
+      result.current.aplicarOrden(0, [{ id: "B", franja_id: "f0" }, { id: "A", franja_id: "f0" }], { inmediato: true, aviso: "Recorrido más corto: 1,0 km menos" }),
+    );
+    expect(result.current.ordenEnPantalla(0).map((e) => e.id)).toEqual(["B", "A"]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    expect(result.current.aviso).toEqual({ texto: "Recorrido más corto: 1,0 km menos", conDeshacer: true });
+  });
+
+  it("informar muestra un aviso sin Deshacer y sin llamar al servidor (opt-ac4)", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useOrdenDia(planCon(1, ["A", "B"]), vi.fn()));
+    act(() => result.current.informar(TEXTOS_ORDEN.yaOptimo));
+    expect(result.current.aviso).toEqual({ texto: "Este día ya va en el orden más corto", conDeshacer: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -1059,3 +1059,11 @@ footer a,
 .aviso-orden-error {
   color: var(--peligro-texto);
 }
+
+.optimizar-orden {
+  margin-block: var(--espacio-2);
+}
+
+.optimizar-orden .ayuda {
+  margin: var(--espacio-1) 0 0;
+}

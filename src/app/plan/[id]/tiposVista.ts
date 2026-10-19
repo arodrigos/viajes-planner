@@ -1,6 +1,6 @@
 import type { EstadoGoogleParada } from "@/lib/google/estados";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
-import type { CosteParada, CuriosidadesParada, GuiaParada, EtapaPlan, TrasladoPlan } from "@/lib/plan/tipos";
+import type { AnclaAlojamiento, CosteParada, CuriosidadesParada, GuiaParada, EtapaPlan, TrasladoPlan } from "@/lib/plan/tipos";
 import type { Tramo } from "@/lib/plan/tramos";
 import type { PresupuestoPublico } from "@/lib/presupuesto/texto";
 import type { EventosVersion } from "@/lib/eventos/tipos";
@@ -84,6 +84,8 @@ export interface DiaPublico {
   fecha: string;
   // etapas-pais: índice de la etapa del día, solo en viajes de varias ciudades.
   etapa?: number;
+  // optimizar-orden: el alojamiento es el inicio del recorrido si trae coordenadas.
+  ancla_alojamiento?: AnclaAlojamiento;
   franjas: FranjaPublica[];
   paradas: ParadaPublica[];
   paseo?: PaseoPublico;

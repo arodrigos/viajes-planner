@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { aplicarOrden, type EntradaOrden } from "@/lib/plan/reordenar";
+import { MAX_UBICADAS_OPTIMIZAR, MEJORA_MINIMA_KM, MIN_UBICADAS_OPTIMIZAR, optimizarOrdenDia, ubicadasDelDia } from "@/lib/plan/optimizarOrden";
 import { formatearFechaDia } from "@/lib/plan/dias";
 import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada } from "@/lib/plan/erroresParada";
 import { TEXTOS_AHORA } from "@/lib/textos/ahora";
@@ -29,7 +30,7 @@ const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue 
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void }) {
+export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void }) {
   // El orden de la pantalla se adelanta al del servidor mientras se guarda;
   // la copia del servidor se conserva para atar lo provisional a ella.
   const diaServidor = diaDelServidor;
@@ -37,7 +38,25 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
   const recalculando = ordenPendiente !== undefined;
   const conControles = onMover !== undefined && dia.paradas.length >= 2;
   const tieneAlgunaParada = dia.paradas.length > 0;
+  const ubicadas = ubicadasDelDia(dia.paradas);
+  const ayudaOptimizar =
+    ubicadas < MIN_UBICADAS_OPTIMIZAR
+      ? `Para optimizar hacen falta al menos ${MIN_UBICADAS_OPTIMIZAR} sitios ubicados en el día`
+      : ubicadas > MAX_UBICADAS_OPTIMIZAR
+        ? `Optimizar admite hasta ${MAX_UBICADAS_OPTIMIZAR} sitios ubicados por día`
+        : null;
   const puntos = puntosDelDia(dia);
+
+  // optimizar-orden: se calcula aquí, en el navegador y sobre el orden que se ve;
+  // el hook solo guarda. Una mejora de menos de 0,1 km no merece una versión.
+  function optimizar() {
+    if (!onOptimizar) return;
+    const ancla = diaServidor.ancla_alojamiento?.tipo === "zona-propuesta" ? diaServidor.ancla_alojamiento.centroide : null;
+    const resultado = optimizarOrdenDia(dia.paradas, dia.franjas, ancla);
+    const mejora = resultado.kmAntes - resultado.kmDespues;
+    if (!resultado.mejora || mejora < MEJORA_MINIMA_KM) onOptimizar(null, "");
+    else onOptimizar(resultado.orden, `Recorrido más corto: ${formatearKm(mejora)} menos (estimación en línea recta)`);
+  }
   const [paradaActivaId, setParadaActivaId] = useState<string | null>(null);
   const [solicitudAlternativas, setSolicitudAlternativas] = useState<{ paradaId: string; veces: number } | null>(null);
   const [solicitudGoogle, setSolicitudGoogle] = useState<{ paradaId: string; veces: number } | null>(null);
@@ -167,6 +186,18 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
         <p className="ayuda ayuda-orden" id="ayuda-orden">
           Cambia el orden con ↑ ↓. Se guarda solo y puedes deshacerlo.
         </p>
+      )}
+      {onOptimizar && dia.paradas.length >= 2 && (
+        <div className="optimizar-orden">
+          <button type="button" className="boton" disabled={ayudaOptimizar !== null} aria-describedby={ayudaOptimizar ? "ayuda-optimizar" : undefined} onClick={optimizar}>
+            Optimizar orden
+          </button>
+          {ayudaOptimizar && (
+            <p className="ayuda" id="ayuda-optimizar">
+              {ayudaOptimizar}
+            </p>
+          )}
+        </div>
       )}
       {/* hoy-ac1: solo el día de hoy, y lo primero del panel. */}
       {esHoy && (
