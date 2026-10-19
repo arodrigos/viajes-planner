@@ -20,9 +20,12 @@ function indiceFranja(franjas: readonly { id: string }[], franjaId: string): num
 }
 
 // Mover a mano puede cambiar de franja (decisión de Adrián, opción A): una
-// parada que ya es la primera de su franja y sube toma la franja inmediata
-// anterior aunque esté vacía, y la última que baja toma la siguiente. Así
-// cada pulsación es un paso y volver atrás es la pulsación contraria.
+// parada que es la primera de su franja y sube toma la franja de la parada
+// que tenía encima (la última visible), no la inmediata anterior, que en los
+// planes reales suele estar vacía y pintaría un encabezado nuevo. Lo mismo al
+// bajar. En el extremo del día no hay vecino del que copiar la franja: sube a
+// la primera franja del día o baja a la última, para que la última parada
+// pueda volver a su franja con la pulsación contraria.
 export function moverParada(
   orden: readonly EntradaOrden[],
   franjas: readonly { id: string }[],
@@ -33,18 +36,31 @@ export function moverParada(
   const copia = orden.map((e) => ({ ...e }));
   if (i < 0) return copia;
   const vecino = direccion === "arriba" ? i - 1 : i + 1;
-  if (vecino < 0 || vecino >= orden.length) return copia;
 
-  if (orden[vecino].franja_id === orden[i].franja_id) {
-    [copia[i], copia[vecino]] = [copia[vecino], copia[i]];
+  if (vecino >= 0 && vecino < orden.length) {
+    if (orden[vecino].franja_id === orden[i].franja_id) {
+      [copia[i], copia[vecino]] = [copia[vecino], copia[i]];
+    } else {
+      copia[i] = { id: orden[i].id, franja_id: orden[vecino].franja_id };
+    }
     return copia;
   }
 
   const actual = indiceFranja(franjas, orden[i].franja_id);
-  const destino = actual + (direccion === "arriba" ? -1 : 1);
-  if (actual < 0 || destino < 0 || destino >= franjas.length) return copia;
-  copia[i] = { id: orden[i].id, franja_id: franjas[destino].id };
+  const extremo = direccion === "arriba" ? 0 : franjas.length - 1;
+  if (actual < 0 || actual === extremo) return copia;
+  copia[i] = { id: orden[i].id, franja_id: franjas[extremo].id };
   return copia;
+}
+
+// Los botones Subir/Bajar se activan solo si pulsarlos cambia algo.
+export function puedeMoverParada(
+  orden: readonly EntradaOrden[],
+  franjas: readonly { id: string }[],
+  id: string,
+  direccion: "arriba" | "abajo",
+): boolean {
+  return !mismoOrden(orden, moverParada(orden, franjas, id, direccion));
 }
 
 export type ResultadoValidacion = { ok: true } | { ok: false; motivo: string };

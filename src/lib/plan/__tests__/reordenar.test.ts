@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { agruparPorFranja, aplicarOrden, mismoOrden, moverParada, ordenDesdeGrupos, validarOrden, type EntradaOrden } from "../reordenar";
+import { agruparPorFranja, aplicarOrden, mismoOrden, moverParada, ordenDesdeGrupos, puedeMoverParada, validarOrden, type EntradaOrden } from "../reordenar";
 
 const FRANJAS = [{ id: "f0" }, { id: "f1" }, { id: "f2" }, { id: "f3" }];
 
@@ -41,6 +41,10 @@ describe("moverParada (invariantes)", () => {
         const j = arriba.findIndex((e) => e.id === id);
         // Extremo del día: el primer movimiento no hace nada o el de vuelta cae en el borde.
         fc.pre(i > 0 && j < arriba.length - 1);
+        // Al cruzar toma la franja de la vecina; solo se recupera la original si
+        // la parada compartía franja con la que tenía debajo (si estaba sola,
+        // no hay forma de saber cuál era sin estado).
+        fc.pre(indiceDeFranja(dia[i - 1]) === indiceDeFranja(dia[i]) || indiceDeFranja(dia[i + 1]) === indiceDeFranja(dia[i]));
         expect(vuelta).toEqual(dia);
       }),
     );
@@ -52,6 +56,7 @@ describe("moverParada (invariantes)", () => {
         const i = dia.findIndex((e) => e.id === id);
         const j = abajo.findIndex((e) => e.id === id);
         fc.pre(i < dia.length - 1 && j > 0);
+        fc.pre(indiceDeFranja(dia[i + 1]) === indiceDeFranja(dia[i]) || indiceDeFranja(dia[i - 1]) === indiceDeFranja(dia[i]));
         expect(vuelta).toEqual(dia);
       }),
     );
@@ -87,14 +92,25 @@ describe("moverParada (ejemplos)", () => {
     expect(resultado.map((e) => `${e.id}:${e.franja_id}`)).toEqual(["A:f0", "B:f0", "C:f0", "D:f1"]);
   });
 
-  it("toma la franja inmediata aunque esté vacía", () => {
+  it("toma la franja de la vecina, no la inmediata si está vacía (reo-ac4)", () => {
     const conHueco: EntradaOrden[] = [{ id: "A", franja_id: "f0" }, { id: "C", franja_id: "f2" }];
-    expect(moverParada(conHueco, FRANJAS, "C", "arriba")[1].franja_id).toBe("f1");
+    expect(moverParada(conHueco, FRANJAS, "C", "arriba")[1].franja_id).toBe("f0");
+    const bajando: EntradaOrden[] = [{ id: "A", franja_id: "f0" }, { id: "C", franja_id: "f3" }];
+    expect(moverParada(bajando, FRANJAS, "A", "abajo")[0].franja_id).toBe("f3");
   });
 
-  it("en los extremos devuelve la lista igual", () => {
+  it("la última del día que subió vuelve a la última franja al bajar", () => {
+    const inicial: EntradaOrden[] = [{ id: "A", franja_id: "f1" }, { id: "B", franja_id: "f3" }];
+    const arriba = moverParada(inicial, FRANJAS, "B", "arriba");
+    expect(arriba[1].franja_id).toBe("f1");
+    expect(puedeMoverParada(arriba, FRANJAS, "B", "abajo")).toBe(true);
+    expect(moverParada(arriba, FRANJAS, "B", "abajo")).toEqual(inicial);
+  });
+
+  it("en los extremos sin franja a la que ir devuelve la lista igual", () => {
     expect(mismoOrden(moverParada(dia, FRANJAS, "A", "arriba"), dia)).toBe(true);
-    expect(mismoOrden(moverParada(dia, FRANJAS, "D", "abajo"), dia)).toBe(true);
+    const ultima: EntradaOrden[] = [{ id: "A", franja_id: "f0" }, { id: "D", franja_id: "f3" }];
+    expect(puedeMoverParada(ultima, FRANJAS, "D", "abajo")).toBe(false);
   });
 });
 

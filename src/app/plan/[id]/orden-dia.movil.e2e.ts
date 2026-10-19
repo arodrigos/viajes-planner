@@ -127,6 +127,32 @@ test("subir la primera de la comida la pasa a la mañana (reo-ac4)", async ({ br
   await contexto.close();
 });
 
+test("cruzar con una franja vacía en medio va a la última visible y Bajar la devuelve (reo-ac4)", async ({ browser }) => {
+  const supabase = clienteDePrueba("servicio");
+  const email = "ci-test-orden-dia4b@example.com";
+  // Sin nadie en la comida: la tarde no es contigua a la mañana.
+  const planId = await sembrarDia(supabase, email, "ac4b", [
+    parada("a", NOMBRES.a, "manana", 0),
+    parada("b", NOMBRES.b, "tarde", 1),
+    parada("c", NOMBRES.c, "tarde", 2),
+  ]);
+  const { contexto, pagina } = await abrirPlan(browser, email, planId);
+
+  await pagina.getByRole("button", { name: subir("Beta") }).click();
+  await expect(pagina.getByText("Orden guardado")).toBeVisible();
+  let guardada = await ultimaVersionDelDia(supabase, planId);
+  expect(guardada.paradas.map((p) => `${p.id_externo}:${p.franja_id}`)).toEqual(["a:manana", "b:manana", "c:tarde"]);
+  await capturar(pagina, "reordenar-dia", "cruzar-franja-vacia");
+
+  // Beta sigue teniendo vecina debajo, así que Bajar la devuelve a la tarde.
+  await expect(pagina.getByRole("button", { name: bajar("Beta") })).toBeEnabled();
+  await pagina.getByRole("button", { name: bajar("Beta") }).click();
+  await expect.poll(async () => (await ultimaVersionDelDia(supabase, planId)).version).toBe(3);
+  guardada = await ultimaVersionDelDia(supabase, planId);
+  expect(guardada.paradas.map((p) => `${p.id_externo}:${p.franja_id}`)).toEqual(["a:manana", "b:tarde", "c:tarde"]);
+  await contexto.close();
+});
+
 test("sin conexión avisa y Reintentar guarda; una versión nueva en otra pantalla da el aviso de 409 (reo-ac7)", async ({ browser }) => {
   const supabase = clienteDePrueba("servicio");
   const email = "ci-test-orden-dia7@example.com";
