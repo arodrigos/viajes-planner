@@ -1033,10 +1033,16 @@ footer a,
   opacity: 0.45;
 }
 
+/* fixed y no sticky: el scroll es del body y el sticky no actuaba, dejando el
+   aviso a miles de píxeles del borde visible. */
 .aviso-orden-vivo {
-  position: sticky;
-  bottom: var(--espacio-2);
+  position: fixed;
+  left: var(--espacio-2);
+  right: var(--espacio-2);
+  bottom: calc(var(--espacio-2) + env(safe-area-inset-bottom, 0px));
   z-index: 5;
+  max-width: 40rem;
+  margin-inline: auto;
 }
 
 .aviso-orden {
