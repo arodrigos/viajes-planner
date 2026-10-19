@@ -1,16 +1,14 @@
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
+import { franjasComoArray } from "@/lib/plan/config-franjas";
 import type { Parada, Plan } from "@/lib/plan/tipos";
 import { sembrarPlan } from "./semillas-e2e";
 
 // Siembra y ayudas comunes de los e2e de reordenar-dia (orden-dia y
 // orden-ahora): un plan de un día en Granada con paradas de varias franjas.
-export const FRANJAS = [
-  { id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" },
-  { id: "comida", etiqueta: "Comida", hora_inicio: "13:00", hora_fin: "15:00" },
-  { id: "tarde", etiqueta: "Tarde", hora_inicio: "15:00", hora_fin: "20:00" },
-];
+// Las horas salen de config-franjas.ts: es el único sitio con literales horarios.
+export const FRANJAS = franjasComoArray("Granada").filter((f) => ["manana", "comida", "tarde"].includes(f.id));
 
 export function parada(id: string, nombre: string, franja: string, indice: number): Parada {
   return {
