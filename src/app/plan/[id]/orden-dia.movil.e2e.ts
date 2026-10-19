@@ -52,6 +52,12 @@ test("bajar una parada la mueve al instante, se guarda con Deshacer y sobrevive 
 
   await expect(pagina.getByText("Orden guardado")).toBeVisible();
   await expect(pagina.getByRole("button", { name: "Deshacer" })).toBeVisible();
+  // toBeVisible no mira el viewport: el aviso tiene que quedar dentro de lo que se ve, sin hacer scroll.
+  const caja = await pagina.getByText("Orden guardado").boundingBox();
+  const alto = pagina.viewportSize()?.height ?? 0;
+  expect(caja).not.toBeNull();
+  expect(caja!.y).toBeGreaterThanOrEqual(0);
+  expect(caja!.y + caja!.height).toBeLessThanOrEqual(alto);
   await capturar(pagina, "reordenar-dia", "guardado");
   const guardada = await ultimaVersionDelDia(supabase, planId);
   expect(guardada.version).toBe(2);
@@ -139,6 +145,10 @@ test("sin conexión avisa y Reintentar guarda; una versión nueva en otra pantal
   await expect(pagina.getByText("No se ha podido guardar el nuevo orden. Comprueba la conexión y vuelve a intentarlo.")).toBeVisible();
   // El orden vuelve al guardado: no se promete lo que no está en el servidor.
   expect(await ordenPintado(pagina)).toEqual(["Alfa", "Beta", "Gamma"]);
+  const cajaError = await pagina.getByText("No se ha podido guardar el nuevo orden", { exact: false }).boundingBox();
+  const altoError = pagina.viewportSize()?.height ?? 0;
+  expect(cajaError!.y).toBeGreaterThanOrEqual(0);
+  expect(cajaError!.y + cajaError!.height).toBeLessThanOrEqual(altoError);
   await capturar(pagina, "reordenar-dia", "error-red");
   await comprobarAccesibilidad(pagina);
 
