@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { aplicarOrden, mismoOrden, moverParada, validarOrden, type EntradaOrden } from "../reordenar";
+import { agruparPorFranja, aplicarOrden, mismoOrden, moverParada, ordenDesdeGrupos, validarOrden, type EntradaOrden } from "../reordenar";
 
 const FRANJAS = [{ id: "f0" }, { id: "f1" }, { id: "f2" }, { id: "f3" }];
 
@@ -112,5 +112,37 @@ describe("validarOrden y aplicarOrden", () => {
       { id: "B", franja_id: "f1", nombre: "b" },
       { id: "A", franja_id: "f1", nombre: "a" },
     ]);
+  });
+});
+
+describe("agruparPorFranja / ordenDesdeGrupos (invariantes del arrastre)", () => {
+  it("ida y vuelta devuelve el mismo orden", () => {
+    fc.assert(
+      fc.property(diaValido, (dia) => {
+        expect(ordenDesdeGrupos(agruparPorFranja(dia, FRANJAS), FRANJAS)).toEqual(dia);
+      }),
+    );
+  });
+
+  it("aplane lo que aplane, las franjas no decrecen y no se pierde ni se duplica ninguna parada", () => {
+    fc.assert(
+      fc.property(
+        diaValido,
+        fc.array(fc.nat(), { maxLength: 12 }),
+        (dia, azar) => {
+          // Mueve ids entre grupos de forma arbitraria, como haría un arrastre.
+          const grupos = agruparPorFranja(dia, FRANJAS);
+          azar.forEach((n, i) => {
+            const origen = FRANJAS[n % FRANJAS.length].id;
+            const destino = FRANJAS[(n + i + 1) % FRANJAS.length].id;
+            const id = grupos[origen].shift();
+            if (id) grupos[destino].splice(n % (grupos[destino].length + 1), 0, id);
+          });
+          const plano = ordenDesdeGrupos(grupos, FRANJAS);
+          expect(plano.map(indiceDeFranja)).toEqual([...plano.map(indiceDeFranja)].sort((a, b) => a - b));
+          expect(plano.map((e) => e.id).sort()).toEqual(dia.map((e) => e.id).sort());
+        },
+      ),
+    );
   });
 });

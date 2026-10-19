@@ -93,3 +93,17 @@ export function ordenDeParadas(paradas: readonly { id: string; franja_id: string
 export function mismoOrden(a: readonly EntradaOrden[], b: readonly EntradaOrden[]): boolean {
   return a.length === b.length && a.every((e, i) => e.id === b[i].id && e.franja_id === b[i].franja_id);
 }
+
+// El arrastre trabaja con una lista de ids por franja; el servidor, con una
+// lista plana. Aplanar siguiendo el orden de las franjas del día es lo que
+// garantiza que la secuencia de franjas nunca decrezca, venga el grupo de
+// donde venga.
+export function agruparPorFranja(orden: readonly EntradaOrden[], franjas: readonly { id: string }[]): Record<string, string[]> {
+  const grupos: Record<string, string[]> = Object.fromEntries(franjas.map((f) => [f.id, []]));
+  for (const entrada of orden) grupos[entrada.franja_id]?.push(entrada.id);
+  return grupos;
+}
+
+export function ordenDesdeGrupos(grupos: Readonly<Record<string, readonly string[]>>, franjas: readonly { id: string }[]): EntradaOrden[] {
+  return franjas.flatMap((franja) => (grupos[franja.id] ?? []).map((id) => ({ id, franja_id: franja.id })));
+}

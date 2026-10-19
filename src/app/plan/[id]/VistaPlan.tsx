@@ -161,6 +161,8 @@ export function VistaPlan({ id }: { id: string }) {
                   ordenPendiente={orden.recalculando(indice) ? orden.ordenEnPantalla(indice) : undefined}
                   onMover={esCopia ? undefined : (idParada, direccion) => orden.mover(indice, idParada, direccion)}
                   onOptimizar={esCopia ? undefined : (nuevo, aviso) => (nuevo ? orden.aplicarOrden(indice, nuevo, { inmediato: true, aviso }) : orden.informar(TEXTOS_ORDEN.yaOptimo))}
+                  // Soltar es un gesto único: no hay ráfaga que agrupar.
+                  onReordenar={esCopia ? undefined : (nuevo) => orden.aplicarOrden(indice, nuevo, { inmediato: true })}
                 />
               );
             })()

@@ -35,4 +35,12 @@ export const CAPTURAS_ESPERADAS = [
   { bloque: "reordenar-dia", fichero: "una-parada.png" },
   { bloque: "reordenar-dia", fichero: "sin-conexion.png" },
   { bloque: "reordenar-dia", fichero: "ahora-tras-ordenar.png" },
+  { bloque: "arrastrar-paradas", fichero: "antes.png" },
+  { bloque: "arrastrar-paradas", fichero: "durante.png" },
+  { bloque: "arrastrar-paradas", fichero: "despues.png" },
+  { bloque: "arrastrar-paradas", fichero: "tarjeta-1180.png" },
+  { bloque: "arrastrar-paradas", fichero: "tarjeta-820.png" },
+  { bloque: "arrastrar-paradas", fichero: "tarjeta-360.png" },
+  { bloque: "arrastrar-paradas", fichero: "scroll-antes.png" },
+  { bloque: "arrastrar-paradas", fichero: "scroll-despues.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];

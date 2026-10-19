@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
-import { aplicarOrden, type EntradaOrden } from "@/lib/plan/reordenar";
+import { aplicarOrden, ordenDeParadas, type EntradaOrden } from "@/lib/plan/reordenar";
 import { MAX_UBICADAS_OPTIMIZAR, MEJORA_MINIMA_KM, MIN_UBICADAS_OPTIMIZAR, optimizarOrdenDia, ubicadasDelDia } from "@/lib/plan/optimizarOrden";
 import { formatearFechaDia } from "@/lib/plan/dias";
 import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada } from "@/lib/plan/erroresParada";
@@ -17,6 +17,7 @@ import { calcularComoLlegar, progresoDelDia, puntosDelDia, siguienteSinVisitar, 
 import { claveNavegador } from "@/lib/google/claveNavegador";
 import { TarjetaAhora } from "./TarjetaAhora";
 import { TarjetaParada } from "./TarjetaParada";
+import { ProveedorArrastre, reducirMovimiento } from "./arrastre";
 import type { DiaPublico } from "./tiposVista";
 
 // map-ac1: carga dinámica sin SSR -maplibre-gl exige `window` y no se
@@ -30,13 +31,14 @@ const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue 
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void }) {
+export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void }) {
   // El orden de la pantalla se adelanta al del servidor mientras se guarda;
   // la copia del servidor se conserva para atar lo provisional a ella.
   const diaServidor = diaDelServidor;
   const dia = ordenPendiente ? { ...diaServidor, paradas: aplicarOrden(diaServidor.paradas, ordenPendiente) } : diaServidor;
   const recalculando = ordenPendiente !== undefined;
   const conControles = onMover !== undefined && dia.paradas.length >= 2;
+  const conArrastre = conControles && onReordenar !== undefined;
   const tieneAlgunaParada = dia.paradas.length > 0;
   const ubicadas = ubicadasDelDia(dia.paradas);
   const ayudaOptimizar =
@@ -174,6 +176,68 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
   const todoAPie = tramosDelDia.every((t) => t.modo === "a-pie");
   const tramos = puntos.length > 0 ? urlRecorridoDia(puntos.map((p) => ({ lat: p.lat, lon: p.lon })), todoAPie) : [];
 
+  const franjasDelDia = (conAsa: boolean) =>
+    dia.franjas.map((franja) => {
+          const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
+          if (paradasDeLaFranja.length === 0) return null;
+          return (
+            <div key={franja.id} className="seccion-franja">
+              <div
+                className="cabecera-franja"
+                style={{
+                  background: `var(--franja-${franja.id}-fondo, var(--superficie))`,
+                  color: `var(--franja-${franja.id}-texto, var(--foreground))`,
+                }}
+              >
+                <IconoFranja franjaId={franja.id} />
+                {/* maq-ac2: la etiqueta va SIEMPRE en texto -el icono y
+                    el color de fondo son un refuerzo visual, nunca el
+                    único portador de la información. */}
+                <h3>{franja.etiqueta}</h3>
+              </div>
+              <ul className="pila">
+                {paradasDeLaFranja.map((parada) => (
+                  <TarjetaParada
+                    key={parada.id}
+                    planId={planId}
+                    parada={nombresProvisionales?.[parada.id] ? { ...parada, nombre: nombresProvisionales[parada.id] } : parada}
+                    franjaId={franja.id}
+                    ciudad={etapa?.ciudad ?? destino}
+                    tramo={tramoHasta.get(parada.id)}
+                    tarjetaRef={(elemento) => {
+                      if (elemento) refsTarjetas.current.set(parada.id, elemento);
+                      else refsTarjetas.current.delete(parada.id);
+                    }}
+                    activa={parada.id === paradaActivaId}
+                    solicitudAlternativas={solicitudAlternativas?.paradaId === parada.id ? solicitudAlternativas.veces : 0}
+                    solicitudGoogle={solicitudGoogle?.paradaId === parada.id ? solicitudGoogle.veces : 0}
+                    hoy={hoy}
+                    esHoy={esHoy}
+                    esSiguiente={siguienteParada?.id === parada.id}
+                    hrefComoLlegar={hrefComoLlegar ?? undefined}
+                    visitaEnCurso={paradaConVisitaEnCurso === parada.id}
+                    cambiando={cambiando}
+                    error={leerError(errores, parada.id)}
+                    onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
+                    onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
+                    arrastre={conAsa && conControles ? { indice: paradasDeLaFranja.indexOf(parada), reducirMovimiento: reducirMovimiento() } : undefined}
+                    orden={
+                      conControles
+                        ? {
+                            numero: dia.paradas.indexOf(parada) + 1,
+                            esPrimera: dia.paradas[0] === parada,
+                            esUltima: dia.paradas[dia.paradas.length - 1] === parada,
+                            onMover: (direccion) => onMover(parada.id, direccion),
+                          }
+                        : undefined
+                    }
+                  />
+                ))}
+              </ul>
+            </div>
+          );
+        });
+
   return (
     <section aria-labelledby="titulo-panel" className="seccion-dia" id={`dia-${indice}`}>
       {/* El foco pasa aquí al cambiar de día (VistaPlan); etv-ac2: en un
@@ -278,65 +342,15 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
         </p>
       )}
       <div className={recalculando ? "tramo-dia tramo-dia-recalculando" : "tramo-dia"} aria-busy={recalculando ? "true" : undefined}>
-        {dia.franjas.map((franja) => {
-          const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
-          if (paradasDeLaFranja.length === 0) return null;
-          return (
-            <div key={franja.id} className="seccion-franja">
-              <div
-                className="cabecera-franja"
-                style={{
-                  background: `var(--franja-${franja.id}-fondo, var(--superficie))`,
-                  color: `var(--franja-${franja.id}-texto, var(--foreground))`,
-                }}
-              >
-                <IconoFranja franjaId={franja.id} />
-                {/* maq-ac2: la etiqueta va SIEMPRE en texto -el icono y
-                    el color de fondo son un refuerzo visual, nunca el
-                    único portador de la información. */}
-                <h3>{franja.etiqueta}</h3>
-              </div>
-              <ul className="pila">
-                {paradasDeLaFranja.map((parada) => (
-                  <TarjetaParada
-                    key={parada.id}
-                    planId={planId}
-                    parada={nombresProvisionales?.[parada.id] ? { ...parada, nombre: nombresProvisionales[parada.id] } : parada}
-                    franjaId={franja.id}
-                    ciudad={etapa?.ciudad ?? destino}
-                    tramo={tramoHasta.get(parada.id)}
-                    tarjetaRef={(elemento) => {
-                      if (elemento) refsTarjetas.current.set(parada.id, elemento);
-                      else refsTarjetas.current.delete(parada.id);
-                    }}
-                    activa={parada.id === paradaActivaId}
-                    solicitudAlternativas={solicitudAlternativas?.paradaId === parada.id ? solicitudAlternativas.veces : 0}
-                    solicitudGoogle={solicitudGoogle?.paradaId === parada.id ? solicitudGoogle.veces : 0}
-                    hoy={hoy}
-                    esHoy={esHoy}
-                    esSiguiente={siguienteParada?.id === parada.id}
-                    hrefComoLlegar={hrefComoLlegar ?? undefined}
-                    visitaEnCurso={paradaConVisitaEnCurso === parada.id}
-                    cambiando={cambiando}
-                    error={leerError(errores, parada.id)}
-                    onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
-                    onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
-                    orden={
-                      conControles
-                        ? {
-                            numero: dia.paradas.indexOf(parada) + 1,
-                            esPrimera: dia.paradas[0] === parada,
-                            esUltima: dia.paradas[dia.paradas.length - 1] === parada,
-                            onMover: (direccion) => onMover(parada.id, direccion),
-                          }
-                        : undefined
-                    }
-                  />
-                ))}
-              </ul>
-            </div>
-          );
-        })}
+        <ProveedorArrastre
+          activo={conArrastre}
+          orden={ordenDeParadas(dia.paradas)}
+          franjas={dia.franjas}
+          nombres={Object.fromEntries(dia.paradas.map((p) => [p.id, nombresProvisionales?.[p.id] ?? p.nombre]))}
+          onReordenar={(nuevo) => onReordenar?.(nuevo)}
+        >
+          {franjasDelDia}
+        </ProveedorArrastre>
       </div>
     </section>
   );
