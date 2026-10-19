@@ -4,7 +4,8 @@ import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { NOMBRES, abrirPlan, ordenPintado, parada, sembrarDia, ultimaVersionDelDia } from "./orden-e2e";
 
 // arr-ac1: arrastrar con el ratón en escritorio, contra la API real.
-test.use({ viewport: { width: 1180, height: 820 } });
+// Alto de sobra para que origen y destino del arrastre estén a la vez en pantalla; las capturas de tarjeta vuelven a 1180x820.
+test.use({ viewport: { width: 1180, height: 1500 } });
 
 const asa = (n: string) => `Arrastrar para mover «${n}»`;
 
@@ -17,7 +18,7 @@ const cuatro = () => [
 
 async function arrastrarAsa(pagina: import("@playwright/test").Page, desde: string, haciaTarjeta: string, soltar = true) {
   // Origen y destino a la vez dentro de la ventana: el ratón solo ve lo visible.
-  await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).evaluate((el) => el.scrollIntoView({ block: "start" }));
+  await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
   const origen = await pagina.getByRole("button", { name: asa(desde) }).boundingBox();
   const destino = await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).boundingBox();
   expect(origen).not.toBeNull();
@@ -44,7 +45,7 @@ test("arrastrar el asa de la tercera parada al primer puesto la deja la primera 
   const supabase = clienteDePrueba("servicio");
   const email = "ci-test-arrastrar@example.com";
   const planId = await sembrarDia(supabase, email, "arr1", cuatro());
-  const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 820 } });
+  const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 1500 } });
 
   expect(await ordenPintado(pagina)).toEqual(["Alfa", "Beta", "Gamma", "Delta"]);
   const cajaAsa = await pagina.getByRole("button", { name: asa("Gamma") }).boundingBox();
@@ -67,6 +68,7 @@ test("arrastrar el asa de la tercera parada al primer puesto la deja la primera 
   await capturar(pagina, "arrastrar-paradas", "despues");
 
   // Las tarjetas con asa y botones a 1180x820 y a 820x1180 (arr-ac4).
+  await pagina.setViewportSize({ width: 1180, height: 820 });
   await capturar(pagina, "arrastrar-paradas", "tarjeta-1180");
   await pagina.setViewportSize({ width: 820, height: 1180 });
   await capturar(pagina, "arrastrar-paradas", "tarjeta-820");
@@ -77,7 +79,7 @@ test("soltar fuera de la lista no cambia el orden ni hace peticiones (arr-ac1, l
   const supabase = clienteDePrueba("servicio");
   const email = "ci-test-arrastrar-fuera@example.com";
   const planId = await sembrarDia(supabase, email, "arr1f", cuatro());
-  const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 820 } });
+  const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 1500 } });
   const posts: string[] = [];
   pagina.on("request", (r) => {
     if (r.method() === "POST" && r.url().includes("/orden")) posts.push(r.url());
@@ -93,7 +95,7 @@ test("soltar fuera de la lista no cambia el orden ni hace peticiones (arr-ac1, l
   await pagina.keyboard.press("Escape");
   await pagina.mouse.up();
 
-  expect(await ordenPintado(pagina)).toEqual(["Alfa", "Beta", "Gamma", "Delta"]);
+  await expect.poll(() => ordenPintado(pagina)).toEqual(["Alfa", "Beta", "Gamma", "Delta"]);
   await expect(pagina.getByText("Orden guardado")).toHaveCount(0);
   expect(posts).toHaveLength(0);
   expect((await ultimaVersionDelDia(supabase, planId)).version).toBe(1);
@@ -109,7 +111,7 @@ test("soltar en otra franja le da esa franja a la parada (opción A)", async ({ 
     parada("c", NOMBRES.c, "comida", 2),
     parada("d", NOMBRES.d, "comida", 3),
   ]);
-  const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 820 } });
+  const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 1500 } });
 
   await arrastrarAsa(pagina, "Gamma", "Alfa");
   await expect(pagina.getByText("Orden guardado")).toBeVisible();
@@ -122,7 +124,7 @@ test("con el teclado: Espacio, flecha abajo y Espacio sobre el asa mueve la para
   const supabase = clienteDePrueba("servicio");
   const email = "ci-test-arrastrar-teclado@example.com";
   const planId = await sembrarDia(supabase, email, "arr1k", cuatro());
-  const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 820 } });
+  const { contexto, pagina } = await abrirPlan(browser, email, planId, { viewport: { width: 1180, height: 1500 } });
 
   await pagina.getByRole("button", { name: asa("Alfa") }).focus();
   await pagina.keyboard.press("Space");

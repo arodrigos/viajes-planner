@@ -40,7 +40,7 @@ test("deslizar el dedo fuera del asa desplaza la página y no cambia el orden (a
   const cdp = await contexto.newCDPSession(pagina);
   // Desde arriba del todo, para que haya recorrido; el punto es uno de la ventana
   // sobre una tarjeta y que no sea un botón (el asa es el único sitio que arrastra).
-  await pagina.locator("li.tarjeta-parada").first().evaluate((el) => el.scrollIntoView({ block: "start" }));
+  await pagina.locator("li.tarjeta-parada").first().evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
   const y0 = await pagina.evaluate(() => window.scrollY);
   const punto = await pagina.evaluate(() => {
     for (let y = 120; y < 600; y += 20) {
@@ -50,13 +50,16 @@ test("deslizar el dedo fuera del asa desplaza la página y no cambia el orden (a
     return null;
   });
   expect(punto).not.toBeNull();
-  await cdp.send("Input.synthesizeScrollGesture", {
-    x: punto!.x,
-    y: punto!.y,
-    yDistance: -250,
-    gestureSourceType: "touch",
-    speed: 600,
-  });
+  // Deslizar con el dedo: touchStart, varios touchMove hacia arriba y touchEnd.
+  // Chromium con hasTouch convierte esa secuencia en un desplazamiento nativo.
+  const toque = (type: "touchStart" | "touchMove" | "touchEnd", y: number) =>
+    cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: punto!.x, y }] });
+  await toque("touchStart", punto!.y);
+  for (let i = 1; i <= 12; i++) {
+    await toque("touchMove", punto!.y - i * 20);
+    await pagina.waitForTimeout(16);
+  }
+  await toque("touchEnd", punto!.y - 240);
   await expect.poll(() => pagina.evaluate(() => window.scrollY)).toBeGreaterThan(y0);
   expect(await ordenPintado(pagina)).toEqual(antes);
   await capturar(pagina, "arrastrar-paradas", "scroll-despues");
