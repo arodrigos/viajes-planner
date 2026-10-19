@@ -32,7 +32,11 @@ export interface CandidatoCiudad {
 // la versión forma parte de las claves de caché de fuenteAbierta.ts, y sin
 // subirla el reintento leería el negativo que dejó la lógica anterior sin
 // preguntar nada nuevo a Nominatim.
-export const VERSION_RESOLUTOR_ACTUAL = 6;
+//
+// 7: una caja de destino sin área ya no gasta la muestra y los candidatos
+// genéricos («Ciudad», «Ciudad con») ya no se geocodifican; los planes que
+// quedaron inconclusos o sellados por ese gasto se reabren una vez.
+export const VERSION_RESOLUTOR_ACTUAL = 7;
 
 // bar-ac4: categoría cerrada del motivo de sellado, para poder contar por
 // tipo en /api/salud.relleno sin tener que hacer coincidir texto libre
@@ -280,6 +284,10 @@ async function intentarCajaDelDestino(
 ): Promise<CiudadEfectiva | { descartado: string }> {
   const bbox = await fuente.geocodificarDestino(destino);
   if (!bbox) return { descartado: "" };
+  // Una caja que spanValido rechaza (el punto sin área de un destino
+  // descriptivo) no puede aceptar el destino aunque la muestra casara: buscar
+  // en ella solo gastaba hasta 11 de las 12 peticiones del plan.
+  if (!spanValido(bbox)) return { descartado: `la caja del destino «${destino}» abarca una zona demasiado grande` };
 
   // bar-ac4: la muestra no se corta siempre en TAMANO_MUESTRA_DESTINO. Con
   // los nombres cortos primero la mayoría de los planes aceptan ya en la
@@ -305,11 +313,8 @@ async function intentarCajaDelDestino(
     if (aceptadas >= MINIMO_ACEPTADAS_DESTINO && intentadas >= TAMANO_MUESTRA_DESTINO) break;
   }
 
-  if (aceptadas >= MINIMO_ACEPTADAS_DESTINO && spanValido(bbox)) {
-    return { estado: "resuelta", metodo: "destino", nombre: destino, caja: bbox, intentado_en: ahora };
-  }
   if (aceptadas >= MINIMO_ACEPTADAS_DESTINO) {
-    return { descartado: `la caja del destino «${destino}» abarca una zona demasiado grande` };
+    return { estado: "resuelta", metodo: "destino", nombre: destino, caja: bbox, intentado_en: ahora };
   }
   // Un «no resolvió ninguna parada» por haberse quedado sin presupuesto no es
   // una conclusión sobre el destino: se pasa al siguiente peldaño.
@@ -333,6 +338,38 @@ const COLAS_CUALIFICADORAS_DESTINO = [
   "low cost",
 ].sort((a, b) => b.length - a.length);
 
+// Palabras que describen un tipo de viaje, no un lugar: «Ciudad» geocodifica a
+// un asentamiento que se llama así y cada candidato así gasta 1 + 12
+// peticiones para acabar descartado. Lista cerrada, sin tilde.
+const TERMINOS_GENERICOS_DESTINO = new Set([
+  "ciudad",
+  "pueblo",
+  "playa",
+  "costa",
+  "montana",
+  "sierra",
+  "escapada",
+  "viaje",
+  "ruta",
+  "centro",
+  "capital",
+  "isla",
+  "vacaciones",
+]);
+const PALABRAS_VACIAS_DESTINO = new Set(["con", "en", "de", "del", "la", "el", "los", "las", "y", "a", "al", "un", "una", "por", "para"]);
+
+function esCandidatoGenerico(candidato: string): boolean {
+  const palabras = candidato
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((palabra) => palabra.length > 0 && !PALABRAS_VACIAS_DESTINO.has(palabra));
+  if (palabras.length === 0) return true;
+  if (palabras.every((palabra) => TERMINOS_GENERICOS_DESTINO.has(palabra))) return true;
+  return palabras.length === 1 && palabras[0].length <= 3;
+}
+
 function escaparRegExp(texto: string): string {
   return texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -344,12 +381,14 @@ function escaparRegExp(texto: string): string {
 // familia con niños" -> "Londres"); (2) prefijos por token (primero 1, luego
 // 2) para los destinos sin una cola reconocida. Nunca se devuelve el destino
 // completo tal cual -- eso ya lo prueba `intentarCajaDelDestino` antes.
-function candidatosDesdeTextoDestino(destino: string): string[] {
+export function candidatosDesdeTextoDestino(destino: string): string[] {
   const destinoNormalizado = destino.trim();
   const candidatos: string[] = [];
   const agregar = (valor: string) => {
     const limpio = valor.trim();
-    if (limpio.length > 0 && limpio !== destinoNormalizado && !candidatos.includes(limpio)) candidatos.push(limpio);
+    if (limpio.length > 0 && limpio !== destinoNormalizado && !candidatos.includes(limpio) && !esCandidatoGenerico(limpio)) {
+      candidatos.push(limpio);
+    }
   };
 
   let sinCola = destinoNormalizado;
@@ -503,16 +542,35 @@ async function deducirPorParadas(
   };
 }
 
+// Por qué un intento quedó inconcluso: el tope de peticiones se agotó (el
+// siguiente intento parte de una caché más llena) o Nominatim no contestó.
+export type MotivoInconcluso = "presupuesto" | "red";
+
+export type ResultadoCiudad = { ciudad: CiudadEfectiva } | { inconcluso: MotivoInconcluso };
+
 // Núcleo del bloque ciudad-del-plan. Devuelve null cuando un fallo de RED
-// (no una respuesta negativa) deja el resultado inconcluso -- el llamador
-// no debe persistir nada ni marcar el plan como "sin ciudad identificable"
-// en ese caso, solo reintentar más tarde (ciu-ac7).
+// o un presupuesto agotado (no una respuesta negativa) dejan el resultado
+// inconcluso -- el llamador no debe persistir nada ni marcar el plan como
+// "sin ciudad identificable" en ese caso, solo reintentar más tarde (ciu-ac7).
 export async function resolverCiudadEfectiva(
   fuenteBase: FuenteLugares & FuenteCiudad,
   destino: string,
   nombresParadas: string[],
   presupuesto: PresupuestoPeticiones = crearPresupuestoPeticiones(PETICIONES_MAXIMAS_POR_PLAN),
 ): Promise<CiudadEfectiva | null> {
+  const resultado = await resolverCiudadConMotivo(fuenteBase, destino, nombresParadas, presupuesto);
+  return "ciudad" in resultado ? resultado.ciudad : null;
+}
+
+// Igual que resolverCiudadEfectiva pero distingue los dos inconclusos: el
+// barrido los cuenta aparte para poder ver desde /api/salud si un plan sigue
+// atascado por gastar su tope o porque la red falla.
+export async function resolverCiudadConMotivo(
+  fuenteBase: FuenteLugares & FuenteCiudad,
+  destino: string,
+  nombresParadas: string[],
+  presupuesto: PresupuestoPeticiones = crearPresupuestoPeticiones(PETICIONES_MAXIMAS_POR_PLAN),
+): Promise<ResultadoCiudad> {
   const ahora = new Date().toISOString();
   const nombresOrdenados = ordenDeterminista(nombresParadas);
   // Una fuente sin caché ni red (los dobles de test) no tiene nada que
@@ -531,7 +589,7 @@ export async function resolverCiudadEfectiva(
       if (!(error instanceof PresupuestoAgotado)) throw error;
       sinPresupuesto = true;
     }
-    if (porDestino && "estado" in porDestino) return { ...porDestino, version_resolutor: VERSION_RESOLUTOR_ACTUAL };
+    if (porDestino && "estado" in porDestino) return { ciudad: { ...porDestino, version_resolutor: VERSION_RESOLUTOR_ACTUAL } };
 
     let porCandidatoDeTexto: { nombre: string; caja: CajaDelimitadora } | null = null;
     try {
@@ -542,12 +600,14 @@ export async function resolverCiudadEfectiva(
     }
     if (porCandidatoDeTexto) {
       return {
-        estado: "resuelta",
-        metodo: "destino",
-        nombre: porCandidatoDeTexto.nombre,
-        caja: porCandidatoDeTexto.caja,
-        intentado_en: ahora,
-        version_resolutor: VERSION_RESOLUTOR_ACTUAL,
+        ciudad: {
+          estado: "resuelta",
+          metodo: "destino",
+          nombre: porCandidatoDeTexto.nombre,
+          caja: porCandidatoDeTexto.caja,
+          intentado_en: ahora,
+          version_resolutor: VERSION_RESOLUTOR_ACTUAL,
+        },
       };
     }
 
@@ -555,10 +615,11 @@ export async function resolverCiudadEfectiva(
     const resultado = await deducirPorParadas(fuente, nombresOrdenados, ahora, motivoDestinoDescartado);
     // Los peldaños anteriores no llegaron a probarse del todo: un negativo
     // ahora sería un veredicto sobre información incompleta.
-    if (sinPresupuesto && resultado.estado !== "resuelta") return null;
-    return { ...resultado, version_resolutor: VERSION_RESOLUTOR_ACTUAL };
+    if (sinPresupuesto && resultado.estado !== "resuelta") return { inconcluso: "presupuesto" };
+    return { ciudad: { ...resultado, version_resolutor: VERSION_RESOLUTOR_ACTUAL } };
   } catch (error) {
-    if (error instanceof FalloRedCiudad || error instanceof PresupuestoAgotado) return null;
+    if (error instanceof PresupuestoAgotado) return { inconcluso: "presupuesto" };
+    if (error instanceof FalloRedCiudad) return { inconcluso: "red" };
     throw error;
   }
 }

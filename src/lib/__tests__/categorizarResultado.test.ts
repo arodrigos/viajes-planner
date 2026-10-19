@@ -64,3 +64,32 @@ describe("resumirResultadoPublico con contadores de alternativas", () => {
     expect(JSON.stringify(publico)).not.toContain("Lisboa");
   });
 });
+
+// rel-ac4: la clave nueva sale publicada junto a las anteriores, que no se
+// quitan ni se renombran.
+describe("resumirResultadoPublico -- planes_saltados_por_presupuesto", () => {
+  it("publica los contadores del tick, también el de presupuesto, y descarta lo que no está en la lista", () => {
+    const publico = resumirResultadoPublico({
+      ok: true,
+      trabajos_procesados: 0,
+      planes_mirados: 3,
+      paradas_intentadas: 10,
+      planes_resueltos: 1,
+      planes_reintentados: 2,
+      planes_saltados_sellados: 4,
+      planes_saltados_por_red: 1,
+      planes_saltados_por_presupuesto: 2,
+      clave_inesperada: 9,
+    } as never);
+    expect(publico).toMatchObject({
+      planes_mirados: 3,
+      paradas_intentadas: 10,
+      planes_resueltos: 1,
+      planes_reintentados: 2,
+      planes_saltados_sellados: 4,
+      planes_saltados_por_red: 1,
+      planes_saltados_por_presupuesto: 2,
+    });
+    expect(publico).not.toHaveProperty("clave_inesperada");
+  });
+});

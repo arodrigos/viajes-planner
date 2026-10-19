@@ -26,6 +26,7 @@ export interface ResultadoTickTrabajador {
   planes_reintentados?: number;
   planes_saltados_sellados?: number;
   planes_saltados_por_red?: number;
+  planes_saltados_por_presupuesto?: number;
   // alc-ac2: lo que hicieron los barridos de alternativas en ese tick.
   alternativas_candidatas?: number;
   alternativas_intentadas?: number;
@@ -84,6 +85,7 @@ const CONTADORES_PUBLICOS = [
   "planes_reintentados",
   "planes_saltados_sellados",
   "planes_saltados_por_red",
+  "planes_saltados_por_presupuesto",
   "alternativas_candidatas",
   "alternativas_intentadas",
   "alternativas_con_cercanos",

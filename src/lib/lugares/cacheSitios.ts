@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CajaDelimitadora } from "./tipos";
 
 // lug-ac3: la política de Nominatim OBLIGA a cachear -- también los
 // resultados negativos, para no repetir una búsqueda que ya se sabe que no
@@ -51,8 +52,13 @@ export function claveDestino(destinoSlug: string): string {
   return `destino:${destinoSlug}`;
 }
 
-export function claveNominatim(destinoSlug: string, nombreNormalizado: string): string {
-  return `nominatim:${destinoSlug}:${nombreNormalizado}`;
+// La búsqueda va acotada por una caja (bounded=1): el mismo nombre y
+// cualificador en otra caja es otra pregunta, y un negativo de una caja sin
+// área no vale para la caja real. Redondeada a 4 decimales (~10 m) para que
+// el ruido de coma flotante no parta la caché.
+export function claveNominatim(destinoSlug: string, nombreNormalizado: string, caja: CajaDelimitadora): string {
+  const [minLat, maxLat, minLon, maxLon] = [caja.minLat, caja.maxLat, caja.minLon, caja.maxLon].map((v) => v.toFixed(4));
+  return `nominatim:${destinoSlug}:${nombreNormalizado}:${minLat},${maxLat},${minLon},${maxLon}`;
 }
 
 // guia-abierta: una entrada por idioma y ciudad, también la negativa, para

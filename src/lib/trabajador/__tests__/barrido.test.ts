@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { crearContadoresCiudad, procesarDentroDePresupuesto, resolverPuertaDeCiudad, seleccionarPendientes } from "@/lib/trabajador/barrido";
 import { crearFuenteLugaresGrabada } from "@/lib/lugares/fuenteGrabada";
 import { VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
-import { FalloRedCiudad, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares } from "@/lib/lugares/tipos";
+import { FalloRedCiudad, PresupuestoAgotado, type CajaDelimitadora, type CandidatoLugar, type FuenteCiudad, type FuenteLugares } from "@/lib/lugares/tipos";
 import type { Reloj } from "@/lib/lugares/limitador";
 
 // bar-ac3: tope y presupuesto, con reloj falso y sin tocar Supabase --
@@ -160,7 +160,7 @@ describe("resolverPuertaDeCiudad (bar-ac1/bar-ac2)", () => {
       ["Monumento Uno"],
       contadores,
     );
-    expect(contadores).toEqual({ resueltos: 0, reintentados: 0, saltadosSellados: 1, saltadosPorRed: 0 });
+    expect(contadores).toEqual({ resueltos: 0, reintentados: 0, saltadosSellados: 1, saltadosPorRed: 0, saltadosPorPresupuesto: 0 });
   });
 
   // bar-ac4 (feedback del gatekeeper, 2026-10-04): esto es lo que hace que
@@ -195,7 +195,7 @@ describe("resolverPuertaDeCiudad (bar-ac1/bar-ac2)", () => {
     const ciudadPersistida = (registros[0].valores as { ciudad: CiudadEfectiva }).ciudad;
     expect(ciudadPersistida.estado).toBe("resuelta");
     expect(ciudadPersistida.version_resolutor).toBe(VERSION_RESOLUTOR_ACTUAL);
-    expect(contadores).toEqual({ resueltos: 1, reintentados: 1, saltadosSellados: 0, saltadosPorRed: 0 });
+    expect(contadores).toEqual({ resueltos: 1, reintentados: 1, saltadosSellados: 0, saltadosPorRed: 0, saltadosPorPresupuesto: 0 });
   });
 
   // bar-ac4: un fallo de red durante el reintento no puede contarse como
@@ -224,7 +224,32 @@ describe("resolverPuertaDeCiudad (bar-ac1/bar-ac2)", () => {
       contadores,
     );
     expect(resultado).toBeNull();
-    expect(contadores).toEqual({ resueltos: 0, reintentados: 1, saltadosSellados: 0, saltadosPorRed: 1 });
+    expect(contadores).toEqual({ resueltos: 0, reintentados: 1, saltadosSellados: 0, saltadosPorRed: 1, saltadosPorPresupuesto: 0 });
+  });
+
+  // rel-ac4: un plan que agota su tope sin concluir se cuenta aparte del fallo
+  // de red, para que /api/salud distinga «atascado por gastar» de «Nominatim
+  // caído», y no se escribe nada.
+  it("presupuesto agotado durante el reintento: incrementa saltadosPorPresupuesto y no saltadosPorRed, sin escritura", async () => {
+    const fuente: FuenteLugares & FuenteCiudad = {
+      geocodificarDestino: async () => null,
+      buscarNominatim: async () => [],
+      buscarWikipedia: async () => [],
+      buscarLibre: async () => {
+        throw new PresupuestoAgotado("tope del plan");
+      },
+      geocodificarCiudad: async () => null,
+    };
+    const contadores = crearContadoresCiudad();
+    const resultado = await resolverPuertaDeCiudad(
+      supabaseQueLanzaSiSeEscribe() as never,
+      fuente,
+      version(null),
+      ["Real Alcázar", "Catedral de Sevilla", "Giralda"],
+      contadores,
+    );
+    expect(resultado).toBeNull();
+    expect(contadores).toEqual({ resueltos: 0, reintentados: 1, saltadosSellados: 0, saltadosPorRed: 0, saltadosPorPresupuesto: 1 });
   });
 
   it("ciudad ya 'resuelta': cero peticiones de red y ninguna escritura, devuelve su nombre/caja tal cual", async () => {
