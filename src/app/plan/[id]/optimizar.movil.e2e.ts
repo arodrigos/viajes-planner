@@ -120,8 +120,8 @@ test("un día que ya va en el orden más corto no cambia ni crea versión (opt-a
   expect(await ordenPintado(pagina)).toEqual(nombres(1, 2, 3, 4));
   await expect(pagina.getByRole("button", { name: "Deshacer" })).toHaveCount(0);
   await capturar(pagina, "optimizar-orden", "ya-optimo");
-  // Margen para que una petición mal lanzada llegara a verse.
-  await pagina.waitForTimeout(1500);
+  // Red en reposo en vez de un margen de tiempo: una petición mal lanzada ya habría salido.
+  await pagina.waitForLoadState("networkidle");
   expect(posts).toHaveLength(0);
   expect(await versiones(supabase, planId)).toBe(1);
   await contexto.close();
