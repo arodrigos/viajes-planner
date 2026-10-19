@@ -44,6 +44,8 @@ interface Props {
   error?: ErrorParada;
   onUsarAlternativa: (alternativaId: string, nombre: string) => Promise<boolean>;
   onAlternarVisita: (visitadaActualmente: boolean) => void;
+  // Reordenar el día: sin él (p. ej. la vista sin conexión) no hay número ni botones.
+  orden?: { numero: number; esPrimera: boolean; esUltima: boolean; onMover: (direccion: "arriba" | "abajo") => void };
 }
 
 // tar-ac1: lo que decide el usuario (foto, nombre, hora, descripción, precio,
@@ -51,7 +53,7 @@ interface Props {
 // nativos <details name> que el navegador mantiene exclusivos. El estado se
 // sincroniza con onToggle para poder abrir uno por código sin pelearse con el
 // navegador.
-export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita }: Props) {
+export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden }: Props) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const alternativas = parada.alternativas ?? [];
   const nombreGrupo = `parada-${parada.id}`;
@@ -120,6 +122,7 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
               </div>
             )}
             <div>
+              {orden && <span className="numero-parada" data-testid="numero-parada">{orden.numero}</span>}
               <h4>{parada.nombre}</h4>
               {parada.horario && (
                 <p className="horario-parada" data-testid="horario-parada">
@@ -271,6 +274,19 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
             <summary>{TEXTOS_FICHA.panel.texto}</summary>
             <FichaGoogle planId={planId} paradaId={parada.id} estado={parada.google?.estado} abierto={abierto === "google"} hrefMaps={hrefMaps} conFotos={!parada.foto} />
           </details>
+
+          {/* WCAG 2.5.7: los botones son la vía principal de reordenar; el
+              arrastre es un añadido, nunca la única forma. */}
+          {orden && (
+            <div className="controles-orden">
+              <button type="button" className="boton boton-orden" aria-label={`Subir «${parada.nombre}»`} disabled={orden.esPrimera} onClick={() => orden.onMover("arriba")}>
+                <span aria-hidden="true">↑</span> Subir
+              </button>
+              <button type="button" className="boton boton-orden" aria-label={`Bajar «${parada.nombre}»`} disabled={orden.esUltima} onClick={() => orden.onMover("abajo")}>
+                <span aria-hidden="true">↓</span> Bajar
+              </button>
+            </div>
+          )}
 
           <EnlacesParada parada={parada} ciudad={ciudad} tramo={tramo} />
           {/* dest-ac1..ac3: solo el día de hoy -- un día pasado o futuro no

@@ -238,7 +238,7 @@ export function alternativaDeFila(fila: Record<string, unknown>): Alternativa {
 }
 
 export const COLUMNAS_PARADA =
-  "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, guia_formato, alternativas_intentadas_en, procedencias(fuente)";
+  "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, guia_formato, alternativas_intentadas_en, orden, procedencias(fuente)";
 
 export function paradaDeFila(fila: Record<string, unknown>, alternativas: Alternativa[] | undefined, visitada: boolean): Parada {
   const lat = fila.lat as number | null;
@@ -358,6 +358,21 @@ export class ErrorLecturaPlan extends Error {
   }
 }
 
+// Orden de lectura de las paradas de un día: franja, después `orden` (el que
+// guarda reordenar_dia_plan; nulo al final) y por último id_externo. Con
+// `orden` nulo en todas sale exactamente el orden de antes de existir la columna.
+export function compararParadasDelDia(ordenFranja: ReadonlyMap<string, number>) {
+  return (a: Record<string, unknown>, b: Record<string, unknown>): number => {
+    const franjaA = ordenFranja.get(a.franja_id as string) ?? Number.MAX_SAFE_INTEGER;
+    const franjaB = ordenFranja.get(b.franja_id as string) ?? Number.MAX_SAFE_INTEGER;
+    if (franjaA !== franjaB) return franjaA - franjaB;
+    const ordenA = typeof a.orden === "number" ? a.orden : Number.MAX_SAFE_INTEGER;
+    const ordenB = typeof b.orden === "number" ? b.orden : Number.MAX_SAFE_INTEGER;
+    if (ordenA !== ordenB) return ordenA - ordenB;
+    return (a.id_externo as string).localeCompare(b.id_externo as string);
+  };
+}
+
 export async function recuperarPlan(
   supabase: SupabaseClient,
   planId: string,
@@ -431,12 +446,7 @@ export async function recuperarPlan(
     const ordenFranja = new Map(diaMeta.franjas.map((franja, i) => [franja.id, i]));
     const paradasDelDia: Parada[] = (paradaRows ?? [])
       .filter((fila) => fila.dia_index === indice)
-      .sort((a, b) => {
-        const ordenA = ordenFranja.get(a.franja_id as string) ?? Number.MAX_SAFE_INTEGER;
-        const ordenB = ordenFranja.get(b.franja_id as string) ?? Number.MAX_SAFE_INTEGER;
-        if (ordenA !== ordenB) return ordenA - ordenB;
-        return (a.id_externo as string).localeCompare(b.id_externo as string);
-      })
+      .sort(compararParadasDelDia(ordenFranja))
       .map((fila) => paradaDeFila(fila, alternativasPorParadaId.get(fila.id as string), idsVisitados.has(fila.id_externo as string)));
     return {
       fecha: diaMeta.fecha,
