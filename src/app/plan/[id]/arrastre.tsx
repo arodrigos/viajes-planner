@@ -28,7 +28,7 @@ const sensores = [
 ];
 
 export function reducirMovimiento(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 // Si la librería lanza al montarse o al pintar, la lista vuelve a pintarse sin

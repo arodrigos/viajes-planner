@@ -11,6 +11,7 @@ export const DURACION_AVISO_MS = 10_000;
 export const TEXTOS_ORDEN = {
   guardado: "Orden guardado",
   restaurado: "Orden restaurado",
+  yaOptimo: "Este día ya va en el orden más corto",
   errorRed: "No se ha podido guardar el nuevo orden. Comprueba la conexión y vuelve a intentarlo.",
   desfasada: "Este plan ha cambiado en otra pantalla. Hemos cargado la versión más reciente; vuelve a ordenar si lo necesitas.",
   demasiados: "Has cambiado el orden muchas veces en poco tiempo. Espera unos minutos y vuelve a intentarlo.",
@@ -40,6 +41,8 @@ export interface OrdenDia {
   mover: (diaIndex: number, id: string, direccion: "arriba" | "abajo") => void;
   aplicarOrden: (diaIndex: number, orden: EntradaOrden[], opciones?: OpcionesAplicar) => void;
   deshacer: () => void;
+  // Aviso sin cambio guardado (p. ej. «ya va en el orden más corto»).
+  informar: (texto: string) => void;
   reintentar: () => void;
   estado: EstadoOrden;
   mensaje?: string;
@@ -214,6 +217,8 @@ export function useOrdenDia(plan: PlanPublico, alActualizar: (plan: PlanPublico)
     aplicarOrden(previo.diaIndex, previo.anterior, { inmediato: true, aviso: TEXTOS_ORDEN.restaurado, conDeshacer: false });
   }, [aplicarOrden]);
 
+  const informar = useCallback((texto: string) => mostrarAviso({ texto, conDeshacer: false }), [mostrarAviso]);
+
   const reintentar = useCallback(() => {
     const intento = fallido.current;
     if (!intento) return;
@@ -231,5 +236,5 @@ export function useOrdenDia(plan: PlanPublico, alActualizar: (plan: PlanPublico)
 
   const recalculando = useCallback((diaIndex: number) => pendientes[diaIndex] !== undefined, [pendientes]);
 
-  return { ordenEnPantalla, recalculando, mover, aplicarOrden, deshacer, reintentar, estado, mensaje, aviso };
+  return { ordenEnPantalla, recalculando, mover, aplicarOrden, deshacer, informar, reintentar, estado, mensaje, aviso };
 }

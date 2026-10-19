@@ -10,7 +10,7 @@ import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
 import { PanelResumen } from "./PanelResumen";
 import { SelectorDias } from "./SelectorDias";
 import { AvisoOrden } from "./AvisoOrden";
-import { useOrdenDia } from "./useOrdenDia";
+import { TEXTOS_ORDEN, useOrdenDia } from "./useOrdenDia";
 import type { PlanPublico } from "./tiposVista";
 
 const PLAN_VACIO: PlanPublico = { id: "", version: 0, destino: "", dias: [], avisos: [], recomendaciones: [], regenerando: false, trabajoId: "" };
@@ -160,6 +160,7 @@ export function VistaPlan({ id }: { id: string }) {
                   onIrAResumen={() => elegir("resumen")}
                   ordenPendiente={orden.recalculando(indice) ? orden.ordenEnPantalla(indice) : undefined}
                   onMover={esCopia ? undefined : (idParada, direccion) => orden.mover(indice, idParada, direccion)}
+                  onOptimizar={esCopia ? undefined : (nuevo, aviso) => (nuevo ? orden.aplicarOrden(indice, nuevo, { inmediato: true, aviso }) : orden.informar(TEXTOS_ORDEN.yaOptimo))}
                   // Soltar es un gesto único: no hay ráfaga que agrupar.
                   onReordenar={esCopia ? undefined : (nuevo) => orden.aplicarOrden(indice, nuevo, { inmediato: true })}
                 />

@@ -2,7 +2,7 @@ import { expect, type Browser, type BrowserContext, type Page } from "@playwrigh
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
-import type { Parada, Plan } from "@/lib/plan/tipos";
+import type { AnclaAlojamiento, Parada, Plan } from "@/lib/plan/tipos";
 import { sembrarPlan } from "./semillas-e2e";
 
 // Siembra y ayudas comunes de los e2e de reordenar-dia (orden-dia y
@@ -26,7 +26,7 @@ export function parada(id: string, nombre: string, franja: string, indice: numbe
 
 export const NOMBRES = { a: "Alfa", b: "Beta", c: "Gamma", d: "Delta" } as const;
 
-export async function sembrarDia(supabase: SupabaseClient, email: string, sufijo: string, paradas: Parada[], fecha = "2027-06-09") {
+export async function sembrarDia(supabase: SupabaseClient, email: string, sufijo: string, paradas: Parada[], fecha = "2027-06-09", ancla?: AnclaAlojamiento) {
   const { data: usuario, error } = await supabase.auth.admin.createUser({ email, email_confirm: true });
   if (error || !usuario.user) {
     // Un reintento del CI ya lo habrá creado.
@@ -36,7 +36,7 @@ export async function sembrarDia(supabase: SupabaseClient, email: string, sufijo
     usuario.user = existente;
   }
   const planId = `plan-orden-${sufijo}-${Date.now()}`;
-  const plan: Plan = { id: planId, version: 1, destino: "Granada", personas: 2, dias: [{ fecha, franjas: FRANJAS, paradas }] };
+  const plan: Plan = { id: planId, version: 1, destino: "Granada", personas: 2, dias: [{ fecha, franjas: FRANJAS, paradas, ...(ancla ? { ancla_alojamiento: ancla } : {}) }] };
   await sembrarPlan(supabase, plan);
   const { error: errorTrabajo } = await supabase
     .from("trabajos")
