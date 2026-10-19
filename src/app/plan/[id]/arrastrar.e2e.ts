@@ -66,7 +66,7 @@ test("arrastrar el asa de la tercera parada al primer puesto la deja la primera 
     .poll(async () => `${(await ordenPintado(pagina)).join(",")} | ${await pagina.locator(".aviso-orden-vivo").innerText()}`, { timeout: 15_000 })
     .toContain("Orden guardado");
   await expect(pagina.getByRole("button", { name: "Deshacer" })).toBeVisible();
-  await expect.poll(() => ordenPintado(pagina)).toEqual(["Gamma", "Alfa", "Beta", "Delta"]);
+  await expect.poll(async () => (await ordenPintado(pagina)).join(",")).toBe("Gamma,Alfa,Beta,Delta");
   const guardada = await ultimaVersionDelDia(supabase, planId);
   expect(guardada.version).toBe(2);
   expect(guardada.paradas.map((p) => p.id_externo)).toEqual(["c", "a", "b", "d"]);
