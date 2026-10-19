@@ -59,7 +59,7 @@ export async function abrirPlan(browser: Browser, email: string, planId: string,
   const pagina = await contexto.newPage();
   await iniciarSesion(contexto, email);
   if (opciones.ahora) await pagina.clock.install({ time: new Date(opciones.ahora) });
-  await pagina.goto(`/plan/${planId}`);
+  await pagina.goto(`/plan/${planId}?dia=1`);
   return { contexto, pagina };
 }
 

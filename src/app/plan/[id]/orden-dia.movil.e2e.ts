@@ -190,7 +190,7 @@ test.describe("copia sin conexión (reo-ac9)", () => {
     const contexto = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "allow" });
     const pagina = await contexto.newPage();
     await iniciarSesion(contexto, email);
-    await pagina.goto(`/plan/${planId}`);
+    await pagina.goto(`/plan/${planId}?dia=1`);
     await pagina.evaluate(async () => {
       await navigator.serviceWorker.ready;
       if (!navigator.serviceWorker.controller) await new Promise<void>((r) => navigator.serviceWorker.addEventListener("controllerchange", () => r(), { once: true }));
