@@ -27,7 +27,7 @@ async function arrastrarAsa(pagina: import("@playwright/test").Page, desde: stri
   // El sensor se activa tras 5 px: primero un desplazamiento corto sobre el asa
   // y una pausa para que React pinte el arrastre; después, el recorrido al destino.
   await pagina.mouse.move(cx, cy + (destino!.y < cy ? -8 : 8), { steps: 3 });
-  await pagina.locator("li.tarjeta-parada[data-arrastrando='true']").waitFor();
+  await pagina.locator("[data-dnd-dragging]").first().waitFor({ timeout: 5000 });
   await pagina.mouse.move(destino!.x + destino!.width / 2, destino!.y + 20, { steps: 20 });
   if (soltar) await pagina.mouse.up();
 }
