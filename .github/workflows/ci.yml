@@ -265,7 +265,7 @@ jobs:
           echo "rutinas: viajes_planner=$rutinas_vp public=$rutinas_public"
           [ "$tablas_vp" -eq 18 ]
           [ "$tablas_public" -eq 0 ]
-          [ "$rutinas_vp" -eq 9 ]
+          [ "$rutinas_vp" -eq 10 ]
           [ "$rutinas_public" -eq 0 ]
       # sal-ac2: estado_relleno() contra Postgres real por psql directo, la
       # misma comprobación que el gatekeeper lanza contra su base de prueba.
@@ -293,6 +293,17 @@ jobs:
             -H "Content-Profile: viajes_planner" -H "Content-Type: application/json" \
             -d '{"p_usuario": "00000000-0000-4000-8000-0000000000c3", "p_clave": "x"}')
           echo "rpc/registrar_obsoleto_google con clave anónima: HTTP $codigo"
+          [ "$codigo" != "200" ]
+      # dat-ac2..dat-ac5: reordenar_dia_plan contra Postgres real, y solo
+      # service_role llega a ella (también por la puerta real, PostgREST).
+      - name: reordenar_dia_plan (dat-ac2, dat-ac3, dat-ac4, dat-ac5)
+        run: |
+          BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh orden
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/reordenar_dia_plan" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Profile: viajes_planner" -H "Content-Type: application/json" \
+            -d '{"p_plan_id": "x", "p_version_base": 1, "p_dia_index": 0, "p_orden": []}')
+          echo "rpc/reordenar_dia_plan con clave anónima: HTTP $codigo"
           [ "$codigo" != "200" ]
       # cas-ac3: esquema y permisos de lugares_google.
       - name: esquema y permisos de lugares_google (cas-ac3)
