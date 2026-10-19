@@ -23,6 +23,12 @@ async function arrastrarAsa(pagina: import("@playwright/test").Page, desde: stri
   const cx = origen!.x + origen!.width / 2;
   const cy = origen!.y + origen!.height / 2;
   await pagina.mouse.move(cx, cy);
+  // Si algo tapa el asa, el sensor nunca ve el pointerdown: mejor saberlo aquí.
+  const bajoElRaton = await pagina.evaluate(([x, y]) => {
+    const e = document.elementFromPoint(x, y);
+    return e?.closest("button")?.getAttribute("aria-label") ?? `${e?.tagName}.${e?.className}`;
+  }, [cx, cy]);
+  expect(bajoElRaton).toBe(asa(desde));
   await pagina.mouse.down();
   // El sensor se activa tras 5 px: primero un desplazamiento corto sobre el asa
   // y una pausa para que React pinte el arrastre; después, el recorrido al destino.
