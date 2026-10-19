@@ -9,7 +9,7 @@ import { resolverNombre } from "@/lib/lugares/resolverPlan";
 import { cualificadorDeEtapa } from "@/lib/etapas/porEtapa";
 import type { EtapaPlan } from "@/lib/plan/tipos";
 import { resolverFoto } from "@/lib/lugares/resolverFotos";
-import { PETICIONES_MAXIMAS_POR_PLAN, resolverCiudadEfectiva, VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
+import { PETICIONES_MAXIMAS_POR_PLAN, resolverCiudadConMotivo, VERSION_RESOLUTOR_ACTUAL, type CiudadEfectiva } from "@/lib/lugares/ciudad";
 import { relojReal, type Reloj } from "@/lib/lugares/limitador";
 import { normalizarNombre } from "@/lib/lugares/normalizar";
 import { crearPresupuestoPeticiones, PresupuestoAgotado, type CajaDelimitadora, type FuenteCiudad, type FuenteFotos, type FuenteLugares } from "@/lib/lugares/tipos";
@@ -277,10 +277,14 @@ export interface ContadoresCiudad {
   reintentados: number;
   saltadosSellados: number;
   saltadosPorRed: number;
+  // Inconcluso porque el tope de peticiones del plan o del tick se agotó, no
+  // porque Nominatim fallara: un plan que aquí se queda atascado tick tras
+  // tick es la señal del bug de los destinos descriptivos.
+  saltadosPorPresupuesto: number;
 }
 
 export function crearContadoresCiudad(): ContadoresCiudad {
-  return { resueltos: 0, reintentados: 0, saltadosSellados: 0, saltadosPorRed: 0 };
+  return { resueltos: 0, reintentados: 0, saltadosSellados: 0, saltadosPorRed: 0, saltadosPorPresupuesto: 0 };
 }
 
 // bar-ac1: la puerta de la ciudad para un plan concreto -- devuelve el
@@ -328,13 +332,16 @@ export async function resolverPuertaDeCiudad(
       ? presupuestoAnidado(presupuestoTick, PETICIONES_MAXIMAS_POR_PLAN)
       : crearPresupuestoPeticiones(PETICIONES_MAXIMAS_POR_PLAN);
     const fuenteCiudad = presupuestoTick && !fuente.conPresupuesto ? fuenteCiudadConTope(fuente, presupuesto) : fuente;
-    const resultado = await resolverCiudadEfectiva(fuenteCiudad, version.destino, nombresTodasLasParadas, presupuesto);
+    const resultado = await resolverCiudadConMotivo(fuenteCiudad, version.destino, nombresTodasLasParadas, presupuesto);
     if (peticionesNominatim) peticionesNominatim.total += presupuesto.consumidas();
-    if (resultado === null) {
-      if (contadores) contadores.saltadosPorRed++;
-      return null; // fallo de red: se reintenta en el siguiente tick
+    if ("inconcluso" in resultado) {
+      if (contadores) {
+        if (resultado.inconcluso === "presupuesto") contadores.saltadosPorPresupuesto++;
+        else contadores.saltadosPorRed++;
+      }
+      return null; // inconcluso: no se persiste nada y se reintenta en el siguiente tick
     }
-    ciudad = resultado;
+    ciudad = resultado.ciudad;
     await supabase.from("planes").update({ ciudad }).eq("id", version.planId);
   } else if (ciudad.estado === "pendiente-manual") {
     const nombrePedido = ciudad.nombre_pedido ?? "";
@@ -378,6 +385,7 @@ export interface ResultadoBarrido {
   planesReintentados: number;
   planesSaltadosSellados: number;
   planesSaltadosPorRed: number;
+  planesSaltadosPorPresupuesto: number;
   peticionesNominatimCiudad: number;
   // Llamadas a fuentes externas gastadas del cupo único del tick, todas las
   // fases juntas (ciudad, ubicación, fotos y alternativas).
@@ -496,6 +504,7 @@ export async function completarParadasPendientes(
       planesReintentados: 0,
       planesSaltadosSellados: 0,
       planesSaltadosPorRed: 0,
+      planesSaltadosPorPresupuesto: 0,
       peticionesNominatimCiudad: 0,
       peticionesExternas: 0,
       alternativas: contadoresAlternativasVacios(),
@@ -873,6 +882,7 @@ export async function completarParadasPendientes(
     planesReintentados: contadoresCiudad.reintentados,
     planesSaltadosSellados: contadoresCiudad.saltadosSellados,
     planesSaltadosPorRed: contadoresCiudad.saltadosPorRed,
+    planesSaltadosPorPresupuesto: contadoresCiudad.saltadosPorPresupuesto,
     peticionesNominatimCiudad: peticionesCiudad.total,
     peticionesExternas: presupuesto.consumidas(),
     alternativas: contadoresAlt,

@@ -255,15 +255,13 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     expect(resultado?.motivo).toContain("España");
     expect(resultado?.motivo).toContain("no se pudo verificar geográficamente");
     const conteos = c.conteos();
-    // bar-ac4 (ronda 7): 2 de las 4 llamadas son el escalón nuevo
-    // `intentarCandidatosDesdeTexto` probando "Ciudad" y "Ciudad con"
-    // (ninguno está en la fixture, que no define `ciudades`, así que
-    // ambas fallan y cae a la deducción de siempre). Las otras dos son
-    // una llamada a geocodificarCiudad por nivel con ganador: "Madrid" en
-    // el nivel "ciudad" (rechazado por falta de ventaja) y "España" en el
-    // nivel "región" (rechazado por falta de caja) -- "distrito" no tiene
-    // ningún ganador porque ninguna parada trae ese campo.
-    expect(conteos.ciudades).toBe(4);
+    // Una llamada a geocodificarCiudad por nivel con ganador: "Madrid" en el
+    // nivel "ciudad" (rechazado por falta de ventaja) y "España" en el nivel
+    // "región" (rechazado por falta de caja) -- "distrito" no tiene ningún
+    // ganador porque ninguna parada trae ese campo. Antes eran 4: otras dos
+    // gastaban "Ciudad" y "Ciudad con" como candidatos de texto, que ya son
+    // genéricos y no se geocodifican (relleno-descriptivos).
+    expect(conteos.ciudades).toBe(2);
   });
 
   // cp-ciu-05
@@ -280,12 +278,10 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
     expect(resultado?.estado).toBe("sin-ciudad-identificable");
     expect(resultado?.motivo).toContain("no hay una ciudad clara");
     expect(resultado?.candidatos?.length).toBe(3);
-    // bar-ac4 (ronda 7): las 2 llamadas son el escalón nuevo
-    // `intentarCandidatosDesdeTexto` probando "Ciudad" y "Ciudad con"
-    // (la fixture no define `ciudades`, así que ambas fallan); el apoyo
-    // nunca llega a APOYO_MINIMO en la deducción, así que `elegirGanador`
-    // no llega a pedir ninguna caja.
-    expect(c.conteos().ciudades).toBe(2);
+    // "Ciudad" y "Ciudad con" son genéricos y no se geocodifican, y el apoyo
+    // nunca llega a APOYO_MINIMO en la deducción, así que `elegirGanador` no
+    // llega a pedir ninguna caja (antes eran 2 llamadas en balde).
+    expect(c.conteos().ciudades).toBe(0);
   });
 
   // bar-ac4: igual que arriba, el rechazo de "Sevilla" en el nivel
@@ -413,10 +409,10 @@ describe("resolverCiudadEfectiva -- deducción por paradas (ciu-ac2)", () => {
         destinos: {},
         nominatim: {},
         libres: {},
-        ciudades: { Ciudad: { minLat: 10, maxLat: 10.5, minLon: 10, maxLon: 10.5 } },
+        ciudades: { "Villa Dorada": { minLat: 10, maxLat: 10.5, minLon: 10, maxLon: 10.5 } },
       }),
     );
-    const resultado = await resolverCiudadEfectiva(fuente, "Ciudad con niños", ["Parque infantil", "Zoo", "Museo de los niños"]);
+    const resultado = await resolverCiudadEfectiva(fuente, "Villa Dorada con niños", ["Parque infantil", "Zoo", "Museo de los niños"]);
     expect(resultado?.metodo).not.toBe("destino");
     expect(c.conteos().ciudades).toBeGreaterThanOrEqual(1);
   });

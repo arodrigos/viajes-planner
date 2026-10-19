@@ -171,7 +171,7 @@ export function crearFuenteAbierta(opciones: OpcionesFuenteAbierta = {}, presupu
   // buscarLibre y geocodificarCiudad; reutiliza la misma clase porque el
   // significado es idéntico: "no se pudo preguntar", no "ciudad".
   async function buscarNominatim(nombre: string, cualificador: string, bbox: CajaDelimitadora): Promise<CandidatoLugar[]> {
-    const clave = claveNominatim(slugDestino(cualificador), normalizarClaveNombre(nombre));
+    const clave = claveNominatim(slugDestino(cualificador), normalizarClaveNombre(nombre), bbox);
     const enCache = await cache.obtener(clave);
     if (!esFalloDeCache(enCache)) return enCache as CandidatoLugar[];
 
