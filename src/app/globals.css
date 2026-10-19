@@ -1023,6 +1023,29 @@ footer a,
   gap: var(--espacio-1, 0.25rem);
 }
 
+/* touch-action none solo en el asa: es lo que deja que la pulsación larga
+   arrastre sin que el navegador empiece a desplazar; el resto de la tarjeta
+   sigue desplazando la página. */
+.asa-arrastre {
+  touch-action: none;
+  cursor: grab;
+  font-weight: 700;
+  letter-spacing: -0.1em;
+  user-select: none;
+}
+
+.tarjeta-parada[data-arrastrando="true"] {
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+  z-index: 10;
+}
+
+/* El hueco donde caerá: la tarjeta de origen que el plugin deja en la lista
+   mientras la elevada viaja con el puntero. */
+.tarjeta-parada[data-dnd-placeholder] {
+  opacity: 0.4;
+  border-style: dashed;
+}
+
 .boton-orden:disabled {
   opacity: 0.5;
   cursor: not-allowed;

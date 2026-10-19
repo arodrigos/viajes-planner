@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useState, type Ref } from "react";
+import { useSortable } from "@dnd-kit/react/sortable";
+import { Fragment, useCallback, useState, type ReactNode } from "react";
 import { textoPrecioParada } from "@/lib/presupuesto/texto";
 import { AccionesVisita } from "./AccionesVisita";
 import { ConectorTramo } from "./ConectorTramo";
@@ -14,6 +15,7 @@ import { IconoFranja } from "./iconosFranja";
 import { IconoSinFoto } from "./iconoSinFoto";
 import { ConsejosYCuriosidades, contarConsejosYCuriosidades } from "./SeccionesGuia";
 import { FotoPlan } from "./FotoPlan";
+import { TEXTOS_ARRASTRE } from "./arrastre";
 import type { ParadaPublica } from "./tiposVista";
 import type { Tramo } from "@/lib/plan/tramos";
 import type { ErrorParada } from "@/lib/plan/erroresParada";
@@ -27,7 +29,7 @@ interface Props {
   ciudad: string;
   // Tramo desde la parada anterior del día; la primera no lo trae.
   tramo?: Tramo;
-  tarjetaRef: Ref<HTMLLIElement>;
+  tarjetaRef: (elemento: HTMLLIElement | null) => void;
   activa: boolean;
   // Cada incremento pide abrir «Alternativas» (el aviso de paseo del día).
   solicitudAlternativas: number;
@@ -46,6 +48,14 @@ interface Props {
   onAlternarVisita: (visitadaActualmente: boolean) => void;
   // Reordenar el día: sin él (p. ej. la vista sin conexión) no hay número ni botones.
   orden?: { numero: number; esPrimera: boolean; esUltima: boolean; onMover: (direccion: "arriba" | "abajo") => void };
+  // Arrastrar para reordenar: solo con `orden` y dentro de ProveedorArrastre.
+  // `indice` es la posición dentro de su franja, que es la que el plugin espera.
+  arrastre?: { indice: number; reducirMovimiento: boolean };
+}
+
+interface PropsCuerpo extends Props {
+  asa?: ReactNode;
+  arrastrando?: boolean;
 }
 
 // tar-ac1: lo que decide el usuario (foto, nombre, hora, descripción, precio,
@@ -53,7 +63,38 @@ interface Props {
 // nativos <details name> que el navegador mantiene exclusivos. El estado se
 // sincroniza con onToggle para poder abrir uno por código sin pelearse con el
 // navegador.
-export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden }: Props) {
+export function TarjetaParada(props: Props) {
+  return props.orden && props.arrastre ? <TarjetaOrdenable {...props} /> : <CuerpoTarjeta {...props} />;
+}
+
+// useSortable no puede llamarse condicionalmente: va en su propio componente,
+// y así una tarjeta sin arrastre (vista sin conexión, fallo de la librería) no
+// necesita proveedor.
+function TarjetaOrdenable(props: Props) {
+  const { parada, franjaId, arrastre, tarjetaRef } = props;
+  const { ref, handleRef, isDragging } = useSortable({
+    id: parada.id,
+    index: arrastre!.indice,
+    group: franjaId,
+    transition: arrastre!.reducirMovimiento ? null : undefined,
+  });
+  // La misma <li> la necesitan PanelDia (foco y scroll) y el plugin.
+  const unir = useCallback(
+    (elemento: HTMLLIElement | null) => {
+      ref(elemento);
+      tarjetaRef(elemento);
+    },
+    [ref, tarjetaRef],
+  );
+  const asa = (
+    <button type="button" ref={handleRef} className="boton boton-orden asa-arrastre" aria-label={TEXTOS_ARRASTRE.asa(parada.nombre)} data-testid="asa-arrastre">
+      <span aria-hidden="true">⋮⋮</span>
+    </button>
+  );
+  return <CuerpoTarjeta {...props} tarjetaRef={unir} asa={asa} arrastrando={isDragging} />;
+}
+
+function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, asa, arrastrando }: PropsCuerpo) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const alternativas = parada.alternativas ?? [];
   const nombreGrupo = `parada-${parada.id}`;
@@ -107,6 +148,7 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
         // map-ac2: tocar el marcador correspondiente en el mapa marca esta
         // tarjeta con aria-current y la desplaza a la vista.
         aria-current={activa ? "true" : undefined}
+        data-arrastrando={arrastrando ? "true" : undefined}
       >
         <IconoFranja franjaId={franjaId} />
         <div className="cuerpo-parada">
@@ -279,6 +321,7 @@ export function TarjetaParada({ planId, parada, franjaId, ciudad, tramo, tarjeta
               arrastre es un añadido, nunca la única forma. */}
           {orden && (
             <div className="controles-orden">
+              {asa}
               <button type="button" className="boton boton-orden" aria-label={`Subir «${parada.nombre}»`} disabled={orden.esPrimera} onClick={() => orden.onMover("arriba")}>
                 <span aria-hidden="true">↑</span> Subir
               </button>
