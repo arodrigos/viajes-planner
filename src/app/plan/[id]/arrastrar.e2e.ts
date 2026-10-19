@@ -20,10 +20,15 @@ async function arrastrarAsa(pagina: import("@playwright/test").Page, desde: stri
   const destino = await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).boundingBox();
   expect(origen).not.toBeNull();
   expect(destino).not.toBeNull();
-  await pagina.mouse.move(origen!.x + origen!.width / 2, origen!.y + origen!.height / 2);
+  const cx = origen!.x + origen!.width / 2;
+  const cy = origen!.y + origen!.height / 2;
+  await pagina.mouse.move(cx, cy);
   await pagina.mouse.down();
-  // Varios pasos: el sensor necesita ver el movimiento para activarse y para calcular el hueco.
-  await pagina.mouse.move(destino!.x + destino!.width / 2, destino!.y + 20, { steps: 10 });
+  // El sensor se activa tras 5 px: primero un desplazamiento corto sobre el asa
+  // y una pausa para que React pinte el arrastre; después, el recorrido al destino.
+  await pagina.mouse.move(cx, cy + (destino!.y < cy ? -8 : 8), { steps: 3 });
+  await pagina.locator("li.tarjeta-parada[data-arrastrando='true']").waitFor();
+  await pagina.mouse.move(destino!.x + destino!.width / 2, destino!.y + 20, { steps: 20 });
   if (soltar) await pagina.mouse.up();
 }
 
@@ -75,6 +80,7 @@ test("soltar fuera de la lista no cambia el orden ni hace peticiones (arr-ac1, l
   await pagina.mouse.down();
   // Escape cancela el arrastre en curso: es el «fuera» determinista de la lista.
   await pagina.mouse.move(origen!.x + origen!.width / 2, origen!.y + 80, { steps: 5 });
+  await expect(pagina.locator("li.tarjeta-parada[data-arrastrando='true']")).toHaveCount(1);
   await pagina.keyboard.press("Escape");
   await pagina.mouse.up();
 
