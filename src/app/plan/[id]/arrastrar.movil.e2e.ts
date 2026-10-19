@@ -38,14 +38,21 @@ test("deslizar el dedo fuera del asa desplaza la página y no cambia el orden (a
   await capturar(pagina, "arrastrar-paradas", "scroll-antes");
   // Gesto táctil real del navegador (no window.scrollBy): es el que un sensor mal ajustado se llevaría.
   const cdp = await contexto.newCDPSession(pagina);
-  // Un punto dentro de la ventana, sobre la tarjeta y lejos del asa (a la derecha del nombre).
-  await tarjeta.scrollIntoViewIfNeeded();
+  // Desde arriba del todo, para que haya recorrido; el punto es uno de la ventana
+  // sobre una tarjeta y que no sea un botón (el asa es el único sitio que arrastra).
+  await pagina.evaluate(() => window.scrollTo(0, 0));
   const y0 = await pagina.evaluate(() => window.scrollY);
-  const centro = await tarjeta.boundingBox();
-  const y = Math.min(Math.max(centro!.y + centro!.height / 2, 80), 560);
+  const punto = await pagina.evaluate(() => {
+    for (let y = 300; y < 600; y += 20) {
+      const e = document.elementFromPoint(180, y);
+      if (e && e.closest("li.tarjeta-parada") && !e.closest("button, a, summary")) return { x: 180, y };
+    }
+    return null;
+  });
+  expect(punto).not.toBeNull();
   await cdp.send("Input.synthesizeScrollGesture", {
-    x: Math.round(centro!.x + centro!.width / 2),
-    y: Math.round(y),
+    x: punto!.x,
+    y: punto!.y,
     yDistance: -250,
     gestureSourceType: "touch",
     speed: 600,

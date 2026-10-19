@@ -16,6 +16,11 @@ const cuatro = () => [
 ];
 
 async function arrastrarAsa(pagina: import("@playwright/test").Page, desde: string, haciaTarjeta: string, soltar = true) {
+  // Origen y destino a la vez dentro de la ventana: el ratón solo ve lo visible.
+  await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).evaluate((el) => {
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo(0, Math.max(0, top - 80));
+  });
   const origen = await pagina.getByRole("button", { name: asa(desde) }).boundingBox();
   const destino = await pagina.locator("li.tarjeta-parada", { has: pagina.getByRole("heading", { name: haciaTarjeta }) }).boundingBox();
   expect(origen).not.toBeNull();
@@ -81,6 +86,7 @@ test("soltar fuera de la lista no cambia el orden ni hace peticiones (arr-ac1, l
     if (r.method() === "POST" && r.url().includes("/orden")) posts.push(r.url());
   });
 
+  await pagina.getByRole("button", { name: asa("Gamma") }).scrollIntoViewIfNeeded();
   const origen = await pagina.getByRole("button", { name: asa("Gamma") }).boundingBox();
   await pagina.mouse.move(origen!.x + origen!.width / 2, origen!.y + origen!.height / 2);
   await pagina.mouse.down();
