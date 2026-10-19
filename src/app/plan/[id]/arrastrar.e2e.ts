@@ -61,7 +61,10 @@ test("arrastrar el asa de la tercera parada al primer puesto la deja la primera 
   await expect(pagina.locator("[data-dnd-dragging]").first()).toBeVisible();
   await pagina.mouse.up();
 
-  await expect(pagina.getByText("Orden guardado")).toBeVisible();
+  // Si falla, el mensaje enseña el orden pintado y el aviso en vez de solo «no encontrado».
+  await expect
+    .poll(async () => `${(await ordenPintado(pagina)).join(",")} | ${await pagina.locator(".aviso-orden-vivo").innerText()}`, { timeout: 15_000 })
+    .toContain("Orden guardado");
   await expect(pagina.getByRole("button", { name: "Deshacer" })).toBeVisible();
   await expect.poll(() => ordenPintado(pagina)).toEqual(["Gamma", "Alfa", "Beta", "Delta"]);
   const guardada = await ultimaVersionDelDia(supabase, planId);
