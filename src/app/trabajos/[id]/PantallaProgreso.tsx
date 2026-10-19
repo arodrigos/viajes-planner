@@ -131,13 +131,14 @@ export function PantallaProgreso({ id }: { id: string }) {
     );
   }
 
-  // usabilidad-ac8(b): en todo estado de espera hay que recordar que esta
-  // dirección -no un botón ni una cuenta- es la única forma de volver a
+  // usabilidad-ac8(b): en todo estado de espera hay que decir cómo volver a
   // encontrar el trabajo, porque es el error real que motivó este bloque:
-  // gente cerrando la pestaña sin guardar nada.
+  // gente cerrando la pestaña creyendo que lo perdía. La vía es «Mis
+  // viajes» (pie de cualquier página), que también lista los trabajos aún
+  // en marcha -ya no hace falta guardar esta dirección.
   const avisoDireccion = (
     <div className="aviso">
-      <p>Puedes cerrar esta pantalla y volver cuando quieras: esta dirección es la única forma de encontrar este trabajo, así que conviene guardarla.</p>
+      <p>Puedes cerrar esta pantalla y volver cuando quieras: encontrarás este viaje en «Mis viajes», en el pie de cualquier página.</p>
       {/* txt-ac2: aquí es donde el usuario podría preguntarse por qué no le
           hemos vuelto a pedir el código al volver -la respuesta es que sigue
           con la sesión que abrió al escribirlo, no que la pantalla no lo
@@ -271,8 +272,8 @@ export function PantallaProgreso({ id }: { id: string }) {
               una nota secundaria, con el mismo estilo de ayuda que el resto
               del producto usa para texto que no es la acción a tomar. */}
           <p className="ayuda">
-            A partir de ahora la dirección que conviene guardar es la del plan, no la de esta pantalla: es la única
-            forma de volver a encontrar el itinerario.
+            El plan queda guardado en «Mis viajes», en el pie de cualquier página: no hace falta que guardes
+            ninguna dirección.
           </p>
         </div>
       </>
