@@ -18,7 +18,7 @@ export async function sembrarPlan(supabase: SupabaseClient, plan: Plan): Promise
       plan_id: plan.id,
       version: plan.version,
       personas: plan.personas,
-      dias: plan.dias.map((d) => ({ fecha: d.fecha, franjas: d.franjas, ...(d.etapa !== undefined ? { etapa: d.etapa } : {}) })),
+      dias: plan.dias.map((d) => ({ fecha: d.fecha, franjas: d.franjas, ...(d.etapa !== undefined ? { etapa: d.etapa } : {}), ...(d.ancla_alojamiento ? { ancla_alojamiento: d.ancla_alojamiento } : {}) })),
       avisos: [],
       etapas: plan.etapas ?? null,
       traslados: plan.traslados ?? null,
