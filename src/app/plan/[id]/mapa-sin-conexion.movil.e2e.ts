@@ -103,10 +103,15 @@ async function doblarOpenFreeMap(contexto: BrowserContext, opciones: { permitida
     if (/^\/planet\/[^/]+\/\d+\/\d+\/\d+\.pbf$/.test(url.pathname)) {
       r.teselas++;
       if (r.hubo429) r.tras429++;
-      r.enVuelo++;
-      r.maximoEnVuelo = Math.max(r.maximoEnVuelo, r.enVuelo);
+      // El guardado pide con cache:"reload" (Chrome manda Cache-Control: no-cache); el mapa vivo de la página
+      // también pide teselas y no cuenta para el límite de 3 simultáneas del guardado.
+      const esGuardado = (ruta.request().headers()["cache-control"] ?? "").includes("no-cache");
+      if (esGuardado) {
+        r.enVuelo++;
+        r.maximoEnVuelo = Math.max(r.maximoEnVuelo, r.enVuelo);
+      }
       await new Promise((resolver) => setTimeout(resolver, 250));
-      r.enVuelo--;
+      if (esGuardado) r.enVuelo--;
       const [, z, x, y] = url.pathname.match(/\/(\d+)\/(\d+)\/(\d+)\.pbf$/) ?? [];
       if (opciones.permitidas && !opciones.permitidas.has(`${z}/${x}/${y}`)) {
         r.hubo429 = true;
