@@ -3,7 +3,7 @@ import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { conEstadoGoogle, leerEstadosGoogle } from "@/lib/google/estados";
 import { aPlanPublico } from "@/lib/plan/publico";
-import { trabajoDelPlan } from "@/lib/plan/propiedad";
+import { exigirDuenyo } from "@/lib/plan/propiedad";
 import { recuperarPlan } from "@/lib/plan/repositorio";
 import { validarOrden, type EntradaOrden, type PeticionOrden } from "@/lib/plan/reordenar";
 
@@ -48,8 +48,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
   const { id } = await ctx.params;
   const supabase = clienteServicio();
 
-  const trabajo = await trabajoDelPlan(supabase, id, sesion.usuarioId);
-  if (!trabajo) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  const trabajo = await exigirDuenyo(supabase, id, sesion);
+  if (trabajo instanceof Response) return trabajo;
 
   let cuerpo: unknown;
   try {

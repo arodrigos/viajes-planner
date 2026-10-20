@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
-import { planPerteneceAUsuario } from "@/lib/plan/propiedad";
+import { exigirDuenyo } from "@/lib/plan/propiedad";
 import { desmarcarVisitada, marcarVisitada } from "@/lib/plan/visitas";
 
 function leerParadaId(cuerpo: unknown): string | null {
@@ -30,8 +30,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
   const { id } = await ctx.params;
   const supabase = clienteServicio();
 
-  const esPropio = await planPerteneceAUsuario(supabase, id, sesion.usuarioId);
-  if (!esPropio) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  const guarda = await exigirDuenyo(supabase, id, sesion);
+  if (guarda instanceof Response) return guarda;
 
   const cuerpo = await leerCuerpoYParadaId(request);
   if (cuerpo instanceof NextResponse) return cuerpo;
@@ -48,8 +48,8 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/plan/
   const { id } = await ctx.params;
   const supabase = clienteServicio();
 
-  const esPropio = await planPerteneceAUsuario(supabase, id, sesion.usuarioId);
-  if (!esPropio) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  const guarda = await exigirDuenyo(supabase, id, sesion);
+  if (guarda instanceof Response) return guarda;
 
   const cuerpo = await leerCuerpoYParadaId(request);
   if (cuerpo instanceof NextResponse) return cuerpo;

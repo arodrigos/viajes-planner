@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
-import { planPerteneceAUsuario } from "@/lib/plan/propiedad";
+import { exigirDuenyo } from "@/lib/plan/propiedad";
 import { sustituirParada } from "@/lib/plan/sustituir";
 
 // alt-ac6: mismo criterio que GET /api/plan/[id] -- un plan ajeno responde
@@ -14,8 +14,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
   const { id, paradaId } = await ctx.params;
   const supabase = clienteServicio();
 
-  const esPropio = await planPerteneceAUsuario(supabase, id, sesion.usuarioId);
-  if (!esPropio) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  const guarda = await exigirDuenyo(supabase, id, sesion);
+  if (guarda instanceof Response) return guarda;
 
   let cuerpo: unknown;
   try {

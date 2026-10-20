@@ -20,9 +20,10 @@ export interface TotalesLamina {
   dias: number;
   sitios: number;
   km_traslado: number;
-  total_eur: number;
+  // Ausentes en la lámina del miembro de un plan compartido.
+  total_eur?: number;
   tu_presupuesto_eur?: number;
-  texto_presupuesto: string;
+  texto_presupuesto?: string;
 }
 
 export interface ModeloInfografia {
@@ -63,7 +64,7 @@ function textoEvento(e: Evento): string {
   return recortar(`${formatearFechaCorta(e.fecha)} · ${e.nombre}`, MAX_EVENTO);
 }
 
-export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number): ModeloInfografia {
+export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number, opciones: { sinPresupuesto?: boolean } = {}): ModeloInfografia {
   const presupuesto = calcularPresupuesto(plan);
   const etapas = plan.etapas ?? [];
   const multiciudad = etapas.length > 0;
@@ -107,9 +108,13 @@ export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number)
       dias: plan.dias.length,
       sitios,
       km_traslado: km,
-      total_eur: presupuesto.total_eur,
-      ...(tuPresupuestoEur !== undefined ? { tu_presupuesto_eur: tuPresupuestoEur } : {}),
-      texto_presupuesto: textoPresupuesto,
+      ...(opciones.sinPresupuesto
+        ? {}
+        : {
+            total_eur: presupuesto.total_eur,
+            ...(tuPresupuestoEur !== undefined ? { tu_presupuesto_eur: tuPresupuestoEur } : {}),
+            texto_presupuesto: textoPresupuesto,
+          }),
     },
     eventos,
     ...(ocultos > 0 ? { resto: `y ${ocultos} ${ocultos === 1 ? "día" : "días"} más` } : {}),

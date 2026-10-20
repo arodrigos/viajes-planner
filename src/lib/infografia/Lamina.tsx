@@ -83,7 +83,9 @@ export function Lamina({ modelo }: { modelo: ModeloInfografia }) {
 
       <div style={{ display: "flex", flexDirection: "column", borderTop: `3px solid ${COLOR.linea}`, paddingTop: 20 }}>
         <div style={{ display: "flex", fontSize: 34 }}>{`${t.dias} días · ${t.sitios} sitios${t.km_traslado > 0 ? ` · ${t.km_traslado} km de traslado` : ""}`}</div>
-        <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: COLOR.acento, marginTop: 8 }}>{`Presupuesto estimado: ${t.texto_presupuesto}`}</div>
+        {t.texto_presupuesto !== undefined && (
+          <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: COLOR.acento, marginTop: 8 }}>{`Presupuesto estimado: ${t.texto_presupuesto}`}</div>
+        )}
       </div>
     </div>
   );

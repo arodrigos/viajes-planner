@@ -11,6 +11,6 @@ export async function GET(request: NextRequest) {
   if (sesion instanceof Response) return sesion;
 
   const supabase = clienteServicio();
-  const viajes = await listarViajes(supabase, sesion.usuarioId);
+  const viajes = await listarViajes(supabase, sesion.usuarioId, sesion.email);
   return NextResponse.json({ correo: sesion.email, viajes });
 }

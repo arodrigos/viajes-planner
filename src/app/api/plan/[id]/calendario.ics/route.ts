@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { generarIcsPlan } from "@/lib/plan/calendario";
-import { planPerteneceAUsuario } from "@/lib/plan/propiedad";
+import { rolEnPlan } from "@/lib/plan/propiedad";
 import { recuperarPlan } from "@/lib/plan/repositorio";
 
 // ics-ac1: misma guarda que GET /api/plan/[id] -- un plan ajeno responde
@@ -14,8 +14,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   const { id } = await ctx.params;
   const supabase = clienteServicio();
 
-  const esPropio = await planPerteneceAUsuario(supabase, id, sesion.usuarioId);
-  if (!esPropio) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  // El miembro también lo descarga: el .ics no lleva presupuesto ni alojamiento.
+  const rol = await rolEnPlan(supabase, id, sesion);
+  if (!rol) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
 
   const plan = await recuperarPlan(supabase, id);
   if (!plan) return NextResponse.json({ error: "no encontrado" }, { status: 404 });

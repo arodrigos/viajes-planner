@@ -45,6 +45,15 @@ export interface TrabajoDelPlan {
   intereses: Interes[] | null;
 }
 
+function aTrabajoDelPlan(data: { id: string; estado: string; regenerado_en: string | null; criterios: unknown }): TrabajoDelPlan {
+  const criterios = data.criterios as { perfil?: string; presupuesto_eur?: number; transporte?: unknown; intereses?: unknown } | null;
+  return { id: data.id, estado: data.estado, regenerado_en: data.regenerado_en, perfil: criterios?.perfil ?? null,
+    presupuesto_eur: typeof criterios?.presupuesto_eur === "number" ? criterios.presupuesto_eur : null,
+    transporte: Array.isArray(criterios?.transporte) ? criterios.transporte.filter((m): m is string => typeof m === "string") : null,
+    intereses: Array.isArray(criterios?.intereses) ? criterios.intereses.filter((i): i is Interes => (INTERESES as readonly unknown[]).includes(i)) : null,
+  };
+}
+
 // reg-ac4: el aviso "se está regenerando" en la vista del plan necesita el
 // id del trabajo (para enlazar a /trabajos/<id>) y su estado, no solo si el
 // plan es de este usuario -- misma consulta que planPerteneceAUsuario, con
@@ -62,11 +71,69 @@ export async function trabajoDelPlan(
     .is("eliminado_en", null)
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer el trabajo del plan: ${error.message}`);
-  if (!data) return null;
-  const criterios = data.criterios as { perfil?: string; presupuesto_eur?: number; transporte?: unknown; intereses?: unknown } | null;
-  return { id: data.id, estado: data.estado, regenerado_en: data.regenerado_en, perfil: criterios?.perfil ?? null,
-    presupuesto_eur: typeof criterios?.presupuesto_eur === "number" ? criterios.presupuesto_eur : null,
-    transporte: Array.isArray(criterios?.transporte) ? criterios.transporte.filter((m): m is string => typeof m === "string") : null,
-    intereses: Array.isArray(criterios?.intereses) ? criterios.intereses.filter((i): i is Interes => (INTERESES as readonly unknown[]).includes(i)) : null,
-  };
+  return data ? aTrabajoDelPlan(data) : null;
 }
+
+export type RolPlan = { rol: "duenyo"; trabajo: TrabajoDelPlan } | { rol: "miembro"; trabajo: TrabajoDelPlan };
+
+const MENSAJE_SOLO_DUENYO = "Solo quien creó el plan puede cambiarlo.";
+
+// compartir-datos: dueño es quien tiene el trabajo no eliminado del plan; miembro,
+// quien tiene una invitación por su correo mientras el trabajo del dueño siga
+// vivo (eliminar el viaje le quita el acceso). Cualquier otro caso es null y la
+// ruta responde 404, igual que para un plan que no existe.
+export async function rolEnPlan(
+  supabase: SupabaseClient,
+  planId: string,
+  sesion: { usuarioId: string; email: string },
+): Promise<RolPlan | null> {
+  const { data, error } = await supabase
+    .from("trabajos")
+    .select("id, estado, regenerado_en, criterios, usuario_id")
+    .eq("plan_id", planId)
+    .is("eliminado_en", null)
+    .maybeSingle();
+  if (error) throw new Error(`No se pudo leer el trabajo del plan: ${error.message}`);
+  if (!data) return null;
+  const trabajo = aTrabajoDelPlan(data);
+  if (data.usuario_id === sesion.usuarioId) return { rol: "duenyo", trabajo };
+
+  const correo = sesion.email.trim().toLowerCase();
+  if (!correo) return null;
+  const { data: fila, error: errorMiembro } = await supabase
+    .from("miembros_plan")
+    .select("id")
+    .eq("plan_id", planId)
+    .eq("correo", correo)
+    .maybeSingle();
+  if (errorMiembro) throw new Error(`No se pudo comprobar la invitación al plan: ${errorMiembro.message}`);
+  return fila ? { rol: "miembro", trabajo } : null;
+}
+
+// Guarda de toda ruta que escribe sobre un plan: devuelve el trabajo del dueño
+// o la Response lista (403 al miembro, 404 a cualquier otro).
+export async function exigirDuenyo(
+  supabase: SupabaseClient,
+  planId: string,
+  sesion: { usuarioId: string; email: string },
+): Promise<TrabajoDelPlan | Response> {
+  const rol = await rolEnPlan(supabase, planId, sesion);
+  if (!rol) return Response.json({ error: "no encontrado" }, { status: 404 });
+  if (rol.rol === "miembro") return RESPUESTA_SOLO_DUENYO();
+  return rol.trabajo;
+}
+
+// DELETE /api/viajes/[id] recibe el id del trabajo, no el del plan: para
+// distinguir al miembro (403) del ajeno (404) hay que pasar por su plan.
+export async function esMiembroDelTrabajo(
+  supabase: SupabaseClient,
+  trabajoId: string,
+  sesion: { usuarioId: string; email: string },
+): Promise<boolean> {
+  const { data, error } = await supabase.from("trabajos").select("plan_id").eq("id", trabajoId).is("eliminado_en", null).maybeSingle();
+  if (error) throw new Error(`No se pudo leer el trabajo: ${error.message}`);
+  if (!data?.plan_id) return false;
+  return (await rolEnPlan(supabase, data.plan_id as string, sesion))?.rol === "miembro";
+}
+
+export const RESPUESTA_SOLO_DUENYO = () => Response.json({ error: MENSAJE_SOLO_DUENYO }, { status: 403 });
