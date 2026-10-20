@@ -43,4 +43,4 @@ export function peticion(url: string, metodo: string, cookie?: string, cuerpo?: 
   });
 }
 
-export const contexto = (params: Record<string, string>) => ({ params: Promise.resolve(params) });
+export const contexto = <P extends Record<string, string>>(params: P) => ({ params: Promise.resolve(params) });
