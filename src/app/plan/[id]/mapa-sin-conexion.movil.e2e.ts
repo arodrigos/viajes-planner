@@ -105,7 +105,7 @@ async function doblarOpenFreeMap(contexto: BrowserContext, opciones: { permitida
       if (r.hubo429) r.tras429++;
       r.enVuelo++;
       r.maximoEnVuelo = Math.max(r.maximoEnVuelo, r.enVuelo);
-      await new Promise((resolver) => setTimeout(resolver, 40));
+      await new Promise((resolver) => setTimeout(resolver, 250));
       r.enVuelo--;
       const [, z, x, y] = url.pathname.match(/\/(\d+)\/(\d+)\/(\d+)\.pbf$/) ?? [];
       if (opciones.permitidas && !opciones.permitidas.has(`${z}/${x}/${y}`)) {
@@ -166,7 +166,7 @@ test.describe("mapa sin conexión", () => {
   });
 
   test("guardar, ver el mapa sin red, día no guardado y expulsión (p4m-ac1, ac2, ac3, ac4, ac5)", async ({ browser }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(300_000);
     const contexto = await browser.newContext({ viewport: { width: 360, height: 640 }, serviceWorkers: "allow" });
     const registro = await doblarOpenFreeMap(contexto);
     await iniciarSesion(contexto);
