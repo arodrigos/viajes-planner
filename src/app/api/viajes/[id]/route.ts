@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { eliminarViaje } from "@/lib/cola/eliminar";
+import { esMiembroDelTrabajo, RESPUESTA_SOLO_DUENYO } from "@/lib/plan/propiedad";
 
 // borrar-ac3: el trabajo de otro usuario responde 404, no 403 (mismo
 // criterio que /api/plan/[id] y /api/trabajos/[id]): no hay que confirmarle
@@ -14,7 +15,11 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/viaje
   const supabase = clienteServicio();
 
   const eliminado = await eliminarViaje(supabase, id, sesion.usuarioId);
-  if (!eliminado) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  if (!eliminado) {
+    // Un miembro sabe que el viaje existe (lo ve en su lista): 403, no 404.
+    if (await esMiembroDelTrabajo(supabase, id, sesion)) return RESPUESTA_SOLO_DUENYO();
+    return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  }
 
   return NextResponse.json({ ok: true });
 }

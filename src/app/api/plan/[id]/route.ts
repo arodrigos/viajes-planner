@@ -3,7 +3,9 @@ import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { aPlanPublico } from "@/lib/plan/publico";
 import { conEstadoGoogle, leerEstadosGoogle } from "@/lib/google/estados";
-import { trabajoDelPlan } from "@/lib/plan/propiedad";
+import { aPlanCompartido } from "@/lib/plan/compartido";
+import { contarMiembros } from "@/lib/plan/miembros";
+import { rolEnPlan } from "@/lib/plan/propiedad";
 import { ErrorLecturaPlan, recuperarPlan, type PasoLecturaPlan } from "@/lib/plan/repositorio";
 
 // reg-ac3: estos son los mismos estados "en vuelo" de regenerar.ts -- aquí
@@ -32,8 +34,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   const { id } = await ctx.params;
   const supabase = clienteServicio();
 
-  const trabajo = await trabajoDelPlan(supabase, id, sesion.usuarioId);
-  if (!trabajo) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  const rol = await rolEnPlan(supabase, id, sesion);
+  if (!rol) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  const { trabajo } = rol;
 
   // Un plan que no se puede leer deja la vista en «Cargando…» para siempre:
   // el mensaje de la causa (sin datos del plan) va al log de la función, que
@@ -46,6 +49,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   }
   if (!plan) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
 
+  const cabeceras = { "x-plan-leido-en": new Date().toISOString() };
+
   // reg-ac4: mientras la regeneración está en vuelo, la versión anterior
   // sigue siendo la que ve el usuario -- este aviso es lo único que avisa
   // de que se va a sustituir, con el enlace a la pantalla de progreso.
@@ -53,6 +58,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
 
   try {
     const publico = aPlanPublico(plan, trabajo.perfil, trabajo.presupuesto_eur, trabajo.transporte, trabajo.intereses);
+    // compartir-datos: el miembro recibe la proyección sin dinero ni alojamiento,
+    // ni el id del trabajo, ni el aviso de regeneración, ni el estado de Google.
+    if (rol.rol === "miembro") return NextResponse.json(aPlanCompartido(publico), { headers: cabeceras });
     // El estado de Google es un extra: si su lectura falla, el plan sale igual.
     const conGoogle = await leerEstadosGoogle(supabase, plan).then(
       (estados) => conEstadoGoogle(publico, estados),
@@ -60,7 +68,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
     );
     // La hora de lectura la pone el servidor (no la cabecera Date, que un
     // intermediario puede tocar): el SW solo guarda respuestas que la traen.
-    return NextResponse.json({ ...conGoogle, regenerando, trabajoId: trabajo.id }, { headers: { "x-plan-leido-en": new Date().toISOString() } });
+    const compartidoCon = await contarMiembros(supabase, id);
+    return NextResponse.json({ ...conGoogle, regenerando, trabajoId: trabajo.id, ...(compartidoCon > 0 ? { compartidoCon } : {}) }, { headers: cabeceras });
   } catch (fallo) {
     return respuestaFalloLectura(new ErrorLecturaPlan("presentar", fallo instanceof Error ? `${fallo.name}: ${fallo.message}` : "error desconocido"), "presentar");
   }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
-import { trabajoDelPlan } from "@/lib/plan/propiedad";
+import { exigirDuenyo } from "@/lib/plan/propiedad";
 import { errorDeFuncionSitio, MENSAJES_SITIO, validarSitio } from "@/lib/plan/sitiosPropios";
 
 // Alta de un sitio propio en un día. Crea una versión nueva del plan en una
@@ -15,8 +15,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
   const { id } = await ctx.params;
   const supabase = clienteServicio();
 
-  const trabajo = await trabajoDelPlan(supabase, id, sesion.usuarioId);
-  if (!trabajo) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  const trabajo = await exigirDuenyo(supabase, id, sesion);
+  if (trabajo instanceof Response) return trabajo;
 
   let cuerpo: unknown;
   try {
