@@ -74,8 +74,8 @@ interface Registro {
   hubo429: boolean;
 }
 
-// limite429: a partir de la tesela n.º N (contando solo teselas) responde 429.
-async function doblarOpenFreeMap(contexto: BrowserContext, opciones: { limite429?: number } = {}): Promise<Registro> {
+// permitidas: si se pasa, cualquier tesela fuera del conjunto responde 429 (los días comparten teselas, así que contar peticiones no es fiable).
+async function doblarOpenFreeMap(contexto: BrowserContext, opciones: { permitidas?: Set<string> } = {}): Promise<Registro> {
   const r: Registro = { teselas: 0, enVuelo: 0, maximoEnVuelo: 0, tras429: 0, hubo429: false };
   await contexto.route(`${HOST}/**`, async (ruta) => {
     const url = new URL(ruta.request().url());
@@ -107,7 +107,8 @@ async function doblarOpenFreeMap(contexto: BrowserContext, opciones: { limite429
       r.maximoEnVuelo = Math.max(r.maximoEnVuelo, r.enVuelo);
       await new Promise((resolver) => setTimeout(resolver, 40));
       r.enVuelo--;
-      if (opciones.limite429 !== undefined && r.teselas > opciones.limite429) {
+      const [, z, x, y] = url.pathname.match(/\/(\d+)\/(\d+)\/(\d+)\.pbf$/) ?? [];
+      if (opciones.permitidas && !opciones.permitidas.has(`${z}/${x}/${y}`)) {
         r.hubo429 = true;
         return ruta.fulfill({ status: 429, headers: cors, body: "" });
       }
@@ -246,14 +247,15 @@ test.describe("mapa sin conexión", () => {
     test.setTimeout(180_000);
     const contexto = await browser.newContext({ viewport: { width: 360, height: 640 }, serviceWorkers: "allow" });
     await contexto.addCookies(cookies);
-    const dia1 = teselasDelDia(puntosDia(0)).length;
-    const registro = await doblarOpenFreeMap(contexto, { limite429: dia1 + 5 });
+    const permitidas = new Set(teselasDelDia(puntosDia(0)).map((t) => `${t.z}/${t.x}/${t.y}`));
+    const registro = await doblarOpenFreeMap(contexto, { permitidas });
     const pagina = await contexto.newPage();
     await pagina.goto(`/plan/${planLimite}?dia=1`);
     await esperarControlador(pagina);
     await pagina.getByRole("button", { name: "Guardar mapas para usar sin red" }).click();
     await expect(pagina.getByText(/El servidor de mapas ha pedido parar; inténtalo más tarde/)).toBeVisible({ timeout: 60_000 });
     await expect(pagina.getByText(/Guardado para usar sin red: días 1 \(/)).toBeVisible();
+    expect(registro.hubo429).toBe(true);
     expect(registro.maximoEnVuelo).toBeLessThanOrEqual(3);
     // Las peticiones que ya iban de camino pueden terminar; ninguna nueva.
     expect(registro.tras429).toBeLessThanOrEqual(3);
