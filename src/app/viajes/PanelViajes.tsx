@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TEXTOS_COMPARTIR } from "@/lib/textos/compartir";
 import { TEXTOS_VIAJES as T } from "@/lib/textos/viajes";
 import { esViajePasado, hoyLocalISO } from "@/lib/viajes/clasificar";
 import {
@@ -23,6 +24,8 @@ interface ViajeListado {
   fecha_fin: string | null;
   estado: string;
   plan_id: string | null;
+  // compartir-datos: el plan es de otra persona y se ve en solo lectura.
+  compartido?: boolean;
 }
 
 export function PanelViajes() {
@@ -184,6 +187,11 @@ export function PanelViajes() {
           )}
           {textoDeSituacion && <p>{textoDeSituacion}</p>}
           <p className="ayuda">{etiquetaEstado(viaje.estado)}</p>
+          {viaje.compartido && (
+            <p className="etiqueta-compartido" data-testid="etiqueta-compartido">
+              {TEXTOS_COMPARTIR.etiquetaViaje}
+            </p>
+          )}
         </div>
 
         {confirmandoId === viaje.id ? (
@@ -225,9 +233,11 @@ export function PanelViajes() {
             <a href={enlace.href} className="boton boton-principal">
               {enlace.texto}
             </a>
-            <button type="button" className="accion-peligro" onClick={() => setConfirmandoId(viaje.id)}>
-              {T.eliminar.texto}
-            </button>
+            {!viaje.compartido && (
+              <button type="button" className="accion-peligro" onClick={() => setConfirmandoId(viaje.id)}>
+                {T.eliminar.texto}
+              </button>
+            )}
           </div>
         )}
       </li>

@@ -55,6 +55,8 @@ interface Props {
   arrastre?: { indice: number; reducirMovimiento: boolean };
   // Corregir o quitar un sitio propio; sin él la tarjeta solo enseña su estado.
   sitio?: AccionesSitio;
+  // Quien recibe el plan compartido solo lo lee: sin alternativas, ficha de Google ni visitas.
+  soloLectura?: boolean;
 }
 
 interface PropsCuerpo extends Props {
@@ -98,7 +100,7 @@ function TarjetaOrdenable(props: Props) {
   return <CuerpoTarjeta {...props} tarjetaRef={unir} asa={asa} arrastrando={isDragging} />;
 }
 
-function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, sitio, asa, arrastrando }: PropsCuerpo) {
+function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, sitio, soloLectura = false, asa, arrastrando }: PropsCuerpo) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const [fotoFallida, setFotoFallida] = useState(false);
   const alternativas = parada.alternativas ?? [];
@@ -146,6 +148,7 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
   // hablar: solo su nota y cómo va la búsqueda.
   const propia = parada.propia === true;
   const sinResolver = propia && parada.estadoSitio !== "resuelto";
+  const sinEscritura = sinResolver || soloLectura;
 
   return (
     <Fragment>
@@ -265,7 +268,7 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
 
           {/* cam-ac1: el panel solo existe si hay a qué cambiar; el aviso de paseo
               puede pedirlo en una parada sin alternativas y entonces explica por qué. */}
-          {!sinResolver && (alternativas.length > 0 || solicitudAlternativas > 0) && (
+          {!sinEscritura && (alternativas.length > 0 || solicitudAlternativas > 0) && (
             <details name={nombreGrupo} className="panel-parada" open={abierto === "alternativas"} onToggle={alAlternar("alternativas")}>
               <summary>{`Alternativas (${alternativas.length})`}</summary>
               {/* Solo se pinta abierto: sus fotos no se piden hasta que el usuario las pide. */}
@@ -337,7 +340,7 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
 
           {/* fic-ac1: el panel nunca está en /guia (pública). FichaGoogle no pide nada
               hasta que se abre por primera vez y se queda montada al cerrarlo. */}
-          {!sinResolver && (
+          {!sinEscritura && (
           <details name={nombreGrupo} className="panel-parada" open={abierto === "google"} onToggle={alAlternar("google")}>
             <summary>{TEXTOS_FICHA.panel.texto}</summary>
             <FichaGoogle planId={planId} paradaId={parada.id} estado={parada.google?.estado} abierto={abierto === "google"} hrefMaps={hrefMaps} conFotos={!parada.foto} />
@@ -361,7 +364,7 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
           <EnlacesParada parada={parada} ciudad={ciudad} tramo={tramo} />
           {/* dest-ac1..ac3: solo el día de hoy -- un día pasado o futuro no
               muestra ningún botón de visita. */}
-          {esHoy && (
+          {esHoy && !soloLectura && (
             <AccionesVisita
               sesionActiva={true}
               visitada={Boolean(parada.visitada)}

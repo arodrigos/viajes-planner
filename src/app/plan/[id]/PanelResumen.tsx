@@ -31,6 +31,7 @@ export function PanelResumen({ plan, onElegirDia }: Props) {
         <RutaViaje
           ruta={calcularRuta({ personas: plan.personas ?? 1, dias: plan.dias, etapas: plan.etapas, traslados: plan.traslados })}
           presupuesto={plan.presupuesto}
+          sinDinero={plan.compartido !== undefined}
           onIrADia={(i) => onElegirDia(i + 1)}
         />
       )}

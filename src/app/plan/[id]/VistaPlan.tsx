@@ -7,11 +7,14 @@ import { eventosDelDia } from "./SeccionEventos";
 import { CabeceraPlan } from "./CabeceraPlan";
 import { PanelDia } from "./PanelDia";
 import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
+import { Compartir } from "./Compartir";
 import { GuardarMapas } from "./GuardarMapas";
 import { PanelResumen } from "./PanelResumen";
 import { SelectorDias } from "./SelectorDias";
 import { AvisoOrden } from "./AvisoOrden";
 import { TEXTOS_ORDEN, useOrdenDia } from "./useOrdenDia";
+import { borrarCopiaPlan } from "@/lib/sinConexion/borrar";
+import { TEXTOS_COMPARTIR } from "@/lib/textos/compartir";
 import type { PlanPublico } from "./tiposVista";
 
 const PLAN_VACIO: PlanPublico = { id: "", version: 0, destino: "", dias: [], avisos: [], recomendaciones: [], regenerando: false, trabajoId: "" };
@@ -21,6 +24,8 @@ export function VistaPlan({ id }: { id: string }) {
   const parametros = useSearchParams();
   const [plan, setPlan] = useState<PlanPublico | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Un 404 con red es que el plan ya no es nuestro (o nunca lo fue): se borra la copia.
+  const [sinAcceso, setSinAcceso] = useState(false);
   // Hora de lectura de lo que se está viendo y si viene de la copia del SW.
   const [lectura, setLectura] = useState<{ leidoEn: string | null; esCopia: boolean } | null>(null);
   // alt-ac5: recargar (tras usar una alternativa) es volver a pedir
@@ -36,6 +41,16 @@ export function VistaPlan({ id }: { id: string }) {
     async function cargar() {
       try {
         const respuesta = await fetch(`/api/plan/${id}`);
+        if (respuesta.status === 404) {
+          // La copia y el mapa se borran aunque la pantalla ya no esté: es lo que
+          // impide seguir viendo sin conexión un plan al que se retiró el acceso.
+          await borrarCopiaPlan(id);
+          if (!cancelado) {
+            setPlan(null);
+            setSinAcceso(true);
+          }
+          return;
+        }
         if (!respuesta.ok) {
           if (!cancelado) setError("No se ha podido cargar el plan. Vuelve a intentarlo en un momento.");
           return;
@@ -44,6 +59,7 @@ export function VistaPlan({ id }: { id: string }) {
         if (!cancelado) {
           setPlan(datos);
           setError(null);
+          setSinAcceso(false);
           setLectura({ leidoEn: respuesta.headers?.get("x-plan-leido-en") ?? null, esCopia: respuesta.headers?.get("x-copia-guardada") === "1" });
         }
       } catch {
@@ -58,6 +74,7 @@ export function VistaPlan({ id }: { id: string }) {
   }, [id, recargarContador]);
 
   const esCopia = lectura?.esCopia === true;
+  const soloLectura = plan?.compartido?.rol === "miembro";
 
   // El plan que devuelve el guardado del orden sustituye al de la pantalla; una
   // copia guardada (sin red) no se reordena: los controles no se pintan.
@@ -122,7 +139,20 @@ export function VistaPlan({ id }: { id: string }) {
   return (
     <div className="pila">
       {error && <p role="alert">{error}</p>}
-      {!error && !plan && (
+      {sinAcceso && (
+        <>
+          <h1>Tu plan de viaje</h1>
+          <p role="alert" data-testid="acceso-retirado">
+            {TEXTOS_COMPARTIR.accesoRetirado}
+          </p>
+          <p>
+            <a href="/viajes" className="boton">
+              {TEXTOS_COMPARTIR.irAMisViajes}
+            </a>
+          </p>
+        </>
+      )}
+      {!error && !plan && !sinAcceso && (
         <>
           <h1>Tu plan de viaje</h1>
           <p>Cargando el plan…</p>
@@ -136,9 +166,11 @@ export function VistaPlan({ id }: { id: string }) {
             planId={id}
             onRegenerado={(trabajoId) => router.push(`/trabajos/${trabajoId}`)}
             onCiudadGuardada={() => setRecargarContador((n) => n + 1)}
+            soloLectura={soloLectura}
           />
           {esCopia && lectura?.leidoEn ? <FranjaCopia leidoEn={lectura.leidoEn} /> : lectura?.leidoEn ? <EstadoCopia planId={id} leidoEn={lectura.leidoEn} /> : null}
           <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />
+          {!soloLectura && !esCopia && <Compartir planId={id} />}
           <SelectorDias fechas={fechas} elegido={dia} hoy={hoy} onElegir={elegir} />
           {dia === "resumen" ? (
             <PanelResumen plan={plan} onElegirDia={elegir} />
@@ -157,16 +189,17 @@ export function VistaPlan({ id }: { id: string }) {
                   etapa={etapa ? { ciudad: etapa.ciudad.nombre ?? etapa.pais, caja: etapa.ciudad.caja } : undefined}
                   planId={id}
                   version={plan.version}
-                  puedeAnadirSitios={!esCopia}
+                  puedeAnadirSitios={!esCopia && !soloLectura}
+                  soloLectura={soloLectura}
                   hoy={hoy}
                   zona={plan.zona}
                   onPlanActualizado={() => setRecargarContador((n) => n + 1)}
                   onIrAResumen={() => elegir("resumen")}
                   ordenPendiente={orden.recalculando(indice) ? orden.ordenEnPantalla(indice) : undefined}
-                  onMover={esCopia ? undefined : (idParada, direccion) => orden.mover(indice, idParada, direccion)}
-                  onOptimizar={esCopia ? undefined : (nuevo, aviso) => (nuevo ? orden.aplicarOrden(indice, nuevo, { inmediato: true, aviso }) : orden.informar(TEXTOS_ORDEN.yaOptimo))}
+                  onMover={esCopia || soloLectura ? undefined : (idParada, direccion) => orden.mover(indice, idParada, direccion)}
+                  onOptimizar={esCopia || soloLectura ? undefined : (nuevo, aviso) => (nuevo ? orden.aplicarOrden(indice, nuevo, { inmediato: true, aviso }) : orden.informar(TEXTOS_ORDEN.yaOptimo))}
                   // Soltar es un gesto único: no hay ráfaga que agrupar.
-                  onReordenar={esCopia ? undefined : (nuevo) => orden.aplicarOrden(indice, nuevo, { inmediato: true })}
+                  onReordenar={esCopia || soloLectura ? undefined : (nuevo) => orden.aplicarOrden(indice, nuevo, { inmediato: true })}
                 />
               );
             })()
