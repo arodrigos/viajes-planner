@@ -95,6 +95,17 @@ test("una tarjeta con foto muestra la imagen y su atribución; sin foto, un marc
   if (errorTrabajo) throw new Error(`No se pudo sembrar el trabajo de prueba: ${errorTrabajo.message}`);
 
   const contexto = await browser.newContext({ viewport: { width: 393, height: 851 } });
+  // Con la foto de verdad sin cargar, la tarjeta pasaría a mostrar el hueco
+  // (fsd-ac1) y esta comprobación de imagen y atribución no tendría de dónde
+  // colgarse: se sirve un PNG de 1x1 con CORS, como lo hace Commons.
+  await contexto.route(/upload\.wikimedia\.org/, (ruta) =>
+    ruta.fulfill({
+      status: 200,
+      contentType: "image/png",
+      headers: { "access-control-allow-origin": "*" },
+      body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"),
+    }),
+  );
   const pagina = await contexto.newPage();
 
   const respuestaSolicitud = await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email: EMAIL } });
@@ -166,7 +177,7 @@ test("con cobertura pero sin datos, la foto que nunca se vio es un hueco con tex
   await pagina.goto(`/plan/${planId}?dia=1`);
   const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo del Prado" });
   const hueco = tarjeta.locator("[data-foto-estado=no-disponible]");
-  await expect(hueco).toHaveText("Foto no disponible sin conexión");
+  await expect(hueco).toContainText("Foto no disponible sin conexión");
   await expect(hueco).toHaveAttribute("role", "img");
   await expect(tarjeta.locator("img")).toHaveCount(0);
   await expect(tarjeta.locator(".atribucion-foto")).toHaveCount(0);
