@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
+import { capturar } from "@/test-utils/capturas";
 
 // fot-ac2/fot-ac3: viewport móvil real declarado por el diseño.
 test.use({ viewport: { width: 393, height: 851 } });
@@ -135,6 +136,42 @@ test("una tarjeta con foto muestra la imagen y su atribución; sin foto, un marc
   await pagina.screenshot({ path: "artefactos/capturas/plan-fotos-claro.png" });
   await pagina.emulateMedia({ colorScheme: "dark" });
   await pagina.screenshot({ path: "artefactos/capturas/plan-fotos-oscuro.png" });
+
+  await contexto.close();
+});
+
+// fsd-ac1: cobertura sin datos. navigator.onLine sigue en true y Commons no
+// responde: la foto que nunca se vio es un hueco con texto, no un icono roto.
+test("con cobertura pero sin datos, la foto que nunca se vio es un hueco con texto y sin atribución (fsd-ac1)", async ({ browser }) => {
+  const supabase = clienteDePrueba("servicio");
+  const correo = "ci-test-fotos-liefi@example.com";
+  const { data: usuario, error } = await supabase.auth.admin.createUser({ email: correo, email_confirm: true });
+  if (error || !usuario.user) throw new Error(`No se pudo crear el usuario de prueba: ${error?.message}`);
+  const planId = `plan-fotos-liefi-${Date.now()}`;
+  await sembrarPlanConFotos(supabase, planId);
+  const { error: errorTrabajo } = await supabase
+    .from("trabajos")
+    .insert({ usuario_id: usuario.user.id, tipo: "generacion", criterios: {}, estado: "completado", plan_id: planId });
+  if (errorTrabajo) throw new Error(`No se pudo sembrar el trabajo de prueba: ${errorTrabajo.message}`);
+
+  const contexto = await browser.newContext({ viewport: { width: 360, height: 640 } });
+  await contexto.route(/upload\.wikimedia\.org/, (ruta) => ruta.abort("internetdisconnected"));
+  const pagina = await contexto.newPage();
+  const solicitud = await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email: correo } });
+  expect(solicitud.ok()).toBe(true);
+  const codigo = await leerCodigo(correo);
+  const verificacion = await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: correo, codigo } });
+  expect(verificacion.ok()).toBe(true);
+
+  await pagina.goto(`/plan/${planId}?dia=1`);
+  const tarjeta = pagina.locator(".tarjeta-parada", { hasText: "Museo del Prado" });
+  const hueco = tarjeta.locator("[data-foto-estado=no-disponible]");
+  await expect(hueco).toHaveText("Foto no disponible sin conexión");
+  await expect(hueco).toHaveAttribute("role", "img");
+  await expect(tarjeta.locator("img")).toHaveCount(0);
+  await expect(tarjeta.locator(".atribucion-foto")).toHaveCount(0);
+  expect(await pagina.evaluate(() => navigator.onLine)).toBe(true);
+  await capturar(pagina, "fotos-sin-datos", "hueco-liefi");
 
   await contexto.close();
 });
