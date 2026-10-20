@@ -6,7 +6,10 @@ import {
   CABECERA_LEIDO_EN,
   CACHE_DATOS,
   CACHE_FOTOS,
+  CACHE_MAPA,
+  LIMITE_RED_MAPA_MS,
   LIMITE_RED_MS,
+  claveMapa,
   clasificar,
   destinoSinConexion,
   esGuardable,
@@ -40,6 +43,29 @@ function conRespaldo(respaldo: (peticion: Request) => string): RuntimeCaching["h
     },
   };
 }
+
+// Solo lee viajes-mapa: lo escribe la página al pulsar el botón, nunca el SW,
+// para que navegar no llene el almacenamiento ni descargue en bloque. Un glifo
+// sin copia devuelve un PBF vacío válido (el texto de esa letra no se pinta
+// pero el mapa sí) y una tesela sin copia un 404, que MapLibre trata como
+// «sin datos» sin romper el resto.
+const mapaConRespaldo: RuntimeCaching["handler"] = {
+  async handle({ request }) {
+    const limite = new Promise<null>((resolver) => setTimeout(() => resolver(null), LIMITE_RED_MAPA_MS));
+    try {
+      const respuesta = await Promise.race([fetch(request), limite]);
+      if (respuesta?.ok) return respuesta;
+      if (respuesta && respuesta.status !== 429 && respuesta.status < 500) return respuesta;
+    } catch {
+      // Sin red: cae a la copia.
+    }
+    const copia = await (await caches.open(CACHE_MAPA)).match(claveMapa(request.url));
+    if (copia) return copia;
+    const ruta = new URL(request.url).pathname;
+    if (ruta.startsWith("/fonts/")) return new Response(new Uint8Array(0), { status: 200, headers: { "content-type": "application/x-protobuf" } });
+    return new Response(null, { status: 404 });
+  },
+};
 
 const guardarSoloElPlan: SerwistPlugin = {
   cacheWillUpdate: async ({ response }) =>
@@ -88,6 +114,7 @@ const serwist: Serwist = new Serwist({
         plugins: [guardarSoloElPlan, new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 90 * DIA_S, purgeOnQuotaError: true })],
       }),
     },
+    { matcher: ({ request }) => claseDe(request) === "mapa", handler: mapaConRespaldo },
     {
       matcher: ({ request }) => claseDe(request) === "foto",
       handler: new CacheFirst({

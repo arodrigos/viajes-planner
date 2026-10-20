@@ -10,6 +10,7 @@ import { setWorkerUrl } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AttributionControl, Layer, Map, Marker, Source } from "@vis.gl/react-maplibre";
 import type { MapRef } from "@vis.gl/react-maplibre";
+import { diaEstaGuardado } from "@/lib/sinConexion/mapas";
 
 const ESTILO_OPENFREEMAP = "https://tiles.openfreemap.org/styles/liberty";
 
@@ -75,6 +76,24 @@ export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisita
 
   const puntosOrdenados = useMemo(() => [...puntos].sort((a, b) => a.orden - b.orden), [puntos]);
 
+  // Sin red solo hay mapa si el día se guardó: se comprueba contra la caché
+  // real y no contra una marca, porque el sistema puede haberla expulsado.
+  // La clave evita repetir la comprobación cuando el padre pasa un array nuevo
+  // con los mismos puntos.
+  const clavePuntos = puntos.map((p) => `${p.lat},${p.lon}`).join(";");
+  const [comprobado, setComprobado] = useState<{ clave: string; guardado: boolean } | null>(null);
+  const guardado = comprobado?.clave === clavePuntos ? comprobado.guardado : null;
+  useEffect(() => {
+    if (!sinRed) return;
+    let vivo = true;
+    void diaEstaGuardado(clavePuntos === "" ? [] : clavePuntos.split(";").map((c) => ({ lat: Number(c.split(",")[0]), lon: Number(c.split(",")[1]) }))).then((g) => {
+      if (vivo) setComprobado({ clave: clavePuntos, guardado: g });
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [sinRed, clavePuntos]);
+
   // dest-ac2: recentra sobre la siguiente parada sin visitar cuando cambia,
   // sin perder el encuadre inicial de fitBounds si no hay ninguna (plan
   // recién cargado, o día con todas las paradas visitadas).
@@ -96,11 +115,13 @@ export function MapaDia({ puntos, paradaActivaId, onSeleccionarParada, idsVisita
     [puntosOrdenados],
   );
 
-  if (fallo || sinRed) {
-    // map-ac5: el fallo del mapa no esconde la lista de paradas ni los
-    // enlaces a Google Maps -ambos viven fuera de este componente, en
-    // VistaPlan.tsx.
-    return <p className="mapa-no-disponible">El mapa no está disponible ahora.</p>;
+  // map-ac5: el fallo del mapa no esconde la lista de paradas ni los
+  // enlaces a Google Maps -ambos viven fuera de este componente, en
+  // VistaPlan.tsx.
+  if (fallo) return <p className="mapa-no-disponible">El mapa no está disponible ahora.</p>;
+  if (sinRed && guardado === null) return <p role="status" className="mapa-comprobando">Comprobando el mapa guardado…</p>;
+  if (sinRed && !guardado) {
+    return <p className="mapa-no-guardado">Este día no está guardado para usar sin red. Con conexión, pulsa «Guardar mapas para usar sin red».</p>;
   }
 
   const bounds: [[number, number], [number, number]] = puntosOrdenados.length > 0

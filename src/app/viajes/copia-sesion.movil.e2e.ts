@@ -44,6 +44,20 @@ async function guardarCopia(pagina: Page, planId: string) {
 const claves = (pagina: Page, nombre: string) =>
   pagina.evaluate(async (n) => ((await caches.has(n)) ? (await (await caches.open(n)).keys()).map((r) => new URL(r.url).pathname) : []), nombre);
 
+// p4m-ac7: planta lo que dejaría «Guardar mapas»: el índice del plan y una
+// tesela suya, sin depender de OpenFreeMap.
+async function plantarMapa(pagina: Page, planId: string, tesela: string) {
+  await pagina.evaluate(
+    async ([id, t]) => {
+      const cache = await caches.open("viajes-mapa");
+      const clave = `https://tiles.openfreemap.org/planet/_/${t}.pbf`;
+      await cache.put(clave, new Response("t"));
+      await cache.put(`https://tiles.openfreemap.org/__viajes/indice/${id}.json`, new Response(JSON.stringify({ teselas: [clave] })));
+    },
+    [planId, tesela],
+  );
+}
+
 test.describe("copia y sesión", () => {
   test.describe.configure({ mode: "serial" });
   let supabase: SupabaseClient;
@@ -96,12 +110,20 @@ test.describe("copia y sesión", () => {
     await guardarCopia(pagina, planB);
     await expect.poll(() => claves(pagina, "viajes-datos")).toEqual(expect.arrayContaining([`/api/plan/${planA}`, `/api/plan/${planB}`]));
 
+    await plantarMapa(pagina, planA, "12/1/1");
+    await plantarMapa(pagina, planB, "12/2/2");
     await pagina.goto("/viajes");
     const tarjeta = pagina.locator("li", { hasText: DESTINO });
     await tarjeta.getByRole("button", { name: "Eliminar" }).click();
     await pagina.getByRole("button", { name: /Eliminar de verdad/ }).click();
     await expect(pagina.getByText(DESTINO)).toHaveCount(0);
     await expect.poll(() => claves(pagina, "viajes-datos")).toEqual([`/api/plan/${planB}`]);
+    // p4m-ac7: se va el índice de mapa y la tesela del plan borrado, no los del otro.
+    await expect
+      .poll(() => claves(pagina, "viajes-mapa"))
+      .toEqual(expect.arrayContaining([`/__viajes/indice/${planB}.json`, "/planet/_/12/2/2.pbf"]));
+    expect(await claves(pagina, "viajes-mapa")).not.toContain(`/__viajes/indice/${planA}.json`);
+    expect(await claves(pagina, "viajes-mapa")).not.toContain("/planet/_/12/1/1.pbf");
     await contexto.close();
   });
 
@@ -114,11 +136,15 @@ test.describe("copia y sesión", () => {
     await pagina.goto("/viajes");
     await expect(pagina.getByText("Braga")).toBeVisible();
     expect(await pagina.evaluate(() => caches.has("viajes-datos"))).toBe(true);
+    await plantarMapa(pagina, planB, "12/2/2");
+    expect(await pagina.evaluate(() => caches.has("viajes-mapa"))).toBe(true);
 
     // El cierre de sesión falla a propósito: la limpieza local no depende de él.
     await contexto.route("**/api/auth/cerrar-sesion", (ruta) => ruta.abort());
     await pagina.getByRole("button", { name: "Cerrar sesión" }).click();
     await expect.poll(() => pagina.evaluate(async () => [await caches.has("viajes-datos"), await caches.has("viajes-fotos")])).toEqual([false, false]);
+    // p4m-ac7: viajes-mapa se va con las demás.
+    await expect.poll(() => pagina.evaluate(() => caches.has("viajes-mapa"))).toBe(false);
     await contexto.unroute("**/api/auth/cerrar-sesion");
 
     await contexto.setOffline(true);

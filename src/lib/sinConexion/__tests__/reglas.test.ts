@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { clasificar, destinoSinConexion, esGuardable, esHostGoogle, idDeClavePlan, textoAviso } from "../reglas";
+import { claveMapa, clasificar, destinoSinConexion, esGuardable, esHostGoogle, idDeClavePlan, textoAviso } from "../reglas";
 
 const ORIGEN = "https://viajes.example.org";
 const UUID = fc.uuid();
@@ -127,5 +127,44 @@ describe("idDeClavePlan", () => {
     );
     expect(idDeClavePlan(`${ORIGEN}/api/plan/${id}`)).toBe(id);
     expect(idDeClavePlan("basura")).toBeNull();
+  });
+});
+
+describe("clase «mapa» y claveMapa (p4m-ac6)", () => {
+  const T = "https://tiles.openfreemap.org";
+  it("tabla: OpenFreeMap es «mapa»; Google, la API, las páginas y el POST siguen como antes", () => {
+    const get = (url: string, modo = "cors") => clasificar({ url, metodo: "GET", modo }, ORIGEN);
+    for (const u of [`${T}/styles/liberty`, `${T}/planet`, `${T}/planet/2026/10/5/6.pbf`, `${T}/fonts/Noto%20Sans/0-255.pbf`, `${T}/sprites/ofm_f384/ofm.png`]) {
+      expect(get(u)).toBe("mapa");
+    }
+    expect(get("https://maps.googleapis.com/maps/api/js")).toBe("red");
+    expect(get(`${ORIGEN}/api/plan/x`)).toBe("api-plan");
+    expect(get(`${ORIGEN}/plan/x`, "navigate")).toBe("navegacion-plan");
+    expect(clasificar({ url: `${T}/planet`, metodo: "POST", modo: "cors" }, ORIGEN)).toBe("red");
+    expect(get("http://tiles.openfreemap.org/planet")).toBe("red");
+    expect(get("https://tiles.openfreemap.org.evil.example/planet")).toBe("red");
+  });
+
+  it("«mapa» solo para GET a https del host exacto; Google nunca deja de ser «red»", () => {
+    fc.assert(
+      fc.property(METODOS, MODOS, fc.stringMatching(/^[a-z0-9/_.-]{0,30}$/), (metodo, modo, ruta) => {
+        const c = clasificar({ url: `https://tiles.openfreemap.org/${ruta}`, metodo, modo }, ORIGEN);
+        expect(c === "mapa").toBe(metodo === "GET");
+        expect(clasificar({ url: `https://tiles.openfreemap.org.googleapis.com/${ruta}`, metodo, modo }, ORIGEN)).toBe("red");
+      }),
+    );
+  });
+
+  it("claveMapa es idempotente y no distingue la versión de la tesela", () => {
+    fc.assert(
+      fc.property(fc.stringMatching(/^[0-9a-z_]{1,16}$/), fc.stringMatching(/^[0-9a-z_]{1,16}$/), fc.nat(14), fc.nat(5000), fc.nat(5000), (v1, v2, z, x, y) => {
+        const a = `${T}/planet/${v1}/${z}/${x}/${y}.pbf`;
+        const b = `${T}/planet/${v2}/${z}/${x}/${y}.pbf`;
+        expect(claveMapa(a)).toBe(claveMapa(b));
+        expect(claveMapa(claveMapa(a))).toBe(claveMapa(a));
+      }),
+    );
+    expect(claveMapa(`${T}/styles/liberty`)).toBe(`${T}/styles/liberty`);
+    expect(claveMapa(`${T}/fonts/A%2CB/0-255.pbf`)).toBe(claveMapa(`${T}/fonts/A,B/0-255.pbf`));
   });
 });
