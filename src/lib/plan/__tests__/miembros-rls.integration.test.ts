@@ -35,22 +35,33 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("RLS de miembros_plan (cmd-ac1)", ()
     });
   }
 
-  it("la clave anónima no obtiene filas (permiso denegado)", async () => {
-    const r = await leer(ANON_KEY!);
+  // La 033 quita el SELECT de authenticated: el producto lee la tabla solo con
+  // service_role, así que ni un usuario autenticado ni anon la leen por REST.
+  async function exigirDenegado(bearer: string, filtro?: string) {
+    const r = await leer(bearer, filtro);
     if (r.status === 401 || r.status === 403) return;
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual([]);
+  }
+
+  it("la clave anónima no obtiene filas (permiso denegado)", async () => {
+    await exigirDenegado(ANON_KEY!);
   });
 
-  it("un usuario sin relación ve 0 filas, el invitado la suya y el dueño las de su plan", async () => {
-    expect(await (await leer(c.accessToken)).json()).toEqual([]);
-    expect(await (await leer(b.accessToken)).json()).toEqual([{ correo: b.email }]);
-    expect(await (await leer(a.accessToken)).json()).toEqual([{ correo: b.email }]);
+  it("authenticated tampoco lee la tabla, sea ajeno, invitado o dueño", async () => {
+    for (const u of [c, b, a]) {
+      const r = await leer(u.accessToken);
+      expect([401, 403]).toContain(r.status);
+    }
   });
 
   it("el invitado no ve las invitaciones de otros correos aunque las pida por correo", async () => {
-    const r = await leer(c.accessToken, `correo=eq.${b.email}`);
-    expect(await r.json()).toEqual([]);
+    await exigirDenegado(c.accessToken, `correo=eq.${b.email}`);
+  });
+
+  it("service_role sigue leyendo las filas del plan", async () => {
+    const { data } = await servicio.from("miembros_plan").select("correo").eq("plan_id", planId);
+    expect(data).toEqual([{ correo: b.email }]);
   });
 
   it("el dueño no puede escribir por REST: solo service_role escribe", async () => {
@@ -68,5 +79,11 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("RLS de miembros_plan (cmd-ac1)", ()
     const sql = readFileSync(path.join(import.meta.dirname, "../../../../supabase/migrations/00000000000032_miembros_plan.sql"), "utf8");
     expect(sql).toMatch(/alter table miembros_plan enable row level security/i);
     expect(sql).not.toMatch(/force row level security/i);
+  });
+
+  it("la 033 revoca el SELECT de authenticated y es aditiva", () => {
+    const sql = readFileSync(path.join(import.meta.dirname, "../../../../supabase/migrations/00000000000033_miembros_plan_sin_select_authenticated.sql"), "utf8");
+    expect(sql).toMatch(/revoke select on viajes_planner\.miembros_plan from authenticated/i);
+    expect(sql).not.toMatch(/\b(drop|truncate|delete)\b/i);
   });
 });
