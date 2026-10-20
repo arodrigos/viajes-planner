@@ -12,6 +12,8 @@ import { formatearKm } from "@/lib/formato/numeros";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
 import type { Evento } from "@/lib/eventos/tipos";
 import { EventosDia } from "./SeccionEventos";
+import { AnadirSitio } from "./AnadirSitio";
+import { useSitiosPropios } from "./useSitiosPropios";
 import { IconoFranja } from "./iconosFranja";
 import { calcularComoLlegar, progresoDelDia, puntosDelDia, siguienteSinVisitar, tramoHastaSiguiente } from "./ahora";
 import { claveNavegador } from "@/lib/google/claveNavegador";
@@ -31,15 +33,32 @@ const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue 
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void }) {
+export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, version, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar, puedeAnadirSitios = false }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; version: number; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void; puedeAnadirSitios?: boolean }) {
   // El orden de la pantalla se adelanta al del servidor mientras se guarda;
   // la copia del servidor se conserva para atar lo provisional a ella.
   const diaServidor = diaDelServidor;
-  const dia = ordenPendiente ? { ...diaServidor, paradas: aplicarOrden(diaServidor.paradas, ordenPendiente) } : diaServidor;
+  // Los sitios propios se enseñan al momento y el servidor los confirma después.
+  const sitios = useSitiosPropios(planId, version, indice, diaServidor, onPlanActualizado);
+  const conSitios: DiaPublico = {
+    ...diaServidor,
+    paradas: diaServidor.paradas
+      .filter((p) => !sitios.quitados.has(p.id))
+      .map((p) => {
+        const corregido = sitios.corregidos[p.id];
+        if (corregido === undefined) return p;
+        // Corregido el nombre, lo que se había resuelto ya no vale: igual que en el servidor.
+        const { motivoSitio: _motivo, foto: _foto, coordenadas: _coordenadas, ...resto } = p;
+        return { ...resto, nombre: corregido, estadoSitio: "buscando" as const };
+      }),
+  };
+  const dia = ordenPendiente ? { ...conSitios, paradas: aplicarOrden(conSitios.paradas, ordenPendiente) } : conSitios;
+  // Las tarjetas provisionales van al final y fuera de todo lo que reordena:
+  // el servidor aún no sabe de ellas.
+  const paradasVista = [...dia.paradas, ...sitios.anadidos];
   const recalculando = ordenPendiente !== undefined;
   const conControles = onMover !== undefined && dia.paradas.length >= 2;
   const conArrastre = conControles && onReordenar !== undefined;
-  const tieneAlgunaParada = dia.paradas.length > 0;
+  const tieneAlgunaParada = paradasVista.length > 0;
   const ubicadas = ubicadasDelDia(dia.paradas);
   const ayudaOptimizar =
     ubicadas < MIN_UBICADAS_OPTIMIZAR
@@ -180,7 +199,7 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
 
   const franjasDelDia = (conAsa: boolean) =>
     dia.franjas.map((franja) => {
-          const paradasDeLaFranja = dia.paradas.filter((parada) => parada.franja_id === franja.id);
+          const paradasDeLaFranja = paradasVista.filter((parada) => parada.franja_id === franja.id);
           if (paradasDeLaFranja.length === 0) return null;
           return (
             <div key={franja.id} className="seccion-franja">
@@ -222,9 +241,10 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                     error={leerError(errores, parada.id)}
                     onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
                     onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
-                    arrastre={conAsa && conControles ? { indice: paradasDeLaFranja.indexOf(parada), reducirMovimiento: reducirMovimiento() } : undefined}
+                    sitio={parada.propia && !sitios.anadidos.includes(parada) ? { onCorregir: (nombre) => sitios.corregir(parada.id, nombre), onQuitar: () => sitios.quitar(parada.id) } : undefined}
+                    arrastre={conAsa && conControles && !sitios.anadidos.includes(parada) ? { indice: paradasDeLaFranja.indexOf(parada), reducirMovimiento: reducirMovimiento() } : undefined}
                     orden={
-                      conControles
+                      conControles && !sitios.anadidos.includes(parada)
                         ? {
                             numero: dia.paradas.indexOf(parada) + 1,
                             esPrimera: !puedeMoverParada(ordenActual, parada.id, "arriba"),
@@ -354,6 +374,26 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
           {franjasDelDia}
         </ProveedorArrastre>
       </div>
+      {/* sitio-propio: el aviso y el error van junto al botón, a la vista de quien acaba de pulsar. */}
+      {sitios.error && (
+        <p role="alert" className="mensaje-error" data-testid="error-sitio">
+          {sitios.error}
+        </p>
+      )}
+      {sitios.aviso && (
+        <p role="status" className="aviso-sitio" data-testid="aviso-sitio">
+          {sitios.aviso.texto}
+          {sitios.aviso.idExterno && (
+            <>
+              {" · "}
+              <button type="button" className="enlace-boton" onClick={sitios.deshacer}>
+                Deshacer
+              </button>
+            </>
+          )}
+        </p>
+      )}
+      {puedeAnadirSitios && <AnadirSitio onAnadir={sitios.anadir} />}
     </section>
   );
 }

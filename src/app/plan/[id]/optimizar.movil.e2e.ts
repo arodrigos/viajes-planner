@@ -190,3 +190,35 @@ test("optimizar respeta las franjas: la comida sigue en la comida (opt-ac7)", as
   expect(guardada.paradas.map((p) => `${p.id_externo}:${p.franja_id}`)).toEqual(["m3:manana", "m2:manana", "m1:manana", "r1:comida", "t2:tarde", "t3:tarde", "t1:tarde"]);
   await contexto.close();
 });
+
+test("un sitio propio resuelto se optimiza como cualquier parada y uno en «Buscando…» se queda al final (spu-ac7)", async ({ browser }) => {
+  const supabase = clienteDePrueba("servicio");
+  const email = "ci-test-optimizar-propia@example.com";
+  const resuelta = { estado: "resuelta" as const, intentado_en: "2026-10-19T10:00:00.000Z" };
+  const planId = await sembrarDia(
+    supabase,
+    email,
+    "propia",
+    [
+      sitio(1, "p0"),
+      sitio(5, "p1"),
+      sitio(2, "p2"),
+      sitio(4, "p3"),
+      // El sitio 3 lo añadió el usuario y el trabajador ya lo ubicó.
+      { ...sitio(3, "p4"), propia: true, resolucion: resuelta },
+      { ...sinUbicar("p5", "Bar Pendiente"), propia: true },
+    ],
+    "2027-06-09",
+    ANCLA,
+  );
+  const { contexto, pagina } = await abrirPlan(browser, email, planId);
+
+  expect(await ordenPintado(pagina)).toEqual([...nombres(1, 5, 2, 4, 3), "Bar Pendiente"]);
+  await pagina.getByRole("button", OPTIMIZAR).click();
+  await expect(pagina.getByText("Recorrido más corto", { exact: false })).toBeVisible();
+  expect(await ordenPintado(pagina)).toEqual([...nombres(1, 2, 3, 4, 5), "Bar Pendiente"]);
+  const guardada = await ultimaVersionDelDia(supabase, planId);
+  expect(guardada.paradas.map((p) => p.id_externo)).toEqual(["p0", "p2", "p4", "p3", "p1", "p5"]);
+  await capturar(pagina, "optimizar-orden", "sitio-propio");
+  await contexto.close();
+});

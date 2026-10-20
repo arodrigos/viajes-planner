@@ -156,6 +156,8 @@ export function VistaPlan({ id }: { id: string }) {
                   destino={plan.destino}
                   etapa={etapa ? { ciudad: etapa.ciudad.nombre ?? etapa.pais, caja: etapa.ciudad.caja } : undefined}
                   planId={id}
+                  version={plan.version}
+                  puedeAnadirSitios={!esCopia}
                   hoy={hoy}
                   zona={plan.zona}
                   onPlanActualizado={() => setRecargarContador((n) => n + 1)}

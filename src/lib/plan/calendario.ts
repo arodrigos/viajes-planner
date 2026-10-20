@@ -34,7 +34,9 @@ function eventoDeParada(dia: Dia, horario: HorarioParada, parada: Parada, destin
     endOutputType: "local",
     title: parada.nombre,
     location: `${parada.nombre}, ${destino}`,
-    description: `${parada.descripcion}\n\n${FRASE_HORARIO_ORIENTATIVO}`,
+    // La nota del sitio propio es texto del usuario: `ics` la escapa según
+    // RFC 5545 (comas, punto y coma, barras y saltos de línea).
+    description: `${parada.descripcion}${parada.nota ? `\n\n${parada.nota}` : ""}\n\n${FRASE_HORARIO_ORIENTATIVO}`,
     ...(parada.coordenadas ? { geo: parada.coordenadas } : {}),
     ...(parada.lugar?.url ? { url: parada.lugar.url } : {}),
   };

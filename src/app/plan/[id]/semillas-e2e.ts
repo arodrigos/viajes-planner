@@ -45,6 +45,8 @@ export async function sembrarPlan(supabase: SupabaseClient, plan: Plan): Promise
         coste: p.coste ?? null,
         lugar: p.lugar ?? null,
         resolucion: p.resolucion ?? null,
+        nota: p.nota ?? null,
+        propia: p.propia ?? false,
         procedencia_id: procedencia?.id,
       });
       if (error) throw new Error(`No se pudo sembrar la parada ${p.id}: ${error.message}`);
