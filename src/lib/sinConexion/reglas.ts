@@ -8,6 +8,11 @@ export const CACHE_MAPA = "viajes-mapa";
 export const CABECERA_LEIDO_EN = "x-plan-leido-en";
 export const CABECERA_COPIA = "x-copia-guardada";
 export const LIMITE_RED_MS = 6000;
+// Cabecera con la que la página pide la lectura fresca mientras muestra la
+// copia: el SW la deja ir a red sin tope ni respaldo, o volvería a servir la
+// misma copia a los 6 s y la vista no saldría nunca de ella.
+export const CABECERA_REINTENTO = "x-reintento-plan";
+export const REINTENTO_COPIA_MS = 8000;
 export const HOST_FOTOS = "upload.wikimedia.org";
 export const HOST_MAPA = "tiles.openfreemap.org";
 // Más corto que el de la API: un mapa que no llega en 3 s se sustituye por la
