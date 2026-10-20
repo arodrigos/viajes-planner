@@ -7,6 +7,7 @@ import { textoPrecioParada } from "@/lib/presupuesto/texto";
 import { AccionesVisita } from "./AccionesVisita";
 import { ConectorTramo } from "./ConectorTramo";
 import { EnlacesParada } from "./EnlacesParada";
+import { EstadoSitioPropio, type AccionesSitio } from "./EstadoSitioPropio";
 import { FichaGoogle } from "./FichaGoogle";
 import { enlacesDeParada } from "@/lib/plan/enlacesParada";
 import { procedenciaHorario } from "@/lib/plan/procedenciaHorario";
@@ -52,6 +53,8 @@ interface Props {
   // Arrastrar para reordenar: solo con `orden` y dentro de ProveedorArrastre.
   // `indice` es la posición dentro de su franja, que es la que el plugin espera.
   arrastre?: { indice: number; reducirMovimiento: boolean };
+  // Corregir o quitar un sitio propio; sin él la tarjeta solo enseña su estado.
+  sitio?: AccionesSitio;
 }
 
 interface PropsCuerpo extends Props {
@@ -95,7 +98,7 @@ function TarjetaOrdenable(props: Props) {
   return <CuerpoTarjeta {...props} tarjetaRef={unir} asa={asa} arrastrando={isDragging} />;
 }
 
-function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, asa, arrastrando }: PropsCuerpo) {
+function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, sitio, asa, arrastrando }: PropsCuerpo) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const [fotoFallida, setFotoFallida] = useState(false);
   const alternativas = parada.alternativas ?? [];
@@ -139,6 +142,10 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
     posibleCierre: Boolean(parada.horario?.posibleCierre),
   });
   const nConsejos = contarConsejosYCuriosidades(parada.guia, parada.curiosidades);
+  // Un sitio propio aún sin ubicar no tiene precio, guía ni ficha de las que
+  // hablar: solo su nota y cómo va la búsqueda.
+  const propia = parada.propia === true;
+  const sinResolver = propia && parada.estadoSitio !== "resuelto";
 
   return (
     <Fragment>
@@ -190,13 +197,22 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
               )}
             </div>
           </div>
-          <p>{parada.descripcion}</p>
-          <p className="precio-parada" data-testid="precio-parada">
-            {textoPrecioParada(parada.coste)}
-          </p>
+          {parada.descripcion && <p>{parada.descripcion}</p>}
+          {/* La nota es del usuario: texto plano, React la escapa. */}
+          {parada.nota && (
+            <p className="nota-sitio" data-testid="nota-sitio">
+              {parada.nota}
+            </p>
+          )}
+          {propia && <EstadoSitioPropio parada={parada} acciones={sitio} />}
+          {!sinResolver && (
+            <p className="precio-parada" data-testid="precio-parada">
+              {textoPrecioParada(parada.coste)}
+            </p>
+          )}
           {/* tar-ac4: la procedencia y el crédito de la foto nunca se pliegan:
               uno es honestidad sobre el dato, el otro condición de licencia. */}
-          {parada.procedencia.fuente === "propuesto-sin-verificar" ? (
+          {sinResolver ? null : parada.procedencia.fuente === "propuesto-sin-verificar" ? (
             <p className="procedencia-parada procedencia-sin-comprobar">
               Sin comprobar: revisa nombre y dirección antes de ir.
             </p>
@@ -220,7 +236,7 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
 
           {/* mot-ac1: el motivo va rotulado como del modelo -es su opinión, no un dato
               comprobado-; sin motivo (plan anterior) el panel no aparece. */}
-          {(parada.motivo || parada.interes) && (
+          {!sinResolver && (parada.motivo || parada.interes) && (
             <details name={nombreGrupo} className="panel-parada" open={abierto === "motivo"} onToggle={alAlternar("motivo")}>
               <summary>Por qué te lo proponemos</summary>
               <div className="motivo-parada" data-testid="motivo-parada">
@@ -235,6 +251,7 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
             </details>
           )}
 
+          {!sinResolver && (
           <details name={nombreGrupo} className="panel-parada" open={abierto === "guia"} onToggle={alAlternar("guia")}>
             <summary>{nConsejos > 0 ? `Consejos y curiosidades (${nConsejos})` : "Consejos y curiosidades"}</summary>
             <ConsejosYCuriosidades
@@ -244,10 +261,11 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
               intentada={Boolean(parada.guia_intentada_en)}
             />
           </details>
+          )}
 
           {/* cam-ac1: el panel solo existe si hay a qué cambiar; el aviso de paseo
               puede pedirlo en una parada sin alternativas y entonces explica por qué. */}
-          {(alternativas.length > 0 || solicitudAlternativas > 0) && (
+          {!sinResolver && (alternativas.length > 0 || solicitudAlternativas > 0) && (
             <details name={nombreGrupo} className="panel-parada" open={abierto === "alternativas"} onToggle={alAlternar("alternativas")}>
               <summary>{`Alternativas (${alternativas.length})`}</summary>
               {/* Solo se pinta abierto: sus fotos no se piden hasta que el usuario las pide. */}
@@ -319,10 +337,12 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
 
           {/* fic-ac1: el panel nunca está en /guia (pública). FichaGoogle no pide nada
               hasta que se abre por primera vez y se queda montada al cerrarlo. */}
+          {!sinResolver && (
           <details name={nombreGrupo} className="panel-parada" open={abierto === "google"} onToggle={alAlternar("google")}>
             <summary>{TEXTOS_FICHA.panel.texto}</summary>
             <FichaGoogle planId={planId} paradaId={parada.id} estado={parada.google?.estado} abierto={abierto === "google"} hrefMaps={hrefMaps} conFotos={!parada.foto} />
           </details>
+          )}
 
           {/* WCAG 2.5.7: los botones son la vía principal de reordenar; el
               arrastre es un añadido, nunca la única forma. */}

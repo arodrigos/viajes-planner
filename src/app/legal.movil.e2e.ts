@@ -61,3 +61,13 @@ for (const ruta of ["/privacidad", "/terminos"]) {
     expect(await page.locator("main").innerText()).not.toContain("@");
   });
 }
+
+test("spu-ac6: /privacidad explica las notas de los sitios propios", async ({ page }) => {
+  await page.goto("/privacidad");
+  const seccion = page.getByRole("heading", { level: 2, name: "Notas de los sitios que añades" });
+  await expect(seccion).toBeVisible();
+  const texto = await page.locator("main").innerText();
+  for (const parte of ["se guarda con el plan", "la ven quienes tengan acceso a él", "No se envía a ningún servicio externo"]) {
+    expect(texto).toContain(parte);
+  }
+});

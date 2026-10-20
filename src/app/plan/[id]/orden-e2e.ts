@@ -26,7 +26,8 @@ export function parada(id: string, nombre: string, franja: string, indice: numbe
 
 export const NOMBRES = { a: "Alfa", b: "Beta", c: "Gamma", d: "Delta" } as const;
 
-export async function sembrarDia(supabase: SupabaseClient, email: string, sufijo: string, paradas: Parada[], fecha = "2027-06-09", ancla?: AnclaAlojamiento) {
+// Crea (o recupera) al usuario, siembra el plan y se lo asigna con un trabajo completado.
+export async function sembrarPlanDeUsuario(supabase: SupabaseClient, email: string, plan: Plan) {
   const { data: usuario, error } = await supabase.auth.admin.createUser({ email, email_confirm: true });
   if (error || !usuario.user) {
     // Un reintento del CI ya lo habrá creado.
@@ -35,13 +36,17 @@ export async function sembrarDia(supabase: SupabaseClient, email: string, sufijo
     if (!existente) throw new Error(`No se pudo crear el usuario de prueba: ${error?.message}`);
     usuario.user = existente;
   }
-  const planId = `plan-orden-${sufijo}-${Date.now()}`;
-  const plan: Plan = { id: planId, version: 1, destino: "Granada", personas: 2, dias: [{ fecha, franjas: FRANJAS, paradas, ...(ancla ? { ancla_alojamiento: ancla } : {}) }] };
   await sembrarPlan(supabase, plan);
   const { error: errorTrabajo } = await supabase
     .from("trabajos")
-    .insert({ usuario_id: usuario.user!.id, tipo: "generacion", criterios: {}, estado: "completado", plan_id: planId });
+    .insert({ usuario_id: usuario.user!.id, tipo: "generacion", criterios: {}, estado: "completado", plan_id: plan.id });
   if (errorTrabajo) throw new Error(`No se pudo sembrar el trabajo de prueba: ${errorTrabajo.message}`);
+}
+
+export async function sembrarDia(supabase: SupabaseClient, email: string, sufijo: string, paradas: Parada[], fecha = "2027-06-09", ancla?: AnclaAlojamiento) {
+  const planId = `plan-orden-${sufijo}-${Date.now()}`;
+  const plan: Plan = { id: planId, version: 1, destino: "Granada", personas: 2, dias: [{ fecha, franjas: FRANJAS, paradas, ...(ancla ? { ancla_alojamiento: ancla } : {}) }] };
+  await sembrarPlanDeUsuario(supabase, email, plan);
   return planId;
 }
 

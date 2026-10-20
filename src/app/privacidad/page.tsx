@@ -57,6 +57,13 @@ export default function PrivacidadPage() {
         .
       </p>
 
+      <h2>Notas de los sitios que añades</h2>
+      <p>
+        Cuando añades un sitio a un día puedes escribir una nota. La nota se guarda con el plan, y la ven quienes
+        tengan acceso a él. No se envía a ningún servicio externo: a las fuentes de arriba solo les llega el nombre
+        del sitio y la ciudad.
+      </p>
+
       <h2>Copia del plan en este dispositivo</h2>
       <p>
         Para que puedas ver un plan sin cobertura, la aplicación guarda en este dispositivo una copia de los planes

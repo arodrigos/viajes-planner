@@ -81,6 +81,12 @@ export interface ParadaPublica {
   interes?: Interes;
   // ficha-google: solo el estado; el place_id no llega nunca a la página.
   google?: { estado: EstadoGoogleParada };
+  // sitio-propio: solo en los sitios que añadió el usuario. La nota es texto
+  // plano y se pinta como tal; nunca se interpreta como HTML.
+  propia?: true;
+  nota?: string;
+  estadoSitio?: "buscando" | "resuelto" | "no-encontrado" | "error";
+  motivoSitio?: string;
 }
 
 export interface DiaPublico {

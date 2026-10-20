@@ -1096,3 +1096,30 @@ footer a,
 .optimizar-orden .ayuda {
   margin: var(--espacio-1) 0 0;
 }
+
+/* sitio-propio: la nota es del usuario y puede traer palabras muy largas. */
+.nota-sitio {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-style: italic;
+}
+
+.estado-sitio,
+.anadir-sitio {
+  margin-block: var(--espacio-2);
+}
+
+.acciones-sitio .boton {
+  min-height: var(--objetivo-tactil);
+}
+
+.formulario-sitio textarea,
+.formulario-sitio input[type="text"],
+.estado-sitio input[type="text"] {
+  width: 100%;
+  max-width: 100%;
+}
+
+.aviso-sitio {
+  margin-block: var(--espacio-2);
+}
