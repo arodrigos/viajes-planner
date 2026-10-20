@@ -9,17 +9,20 @@ interface Props {
   className: string;
   width?: number;
   height?: number;
+  // La atribución vive fuera de este componente: sin foto no hay nada que atribuir.
+  alFallar?: () => void;
 }
 
 // crossOrigin: el SW solo puede guardar la foto como respuesta legible (no
-// opaca) si se pide con CORS. Si falla estando sin red es una foto que nunca
-// se vio: el marcador de siempre, no un icono roto. Con red se deja como
-// estaba, para no ocultar un fallo real del CDN.
-export function FotoPlan({ src, alt, className, width, height }: Props) {
+// opaca) si se pide con CORS. Cualquier error de carga es una foto que nunca
+// se vio: el marcador de siempre, no un icono roto. No se mira navigator.onLine
+// porque con cobertura pero sin datos vale true y la foto falla igualmente
+// (#272, #274, #277).
+export function FotoPlan({ src, alt, className, width, height, alFallar }: Props) {
   const [ausente, setAusente] = useState(false);
   if (ausente) {
     return (
-      <div className="foto-ausente">
+      <div className="foto-ausente" role="img" aria-label="Foto no disponible sin conexión" data-foto-estado="no-disponible">
         <IconoSinFoto />
         <span>Foto no disponible sin conexión</span>
       </div>
@@ -35,7 +38,8 @@ export function FotoPlan({ src, alt, className, width, height }: Props) {
       width={width}
       height={height}
       onError={() => {
-        if (!navigator.onLine) setAusente(true);
+        setAusente(true);
+        alFallar?.();
       }}
     />
   );
