@@ -8,7 +8,7 @@ type Estado =
   | { tipo: "reposo" }
   | { tipo: "calculando" }
   | { tipo: "guardando"; dia: number; total: number }
-  | { tipo: "fin"; fallo?: MotivoFallo };
+  | { tipo: "fin"; fallo?: MotivoFallo; guardados: number };
 
 const TEXTO_FALLO: Record<MotivoFallo, string> = {
   servidor: "El servidor de mapas ha pedido parar; inténtalo más tarde.",
@@ -77,7 +77,7 @@ export function GuardarMapas({ planId, dias: diasPlan, puedeGuardar = true }: { 
       alProgreso: ({ dia, total }) => setEstado({ tipo: "guardando", dia, total }),
     });
     cancelar.current = null;
-    setEstado({ tipo: "fin", fallo: resultado.fallo?.motivo });
+    setEstado({ tipo: "fin", fallo: resultado.fallo?.motivo, guardados: resultado.guardados.length });
     setVersion((v) => v + 1);
   }
 
@@ -109,6 +109,11 @@ export function GuardarMapas({ planId, dias: diasPlan, puedeGuardar = true }: { 
             <button type="button" className="boton" onClick={() => cancelar.current?.abort()}>
               Cancelar
             </button>
+          )}
+          {estado.tipo === "fin" && !estado.fallo && estado.guardados === 0 && (
+            <p role="status" className="ayuda">
+              No se ha podido guardar ningún mapa. Inténtalo de nuevo.
+            </p>
           )}
           {estado.tipo === "fin" && estado.fallo && (
             <p role="status" className="ayuda">

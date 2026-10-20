@@ -156,7 +156,7 @@ async function guardarUrl(cache: Cache, url: string, peticion: typeof fetch, se�
 interface EstiloMinimo {
   sprite?: string;
   glyphs?: string;
-  sources?: Record<string, { url?: string; tiles?: string[] }>;
+  sources?: Record<string, { type?: string; url?: string; tiles?: string[] }>;
   layers?: Array<{ layout?: { "text-font"?: string[] } }>;
 }
 
@@ -174,7 +174,11 @@ function fontstacks(estilo: EstiloMinimo): string[] {
 async function guardarBase(cache: Cache, peticion: typeof fetch, señal?: AbortSignal): Promise<string> {
   const estilo = (await (await guardarUrl(cache, ESTILO_MAPA, peticion, señal)).clone().json()) as EstiloMinimo;
   let plantilla: string | undefined;
+  // El estilo real trae antes una fuente raster (natural_earth) con sus propias
+  // teselas: la plantilla que sirve es la de la fuente vectorial, la que pide
+  // el mapa a zoom de calle. Con la raster se «guardaban» 404 y ningún día.
   for (const fuente of Object.values(estilo.sources ?? {})) {
+    if (fuente.type !== undefined && fuente.type !== "vector") continue;
     if (fuente.url) {
       const tilejson = (await (await guardarUrl(cache, fuente.url, peticion, señal)).clone().json()) as { tiles?: string[] };
       plantilla ??= tilejson.tiles?.[0];
