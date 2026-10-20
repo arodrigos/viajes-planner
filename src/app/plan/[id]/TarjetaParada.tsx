@@ -97,6 +97,7 @@ function TarjetaOrdenable(props: Props) {
 
 function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, asa, arrastrando }: PropsCuerpo) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
+  const [fotoFallida, setFotoFallida] = useState(false);
   const alternativas = parada.alternativas ?? [];
   const nombreGrupo = `parada-${parada.id}`;
 
@@ -157,7 +158,7 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
             {/* fot-ac2/fot-ac3: la foto procede de resolverFotos.ts (server-only); sin
                 ella, el marcador de posición es digno, nunca un hueco roto. */}
             {parada.foto ? (
-              <FotoPlan src={parada.foto.url} alt={parada.nombre} className="foto-parada" width={88} height={88} />
+              <FotoPlan src={parada.foto.url} alt={parada.nombre} className="foto-parada" width={88} height={88} alFallar={() => setFotoFallida(true)} />
             ) : (
               <div className="foto-ausente">
                 <IconoSinFoto />
@@ -204,7 +205,7 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
               Ubicación comprobada en {parada.procedencia.fuente === "osm" ? "OpenStreetMap" : "Wikipedia"}
             </p>
           )}
-          {parada.foto && (
+          {parada.foto && !fotoFallida && (
             <p className="atribucion-foto">
               Foto:{" "}
               <a href={parada.foto.pagina_url} target="_blank" rel="noopener noreferrer">

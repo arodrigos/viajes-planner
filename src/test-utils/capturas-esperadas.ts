@@ -4,6 +4,7 @@
 // si alguna falta en artefactos/capturas/<bloque>/<fichero>.
 export const CAPTURAS_ESPERADAS = [
   { bloque: "capturas-ui", fichero: "correo-enmascarado.png" },
+  { bloque: "fotos-sin-datos", fichero: "hueco-liefi.png" },
   { bloque: "error-visita-ahora", fichero: "error-claro.png" },
   { bloque: "error-visita-ahora", fichero: "error-oscuro.png" },
   { bloque: "reglas-y-legal-google", fichero: "terminos.png" },
