@@ -10,7 +10,11 @@ const BASE = "https://tiles.openfreemap.org";
 const ESTILO = {
   sprite: `${BASE}/sprites/ofm_f384/ofm`,
   glyphs: `${BASE}/fonts/{fontstack}/{range}.pbf`,
-  sources: { openmaptiles: { type: "vector", url: `${BASE}/planet` } },
+  // Como el estilo real: la fuente raster va ANTES de la vectorial.
+  sources: {
+    ne2_shaded: { type: "raster", tiles: [`${BASE}/natural_earth/ne2sr/{z}/{x}/{y}.png`] },
+    openmaptiles: { type: "vector", url: `${BASE}/planet` },
+  },
   layers: [{ layout: { "text-font": ["Noto Sans Regular"] } }, { layout: { "text-font": ["Noto Sans Bold", "Noto Sans Regular"] } }, {}],
 };
 const TILEJSON = { tiles: [`${BASE}/planet/20261001_001001_pt/{z}/{x}/{y}.pbf`] };
@@ -98,6 +102,7 @@ function servidor(opciones: { falloEnTesela?: number; estado?: number } = {}) {
     enVuelo--;
     if (url === `${BASE}/styles/liberty`) return new Response(JSON.stringify(ESTILO));
     if (url === `${BASE}/planet`) return new Response(JSON.stringify(TILEJSON));
+    if (url.includes("/natural_earth/")) return new Response("", { status: 404 });
     if (url.endsWith(".pbf") && url.includes("/planet/")) {
       teselasPedidas++;
       if (opciones.falloEnTesela && teselasPedidas > opciones.falloEnTesela) {

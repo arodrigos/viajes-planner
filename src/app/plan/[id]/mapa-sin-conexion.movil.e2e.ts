@@ -88,13 +88,18 @@ async function doblarOpenFreeMap(contexto: BrowserContext, opciones: { permitida
         version: 8,
         sprite: `${HOST}/sprites/ofm_f384/ofm`,
         glyphs: `${HOST}/fonts/{fontstack}/{range}.pbf`,
-        sources: { openmaptiles: { type: "vector", url: `${HOST}/planet` } },
+        // Como el estilo real: la raster antes que la vectorial.
+        sources: {
+          ne2_shaded: { type: "raster", tiles: [`${HOST}/natural_earth/ne2sr/{z}/{x}/{y}.png`] },
+          openmaptiles: { type: "vector", url: `${HOST}/planet` },
+        },
         layers: [
           { id: "fondo", type: "background", paint: { "background-color": "#e8efe3" } },
           { id: "etiquetas", type: "symbol", source: "openmaptiles", "source-layer": "place", layout: { "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"] } },
         ],
       });
     }
+    if (url.pathname.startsWith("/natural_earth/")) return ruta.fulfill({ status: 404, headers: cors, body: "" });
     if (url.pathname === "/planet") return json({ tilejson: "3.0.0", attribution: "OpenFreeMap © OpenMapTiles Datos de OpenStreetMap", minzoom: 0, maxzoom: 14, tiles: [`${HOST}/planet/20261001_000000_pt/{z}/{x}/{y}.pbf`] });
     if (url.pathname.startsWith("/sprites/")) {
       return url.pathname.endsWith(".png") ? ruta.fulfill({ status: 200, contentType: "image/png", headers: cors, body: PNG_1X1 }) : json({});
