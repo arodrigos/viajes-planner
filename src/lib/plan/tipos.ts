@@ -170,6 +170,10 @@ export interface Parada {
   guia_intentada_en?: string;
   // Versión del formato con que se guardó la guía (FORMATO_GUIA al escribirla).
   guia_formato?: number;
+  // sitio-propio: la puso el usuario en un día, con una nota suya (texto plano,
+  // ≤200). La nota se guarda y se pinta; no sale a ninguna fuente ni al modelo.
+  propia?: boolean;
+  nota?: string;
 }
 
 // guia-abierta: la ficha de Wikivoyage asignada a la parada. `precio_eur`

@@ -64,7 +64,30 @@ export interface ParadaPublica extends Omit<Parada, "alternativas"> {
   // Interés del usuario con el que encaja la categoría de la parada (el
   // primero de su lista); ausente si no marcó intereses o ninguno encaja.
   interes?: Interes;
+  // sitio-propio: solo en paradas que puso el usuario; derivados de `resolucion`
+  // al serializar, nunca guardados.
+  estadoSitio?: EstadoSitio;
+  motivoSitio?: string;
   google?: { estado: "sin-ubicacion" | "pendiente" | "sin-coincidencia" | "casado" };
+}
+
+export type EstadoSitio = "buscando" | "resuelto" | "no-encontrado" | "error";
+
+// Texto para la persona según por qué no se resolvió el sitio; la parada
+// «fuera de caja» no es un error del nombre sino de la ciudad.
+export function motivoDeSitio(parada: Pick<Parada, "nombre" | "resolucion">, ciudad: string): string | undefined {
+  const resolucion = parada.resolucion;
+  if (resolucion?.estado === "error") return "No hemos podido buscarlo ahora; lo intentaremos en unos minutos.";
+  if (resolucion?.estado !== "no-resuelta") return undefined;
+  if (resolucion.categoria_motivo === "fuera-de-caja") return `Hay un sitio con ese nombre, pero fuera de ${ciudad}.`;
+  if (resolucion.categoria_motivo === "nombre-distinto") return `No hemos encontrado «${parada.nombre}» con ese nombre exacto en ${ciudad}. Revisa cómo se escribe.`;
+  return `No hemos encontrado «${parada.nombre}» en el mapa de ${ciudad}. Revisa cómo se escribe.`;
+}
+
+function estadoDeSitio(resolucion: Parada["resolucion"]): EstadoSitio {
+  if (!resolucion) return "buscando";
+  if (resolucion.estado === "resuelta") return "resuelto";
+  return resolucion.estado === "no-resuelta" ? "no-encontrado" : "error";
 }
 
 export interface DiaPublico {
@@ -169,7 +192,7 @@ function aAlternativaPublica(
 // de datos (como el de `scripts/generar-plan-real.ts --resolver`) se
 // serializaba siempre con `propuesto-sin-verificar` aunque `lugar` ya
 // tuviera coordenadas reales.
-function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, HorarioParada>, caja?: CajaDelimitadora, intereses: readonly Interes[] | null = null): ParadaPublica {
+function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, HorarioParada>, caja?: CajaDelimitadora, intereses: readonly Interes[] | null = null, ciudad = ""): ParadaPublica {
   const procedencia: Procedencia = parada.lugar
     ? { fuente: parada.lugar.fuente, url: parada.lugar.url }
     : { fuente: "propuesto-sin-verificar" };
@@ -183,6 +206,7 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
   return {
     ...parada,
     ...(interes ? { interes } : {}),
+    ...(parada.propia ? { estadoSitio: estadoDeSitio(parada.resolucion), ...(motivoDeSitio(parada, ciudad) ? { motivoSitio: motivoDeSitio(parada, ciudad) } : {}) } : {}),
     foto: fotoSegura(parada.foto),
     procedencia,
     alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(dia, parada, alternativa, horario, zona)),
@@ -220,6 +244,13 @@ function zonaDelPlan(plan: Plan): string | undefined {
   return undefined;
 }
 
+// Nombre de la ciudad para los textos del sitio propio: la de la etapa del día,
+// la efectiva del plan o, sin ninguna, el destino tal como lo escribió el usuario.
+function nombreCiudadDelDia(plan: Plan, dia: Dia): string {
+  const etapa = dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.nombre : undefined;
+  return etapa ?? plan.ciudad?.nombre ?? plan.destino;
+}
+
 export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null, intereses: readonly Interes[] | null = null): PlanPublico {
   const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur } = calcularPresupuesto(plan);
   return {
@@ -236,7 +267,7 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
         ...(dia.etapa !== undefined ? { etapa: dia.etapa } : {}),
         ancla_alojamiento: dia.ancla_alojamiento,
         franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
-        paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined), intereses)),
+        paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined), intereses, nombreCiudadDelDia(plan, dia))),
         paseo: calcularPaseoDia(resueltas, perfil, transporte) ?? undefined,
         ...(resueltas.length >= 2 ? { tramos: calcularTramosDia(resueltas, { perfil, transporte }) } : {}),
       };
