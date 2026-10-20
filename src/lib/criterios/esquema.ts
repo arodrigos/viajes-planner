@@ -52,6 +52,13 @@ export const esquemaCriterios = {
       maxItems: 4,
       items: { enum: ["coche", "avion", "tren", "autobus"] },
     },
+    ritmo: { enum: ["tranquilo", "normal", "intenso"] },
+    intereses: {
+      type: "array",
+      uniqueItems: true,
+      maxItems: 3,
+      items: { enum: ["museos", "naturaleza", "gastronomia", "parques-ninos", "monumentos", "compras"] },
+    },
     tope_sitios_por_franja: { type: "integer", minimum: 1, maximum: 10 },
   },
 } as const;

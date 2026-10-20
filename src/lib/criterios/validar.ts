@@ -7,6 +7,9 @@ const validarEstructura = ajv.compile(esquemaCriterios);
 
 const MENSAJE_TRANSPORTE = "Medio de transporte no válido";
 
+const MENSAJE_RITMO = "Ritmo no válido";
+const MENSAJE_INTERESES = "Intereses no válidos: elige hasta 3 de la lista, sin repetir";
+
 export interface ResultadoValidacionCriterios {
   valido: boolean;
   errores: string[];
@@ -17,9 +20,12 @@ export function validarCriterios(data: unknown): ResultadoValidacionCriterios {
   // Todo fallo bajo /transporte (valor desconocido, repetido, no-array) se
   // dice igual y una sola vez: el mensaje técnico de Ajv no ayuda a quien
   // marca casillas, y allErrors devuelve uno por elemento.
-  const errores = (validarEstructura.errors ?? []).map((e) =>
-    e.instancePath.startsWith("/transporte") ? MENSAJE_TRANSPORTE : `${e.instancePath || "(raíz)"} ${e.message}`,
-  );
+  const errores = (validarEstructura.errors ?? []).map((e) => {
+    if (e.instancePath.startsWith("/transporte")) return MENSAJE_TRANSPORTE;
+    if (e.instancePath.startsWith("/ritmo")) return MENSAJE_RITMO;
+    if (e.instancePath.startsWith("/intereses")) return MENSAJE_INTERESES;
+    return `${e.instancePath || "(raíz)"} ${e.message}`;
+  });
   return { valido, errores: [...new Set(errores)] };
 }
 
