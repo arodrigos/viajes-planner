@@ -3,6 +3,7 @@ import { CacheFirst, ExpirationPlugin, NetworkFirst, Serwist } from "serwist";
 import type { PrecacheEntry, RuntimeCaching, SerwistPlugin } from "serwist";
 import {
   CABECERA_COPIA,
+  CABECERA_REINTENTO,
   CABECERA_LEIDO_EN,
   CACHE_DATOS,
   CACHE_FOTOS,
@@ -109,6 +110,10 @@ const serwist: Serwist = new Serwist({
     },
     { matcher: ({ request }) => claseDe(request) === "navegacion-plan", handler: conRespaldo((p) => destinoSinConexion(p.url, self.location.origin)) },
     { matcher: ({ request }) => claseDe(request) === "navegacion", handler: conRespaldo(() => "/sin-conexion") },
+    {
+      matcher: ({ request }) => claseDe(request) === "api-plan" && request.headers.has(CABECERA_REINTENTO),
+      handler: { handle: async ({ request }) => fetch(request) },
+    },
     {
       matcher: ({ request }) => claseDe(request) === "api-plan",
       handler: new NetworkFirst({

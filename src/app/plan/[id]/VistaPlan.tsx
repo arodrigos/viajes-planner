@@ -14,6 +14,7 @@ import { SelectorDias } from "./SelectorDias";
 import { AvisoOrden } from "./AvisoOrden";
 import { TEXTOS_ORDEN, useOrdenDia } from "./useOrdenDia";
 import { borrarCopiaPlan } from "@/lib/sinConexion/borrar";
+import { CABECERA_REINTENTO, REINTENTO_COPIA_MS } from "@/lib/sinConexion/reglas";
 import { TEXTOS_COMPARTIR } from "@/lib/textos/compartir";
 import type { PlanPublico } from "./tiposVista";
 
@@ -90,6 +91,38 @@ export function VistaPlan({ id }: { id: string }) {
     window.addEventListener("online", alVolver);
     return () => window.removeEventListener("online", alVolver);
   }, [esCopia]);
+
+  // Con la copia en pantalla pero red disponible (lectura lenta que el SW cortó a
+  // los 6 s), se reintenta en segundo plano y la copia se cambia por la versión
+  // fresca en cuanto llega, sin esperar al evento «online».
+  useEffect(() => {
+    if (!esCopia) return;
+    let cancelado = false;
+    let enCurso = false;
+    const intentar = async () => {
+      if (enCurso || navigator.onLine === false) return;
+      enCurso = true;
+      try {
+        const respuesta = await fetch(`/api/plan/${id}`, { headers: { [CABECERA_REINTENTO]: "1" } });
+        if (!respuesta.ok || respuesta.headers.get("x-copia-guardada") === "1") return;
+        const datos: PlanPublico = await respuesta.json();
+        if (cancelado) return;
+        setPlan(datos);
+        setError(null);
+        setLectura({ leidoEn: respuesta.headers.get("x-plan-leido-en") ?? new Date().toISOString(), esCopia: false });
+      } catch {
+        // Sigue sin llegar: la copia se queda y se vuelve a intentar.
+      } finally {
+        enCurso = false;
+      }
+    };
+    void intentar();
+    const temporizador = setInterval(intentar, REINTENTO_COPIA_MS);
+    return () => {
+      cancelado = true;
+      clearInterval(temporizador);
+    };
+  }, [esCopia, id]);
 
   // Primera visita: el SW toma el control después de cargar, así que ni el plan
   // ni las fotos ya pintadas pasaron por él. Se repiten para que queden guardados.
