@@ -187,6 +187,10 @@ test.describe("mapa sin conexión", () => {
 
     // p4m-ac1: «Calculando…» y luego «Guardando día X de N…».
     await pagina.goto(`/plan/${planId}?dia=2`);
+    await expect(pagina.locator(".marcador-parada")).toHaveCount(2);
+    await pagina.waitForLoadState("networkidle");
+    // El mapa vivo de la página pide sus propias teselas; el tope de 3 es del guardado.
+    registro.maximoEnVuelo = 0;
     await pagina.getByRole("button", { name: "Guardar mapas para usar sin red" }).click();
     await expect(pagina.getByText("Calculando…")).toBeVisible({ timeout: 200 });
     await expect(pagina.getByText(/Guardando día \d de 3…/)).toBeVisible();
