@@ -217,7 +217,7 @@ test.describe("mapa sin conexión", () => {
     // p4m-ac2: sin red, el día 2 conserva el mapa y sus marcadores.
     await pagina.goto(`/plan/${planId}?dia=2`);
     await expect(pagina.locator(".marcador-parada")).toHaveCount(2);
-    await contexto.unroute(`${HOST}/**`);
+    await contexto.unrouteAll({ behavior: "ignoreErrors" });
     await contexto.setOffline(true);
     await pagina.reload();
     await expect(pagina).toHaveURL(new RegExp(`/sin-conexion\\?plan=${planId}&dia=2$`));
