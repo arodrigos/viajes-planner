@@ -129,7 +129,9 @@ async function pedir(url: string, peticion: typeof fetch, señal?: AbortSignal):
   if (señal?.aborted) throw new ParadaPedida("cancelado");
   let respuesta: Response;
   try {
-    respuesta = await peticion(url, { signal: señal });
+    // cache:"reload" es la señal al service worker de que esto es el guardado:
+    // debe ver la respuesta real (un 429 incluido) y no la copia de respaldo.
+    respuesta = await peticion(url, { signal: señal, cache: "reload" });
   } catch {
     throw new ParadaPedida(señal?.aborted ? "cancelado" : "red");
   }

@@ -51,6 +51,9 @@ function conRespaldo(respaldo: (peticion: Request) => string): RuntimeCaching["h
 // «sin datos» sin romper el resto.
 const mapaConRespaldo: RuntimeCaching["handler"] = {
   async handle({ request }) {
+    // El guardado pide con cache:"reload" y necesita la respuesta real, 429 y
+    // fallos de red incluidos; el respaldo la taparía y se guardaría un 404.
+    if (request.cache === "reload") return fetch(request);
     const limite = new Promise<null>((resolver) => setTimeout(() => resolver(null), LIMITE_RED_MAPA_MS));
     try {
       const respuesta = await Promise.race([fetch(request), limite]);
