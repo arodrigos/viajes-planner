@@ -76,6 +76,7 @@ describe("cr-ac2: frasesDeTexto", () => {
       { numRuns: 50 },
     );
   });
+  // Los 30 s absorben un runner cargado (con 5 s por defecto la medida agotaba el tiempo sin fallar la razón).
   // Un umbral en milisegundos depende de la máquina (en CI rozaba 196 ms frente a
   // 200): lo que se vigila es la forma del coste, no su valor absoluto.
   it("el coste crece de forma lineal con el tamaño del texto (cr-ac4)", () => {
@@ -83,7 +84,7 @@ describe("cr-ac2: frasesDeTexto", () => {
     const texto = (n: number) => bloque.repeat(Math.ceil(n / bloque.length)).slice(0, n);
     const razon = razonDeEscalado((t) => frasesDeTexto(t, "en"), texto(50_000), texto(400_000));
     expect(razon).toBeLessThanOrEqual(RAZON_MAXIMA);
-  });
+  }, 30_000);
   it("control: la medida rechaza una variante cuadrática", () => {
     // Doble bucle sobre las líneas: lo que haría un deduplicado ingenuo. Se mide
     // sola, sin frasesDeTexto, porque esta devuelve pocas frases y no sirve de base.
@@ -96,7 +97,7 @@ describe("cr-ac2: frasesDeTexto", () => {
     const bloque = "Frase número uno del museo y su fachada principal.\n";
     const texto = (n: number) => bloque.repeat(Math.ceil(n / bloque.length)).slice(0, n);
     expect(razonDeEscalado(cuadratica, texto(50_000), texto(400_000))).toBeGreaterThan(RAZON_MAXIMA);
-  });
+  }, 30_000);
 });
 
 describe("cr-ac3: iniciales y siglas en partirFrases", () => {
