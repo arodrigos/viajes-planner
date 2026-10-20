@@ -1,11 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { guardarPlan } from "@/lib/plan/repositorio";
+import { franjasComoArray } from "@/lib/plan/config-franjas";
 import type { Plan } from "@/lib/plan/tipos";
 
-const FRANJAS = [
-  { id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" },
-  { id: "tarde", etiqueta: "Tarde", hora_inicio: "15:00", hora_fin: "20:00" },
-];
+// Las horas salen de la configuración central: un literal HH:MM fuera de
+// config-franjas.ts lo rechaza config-franjas.test.ts.
+const FRANJAS = franjasComoArray("Sevilla");
 
 export const NOTA_SEMILLA = "ir a merendar";
 export const PRECIO_SEMILLA = 12;
