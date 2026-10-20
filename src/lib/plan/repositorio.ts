@@ -61,6 +61,8 @@ export function camposDeParada(parada: Parada): Record<string, unknown> {
     guia_intentada_en: parada.guia_intentada_en ?? null,
     guia_formato: parada.guia_formato ?? null,
     alternativas_intentadas_en: parada.alternativas_intentadas_en ?? null,
+    nota: parada.nota ?? null,
+    propia: parada.propia ?? false,
   };
 }
 
@@ -238,7 +240,7 @@ export function alternativaDeFila(fila: Record<string, unknown>): Alternativa {
 }
 
 export const COLUMNAS_PARADA =
-  "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, guia_formato, alternativas_intentadas_en, orden, procedencias(fuente)";
+  "id, id_externo, dia_index, franja_id, nombre, descripcion, lat, lon, duracion_min, prioridad, categoria, lugar, foto, resolucion, motivo, coste, guia, curiosidades, guia_intentada_en, guia_formato, alternativas_intentadas_en, orden, nota, propia, procedencias(fuente)";
 
 export function paradaDeFila(fila: Record<string, unknown>, alternativas: Alternativa[] | undefined, visitada: boolean): Parada {
   const lat = fila.lat as number | null;
@@ -270,6 +272,8 @@ export function paradaDeFila(fila: Record<string, unknown>, alternativas: Altern
     ...(alternativas && alternativas.length > 0 ? { alternativas } : {}),
     ...(fila.alternativas_intentadas_en ? { alternativas_intentadas_en: fila.alternativas_intentadas_en as string } : {}),
     ...(visitada ? { visitada: true } : {}),
+    ...(fila.propia === true ? { propia: true } : {}),
+    ...(typeof fila.nota === "string" && fila.nota !== "" ? { nota: fila.nota } : {}),
   };
 }
 
