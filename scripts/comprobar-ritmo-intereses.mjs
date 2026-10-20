@@ -5,7 +5,14 @@ import { readFileSync } from "node:fs";
 const MARCADOS = new Set(["museos", "parques-ninos"]);
 const fallos = [];
 
-const { plan } = JSON.parse(readFileSync(0, "utf-8"));
+// Si el generador murió antes de imprimir nada (sin `claude`, sin
+// --conditions=react-server), un JSON.parse sobre vacío escondía la causa.
+const entrada = readFileSync(0, "utf-8");
+if (entrada.trim() === "") {
+  console.error("FALLO: el generador no imprimió nada; mira su stderr (¿tsx --conditions=react-server? ¿claude en el PATH?)");
+  process.exit(1);
+}
+const { plan } = JSON.parse(entrada);
 if (!plan) {
   console.error("FALLO: la salida no trae plan");
   process.exit(1);
