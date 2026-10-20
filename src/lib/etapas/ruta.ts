@@ -35,7 +35,8 @@ export interface RutaViaje {
 }
 
 const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
-const aCentimos = (euros: number) => Math.round(euros * 100);
+// La proyección del miembro llega sin importes (compartir-datos): cuentan como 0 y la vista no los pinta.
+const aCentimos = (euros: number | undefined) => Math.round((euros ?? 0) * 100);
 
 export function formatearDuracion(minutos: number): string {
   const total = Math.round(minutos);
@@ -52,8 +53,9 @@ export function formatearFechaCorta(iso: string): string {
 
 export const NOMBRE_MODO: Record<TrasladoPlan["modo"], string> = { coche: "coche", avion: "avión", tren: "tren", autobus: "autobús" };
 
-export function textoTraslado(t: TrasladoPlan): string {
-  return `${t.desde} → ${t.hasta} · ${NOMBRE_MODO[t.modo]} · ~${formatearDuracion(t.duracion_min)} · ~${formatearEuros(t.coste_eur)} (estimado)`;
+export function textoTraslado(t: TrasladoPlan, sinCoste = false): string {
+  const base = `${t.desde} → ${t.hasta} · ${NOMBRE_MODO[t.modo]} · ~${formatearDuracion(t.duracion_min)}`;
+  return sinCoste ? base : `${base} · ~${formatearEuros(t.coste_eur)} (estimado)`;
 }
 
 // Solo lo que la ruta lee del día: sirve igual al Dia del servidor y al DiaPublico del cliente.

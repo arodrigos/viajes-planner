@@ -6,6 +6,7 @@ import { formatearFechaCorta } from "@/lib/etapas/ruta";
 import { AvisoCiudad } from "./AvisoCiudad";
 import { BotonInfografia } from "./BotonInfografia";
 import { ComoLeerPlan } from "./ComoLeerPlan";
+import { TEXTOS_COMPARTIR } from "@/lib/textos/compartir";
 import type { PlanPublico } from "./tiposVista";
 
 const TEXTO_CONFIRMACION_REGENERAR =
@@ -34,11 +35,13 @@ interface Props {
   planId: string;
   onRegenerado: (trabajoId: string) => void;
   onCiudadGuardada: () => void;
+  // El plan compartido se lee y nada más: sin regenerar ni corregir la ciudad.
+  soloLectura?: boolean;
 }
 
 // vista-por-dias: lo que no se usa a cada rato (calendario, infografía,
 // regenerar) vive en un menú; el botón destructivo va aparte y en rojo.
-export function CabeceraPlan({ plan, planId, onRegenerado, onCiudadGuardada }: Props) {
+export function CabeceraPlan({ plan, planId, onRegenerado, onCiudadGuardada, soloLectura = false }: Props) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [regenerando, setRegenerando] = useState(false);
@@ -84,6 +87,11 @@ export function CabeceraPlan({ plan, planId, onRegenerado, onCiudadGuardada }: P
       <p className="resumen-plan" data-testid="resumen-plan">
         {lineaResumen(plan)}
       </p>
+      {soloLectura && (
+        <p className="etiqueta-compartido" data-testid="solo-lectura">
+          {TEXTOS_COMPARTIR.cabeceraInvitado}
+        </p>
+      )}
       <p role="note" className="ayuda">
         {AVISO_FIJO}
       </p>
@@ -99,17 +107,22 @@ export function CabeceraPlan({ plan, planId, onRegenerado, onCiudadGuardada }: P
           Descarga un fichero .ics que puedes abrir en Google Calendar o en el calendario del móvil
         </p>
         <BotonInfografia planId={planId} version={plan.version} />
-        <hr />
-        {/* usabilidad-ac8: nada de `title` -sin hover en táctil-; la ayuda va
-            en un elemento visible al que aria-describedby apunta. */}
-        <button type="button" className="boton-peligro" aria-describedby="ayuda-regenerar" onClick={() => setDialogoAbierto(true)}>
-          Regenerar el viaje…
-        </button>
-        <p id="ayuda-regenerar" className="ayuda">
-          {AYUDA_REGENERAR}
-        </p>
+        {!soloLectura && (
+          <>
+            <hr />
+            {/* usabilidad-ac8: nada de `title` -sin hover en táctil-; la ayuda va
+                en un elemento visible al que aria-describedby apunta. */}
+            <button type="button" className="boton-peligro" aria-describedby="ayuda-regenerar" onClick={() => setDialogoAbierto(true)}>
+              Regenerar el viaje…
+            </button>
+            <p id="ayuda-regenerar" className="ayuda">
+              {AYUDA_REGENERAR}
+            </p>
+          </>
+        )}
       </div>
 
+      {!soloLectura && (
       <dialog ref={dialogo} aria-label="Regenerar este viaje" className="dialogo-regenerar" onClose={() => setDialogoAbierto(false)}>
         <p>{TEXTO_CONFIRMACION_REGENERAR}</p>
         <div className="fila">
@@ -122,6 +135,7 @@ export function CabeceraPlan({ plan, planId, onRegenerado, onCiudadGuardada }: P
         </div>
         {errorRegenerar && <p role="alert">{errorRegenerar}</p>}
       </dialog>
+      )}
 
       {/* reg-ac4: aviso visible en la versión anterior, todavía la que ve el
           usuario, mientras el trabajo sigue en vuelo. */}
@@ -135,13 +149,15 @@ export function CabeceraPlan({ plan, planId, onRegenerado, onCiudadGuardada }: P
       )}
 
       {/* man-ac1: el contador se muestra siempre que hay plan, resuelto o no. */}
-      <AvisoCiudad
-        planId={planId}
-        ciudad={plan.ciudad}
-        totalParadas={plan.dias.reduce((total, dia) => total + dia.paradas.length, 0)}
-        paradasUbicadas={plan.dias.reduce((total, dia) => total + dia.paradas.filter((parada) => !!parada.coordenadas).length, 0)}
-        onGuardada={onCiudadGuardada}
-      />
+      {!soloLectura && (
+        <AvisoCiudad
+          planId={planId}
+          ciudad={plan.ciudad}
+          totalParadas={plan.dias.reduce((total, dia) => total + dia.paradas.length, 0)}
+          paradasUbicadas={plan.dias.reduce((total, dia) => total + dia.paradas.filter((parada) => !!parada.coordenadas).length, 0)}
+          onGuardada={onCiudadGuardada}
+        />
+      )}
 
       {plan.avisos.map((aviso) => (
         <p key={aviso}>{aviso}</p>

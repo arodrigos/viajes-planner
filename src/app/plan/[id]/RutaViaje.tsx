@@ -11,11 +11,13 @@ interface Props {
   ruta: Ruta;
   presupuesto?: PresupuestoPublico;
   onIrADia: (indiceDia: number) => void;
+  // El plan compartido no trae dinero: ni importes de etapa ni suma de la ruta.
+  sinDinero?: boolean;
 }
 
 // etv-ac1/etv-ac4: solo pinta lo que calcularRuta ya resolvió. Los enlaces de
 // transporte los abre el viajero; pintar esta sección no hace ninguna petición.
-export function RutaViaje({ ruta, presupuesto, onIrADia }: Props) {
+export function RutaViaje({ ruta, presupuesto, onIrADia, sinDinero = false }: Props) {
   const ajustes = ruta.etapas.flatMap((e) => e.ajustes);
   return (
     <section aria-label="Ruta del viaje" className="ruta-viaje" data-testid="ruta-viaje">
@@ -25,7 +27,7 @@ export function RutaViaje({ ruta, presupuesto, onIrADia }: Props) {
           <li key={etapa.indice} className="etapa-ruta">
             {etapa.traslado_entrada && (
               <div className="traslado-ruta" data-testid="traslado-ruta">
-                <p>{textoTraslado(etapa.traslado_entrada)}</p>
+                <p>{textoTraslado(etapa.traslado_entrada, sinDinero)}</p>
                 <ul className="pila enlaces-transporte">
                   {enlacesTransporte(etapa.traslado_entrada, etapa.fecha_llegada, {
                     origen: ruta.etapas[etapa.indice - 1]?.pais,
@@ -57,19 +59,23 @@ export function RutaViaje({ ruta, presupuesto, onIrADia }: Props) {
                   {etapa.motivo}
                 </p>
               )}
-              <p className="presupuesto-etapa">
-                Etapa: ~{formatearEuros(etapa.subtotal_eur)} (alojamiento ~{formatearEuros(etapa.alojamiento_eur)}, visitas ~{formatearEuros(etapa.visitas_eur)}) · estimado
-              </p>
+              {!sinDinero && (
+                <p className="presupuesto-etapa">
+                  Etapa: ~{formatearEuros(etapa.subtotal_eur)} (alojamiento ~{formatearEuros(etapa.alojamiento_eur)}, visitas ~{formatearEuros(etapa.visitas_eur)}) · estimado
+                </p>
+              )}
             </div>
           </li>
         ))}
       </ol>
-      <p className="presupuesto-ruta" data-testid="presupuesto-ruta">
-        Suma de la ruta: ~{formatearEuros(ruta.suma_visible_eur)} (etapas más traslados ~{formatearEuros(ruta.traslados_eur)})
-        {presupuesto && presupuesto.total_de_fuente_eur > 0
-          ? ` · de ellos ~${formatearEuros(presupuesto.total_de_fuente_eur)} con precio de fuente y el resto estimado`
-          : " · todo estimado"}
-      </p>
+      {!sinDinero && (
+        <p className="presupuesto-ruta" data-testid="presupuesto-ruta">
+          Suma de la ruta: ~{formatearEuros(ruta.suma_visible_eur)} (etapas más traslados ~{formatearEuros(ruta.traslados_eur)})
+          {presupuesto && presupuesto.total_de_fuente_eur > 0
+            ? ` · de ellos ~${formatearEuros(presupuesto.total_de_fuente_eur)} con precio de fuente y el resto estimado`
+            : " · todo estimado"}
+        </p>
+      )}
       <div className="ajustes-planificador" data-testid="ajustes-planificador">
         <h4>Ajustes del planificador</h4>
         {ajustes.length === 0 ? (

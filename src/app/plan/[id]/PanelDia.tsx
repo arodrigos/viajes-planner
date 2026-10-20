@@ -33,7 +33,7 @@ const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue 
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, version, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar, puedeAnadirSitios = false }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; version: number; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void; puedeAnadirSitios?: boolean }) {
+export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, version, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar, puedeAnadirSitios = false, soloLectura = false }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; version: number; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void; puedeAnadirSitios?: boolean; soloLectura?: boolean }) {
   // El orden de la pantalla se adelanta al del servidor mientras se guarda;
   // la copia del servidor se conserva para atar lo provisional a ella.
   const diaServidor = diaDelServidor;
@@ -234,6 +234,7 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                     solicitudGoogle={solicitudGoogle?.paradaId === parada.id ? solicitudGoogle.veces : 0}
                     hoy={hoy}
                     esHoy={esHoy}
+                    soloLectura={soloLectura}
                     esSiguiente={siguienteParada?.id === parada.id}
                     hrefComoLlegar={hrefComoLlegar ?? undefined}
                     visitaEnCurso={paradaConVisitaEnCurso === parada.id}
@@ -241,7 +242,7 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                     error={leerError(errores, parada.id)}
                     onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
                     onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
-                    sitio={parada.propia && !sitios.anadidos.includes(parada) ? { onCorregir: (nombre) => sitios.corregir(parada.id, nombre), onQuitar: () => sitios.quitar(parada.id) } : undefined}
+                    sitio={!soloLectura && parada.propia && !sitios.anadidos.includes(parada) ? { onCorregir: (nombre) => sitios.corregir(parada.id, nombre), onQuitar: () => sitios.quitar(parada.id) } : undefined}
                     arrastre={conAsa && conControles && !sitios.anadidos.includes(parada) ? { indice: paradasDeLaFranja.indexOf(parada), reducirMovimiento: reducirMovimiento() } : undefined}
                     orden={
                       conControles && !sitios.anadidos.includes(parada)
@@ -286,7 +287,7 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
         </div>
       )}
       {/* hoy-ac1: solo el día de hoy, y lo primero del panel. */}
-      {esHoy && (
+      {esHoy && !soloLectura && (
         <TarjetaAhora
           siguiente={dia.paradas.find((p) => p.id === siguienteParada?.id) ?? null}
           hayUbicadas={puntos.length > 0}
@@ -313,14 +314,19 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
           {dia.paseo.aviso && (
             <>
               {" — "}
-              {dia.paseo.aviso.texto}.{" "}
-              <button
-                type="button"
-                className="enlace-boton"
-                onClick={() => abrirPanelDesdeAviso(dia.paseo!.aviso!.paradaId)}
-              >
-                Ver sus alternativas
-              </button>
+              {dia.paseo.aviso.texto}.
+              {!soloLectura && (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    className="enlace-boton"
+                    onClick={() => abrirPanelDesdeAviso(dia.paseo!.aviso!.paradaId)}
+                  >
+                    Ver sus alternativas
+                  </button>
+                </>
+              )}
             </>
           )}
         </p>

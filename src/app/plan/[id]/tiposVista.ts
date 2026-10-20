@@ -135,4 +135,8 @@ export interface PlanPublico {
   personas?: number;
   // vista-por-dias: zona horaria del destino (la calcula el servidor).
   zona?: string;
+  // compartir-datos: número de personas con acceso (solo lo ve el dueño) y,
+  // en la proyección del miembro, su rol. Sin `compartido` el plan es del dueño.
+  compartidoCon?: number;
+  compartido?: { rol: "miembro" };
 }

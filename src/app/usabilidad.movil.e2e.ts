@@ -54,7 +54,11 @@ test("sin atributos title y con toda ayuda aria-describedby visible, en las cuat
   for (const ruta of ["/", "/criterios", "/trabajos/trabajo-usabilidad-e2e", "/plan/plan-usabilidad-e2e"]) {
     await page.goto(ruta);
     // La ayuda del calendario y de regenerar solo se ve con el menú abierto.
-    if (ruta.startsWith("/plan/")) await abrirOpciones(page);
+    if (ruta.startsWith("/plan/")) {
+      await abrirOpciones(page);
+      // La ayuda de «Compartir» también vive plegada hasta abrir su sección.
+      await page.locator("details.compartir > summary").click();
+    }
     await sinTitleYConDescripcionesVisibles(page);
   }
 });
