@@ -1,3 +1,4 @@
+import { interesDeParada, type Interes } from "@/lib/criterios/intereses";
 import { calcularApertura, calcularEtiquetasEncaje, formatearEtiquetasEncaje, vecinosResueltos } from "@/lib/alternativas/encaje";
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
 import { avisoRecortada, calcularHorarioDia, horaDeMinutos, minutosDeHora, type HorarioParada } from "./horario";
@@ -60,6 +61,9 @@ export interface ParadaPublica extends Omit<Parada, "alternativas"> {
   horario?: HorarioPublico;
   // casado-place-id: lo añade la ruta del plan tras aPlanPublico, que no lee
   // la base. Solo el estado, nunca el place_id.
+  // Interés del usuario con el que encaja la categoría de la parada (el
+  // primero de su lista); ausente si no marcó intereses o ninguno encaja.
+  interes?: Interes;
   google?: { estado: "sin-ubicacion" | "pendiente" | "sin-coincidencia" | "casado" };
 }
 
@@ -165,7 +169,7 @@ function aAlternativaPublica(
 // de datos (como el de `scripts/generar-plan-real.ts --resolver`) se
 // serializaba siempre con `propuesto-sin-verificar` aunque `lugar` ya
 // tuviera coordenadas reales.
-function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, HorarioParada>, caja?: CajaDelimitadora): ParadaPublica {
+function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, HorarioParada>, caja?: CajaDelimitadora, intereses: readonly Interes[] | null = null): ParadaPublica {
   const procedencia: Procedencia = parada.lugar
     ? { fuente: parada.lugar.fuente, url: parada.lugar.url }
     : { fuente: "propuesto-sin-verificar" };
@@ -175,8 +179,10 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
     ? calcularApertura(parada.lugar?.etiquetas.opening_hours, { fecha: dia.fecha, inicio: horario.inicio, fin: horario.fin }, zona)
     : undefined;
   const etiquetaFranja = dia.franjas.find((f) => f.id === parada.franja_id)?.etiqueta ?? "";
+  const interes = interesDeParada(parada.categoria, intereses);
   return {
     ...parada,
+    ...(interes ? { interes } : {}),
     foto: fotoSegura(parada.foto),
     procedencia,
     alternativas: parada.alternativas?.map((alternativa) => aAlternativaPublica(dia, parada, alternativa, horario, zona)),
@@ -214,7 +220,7 @@ function zonaDelPlan(plan: Plan): string | undefined {
   return undefined;
 }
 
-export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null): PlanPublico {
+export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null, intereses: readonly Interes[] | null = null): PlanPublico {
   const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur } = calcularPresupuesto(plan);
   return {
     id: plan.id,
@@ -230,7 +236,7 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
         ...(dia.etapa !== undefined ? { etapa: dia.etapa } : {}),
         ancla_alojamiento: dia.ancla_alojamiento,
         franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
-        paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined))),
+        paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined), intereses)),
         paseo: calcularPaseoDia(resueltas, perfil, transporte) ?? undefined,
         ...(resueltas.length >= 2 ? { tramos: calcularTramosDia(resueltas, { perfil, transporte }) } : {}),
       };

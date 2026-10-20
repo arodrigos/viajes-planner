@@ -1,6 +1,7 @@
 import type { CriteriosViaje } from "@/lib/criterios/tipos";
 import { CATEGORIAS_RIESGO } from "@/lib/generacion/categoriasRiesgo";
 import { topeEfectivo } from "@/lib/generacion/tope";
+import { CATEGORIAS_DE_INTERES, ETIQUETA_INTERES } from "@/lib/criterios/intereses";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { CATEGORIAS_PARADA } from "@/lib/plan/tipos";
 import type { ErrorValidacion } from "@/lib/plan/validar";
@@ -110,7 +111,18 @@ los criterios del usuario pidan más. No incluyas paradas de estas
 categorías de riesgo físico, aunque los criterios del usuario las pidan
 explícitamente: ${categorias}. Si los criterios piden alguna de estas
 categorías, explica en tu respuesta que se ha excluido por seguridad en
-vez de omitirlo en silencio.`;
+vez de omitirlo en silencio.${instruccionIntereses(criterios)}`;
+}
+
+// Solo si hay intereses: sin ellos el prompt es idéntico al de siempre. Son
+// ids de una lista cerrada, nunca texto del usuario.
+function instruccionIntereses(criterios: CriteriosViaje): string {
+  const intereses = criterios.intereses ?? [];
+  if (intereses.length === 0) return "";
+  const lista = intereses
+    .map((i) => `${ETIQUETA_INTERES[i]} (categorías: ${CATEGORIAS_DE_INTERES[i].join(", ")})`)
+    .join("; ");
+  return `\n\nEl usuario ha marcado estos intereses, por orden de importancia: ${lista}. Prioriza sitios de esas categorías, sin dejar de cumplir el tope ni las demás reglas.`;
 }
 
 // etapas-pais: el destino es un país, una región o varios países. El modelo

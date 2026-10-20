@@ -2,6 +2,7 @@
 
 import { useSortable } from "@dnd-kit/react/sortable";
 import { Fragment, useCallback, useState, type ReactNode } from "react";
+import { ETIQUETA_INTERES } from "@/lib/criterios/intereses";
 import { textoPrecioParada } from "@/lib/presupuesto/texto";
 import { AccionesVisita } from "./AccionesVisita";
 import { ConectorTramo } from "./ConectorTramo";
@@ -219,12 +220,17 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
 
           {/* mot-ac1: el motivo va rotulado como del modelo -es su opinión, no un dato
               comprobado-; sin motivo (plan anterior) el panel no aparece. */}
-          {parada.motivo && (
+          {(parada.motivo || parada.interes) && (
             <details name={nombreGrupo} className="panel-parada" open={abierto === "motivo"} onToggle={alAlternar("motivo")}>
               <summary>Por qué te lo proponemos</summary>
               <div className="motivo-parada" data-testid="motivo-parada">
                 <p className="etiqueta-modelo">Lo dice el planificador</p>
-                <p className="texto-motivo">{parada.motivo}</p>
+                {parada.motivo && <p className="texto-motivo">{parada.motivo}</p>}
+                {parada.interes && (
+                  <p className="interes-parada" data-testid="interes-parada">
+                    Encaja con tu interés: {ETIQUETA_INTERES[parada.interes]}
+                  </p>
+                )}
               </div>
             </details>
           )}

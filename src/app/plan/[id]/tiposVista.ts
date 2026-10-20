@@ -1,3 +1,4 @@
+import type { Interes } from "@/lib/criterios/intereses";
 import type { EstadoGoogleParada } from "@/lib/google/estados";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { AnclaAlojamiento, CosteParada, CuriosidadesParada, GuiaParada, EtapaPlan, TrasladoPlan } from "@/lib/plan/tipos";
@@ -76,6 +77,8 @@ export interface ParadaPublica {
   guia?: GuiaParada;
   curiosidades?: CuriosidadesParada;
   guia_intentada_en?: string;
+  // Interés del usuario con el que encaja la categoría de la parada.
+  interes?: Interes;
   // ficha-google: solo el estado; el place_id no llega nunca a la página.
   google?: { estado: EstadoGoogleParada };
 }

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   const regenerando = trabajo.regenerado_en !== null && ESTADOS_EN_VUELO.includes(trabajo.estado);
 
   try {
-    const publico = aPlanPublico(plan, trabajo.perfil, trabajo.presupuesto_eur, trabajo.transporte);
+    const publico = aPlanPublico(plan, trabajo.perfil, trabajo.presupuesto_eur, trabajo.transporte, trabajo.intereses);
     // El estado de Google es un extra: si su lectura falla, el plan sale igual.
     const conGoogle = await leerEstadosGoogle(supabase, plan).then(
       (estados) => conEstadoGoogle(publico, estados),

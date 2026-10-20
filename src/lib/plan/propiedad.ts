@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { INTERESES, type Interes } from "@/lib/criterios/intereses";
 
 // planes no tiene su propia columna usuario_id: la propiedad se resuelve
 // por el trabajo que lo generó, la única tabla con esa columna (mismo
@@ -40,6 +41,8 @@ export interface TrabajoDelPlan {
   presupuesto_eur: number | null;
   // tramos-dia: con transporte = ['coche'] los tramos largos son en coche.
   transporte: string[] | null;
+  // Para citar el interés en «por qué te lo proponemos».
+  intereses: Interes[] | null;
 }
 
 // reg-ac4: el aviso "se está regenerando" en la vista del plan necesita el
@@ -60,9 +63,10 @@ export async function trabajoDelPlan(
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer el trabajo del plan: ${error.message}`);
   if (!data) return null;
-  const criterios = data.criterios as { perfil?: string; presupuesto_eur?: number; transporte?: unknown } | null;
+  const criterios = data.criterios as { perfil?: string; presupuesto_eur?: number; transporte?: unknown; intereses?: unknown } | null;
   return { id: data.id, estado: data.estado, regenerado_en: data.regenerado_en, perfil: criterios?.perfil ?? null,
     presupuesto_eur: typeof criterios?.presupuesto_eur === "number" ? criterios.presupuesto_eur : null,
     transporte: Array.isArray(criterios?.transporte) ? criterios.transporte.filter((m): m is string => typeof m === "string") : null,
+    intereses: Array.isArray(criterios?.intereses) ? criterios.intereses.filter((i): i is Interes => (INTERESES as readonly unknown[]).includes(i)) : null,
   };
 }

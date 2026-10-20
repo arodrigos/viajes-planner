@@ -127,7 +127,7 @@ async function generarMulticiudad(criterios: CriteriosViaje, directorio: string)
   const conFotos = await resolverFotosPlan(crearFuenteFotosAbierta(), conLugares);
   const cercanos = crearFuenteCercanosAbierta();
   const final = await porEtapas(conFotos, (sub, cualificador) => resolverAlternativasPlan(fuente, cercanos, sub, criterios.perfil, cualificador));
-  return { plan: aPlanPublico(final, criterios.perfil, criterios.presupuesto_eur, criterios.transporte ?? null), inviable: null, zonas };
+  return { plan: aPlanPublico(final, criterios.perfil, criterios.presupuesto_eur, criterios.transporte ?? null, criterios.intereses ?? null), inviable: null, zonas };
 }
 
 async function main() {
@@ -179,7 +179,7 @@ async function main() {
       const conLugares = await resolverPlan(fuenteLugares, planConCiudad, cualificadorCiudad);
       const conFotos = await resolverFotosPlan(crearFuenteFotosAbierta(), conLugares);
       const conAlternativas = await resolverAlternativasPlan(fuenteLugares, crearFuenteCercanosAbierta(), conFotos, criterios.perfil, cualificadorCiudad);
-      planParaSalida = aPlanPublico(conAlternativas);
+      planParaSalida = aPlanPublico(conAlternativas, criterios.perfil, criterios.presupuesto_eur, criterios.transporte ?? null, criterios.intereses ?? null);
     }
 
     process.stdout.write(`${JSON.stringify({ crudo: resultado.crudo, plan: planParaSalida })}\n`);

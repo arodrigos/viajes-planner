@@ -5,9 +5,17 @@ import { useRouter } from "next/navigation";
 import { guardarBorrador, leerBorrador } from "@/lib/criterios/borrador";
 import { validarCriterios } from "@/lib/criterios/validar";
 import { PanelAcceso } from "./PanelAcceso";
+import { ETIQUETA_INTERES, INTERESES, MAX_INTERESES, RITMOS, type Interes, type Ritmo } from "@/lib/criterios/intereses";
 import { MODOS_TRANSPORTE, type CriteriosViaje, type Modo, type Perfil } from "@/lib/criterios/tipos";
 
 const ETIQUETAS_MODO: Record<Modo, string> = { coche: "Coche", avion: "Avión", tren: "Tren", autobus: "Autobús" };
+
+const ETIQUETAS_RITMO: Record<Ritmo, string> = { tranquilo: "Tranquilo", normal: "Normal", intenso: "Intenso" };
+const AYUDA_RITMO: Record<Ritmo, string> = {
+  tranquilo: "Menos paradas cada día",
+  normal: "El ritmo de siempre",
+  intenso: "Más paradas cada día",
+};
 
 const CRITERIOS_INICIALES: CriteriosViaje = {
   destino_o_tipo: "",
@@ -39,6 +47,7 @@ export function FormularioCriterios() {
   const [vista, setVista] = useState<Vista>("formulario");
   const [mensajeEnvio, setMensajeEnvio] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [avisoIntereses, setAvisoIntereses] = useState(false);
 
   useEffect(() => {
     // localStorage no existe en el servidor: hidratar el borrador tiene que
@@ -131,6 +140,34 @@ export function FormularioCriterios() {
       const siguiente: CriteriosViaje = { ...c };
       delete siguiente.transporte;
       if (elegidos.length > 0) siguiente.transporte = elegidos;
+      return siguiente;
+    });
+  }
+
+  // Normal o sin marcar es lo mismo: la clave desaparece, como en transporte.
+  function elegirRitmo(ritmo: Ritmo) {
+    setCriterios((c) => {
+      const siguiente: CriteriosViaje = { ...c };
+      delete siguiente.ritmo;
+      if (ritmo !== "normal") siguiente.ritmo = ritmo;
+      return siguiente;
+    });
+  }
+
+  // El cuarto interés no se marca y se explica por qué; el orden de marcado
+  // se conserva porque decide cuál cita «por qué se propone».
+  function alternarInteres(interes: Interes, marcado: boolean) {
+    const actuales = criterios.intereses ?? [];
+    if (marcado && actuales.length >= MAX_INTERESES) {
+      setAvisoIntereses(true);
+      return;
+    }
+    setAvisoIntereses(false);
+    const elegidos = marcado ? [...actuales, interes] : actuales.filter((i) => i !== interes);
+    setCriterios((c) => {
+      const siguiente: CriteriosViaje = { ...c };
+      delete siguiente.intereses;
+      if (elegidos.length > 0) siguiente.intereses = elegidos;
       return siguiente;
     });
   }
@@ -319,6 +356,46 @@ export function FormularioCriterios() {
           Solo cuenta si el destino es un país, una región o varios países: así elegimos los traslados. Si no marcas
           ninguna, vale cualquiera.
         </p>
+      </fieldset>
+
+      <fieldset aria-describedby="ayuda-ritmo">
+        <legend>Ritmo del viaje</legend>
+        {RITMOS.map((ritmo) => (
+          <label key={ritmo}>
+            <input
+              type="radio"
+              name="ritmo"
+              checked={(criterios.ritmo ?? "normal") === ritmo}
+              onChange={() => elegirRitmo(ritmo)}
+            />
+            {ETIQUETAS_RITMO[ritmo]}
+          </label>
+        ))}
+        <p id="ayuda-ritmo" className="ayuda" data-testid="ayuda-ritmo">
+          {AYUDA_RITMO[criterios.ritmo ?? "normal"]}
+        </p>
+      </fieldset>
+
+      <fieldset aria-describedby="ayuda-intereses">
+        <legend>Intereses (opcional)</legend>
+        {INTERESES.map((interes) => (
+          <label key={interes}>
+            <input
+              type="checkbox"
+              checked={(criterios.intereses ?? []).includes(interes)}
+              onChange={(e) => alternarInteres(interes, e.target.checked)}
+            />
+            {ETIQUETA_INTERES[interes]}
+          </label>
+        ))}
+        <p id="ayuda-intereses" className="ayuda">
+          Marca hasta 3; si no marcas ninguno, el plan sale como siempre.
+        </p>
+        {avisoIntereses && (
+          <p role="status" className="ayuda">
+            Puedes marcar hasta 3 intereses
+          </p>
+        )}
       </fieldset>
 
       <fieldset>

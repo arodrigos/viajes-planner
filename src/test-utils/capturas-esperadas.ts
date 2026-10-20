@@ -44,4 +44,10 @@ export const CAPTURAS_ESPERADAS = [
   { bloque: "arrastrar-paradas", fichero: "tarjeta-360.png" },
   { bloque: "arrastrar-paradas", fichero: "scroll-antes.png" },
   { bloque: "arrastrar-paradas", fichero: "scroll-despues.png" },
+  { bloque: "ritmo-e-intereses", fichero: "formulario-360.png" },
+  { bloque: "ritmo-e-intereses", fichero: "formulario-820.png" },
+  { bloque: "ritmo-e-intereses", fichero: "formulario-1180.png" },
+  { bloque: "ritmo-e-intereses", fichero: "panel-interes-360.png" },
+  { bloque: "ritmo-e-intereses", fichero: "panel-interes-820.png" },
+  { bloque: "ritmo-e-intereses", fichero: "panel-interes-1180.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];

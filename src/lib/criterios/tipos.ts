@@ -12,6 +12,8 @@ export type Fechas = { modo: "fechas"; inicio: string; fin: string } | { modo: "
 export const MODOS_TRANSPORTE = ["coche", "avion", "tren", "autobus"] as const;
 export type Modo = (typeof MODOS_TRANSPORTE)[number];
 
+import type { Interes, Ritmo } from "./intereses";
+
 export interface CriteriosViaje {
   destino_o_tipo: string;
   fechas: Fechas;
@@ -28,4 +30,8 @@ export interface CriteriosViaje {
   // Ausente = cualquier medio. Solo pesa si el destino es un país, una región
   // o varios países; en una ciudad suelta no hay traslados que elegir.
   transporte?: Modo[];
+  // Ausentes = como siempre. El ritmo ajusta el tope por franja y los
+  // intereses solo viajan al prompt del modelo.
+  ritmo?: Ritmo;
+  intereses?: Interes[];
 }
