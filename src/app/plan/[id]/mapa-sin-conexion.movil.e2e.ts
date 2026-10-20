@@ -261,8 +261,10 @@ test.describe("mapa sin conexión", () => {
     await expect(pagina.getByText(/Guardado para usar sin red: días 1 \(/)).toBeVisible();
     expect(registro.hubo429).toBe(true);
     expect(registro.maximoEnVuelo).toBeLessThanOrEqual(3);
-    // Las peticiones que ya iban de camino pueden terminar; ninguna nueva.
-    expect(registro.tras429).toBeLessThanOrEqual(3);
+    // Tras el primer 429 solo pueden salir las ya decididas por los trabajadores
+    // en vuelo (el parón exacto lo fija mapas.test.ts) y alguna del mapa vivo de
+    // la página; si el guardado siguiera, serían decenas.
+    expect(registro.tras429).toBeLessThanOrEqual(6);
     await capturarEnTres(pagina, "parada-429");
     await contexto.close();
   });
