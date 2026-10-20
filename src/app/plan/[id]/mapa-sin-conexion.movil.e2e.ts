@@ -95,7 +95,7 @@ async function doblarOpenFreeMap(contexto: BrowserContext, opciones: { limite429
         ],
       });
     }
-    if (url.pathname === "/planet") return json({ tilejson: "3.0.0", minzoom: 0, maxzoom: 14, tiles: [`${HOST}/planet/20261001_000000_pt/{z}/{x}/{y}.pbf`] });
+    if (url.pathname === "/planet") return json({ tilejson: "3.0.0", attribution: "OpenFreeMap © OpenMapTiles Datos de OpenStreetMap", minzoom: 0, maxzoom: 14, tiles: [`${HOST}/planet/20261001_000000_pt/{z}/{x}/{y}.pbf`] });
     if (url.pathname.startsWith("/sprites/")) {
       return url.pathname.endsWith(".png") ? ruta.fulfill({ status: 200, contentType: "image/png", headers: cors, body: PNG_1X1 }) : json({});
     }
@@ -225,7 +225,8 @@ test.describe("mapa sin conexión", () => {
     await expect(pagina.locator(".marcador-parada")).toHaveCount(2);
     await expect(pagina.locator("canvas.maplibregl-canvas")).toBeVisible();
     await expect(pagina.locator(".mapa-no-disponible")).toHaveCount(0);
-    await expect(pagina.locator(".maplibregl-ctrl-attrib")).toBeVisible();
+    await expect(pagina.locator(".maplibregl-ctrl-attrib")).toBeAttached();
+    await expect(pagina.locator(".maplibregl-ctrl-attrib")).toContainText("OpenFreeMap");
     await expect(pagina.getByText(/Guardado para usar sin red: días 1 a 3/)).toBeVisible();
     await capturarEnTres(pagina, "dia2-sin-red");
 
