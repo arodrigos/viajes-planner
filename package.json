@@ -26,6 +26,7 @@
     "@dnd-kit/helpers": "0.5.1",
     "@dnd-kit/react": "0.5.1",
     "@googlemaps/js-api-loader": "^2.1.3",
+    "@mapbox/tilebelt": "^2.0.3",
     "@photostructure/tz-lookup": "^11.7.0",
     "@serwist/next": "^9.5.13",
     "@supabase/ssr": "^0.12.7",

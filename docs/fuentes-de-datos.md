@@ -229,3 +229,32 @@ la última versión de cada plan, una por tick. `src/lib/guia/huella.ts` guarda
 la huella SHA-256 de esas reglas y su test falla si cambian sin subir el
 formato (o al revés). Mientras se rehace, se siguen pintando las curiosidades
 de antes con las reglas de lectura de `sanear.ts`.
+
+## Mapas sin conexión (OpenFreeMap)
+
+Los mapas del día se pueden guardar en el dispositivo (caché `viajes-mapa`)
+para verlos sin red. OpenFreeMap permite el uso sin clave, pero su operador
+pide no descargar masivamente
+([discusión #142](https://github.com/hyperknot/openfreemap/discussions/142)),
+así que el guardado es deliberadamente pequeño y solo ocurre al pulsar
+«Guardar mapas para usar sin red»:
+
+- Nunca se descarga nada al abrir un plan ni al cambiar de día.
+- Como mucho 3 peticiones a la vez y zoom ≤ 14 (zooms 10 a 14).
+- Como mucho 150 teselas por día: si el recorrido no cabe, se baja el zoom
+  máximo hasta que quepa y, en último caso, se recorta.
+- A la primera respuesta 429 o 5xx se para sin reintentar y se avisa («El
+  servidor de mapas ha pedido parar; inténtalo más tarde»). Lo ya completo
+  queda guardado.
+- Se guardan estilo, TileJSON, sprite, glifos (rangos 0-255, 256-511 y
+  8192-8447) y las teselas; lo ya guardado no se vuelve a pedir.
+- La atribución del mapa sigue visible en el mapa guardado.
+- Los datos quedan solo en el dispositivo y se borran al cerrar sesión o al
+  eliminar el plan (con cuidado de las teselas que comparta otro plan).
+- `navigator.storage.persist()` se pide solo si existe y nunca se da por
+  concedido: iOS puede expulsar la caché, y por eso el estado «guardado» se
+  calcula en vivo contra la caché y no desde un registro aparte.
+
+El tamaño mostrado («≈ M MB») es una estimación (40 kB por tesela); la
+medida real de teselas por día se registra en la consola de las pruebas
+(`mapa-medida`).

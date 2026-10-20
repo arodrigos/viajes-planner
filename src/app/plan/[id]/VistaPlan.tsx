@@ -7,6 +7,7 @@ import { eventosDelDia } from "./SeccionEventos";
 import { CabeceraPlan } from "./CabeceraPlan";
 import { PanelDia } from "./PanelDia";
 import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
+import { GuardarMapas } from "./GuardarMapas";
 import { PanelResumen } from "./PanelResumen";
 import { SelectorDias } from "./SelectorDias";
 import { AvisoOrden } from "./AvisoOrden";
@@ -137,6 +138,7 @@ export function VistaPlan({ id }: { id: string }) {
             onCiudadGuardada={() => setRecargarContador((n) => n + 1)}
           />
           {esCopia && lectura?.leidoEn ? <FranjaCopia leidoEn={lectura.leidoEn} /> : lectura?.leidoEn ? <EstadoCopia planId={id} leidoEn={lectura.leidoEn} /> : null}
+          <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />
           <SelectorDias fechas={fechas} elegido={dia} hoy={hoy} onElegir={elegir} />
           {dia === "resumen" ? (
             <PanelResumen plan={plan} onElegirDia={elegir} />

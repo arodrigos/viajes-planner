@@ -4,10 +4,15 @@
 
 export const CACHE_DATOS = "viajes-datos";
 export const CACHE_FOTOS = "viajes-fotos";
+export const CACHE_MAPA = "viajes-mapa";
 export const CABECERA_LEIDO_EN = "x-plan-leido-en";
 export const CABECERA_COPIA = "x-copia-guardada";
 export const LIMITE_RED_MS = 6000;
 export const HOST_FOTOS = "upload.wikimedia.org";
+export const HOST_MAPA = "tiles.openfreemap.org";
+// Más corto que el de la API: un mapa que no llega en 3 s se sustituye por la
+// copia guardada antes de que la persona crea que la pantalla se ha colgado.
+export const LIMITE_RED_MAPA_MS = 3000;
 
 // Los ids de plan son texto (uuid en producción, «plan-xxx» en las semillas de
 // prueba): basta con que sean un solo segmento de ruta sin nada raro.
@@ -17,7 +22,7 @@ const RUTA_PLAN = new RegExp(`^/plan/(${ID_PLAN})/?$`);
 
 const DOMINIOS_GOOGLE = ["googleapis.com", "gstatic.com", "google.com", "googleusercontent.com", "ggpht.com"];
 
-export type Clase = "red" | "api-plan" | "foto" | "navegacion-plan" | "navegacion-sin-conexion" | "navegacion";
+export type Clase = "red" | "api-plan" | "foto" | "mapa" | "navegacion-plan" | "navegacion-sin-conexion" | "navegacion";
 
 export function esHostGoogle(host: string): boolean {
   const h = host.toLowerCase().replace(/\.$/, "");
@@ -49,7 +54,33 @@ export function clasificar(peticion: PeticionSW, origen: string): Clase {
   }
 
   if (url.protocol === "https:" && url.hostname === HOST_FOTOS) return "foto";
+  if (url.protocol === "https:" && url.hostname === HOST_MAPA) return "mapa";
   return "red";
+}
+
+// Las teselas llevan la versión del planeta en la ruta (/planet/<versión>/z/x/y.pbf)
+// y OpenFreeMap la cambia cada semana: sin normalizarla, un mapa guardado
+// dejaría de casar con lo que pide un TileJSON más nuevo. La versión no entra
+// en la clave; cualquier otra URL queda tal cual.
+const RUTA_TESELA = /^\/planet\/[^/]+\/(\d+\/\d+\/\d+\.pbf)$/;
+// En los glifos, la coma de «Pila,Otra» llega unas veces escrita y otras como
+// %2C según quién arme la URL: las dos casan con la misma copia.
+export function claveMapa(urlOriginal: string): string {
+  try {
+    const url = new URL(urlOriginal);
+    const tesela = RUTA_TESELA.exec(url.pathname);
+    if (tesela) {
+      url.pathname = `/planet/_/${tesela[1]}`;
+      return url.href;
+    }
+    if (url.pathname.startsWith("/fonts/")) {
+      url.pathname = url.pathname.replace(/%2c/gi, ",");
+      return url.href;
+    }
+    return urlOriginal;
+  } catch {
+    return urlOriginal;
+  }
 }
 
 // Solo el plan entra en la caché: un 401, un 404, un 500, una redirección o

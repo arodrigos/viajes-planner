@@ -27,6 +27,13 @@ describe("borrarCopias (ses-ac1, ses-ac2)", () => {
     expect([...cs.almacen.keys()]).toEqual(["otra"]);
   });
 
+  it("también elimina viajes-mapa", async () => {
+    const cs = falsaCacheStorage({ "viajes-datos": ["a"], "viajes-fotos": ["b"], "viajes-mapa": ["m"] });
+    vi.stubGlobal("caches", cs);
+    await borrarCopias();
+    expect(cs.almacen.size).toBe(0);
+  });
+
   it("no lanza si la Cache API falla o no existe", async () => {
     vi.stubGlobal("caches", { delete: async () => Promise.reject(new Error("cuota")) });
     await expect(borrarCopias()).resolves.toBeUndefined();

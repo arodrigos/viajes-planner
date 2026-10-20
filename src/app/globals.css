@@ -659,10 +659,16 @@ footer a,
 }
 
 .mapa-no-disponible,
+.mapa-no-guardado,
+.mapa-comprobando,
 .mapa-sin-paradas {
   font-size: var(--texto-pequeno);
   opacity: 0.8;
   font-style: italic;
+}
+
+.guardar-mapas {
+  margin-bottom: var(--espacio-3);
 }
 
 /* map-ac2: 44px de diámetro -mismo objetivo táctil que el resto de

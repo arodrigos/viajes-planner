@@ -292,8 +292,8 @@ test.describe("plan sin conexión", () => {
     await jeronimos.scrollIntoViewIfNeeded();
     await capturar(pagina, BLOQUE, "ficha-sin-red");
 
-    // sc-ac10: el mapa degrada con su aviso y las paradas siguen debajo.
-    await expect(pagina.getByText("El mapa no está disponible ahora.").first()).toBeVisible({ timeout: 20_000 });
+    // sc-ac10: sin mapas guardados, el mapa explica cómo guardarlo y las paradas siguen debajo.
+    await expect(pagina.getByText(/Este día no está guardado para usar sin red/).first()).toBeVisible({ timeout: 20_000 });
     await expect(pagina.getByText("Pastelería de Belém").first()).toBeVisible();
     await capturar(pagina, BLOQUE, "mapa-sin-red");
 
