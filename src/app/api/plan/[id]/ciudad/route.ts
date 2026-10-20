@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { pedirCiudadManual } from "@/lib/plan/ciudadManual";
-import { planPerteneceAUsuario } from "@/lib/plan/propiedad";
+import { exigirDuenyo } from "@/lib/plan/propiedad";
 
 // man-ac3: textos exactos del diseño, también usados por
 // src/app/plan/[id]/__tests__/avisoCiudad.test.tsx para comprobar que la
@@ -25,8 +25,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
   const { id } = await ctx.params;
   const supabase = clienteServicio();
 
-  const esPropio = await planPerteneceAUsuario(supabase, id, sesion.usuarioId);
-  if (!esPropio) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
+  const guarda = await exigirDuenyo(supabase, id, sesion);
+  if (guarda instanceof Response) return guarda;
 
   let cuerpo: unknown;
   try {

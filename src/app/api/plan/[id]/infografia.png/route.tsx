@@ -5,7 +5,7 @@ import { clienteServicio } from "@/lib/db/cliente";
 import { Lamina } from "@/lib/infografia/Lamina";
 import { construirModeloInfografia } from "@/lib/infografia/modelo";
 import { opcionesLamina } from "@/lib/infografia/opciones";
-import { trabajoDelPlan } from "@/lib/plan/propiedad";
+import { rolEnPlan } from "@/lib/plan/propiedad";
 import { recuperarPlan } from "@/lib/plan/repositorio";
 
 // private, no-store: la imagen lleva los datos del viaje de un usuario.
@@ -21,11 +21,13 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   const supabase = clienteServicio();
   const noEncontrado = () => NextResponse.json({ error: "no encontrado" }, { status: 404, headers: CABECERAS });
 
-  const trabajo = await trabajoDelPlan(supabase, id, sesion.usuarioId);
-  if (!trabajo) return noEncontrado();
+  const rol = await rolEnPlan(supabase, id, sesion);
+  if (!rol) return noEncontrado();
+  const { trabajo } = rol;
   const plan = await recuperarPlan(supabase, id);
   if (!plan) return noEncontrado();
 
-  const modelo = construirModeloInfografia(plan, trabajo.presupuesto_eur ?? undefined);
+  // Al miembro no se le enseña el presupuesto: la lámina omite su línea.
+  const modelo = construirModeloInfografia(plan, trabajo.presupuesto_eur ?? undefined, { sinPresupuesto: rol.rol === "miembro" });
   return new ImageResponse(<Lamina modelo={modelo} />, { ...opcionesLamina(), headers: CABECERAS });
 }

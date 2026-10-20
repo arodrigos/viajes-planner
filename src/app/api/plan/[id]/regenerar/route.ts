@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { regenerarViaje } from "@/lib/cola/regenerar";
 import { clienteServicio } from "@/lib/db/cliente";
+import { exigirDuenyo } from "@/lib/plan/propiedad";
 
 const MENSAJE_EN_CURSO = "Este viaje ya se está regenerando; espera a que termine";
 const MENSAJE_DEMASIADO_PRONTO = "Solo se puede regenerar un viaje una vez por hora";
@@ -15,6 +16,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
 
   const { id } = await ctx.params;
   const supabase = clienteServicio();
+
+  const guarda = await exigirDuenyo(supabase, id, sesion);
+  if (guarda instanceof Response) return guarda;
 
   const resultado = await regenerarViaje(supabase, id, sesion.usuarioId);
 

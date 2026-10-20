@@ -127,6 +127,9 @@ export interface PlanPublico {
   // mot-ac1: suma de las visitas con coste, calculada aquí y no en el
   // cliente.
   presupuesto: PresupuestoPublico;
+  // compartir-datos: número de personas con las que el dueño ha compartido el
+  // plan; solo lo pone la ruta del plan al dueño.
+  compartidoCon?: number;
 }
 
 function textoApertura(resultado: ReturnType<typeof calcularApertura>): string {

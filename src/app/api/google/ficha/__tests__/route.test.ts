@@ -7,7 +7,7 @@ const registrarObsoleto = vi.fn();
 
 vi.mock("@/lib/auth/sesion", () => ({ requireSesion: async () => ({ usuarioId: "u-1" }) }));
 vi.mock("@/lib/db/cliente", () => ({ clienteServicio: () => ({}) }));
-vi.mock("@/lib/plan/propiedad", () => ({ planPerteneceAUsuario: async () => true }));
+vi.mock("@/lib/plan/propiedad", () => ({ exigirDuenyo: async () => ({ id: "trabajo-1" }) }));
 vi.mock("@/lib/google/cupo", () => ({ conCupo: vi.fn() }));
 vi.mock("@/lib/google/ficha", () => ({
   buscarFicha: async () => ({ tipo: "ficha", clave: "osm:node/1", placeId: "ChIJ-x" }),

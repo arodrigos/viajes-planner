@@ -4,7 +4,7 @@ import { clienteServicio } from "@/lib/db/cliente";
 import { conCupo } from "@/lib/google/cupo";
 import { buscarFicha, marcarObsoleto } from "@/lib/google/ficha";
 import { registrarObsoleto } from "@/lib/google/obsoleto";
-import { planPerteneceAUsuario } from "@/lib/plan/propiedad";
+import { exigirDuenyo } from "@/lib/plan/propiedad";
 
 const SIN_CACHE = { "cache-control": "no-store" };
 
@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
   if (!cuerpo) return NextResponse.json({ error: "faltan 'planId' y 'paradaId'" }, { status: 400, headers: SIN_CACHE });
 
   const supabase = clienteServicio();
-  if (!(await planPerteneceAUsuario(supabase, cuerpo.planId, sesion.usuarioId))) return noEncontrado();
+  const guarda = await exigirDuenyo(supabase, cuerpo.planId, sesion);
+  if (guarda instanceof Response) return guarda;
 
   const ficha = await buscarFicha(supabase, cuerpo.planId, cuerpo.paradaId);
   if (ficha.tipo === "no-encontrada") return noEncontrado();
