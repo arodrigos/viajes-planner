@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { Lamina } from "@/lib/infografia/Lamina";
-import { construirModeloInfografia } from "@/lib/infografia/modelo";
+import { modeloInfografiaParaRol } from "@/lib/infografia/modelo";
 import { opcionesLamina } from "@/lib/infografia/opciones";
 import { rolEnPlan } from "@/lib/plan/propiedad";
 import { recuperarPlan } from "@/lib/plan/repositorio";
@@ -28,6 +28,6 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   if (!plan) return noEncontrado();
 
   // Al miembro no se le enseña el presupuesto: la lámina omite su línea.
-  const modelo = construirModeloInfografia(plan, trabajo.presupuesto_eur ?? undefined, { sinPresupuesto: rol.rol === "miembro" });
+  const modelo = modeloInfografiaParaRol(plan, trabajo, rol.rol);
   return new ImageResponse(<Lamina modelo={modelo} />, { ...opcionesLamina(), headers: CABECERAS });
 }
