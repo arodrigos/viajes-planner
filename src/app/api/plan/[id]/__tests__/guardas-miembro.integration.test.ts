@@ -139,7 +139,8 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("el miembro no puede escribir por ni
     const r = await calendario(peticion(`/api/plan/${planId}/calendario.ics`, "GET", miembro.cookie), contexto({ id: planId }));
     expect(r.status).toBe(200);
     expect(r.headers.get("content-type")).toContain("text/calendar");
-    const ics = await r.text();
+    // UID y DTSTAMP son aleatorios o de reloj y pueden contener «140» u «85» por azar.
+    const ics = (await r.text()).replace(/^(UID|DTSTAMP)[:;].*$/gm, "");
     expect(ics).not.toMatch(/€|presupuesto|alojamiento|4000|140|85/i);
     expect(ics).not.toContain(ALOJAMIENTO_SEMILLA);
 

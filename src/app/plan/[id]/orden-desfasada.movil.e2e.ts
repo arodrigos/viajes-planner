@@ -41,9 +41,10 @@ test("un 409 de version-desfasada recoloca las paradas y enseña el aviso dentro
   await contexto.close();
 });
 
+// Correo propio: con el mismo que el test anterior, el límite de códigos por correo rechaza la segunda solicitud.
 test("un 500 real sigue enseñando «No se ha podido guardar el nuevo orden.» (orc-ac3, límite)", async ({ browser }) => {
   const supabase = clienteDePrueba("servicio");
-  const email = "ci-test-orden-desfasada@example.com";
+  const email = "ci-test-orden-desfasada500@example.com";
   const planId = await sembrarDia(supabase, email, "desfasada-500", tres());
   const { contexto, pagina } = await abrirPlan(browser, email, planId);
   await pagina.route("**/api/plan/*/orden", (ruta) =>

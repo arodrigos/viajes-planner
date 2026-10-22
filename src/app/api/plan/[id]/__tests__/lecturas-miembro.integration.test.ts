@@ -30,7 +30,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("calendario.ics e infografía.png de
   it("el .ics del miembro se descarga sin presupuesto ni alojamiento", async () => {
     const r = await calendario(peticion(`/api/plan/${planId}/calendario.ics`, "GET", b.cookie), contexto({ id: planId }));
     expect(r.status).toBe(200);
-    const ics = await r.text();
+    const ics = (await r.text()).replace(/^(UID|DTSTAMP)[:;].*$/gm, "");
     expect(ics).toContain("Catedral");
     expect(ics).not.toMatch(/presupuesto|alojamiento|4000|4\.000/i);
     expect(ics).not.toContain(ALOJAMIENTO_SEMILLA);
