@@ -39,9 +39,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("RLS de miembros_plan (cmd-ac1)", ()
   // service_role, así que ni un usuario autenticado ni anon la leen por REST.
   async function exigirDenegado(bearer: string, filtro?: string) {
     const r = await leer(bearer, filtro);
-    if (r.status === 401 || r.status === 403) return;
-    expect(r.status).toBe(200);
-    expect(await r.json()).toEqual([]);
+    expect([401, 403]).toContain(r.status);
   }
 
   it("la clave anónima no obtiene filas (permiso denegado)", async () => {

@@ -306,6 +306,9 @@ jobs:
             -d '{"p_plan_id": "x", "p_version_base": 1, "p_dia_index": 0, "p_orden": []}')
           echo "rpc/reordenar_dia_plan con clave anónima: HTTP $codigo"
           [ "$codigo" != "200" ]
+      # grt-ac1: matriz de privilegios completa tras la 035.
+      - name: privilegios de anon y authenticated (grt-ac1)
+        run: BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh privilegios
       # cas-ac3: esquema y permisos de lugares_google.
       - name: esquema y permisos de lugares_google (cas-ac3)
         run: BD_URL="$SUPABASE_DB_URL" bash scripts/verificar-bd-prueba.sh lugares
@@ -416,6 +419,11 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: bash scripts/aplicar-migraciones-reales.sh
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # grt-ac4: solo lee. En CI imprime recuentos, nunca qué objeto o rol
+      # queda con un privilegio (el log es público).
+      - run: bash scripts/verificar-privilegios-reales.sh
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       # Paso barato: la API de logs de Actions no está disponible para el

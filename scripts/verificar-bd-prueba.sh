@@ -5,7 +5,7 @@
 # la base se queda como estaba, así que se puede lanzar también contra una
 # que ya tenga datos (por eso los asertos son deltas y no valores absolutos).
 #
-# Uso: BD_URL=postgresql://... bash scripts/verificar-bd-prueba.sh [relleno|cupo|permisos|lugares|obsoleto|orden]
+# Uso: BD_URL=postgresql://... bash scripts/verificar-bd-prueba.sh [relleno|cupo|permisos|lugares|obsoleto|orden|choque|privilegios]
 # Sin argumento comprueba estado_relleno() y estado_relleno_motivos(); `cupo` y `permisos` son los casos
 # del controlador de cupo de Google (ctl-ac1 y ctl-ac2).
 set -euo pipefail
@@ -312,7 +312,7 @@ SQL
 }
 
 # cas-ac3: lugares_google no guarda nada de Google salvo el place_id, y el
-# navegador (authenticated) solo lee clave y estado.
+# navegador (authenticated) no lee nada desde la 035.
 lugares() {
   local columnas
   columnas=$(psql "$BD_URL" -tAc "select string_agg(column_name, ',' order by column_name) from information_schema.columns where table_schema = 'viajes_planner' and table_name = 'lugares_google'")
@@ -326,9 +326,14 @@ set local search_path = viajes_planner, public, extensions;
 insert into lugares_google (clave, place_id, estado, comprobado_en) values ('osm:node/vbd-1', 'place-id-de-control', 'casado', now());
 set local role authenticated;
 set local request.jwt.claims = '{"role": "authenticated"}';
-select clave, estado from lugares_google limit 1;
 do $$
 begin
+  begin
+    perform clave, estado from viajes_planner.lugares_google;
+    raise exception 'authenticated pudo leer clave y estado';
+  exception when insufficient_privilege then
+    null;
+  end;
   begin
     perform place_id from viajes_planner.lugares_google;
     raise exception 'authenticated pudo leer place_id';
@@ -344,7 +349,7 @@ begin
 end $$;
 rollback;
 SQL
-  echo "OK: lugares_google tiene 4 columnas y authenticated solo lee clave y estado."
+  echo "OK: lugares_google tiene 4 columnas y authenticated no lee ni escribe."
 }
 
 # obs-ac1 y obs-ac4 (#240): registrar_obsoleto_google aguanta la concurrencia
@@ -585,6 +590,101 @@ SQL
   echo "OK: un clon concurrente sin confirmar hace que reordenar_dia_plan acabe con version-desfasada (P0001) y sin versión suya."
 }
 
+# grt-ac1: matriz de privilegios del esquema tras la 035, recorriendo pg_class
+# y pg_proc completos (no una lista de tablas que se quedaría vieja).
+# Todo lo que escribe va en transacciones que se deshacen.
+privilegios() {
+  local n_rel n_seq n_fun malos
+  consulta() { psql "$BD_URL" -v ON_ERROR_STOP=1 -tAq -c "$1" | tr -d '[:space:]'; }
+
+  # Relaciones: nada para anon ni authenticated, ni a nivel de tabla ni de columna.
+  malos=$(psql "$BD_URL" -v ON_ERROR_STOP=1 -tAq <<'SQL'
+select r.rol || ' ' || p.priv || ' (' || r.tipo || ')' as fallo
+from (values ('anon'), ('authenticated')) as roles(rol)
+cross join pg_class c
+cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) as p(priv)
+cross join lateral (select roles.rol as rol, 'tabla' as tipo) r
+where c.relnamespace = 'viajes_planner'::regnamespace and c.relkind in ('r', 'p', 'v', 'm', 'f')
+  and has_table_privilege(roles.rol, c.oid, p.priv)
+union all
+select roles.rol || ' ' || p.priv || ' (columna)'
+from (values ('anon'), ('authenticated')) as roles(rol)
+cross join pg_class c
+cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')) as p(priv)
+where c.relnamespace = 'viajes_planner'::regnamespace and c.relkind in ('r', 'p', 'v', 'm', 'f')
+  and has_any_column_privilege(roles.rol, c.oid, p.priv)
+SQL
+)
+  if [ -n "$malos" ]; then
+    echo "privilegios: $(head -1 <<<"$malos")" >&2; exit 1
+  fi
+
+  # service_role: los cuatro DML en cada tabla y USAGE y SELECT en cada secuencia.
+  [ "$(consulta "select count(*) from pg_class c where c.relnamespace = 'viajes_planner'::regnamespace and c.relkind in ('r', 'p', 'v', 'm', 'f') and not (has_table_privilege('service_role', c.oid, 'SELECT') and has_table_privilege('service_role', c.oid, 'INSERT') and has_table_privilege('service_role', c.oid, 'UPDATE') and has_table_privilege('service_role', c.oid, 'DELETE'))")" = "0" ] || {
+    echo "privilegios: a service_role le falta algún DML en una tabla" >&2; exit 1; }
+  [ "$(consulta "select count(*) from pg_class c where c.relnamespace = 'viajes_planner'::regnamespace and c.relkind = 'S' and (has_sequence_privilege('anon', c.oid, 'USAGE') or has_sequence_privilege('anon', c.oid, 'SELECT') or has_sequence_privilege('anon', c.oid, 'UPDATE') or has_sequence_privilege('authenticated', c.oid, 'USAGE') or has_sequence_privilege('authenticated', c.oid, 'SELECT') or has_sequence_privilege('authenticated', c.oid, 'UPDATE') or not (has_sequence_privilege('service_role', c.oid, 'USAGE') and has_sequence_privilege('service_role', c.oid, 'SELECT')))")" = "0" ] || {
+    echo "privilegios: una secuencia tiene privilegios de más o de menos" >&2; exit 1; }
+  # Rutinas: solo service_role ejecuta.
+  [ "$(consulta "select count(*) from pg_proc p where p.pronamespace = 'viajes_planner'::regnamespace and (has_function_privilege('anon', p.oid, 'EXECUTE') or has_function_privilege('authenticated', p.oid, 'EXECUTE') or not has_function_privilege('service_role', p.oid, 'EXECUTE') or exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0))")" = "0" ] || {
+    echo "privilegios: una rutina es ejecutable por PUBLIC, anon o authenticated, o no por service_role" >&2; exit 1; }
+
+  # Privilegios por defecto: nada del esquema para anon ni authenticated, y
+  # ninguna entrada global de los dueños que dé algo sobre tablas o secuencias
+  # a anon, authenticated o PUBLIC (la pila local no es pública: si la trae,
+  # se declara y no se toca).
+  [ "$(consulta "select count(*) from pg_default_acl d where d.defaclnamespace = 'viajes_planner'::regnamespace and exists (select 1 from aclexplode(d.defaclacl) a where a.grantee in ('anon'::regrole, 'authenticated'::regrole))")" = "0" ] || {
+    echo "privilegios: pg_default_acl del esquema da algo a anon o authenticated" >&2; exit 1; }
+  malos=$(consulta "select coalesce(string_agg(distinct d.defaclrole::regrole::text, ','), '') from pg_default_acl d where d.defaclnamespace = 0 and d.defaclobjtype in ('r', 'S') and d.defaclrole in (select distinct relowner from pg_class where relnamespace = 'viajes_planner'::regnamespace union select distinct proowner from pg_proc where pronamespace = 'viajes_planner'::regnamespace) and exists (select 1 from aclexplode(d.defaclacl) a where a.grantee in (0, 'anon'::regrole, 'authenticated'::regrole))")
+  if [ -n "$malos" ]; then
+    echo "privilegios: privilegio por defecto global para el rol $malos" >&2; exit 1
+  fi
+
+  # Aplicar la 035 otra vez no falla y deja los mismos recuentos y políticas.
+  local antes despues
+  antes=$(consulta "select (select count(*) from pg_policies where schemaname = 'viajes_planner') || '/' || (select count(*) from pg_default_acl where defaclnamespace = 0)")
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q -f supabase/migrations/00000000000035_viajes_grants_explicitos.sql >/dev/null
+  despues=$(consulta "select (select count(*) from pg_policies where schemaname = 'viajes_planner') || '/' || (select count(*) from pg_default_acl where defaclnamespace = 0)")
+  [ "$antes" = "$despues" ] || { echo "privilegios: la segunda aplicación cambió políticas o entradas globales ($antes -> $despues)" >&2; exit 1; }
+  [ "$(consulta "select count(*) from pg_policies where schemaname = 'viajes_planner' and tablename = 'trabajos'")" = "1" ] || {
+    echo "privilegios: la política de trabajos ya no existe" >&2; exit 1; }
+
+  # Sonda de tabla: una tabla nueva, con el rol que migra, no da nada a anon.
+  [ "$(psql "$BD_URL" -v ON_ERROR_STOP=1 -tAq <<'SQL' | tr -d '[:space:]'
+begin;
+create table viajes_planner.sonda_privilegios(id int);
+select has_table_privilege('anon', 'viajes_planner.sonda_privilegios', 'SELECT') or has_any_column_privilege('anon', 'viajes_planner.sonda_privilegios', 'SELECT')
+  or has_table_privilege('authenticated', 'viajes_planner.sonda_privilegios', 'SELECT');
+rollback;
+SQL
+)" = "f" ] || { echo "privilegios: una tabla nueva da privilegios a anon o authenticated" >&2; exit 1; }
+  # Sonda de función: sin revoke, PUBLIC SÍ ejecuta; por eso cada migración que
+  # crea una función lleva su revoke.
+  [ "$(psql "$BD_URL" -v ON_ERROR_STOP=1 -tAq <<'SQL' | tr -d '[:space:]'
+begin;
+create function viajes_planner.sonda_funcion() returns int language sql as 'select 1';
+select has_function_privilege('anon', 'viajes_planner.sonda_funcion()', 'EXECUTE');
+rollback;
+SQL
+)" = "t" ] || { echo "privilegios: la sonda de función sin revoke ya no ejecuta PUBLIC; revisar el supuesto" >&2; exit 1; }
+
+  # Subcaso de detección: un GRANT de columna a anon tiene que hacer fallar la
+  # misma consulta de relaciones.
+  [ "$(psql "$BD_URL" -v ON_ERROR_STOP=1 -tAq <<'SQL' | tr -d '[:space:]'
+begin;
+grant select (id) on viajes_planner.planes to anon;
+select has_any_column_privilege('anon', 'viajes_planner.planes', 'SELECT');
+rollback;
+SQL
+)" = "t" ] || { echo "privilegios: el subcaso de columna no se detecta" >&2; exit 1; }
+  echo "planes anon SELECT (columna): detectado en la sonda"
+
+  n_rel=$(consulta "select count(*) from pg_class where relnamespace = 'viajes_planner'::regnamespace and relkind in ('r', 'p', 'v', 'm', 'f')")
+  n_seq=$(consulta "select count(*) from pg_class where relnamespace = 'viajes_planner'::regnamespace and relkind = 'S'")
+  n_fun=$(consulta "select count(*) from pg_proc where pronamespace = 'viajes_planner'::regnamespace")
+  [ "$n_fun" = "14" ] || { echo "privilegios: se esperaban 14 rutinas y hay $n_fun" >&2; exit 1; }
+  echo "OK: anon y authenticated sin privilegios en viajes_planner ($n_rel relaciones, $n_seq secuencias, $n_fun rutinas)"
+}
+
 case "$modo" in
   relleno) relleno ;;
   cupo) cupo ;;
@@ -593,5 +693,6 @@ case "$modo" in
   obsoleto) obsoleto ;;
   orden) orden ;;
   choque) choque ;;
-  *) echo "Modo desconocido: $modo (relleno, cupo, permisos, lugares, obsoleto, orden o choque)" >&2; exit 2 ;;
+  privilegios) privilegios ;;
+  *) echo "Modo desconocido: $modo (relleno, cupo, permisos, lugares, obsoleto, orden, choque o privilegios)" >&2; exit 2 ;;
 esac
