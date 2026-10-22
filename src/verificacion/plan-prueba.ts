@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { chromium, type BrowserContext } from "@playwright/test";
+import { chromium, request, type BrowserContext } from "@playwright/test";
 import { DIRECTORIO, RUTA_PLAN, RUTA_SESION, RUTA_SESION_INVITADO, variable } from "./entorno";
 import { hayInvitado, iniciarSesion, iniciarSesionInvitado } from "./login";
 import { limpiezaDePlan, resolverPlan } from "./reutilizar";
@@ -51,24 +51,32 @@ export default async function globalSetup(): Promise<(() => Promise<void>) | und
   const baseURL = variable("URL_OBJETIVO");
   mkdirSync(DIRECTORIO, { recursive: true });
 
-  const navegador = await chromium.launch();
-  // La sesión de Vercel (bypass de la protección del preview) viaja en el
-  // storageState; las cookies de la app se le suman al canjear el código.
-  const contexto = await navegador.newContext({ baseURL, storageState: process.env.VERCEL_SESION || undefined });
+  // Los canjes van por peticiones HTTP, sin navegador: así el global setup
+  // se puede probar donde no hay Chromium instalado (el job de unit tests).
+  const sesionVercel = process.env.VERCEL_SESION || undefined;
+  const canje = await request.newContext({ baseURL, storageState: sesionVercel });
   try {
-    await iniciarSesion(contexto.request);
-    await contexto.storageState({ path: RUTA_SESION });
-    if (hayInvitado()) {
-      // Contexto aparte: las cookies del invitado no pueden pisar las del dueño.
-      const contextoInvitado = await navegador.newContext({ baseURL, storageState: process.env.VERCEL_SESION || undefined });
-      try {
-        await iniciarSesionInvitado(contextoInvitado.request);
-        await contextoInvitado.storageState({ path: RUTA_SESION_INVITADO });
-      } finally {
-        await contextoInvitado.close();
-      }
+    await iniciarSesion(canje);
+    await canje.storageState({ path: RUTA_SESION });
+  } finally {
+    await canje.dispose();
+  }
+  if (hayInvitado()) {
+    // Contexto aparte: las cookies del invitado no pueden pisar las del dueño.
+    const canjeInvitado = await request.newContext({ baseURL, storageState: sesionVercel });
+    try {
+      await iniciarSesionInvitado(canjeInvitado);
+      await canjeInvitado.storageState({ path: RUTA_SESION_INVITADO });
+    } finally {
+      await canjeInvitado.dispose();
     }
+  }
 
+  const navegador = await chromium.launch();
+  // La sesión del dueño ya lleva la de Vercel (bypass de la protección del
+  // preview) y las cookies de la app.
+  const contexto = await navegador.newContext({ baseURL, storageState: RUTA_SESION });
+  try {
     const guardado = existsSync(RUTA_PLAN) ? (JSON.parse(readFileSync(RUTA_PLAN, "utf8")) as { id?: string; trabajoId?: string }) : undefined;
     const resultado = await resolverPlan({
       peticiones: contexto.request,
