@@ -32,7 +32,13 @@ licencia compartir igual. Las reglas que impone al código están en
 
 - **Next.js (App Router) + TypeScript** estricto, desplegado en **Vercel**.
 - **Supabase** (Postgres, Auth y RLS) dentro de un proyecto compartido, con
-  el esquema propio `viajes_planner`.
+  el esquema propio `viajes_planner`. Los datos solo los lee y escribe el
+  servidor con la clave de servicio: `anon` y `authenticated` no tienen
+  ningún privilegio sobre el esquema (migración 35), así que la API REST les
+  responde «permiso denegado». Toda migración que cree una tabla, secuencia
+  o función repite su `revoke` a `anon`/`authenticated` y el `grant` a
+  `service_role`; `scripts/verificar-bd-prueba.sh privilegios` lo comprueba
+  y `scripts/verificar-privilegios-reales.sh` lo vigila en DEV tras migrar.
 - Mapa con **MapLibre** sobre **OpenFreeMap**. Lugares y fotos desde
   **Nominatim**, **Overpass API** y **Wikipedia/Wikimedia Commons/Wikidata**:
   servicios abiertos y sin cuenta (detalle en `docs/fuentes-de-datos.md`).
@@ -223,7 +229,7 @@ Están en `.env.example`. Nunca se suben al repo.
 | Variable | Para qué |
 |---|---|
 | `SUPABASE_URL` | URL del proyecto Supabase compartido (el de desarrollo en local y CI) |
-| `SUPABASE_ANON_KEY` | Clave anónima: acceso con enlace mágico, siempre detrás de RLS |
+| `SUPABASE_ANON_KEY` | Clave anónima: solo para el acceso con código por correo (`.auth.*`); no lee ni escribe datos |
 | `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio, solo en servidor |
 | `SUPABASE_SCHEMA` | `viajes_planner`. Sin ella, el cliente falla en vez de caer a `public`, que es de otro producto |
 | `CRON_SECRET` | Autoriza el cron diario de Vercel sobre `/api/salud` |

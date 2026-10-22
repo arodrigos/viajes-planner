@@ -13,7 +13,7 @@ const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const ESQUEMA = "viajes_planner";
 
 describe.skipIf(!SUPABASE_URL || !ANON_KEY)("RLS con la clave anónima", () => {
-  it.each(TABLAS)("la tabla '%s' no devuelve filas con la clave anónima", async (tabla) => {
+  it.each(TABLAS)("la tabla '%s' recibe permiso denegado con la clave anónima", async (tabla) => {
     const respuesta = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?select=*`, {
       headers: {
         apikey: ANON_KEY as string,
@@ -21,10 +21,11 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("RLS con la clave anónima", () => {
         "Accept-Profile": ESQUEMA,
       },
     });
-    if (respuesta.status === 401 || respuesta.status === 403) return;
-    expect(respuesta.status).toBe(200);
-    const filas = await respuesta.json();
-    expect(filas).toEqual([]);
+    // Desde la 035 anon no tiene privilegio alguno: permiso denegado, nunca
+    // un 200 (ni siquiera con 0 filas). 404 solo si PostgREST no publica
+    // tablas sin privilegio.
+    expect([401, 403, 404]).toContain(respuesta.status);
+    expect(Array.isArray(await respuesta.json())).toBe(false);
   });
 
   // esquema-ac4(b), la trampa hecha aserción: sin cabecera de perfil, la

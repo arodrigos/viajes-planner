@@ -36,7 +36,7 @@ async function tokenDeSesion(email: string): Promise<string> {
 }
 
 describe.skipIf(!SUPABASE_URL || !ANON_KEY)("RLS sobre trabajos con JWT de usuario (viajes-ac3)", () => {
-  it("un usuario autenticado lee por PostgREST directo solo sus propios trabajos, y sin sesión sigue viendo cero filas", async () => {
+  it("un usuario autenticado recibe permiso denegado al leer trabajos por PostgREST directo, igual que sin sesión", async () => {
     const servicio = clienteDePrueba("servicio");
     const marca = Date.now();
     const { data: usuarioA, error: errorA } = await servicio.auth.admin.createUser({
@@ -64,15 +64,15 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("RLS sobre trabajos con JWT de usuar
     const respuestaA = await fetch(`${SUPABASE_URL}/rest/v1/trabajos?select=id,usuario_id`, {
       headers: { apikey: ANON_KEY as string, Authorization: `Bearer ${tokenA}`, "Accept-Profile": ESQUEMA },
     });
-    expect(respuestaA.status).toBe(200);
-    const filasA = (await respuestaA.json()) as { usuario_id: string }[];
-    expect(filasA.length).toBeGreaterThan(0);
-    expect(filasA.every((fila) => fila.usuario_id === usuarioA.user!.id)).toBe(true);
+    // Desde la 035 el dueño de un trabajo tampoco lo lee por REST: su política
+    // RLS sigue ahí, pero sin privilegio de tabla ni se evalúa.
+    expect([401, 403]).toContain(respuestaA.status);
+    expect(Array.isArray(await respuestaA.json())).toBe(false);
 
     const respuestaSinSesion = await fetch(`${SUPABASE_URL}/rest/v1/trabajos?select=id`, {
       headers: { apikey: ANON_KEY as string, Authorization: `Bearer ${ANON_KEY}`, "Accept-Profile": ESQUEMA },
     });
-    expect(respuestaSinSesion.status).toBe(200);
-    expect(await respuestaSinSesion.json()).toEqual([]);
+    expect([401, 403]).toContain(respuestaSinSesion.status);
+    expect(Array.isArray(await respuestaSinSesion.json())).toBe(false);
   });
 });
