@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
       p_nota: sitio.nota,
     });
     if (error) {
-      const previsto = errorDeFuncionSitio(error.message);
+      const previsto = errorDeFuncionSitio(error);
       if (previsto) return NextResponse.json({ error: previsto.error }, { status: previsto.status });
       throw new Error(error.message);
     }

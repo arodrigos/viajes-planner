@@ -89,4 +89,5 @@ export const CAPTURAS_ESPERADAS = [
   { bloque: "sitio-propio-ui", fichero: "deshacer-360.png" },
   { bloque: "sitio-propio-ui", fichero: "deshacer-820.png" },
   { bloque: "sitio-propio-ui", fichero: "deshacer-1180.png" },
+  { bloque: "orden-desfasada", fichero: "orden-desfasada.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];

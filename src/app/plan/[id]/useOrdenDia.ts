@@ -13,7 +13,7 @@ export const TEXTOS_ORDEN = {
   restaurado: "Orden restaurado",
   yaOptimo: "Este día ya va en el orden más corto",
   errorRed: "No se ha podido guardar el nuevo orden. Comprueba la conexión y vuelve a intentarlo.",
-  desfasada: "Este plan ha cambiado en otra pantalla. Hemos cargado la versión más reciente; vuelve a ordenar si lo necesitas.",
+  desfasada: "El plan se acaba de actualizar mientras guardabas. Hemos cargado la versión más reciente; vuelve a ordenar si lo necesitas.",
   demasiados: "Has cambiado el orden muchas veces en poco tiempo. Espera unos minutos y vuelve a intentarlo.",
 } as const;
 

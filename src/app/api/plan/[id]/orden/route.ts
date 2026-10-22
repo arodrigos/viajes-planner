@@ -14,7 +14,7 @@ const MAX_PARADAS_POR_DIA = 100;
 
 const MENSAJES = {
   invalido: "El nuevo orden no es válido para este día.",
-  desfasada: "Este plan ha cambiado en otra pantalla. Hemos cargado la versión más reciente; vuelve a ordenar si lo necesitas.",
+  desfasada: "El plan se acaba de actualizar mientras guardabas. Hemos cargado la versión más reciente; vuelve a ordenar si lo necesitas.",
   demasiados: "Has cambiado el orden muchas veces en poco tiempo. Espera unos minutos y vuelve a intentarlo.",
   interno: "No se ha podido guardar el nuevo orden.",
 } as const;
@@ -99,7 +99,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
       p_orden: peticion.orden,
     });
     if (errorRpc) {
-      if (errorRpc.message.includes("version-desfasada")) return respuesta(409, "version-desfasada", MENSAJES.desfasada);
+      // 23505: un clon del trabajador (que no bloquea el plan) se llevó la versión N+1.
+      if (errorRpc.code === "23505" || errorRpc.message.includes("version-desfasada")) return respuesta(409, "version-desfasada", MENSAJES.desfasada);
       if (errorRpc.message.includes("orden-invalido")) return respuesta(400, "orden-invalido", MENSAJES.invalido);
       throw new Error(errorRpc.message);
     }

@@ -54,8 +54,12 @@ export interface ErrorSitio {
 
 // Traduce el `raise exception` de la función SQL al estado HTTP; null si el
 // fallo no es uno de los previstos.
-export function errorDeFuncionSitio(mensaje: string): ErrorSitio | null {
-  if (mensaje.includes("version-desfasada")) return { status: 409, error: MENSAJES_SITIO.desfasada };
+// Un 23505 es la colisión con el clon de un trabajador que se llevó la versión
+// siguiente: para la persona es lo mismo que una versión desfasada.
+export function errorDeFuncionSitio(error: string | { message: string; code?: string }): ErrorSitio | null {
+  const mensaje = typeof error === "string" ? error : error.message;
+  const code = typeof error === "string" ? undefined : error.code;
+  if (code === "23505" || mensaje.includes("version-desfasada")) return { status: 409, error: MENSAJES_SITIO.desfasada };
   if (mensaje.includes("demasiados-pendientes")) return { status: 429, error: MENSAJES_SITIO.pendientes };
   if (mensaje.includes("dia-invalido")) return { status: 400, error: MENSAJES_SITIO.dia };
   if (mensaje.includes("no-es-propia")) return { status: 400, error: MENSAJES_SITIO.noPropia };

@@ -1,10 +1,29 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest } from "next/server";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { Parada, Plan } from "@/lib/plan/tipos";
 import { MAX_CAMBIOS_POR_HORA, POST as orden } from "../route";
+
+// orc-ac2: la ruta usa el cliente real salvo en la RPC, que se dobla solo
+// cuando la prueba lo pide con `rpcForzada`.
+const doble = vi.hoisted(() => ({ rpcForzada: null as null | { code: string; message: string } }));
+vi.mock("@/lib/db/cliente", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/db/cliente")>();
+  return {
+    ...original,
+    clienteServicio: () => {
+      const real = original.clienteServicio();
+      return new Proxy(real, {
+        get: (destino, propiedad) =>
+          propiedad === "rpc" && doble.rpcForzada
+            ? async () => ({ data: null, error: doble.rpcForzada })
+            : Reflect.get(destino, propiedad, destino),
+      });
+    },
+  };
+});
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -177,6 +196,22 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("POST /api/plan/[id]/orden (reo-ac6)
     expect(desfasada.status).toBe(409);
     expect((await desfasada.json()).error).toBe("version-desfasada");
     expect(await versiones(planId)).toBe(2);
+  });
+
+  it("orc-ac2: un error 23505 de la RPC es un 409 version-desfasada y no deja versión nueva", async () => {
+    const { planId } = await sembrar("23505");
+    doble.rpcForzada = { code: "23505", message: 'duplicate key value violates unique constraint "plan_versiones_plan_id_version_key"' };
+    try {
+      const r = await orden(peticion(planId, { version_base: 1, dia_index: 0, orden: ORDEN_BA }, cookie), contexto(planId));
+      expect(r.status).toBe(409);
+      expect(await r.json()).toEqual({
+        error: "version-desfasada",
+        mensaje: "El plan se acaba de actualizar mientras guardabas. Hemos cargado la versión más reciente; vuelve a ordenar si lo necesitas.",
+      });
+    } finally {
+      doble.rpcForzada = null;
+    }
+    expect(await versiones(planId)).toBe(1);
   });
 
   it("429 al llegar a 30 versiones en la última hora, sin crear la 31", async () => {

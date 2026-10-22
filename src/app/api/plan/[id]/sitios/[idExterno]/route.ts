@@ -30,7 +30,7 @@ async function ejecutar(
   try {
     const { data, error } = await supabase.rpc(llamada.funcion, llamada.argumentos);
     if (error) {
-      const previsto = errorDeFuncionSitio(error.message);
+      const previsto = errorDeFuncionSitio(error);
       if (previsto) return NextResponse.json({ error: previsto.error }, { status: previsto.status });
       throw new Error(error.message);
     }
