@@ -21,6 +21,7 @@ el trabajador de verdad.
 | `URL_OBJETIVO` | URL base del despliegue a verificar. Activa el proyecto. |
 | `VERCEL_SESION` | Fichero `storageState` con la sesión que pasa la protección del despliegue (opcional si no está protegido). |
 | `CORREO_ACCESO`, `CODIGO_ACCESO` | Usuario de pruebas y su código de acceso de un solo uso. Nunca se imprimen. |
+| `CORREO_INVITADO`, `CODIGO_INVITADO` | Segundo usuario de pruebas, el invitado de «Compartir». Opcionales: sin ellos, `compartir.preview.e2e.ts` salta sus casos con «falta el segundo usuario de pruebas» (no pasan en verde). Nunca se imprimen. |
 | `PLAN_PRUEBA_ID` | Reutiliza un plan existente del usuario de pruebas: no se crea ningún trabajo. Tiene prioridad sobre todo lo demás. |
 | `VERIFICACION_DIR` | Dónde se guardan sesión, plan y capturas. Por defecto `artefactos/verificacion`, que git ignora. |
 | `VERIFICACION_BORRAR` | Con `1`, el plan que creó la suite se borra al terminar. Sin ella se conserva, porque regenerarlo cuesta unos 38 minutos. |
@@ -93,11 +94,28 @@ leer los logs de la función.
 
 Cada título lleva el id del caso: `pv-ie2e-01`, `pv-ie2e-02`, `pv-ip-01`,
 `pv-enl-01`, `pv-cc-02`, `pv-tra-02`, `pv-alr-02`, `pv-alg-02`, `pv-cur-03`
-(UI), `pv-nps-02` y `pv-alg-01` (API), `pv-trabajador` y `pv-ficha-real`
+(UI), `pv-nps-02` y `pv-alg-01` (API), `pv-trabajador`, `inv-ac1` e `inv-ac2` (compartir) y `pv-ficha-real`
 (ficha de Google; necesita la clave de navegador real en el despliegue y, sin
 ella, se salta en vez de fallar). Los casos de la base
 de datos van en `scripts/verificar-bd-prueba.sh` (`BD_URL` con la URL de la
 base de prueba).
+
+## Usuarios de prueba y listas de correos
+
+Hay dos listas de correos con acceso y no se mezclan:
+
+- **El CI** (`CORREOS_PERMITIDOS` de `ci.yml`, idéntica en
+  `pruebas-a-demanda.yml`). Lleva los `ci-test-*` de los e2e y de las pruebas
+  de integración, que crean sus usuarios contra una pila local. Un correo
+  `ci-test-*` nuevo que inicie sesión se añade en los dos ficheros, y
+  `scripts/__tests__/correos-prueba.test.ts` falla si falta en `ci.yml`.
+- **El preview de dev** (la lista real, que vive solo en el despliegue).
+  Ningún `ci-test-*` está en ella: el preview usa los dos usuarios fijos del
+  runner de verificación, el dueño (`CORREO_ACCESO`) y el invitado
+  (`CORREO_INVITADO`). Sus direcciones no se escriben en el repo.
+
+`compartir.preview.e2e.ts` recorre «Compartir» con los dos y deja el plan de
+prueba sin miembros al terminar.
 
 ## Qué no verifica
 
