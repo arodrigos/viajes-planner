@@ -267,7 +267,10 @@ URL_OBJETIVO=https://… CORREO_ACCESO=… CODIGO_ACCESO=… npm run preparar:pl
 URL_OBJETIVO=https://… npx playwright test --project=preview
 ```
 
-Variables, tiempos y casos en `docs/verificacion-con-sesion.md`.
+Para «Compartir» (`src/app/plan/[id]/compartir.preview.e2e.ts`) hace falta un
+segundo usuario de pruebas, el invitado: `CORREO_INVITADO` y `CODIGO_INVITADO`.
+Sin ellos esos casos se saltan. Variables, tiempos, casos y qué correos están
+en qué lista en `docs/verificacion-con-sesion.md`.
 
 ### Pruebas a demanda
 

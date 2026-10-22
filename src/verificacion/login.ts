@@ -11,3 +11,16 @@ export async function iniciarSesion(peticiones: APIRequestContext): Promise<void
   });
   if (!respuesta.ok()) throw new Error(`El canje del código de acceso falló con HTTP ${respuesta.status()}`);
 }
+
+// Mismo canje para el segundo usuario. Sus variables son opcionales: sin ellas,
+// la suite de compartir salta los casos del invitado en vez de fallar.
+export function hayInvitado(): boolean {
+  return Boolean(process.env.CORREO_INVITADO && process.env.CODIGO_INVITADO);
+}
+
+export async function iniciarSesionInvitado(peticiones: APIRequestContext): Promise<void> {
+  const respuesta = await peticiones.post("/api/acceso/verificar-codigo", {
+    data: { email: variable("CORREO_INVITADO"), codigo: variable("CODIGO_INVITADO") },
+  });
+  if (!respuesta.ok()) throw new Error(`El canje del código del invitado falló con HTTP ${respuesta.status()}`);
+}

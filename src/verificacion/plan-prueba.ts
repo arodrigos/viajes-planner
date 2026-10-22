@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { chromium, type BrowserContext } from "@playwright/test";
-import { DIRECTORIO, RUTA_PLAN, RUTA_SESION, variable } from "./entorno";
-import { iniciarSesion } from "./login";
+import { DIRECTORIO, RUTA_PLAN, RUTA_SESION, RUTA_SESION_INVITADO, variable } from "./entorno";
+import { hayInvitado, iniciarSesion, iniciarSesionInvitado } from "./login";
 import { limpiezaDePlan, resolverPlan } from "./reutilizar";
 
 const ESPERA_MAXIMA_MS = 40 * 60_000;
@@ -58,6 +58,16 @@ export default async function globalSetup(): Promise<(() => Promise<void>) | und
   try {
     await iniciarSesion(contexto.request);
     await contexto.storageState({ path: RUTA_SESION });
+    if (hayInvitado()) {
+      // Contexto aparte: las cookies del invitado no pueden pisar las del dueño.
+      const contextoInvitado = await navegador.newContext({ baseURL, storageState: process.env.VERCEL_SESION || undefined });
+      try {
+        await iniciarSesionInvitado(contextoInvitado.request);
+        await contextoInvitado.storageState({ path: RUTA_SESION_INVITADO });
+      } finally {
+        await contextoInvitado.close();
+      }
+    }
 
     const guardado = existsSync(RUTA_PLAN) ? (JSON.parse(readFileSync(RUTA_PLAN, "utf8")) as { id?: string; trabajoId?: string }) : undefined;
     const resultado = await resolverPlan({

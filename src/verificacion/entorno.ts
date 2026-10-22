@@ -6,6 +6,8 @@ import { join } from "node:path";
 export const DIRECTORIO = process.env.VERIFICACION_DIR ?? "artefactos/verificacion";
 export const RUTA_SESION = join(DIRECTORIO, "sesion.json");
 export const RUTA_PLAN = join(DIRECTORIO, "plan.json");
+// Segundo usuario de pruebas (el invitado de «Compartir»): solo existe si el runner lo entrega.
+export const RUTA_SESION_INVITADO = join(DIRECTORIO, "sesion-invitado.json");
 
 export function variable(nombre: string): string {
   const valor = process.env[nombre];
