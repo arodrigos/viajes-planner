@@ -121,3 +121,10 @@ export function construirModeloInfografia(plan: Plan, tuPresupuestoEur?: number,
     multiciudad,
   };
 }
+
+// El miembro de un plan compartido recibe la lámina sin presupuesto: la
+// decisión vive aquí, en una función pura, para poder probarla sin rasterizar
+// el PNG.
+export function modeloInfografiaParaRol(plan: Plan, trabajo: { presupuesto_eur: number | null }, rol: "duenyo" | "miembro"): ModeloInfografia {
+  return construirModeloInfografia(plan, trabajo.presupuesto_eur ?? undefined, { sinPresupuesto: rol === "miembro" });
+}

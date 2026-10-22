@@ -122,3 +122,91 @@ describe("aPlanCompartido (cmd-ac3)", () => {
     expect(dueno.presupuesto.tu_presupuesto_eur).toBe(4000);
   });
 });
+
+// pin-ac1: la proyección tiene que fallar si deja de quitar cualquiera de las
+// claves, una a una. Estos generadores llevan SIEMPRE etapas con alojamiento y
+// traslados con coste, que en el generador general solo salen si multiciudad.
+const planMulticiudad = plan.map(({ plan: p, presupuesto }) => ({
+  presupuesto,
+  plan: {
+    ...p,
+    etapas: [
+      { ciudad: { estado: "resuelta" as const, nombre: "Sevilla", intentado_en: "2026-10-01T00:00:00Z" }, pais: "ES", dias: 1, dia_inicio: 0, alojamiento_noche_eur: 90, zona: 0, ajustes: [] },
+      { ciudad: { estado: "resuelta" as const, nombre: "Cádiz", intentado_en: "2026-10-01T00:00:00Z" }, pais: "ES", dias: 1, dia_inicio: 1, alojamiento_noche_eur: 110, zona: 0, ajustes: [] },
+    ],
+    traslados: [{ desde: "Sevilla", hasta: "Cádiz", modo: "tren" as const, distancia_km: 125, duracion_min: 90, coste_eur: 35, procedencia: "estimado" as const }],
+  } satisfies Plan,
+}));
+
+const TODAS_LAS_CLAVES = [...CLAVES_PROHIBIDAS, "compartidoCon"];
+
+function clavesEnCualquierNivel(valor: unknown, acumuladas = new Set<string>()): Set<string> {
+  if (Array.isArray(valor)) valor.forEach((v) => clavesEnCualquierNivel(v, acumuladas));
+  else if (valor !== null && typeof valor === "object") {
+    for (const [clave, v] of Object.entries(valor)) {
+      acumuladas.add(clave);
+      clavesEnCualquierNivel(v, acumuladas);
+    }
+  }
+  return acumuladas;
+}
+
+describe("aPlanCompartido: dinero, alojamiento y traslados (pin-ac1)", () => {
+  const dueno = () => {
+    const { plan: p } = fc.sample(planMulticiudad, 1)[0];
+    return { ...aPlanPublico({ ...p, etapas: p.etapas, traslados: p.traslados }, "familiar", 4000), compartidoCon: 1, trabajoId: "t", regenerando: true };
+  };
+
+  it("la entrada de ejemplo lleva de verdad lo que la proyección debe quitar", () => {
+    const claves = clavesEnCualquierNivel(dueno());
+    for (const clave of ["alojamiento_noche_eur", "coste_eur", "presupuesto", "compartidoCon", "trabajoId", "regenerando"]) expect(claves.has(clave)).toBe(true);
+  });
+
+  it("cada clave prohibida desaparece en cualquier nivel", () => {
+    const claves = clavesEnCualquierNivel(aPlanCompartido(dueno()));
+    for (const clave of TODAS_LAS_CLAVES) expect(claves.has(clave), clave).toBe(false);
+  });
+
+  it("quita alojamiento_noche_eur de cada etapa y coste_eur de cada traslado, y conserva el resto", () => {
+    const entrada = dueno();
+    const salida = aPlanCompartido(entrada);
+    expect(salida.etapas).toHaveLength(2);
+    expect(salida.traslados).toHaveLength(1);
+    for (const etapa of salida.etapas ?? []) expect(Object.keys(etapa)).not.toContain("alojamiento_noche_eur");
+    for (const traslado of salida.traslados ?? []) expect(Object.keys(traslado)).not.toContain("coste_eur");
+    expect(salida.etapas?.[1]).toMatchObject({ pais: "ES", dias: 1, dia_inicio: 1, zona: 0 });
+    expect(salida.traslados?.[0]).toMatchObject({ desde: "Sevilla", hasta: "Cádiz", modo: "tren", distancia_km: 125, duracion_min: 90 });
+    // La entrada no se toca.
+    expect(entrada.etapas?.map((e) => e.alojamiento_noche_eur)).toEqual([90, 110]);
+    expect(entrada.traslados?.[0].coste_eur).toBe(35);
+  });
+
+  it("un plan sin etapas ni traslados no los inventa", () => {
+    const { plan: p } = fc.sample(plan.filter(({ plan: x }) => !x.etapas), 1)[0];
+    const salida = aPlanCompartido(aPlanPublico(p, "familiar", 1000));
+    expect(salida).not.toHaveProperty("etapas");
+    expect(salida).not.toHaveProperty("traslados");
+  });
+
+  it("invariante: con etapas y traslados siempre presentes, ninguna clave prohibida en ningún nivel y todo lo demás igual", () => {
+    fc.assert(
+      fc.property(planMulticiudad, ({ plan: p, presupuesto }) => {
+        const entrada = { ...aPlanPublico(p, "familiar", presupuesto), trabajoId: "t", regenerando: true, compartidoCon: 2 };
+        const antes = JSON.stringify(entrada);
+        const salida = aPlanCompartido(entrada);
+        const claves = clavesEnCualquierNivel(salida);
+        for (const clave of TODAS_LAS_CLAVES) expect(claves.has(clave), clave).toBe(false);
+        expect(salida.etapas).toHaveLength(entrada.etapas?.length ?? 0);
+        expect(salida.traslados).toHaveLength(entrada.traslados?.length ?? 0);
+        salida.etapas?.forEach((e, i) => {
+          expect(e).toEqual({ ...entrada.etapas![i], alojamiento_noche_eur: undefined });
+        });
+        salida.traslados?.forEach((t, i) => {
+          expect(t).toEqual({ ...entrada.traslados![i], coste_eur: undefined });
+        });
+        expect(JSON.stringify(entrada)).toBe(antes);
+      }),
+      { numRuns: 200 },
+    );
+  });
+});
