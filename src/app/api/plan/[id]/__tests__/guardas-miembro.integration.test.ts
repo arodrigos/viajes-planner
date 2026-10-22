@@ -17,10 +17,10 @@ const ESCRIBEN = ["POST", "PUT", "PATCH", "DELETE"] as const;
 
 type Manejador = (request: ReturnType<typeof peticion>, ctx: ReturnType<typeof contexto>) => Promise<Response>;
 
-// Cuerpos que el dueño sí aceptaría: la guarda tiene que cortar antes de
+// Cuerpos que el dueño sí aceptaría (las franjas no pueden retroceder): la guarda tiene que cortar antes de
 // validarlos, no porque el cuerpo sea inválido.
 const CUERPOS: Record<string, unknown> = {
-  orden: { version_base: 1, dia_index: 0, orden: [{ id: "propia-0001", franja_id: "tarde" }, { id: "a", franja_id: "manana" }] },
+  orden: { version_base: 1, dia_index: 0, orden: [{ id: "propia-0001", franja_id: "manana" }, { id: "a", franja_id: "manana" }] },
   sitios: { nombre: "Bar Nuevo" },
   visitas: { parada_id: "a" },
   ciudad: { etapa: 0, ciudad: "Cádiz" },
