@@ -1089,6 +1089,10 @@ footer a,
   color: var(--peligro-texto);
 }
 
+.aviso-orden-info {
+  border-color: var(--foco);
+}
+
 .optimizar-orden {
   margin-block: var(--espacio-2);
 }

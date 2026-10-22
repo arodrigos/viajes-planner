@@ -41,6 +41,12 @@ describe("errorDeFuncionSitio", () => {
     expect(errorDeFuncionSitio("sitio-invalido")?.status).toBe(400);
     expect(errorDeFuncionSitio("otra cosa")).toBeNull();
   });
+
+  it("orc-ac4: un error con code 23505 es un 409 con el mensaje de desfasada", () => {
+    const previsto = errorDeFuncionSitio({ code: "23505", message: "duplicate key value violates unique constraint" });
+    expect(previsto).toEqual({ status: 409, error: MENSAJES_SITIO.desfasada });
+    expect(errorDeFuncionSitio({ code: "42501", message: "permission denied" })).toBeNull();
+  });
 });
 
 describe("invariantes del texto del sitio (propiedad)", () => {

@@ -495,6 +495,96 @@ SQL
   echo "OK: reordenar_dia_plan crea la version N+1 con el dia reordenado, rechaza lo invalido sin dejar filas, resuelve la concurrencia con una sola ganadora y solo service_role la ejecuta."
 }
 
+# orc-ac1: choque de reordenar_dia_plan con un clon que no bloquea el plan (el
+# del trabajador). La sesión A clona sin confirmar; la B reordena con la base
+# vieja y se queda esperando el unique (plan_id, version); A confirma solo
+# cuando B está bloqueada, sin sleeps a ciegas. B tiene que acabar con
+# 'version-desfasada' (P0001) y sin versión suya. Ojo: el insert de A toma un
+# KEY SHARE sobre planes (clave foránea) y el FOR UPDATE de B espera a que A
+# confirme; B ve entonces la versión 4 y sale por el rechazo temprano. El
+# unique_violation en sí no sale de ninguna carrera real entre estas dos
+# sesiones, así que su traducción se prueba aparte, forzándolo con un trigger.
+choque() {
+  local plan="vbd-choque-$$"
+  limpiar() {
+    psql "$BD_URL" -q -c "drop trigger if exists vbd_forzar_choque on viajes_planner.plan_versiones; drop function if exists viajes_planner.vbd_forzar_choque(); delete from viajes_planner.planes where id like 'vbd-choque-%'" >/dev/null 2>&1 || true
+  }
+  trap limpiar EXIT
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q <<SQL
+set search_path = viajes_planner, public, extensions;
+insert into planes (id, destino) values ('$plan', 'Destino de control');
+insert into plan_versiones (plan_id, version, personas, dias)
+  select '$plan', v, 2, '[{"fecha": "2026-11-07", "franjas": [{"id": "manana"}]}]'::jsonb from generate_series(1, 3) v;
+with proc as (insert into procedencias (fuente) values ('propuesto-sin-verificar') returning id),
+     ver as (select id from plan_versiones where plan_id = '$plan' and version = 3)
+insert into paradas (id_externo, plan_version_id, dia_index, franja_id, nombre, lat, lon, descripcion, duracion_min, prioridad, procedencia_id, orden)
+select m.ide, ver.id, 0, 'manana', m.ide, 0, 0, '', 30, 50, proc.id, m.n
+  from ver, proc, (values ('p1', 0), ('p2', 1), ('p3', 2)) as m(ide, n);
+SQL
+  local carpeta; carpeta=$(mktemp -d)
+  local pedido='[{"id":"p3","franja_id":"manana"},{"id":"p1","franja_id":"manana"},{"id":"p2","franja_id":"manana"}]'
+  # A clona primero y avisa con un fichero: si B arrancara antes, su FOR UPDATE
+  # sobre planes bloquearía el insert de A (clave foránea) y sería un interbloqueo.
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q >/dev/null 2>"$carpeta/a.err" <<SQL &
+begin;
+select * from viajes_planner.clonar_version_plan('$plan');
+\\! touch "$carpeta/a-clonada"
+do \$\$
+declare t timestamptz := clock_timestamp();
+begin
+  while not exists (select 1 from pg_stat_activity where application_name = 'choque-b-$$' and wait_event_type = 'Lock') loop
+    if clock_timestamp() - t > interval '30 seconds' then
+      raise exception 'la sesion B no llego a esperar el bloqueo';
+    end if;
+    perform pg_sleep(0.05);
+    -- pg_stat_activity se congela por transacción: sin esto A nunca ve a B.
+    perform pg_stat_clear_snapshot();
+  end loop;
+end \$\$;
+commit;
+SQL
+  local pa=$!
+  for _ in $(seq 1 300); do [ -e "$carpeta/a-clonada" ] && break; sleep 0.1; done
+  [ -e "$carpeta/a-clonada" ] || { echo "choque: la sesion A no llego a clonar: $(cat "$carpeta/a.err")" >&2; exit 1; }
+  PGAPPNAME="choque-b-$$" psql "$BD_URL" -v VERBOSITY=verbose -tAc "select * from viajes_planner.reordenar_dia_plan('$plan', 3, 0, '$pedido'::jsonb)" >"$carpeta/b.txt" 2>&1 &
+  local pb=$!
+  wait "$pa" || { echo "choque: la sesion A fallo: $(cat "$carpeta/a.err")" >&2; exit 1; }
+  wait "$pb" || true
+  grep -q "version-desfasada" "$carpeta/b.txt" && ! grep -q "duplicate key" "$carpeta/b.txt" || {
+    echo "choque: esperaba version-desfasada y salió: $(cat "$carpeta/b.txt")" >&2; exit 1; }
+  grep -q "P0001" "$carpeta/b.txt" || { echo "choque: SQLSTATE distinto de P0001: $(cat "$carpeta/b.txt")" >&2; exit 1; }
+  [ "$(psql "$BD_URL" -tAc "select string_agg(version::text, ',' order by version) from viajes_planner.plan_versiones where plan_id = '$plan'")" = "1,2,3,4" ] || {
+    echo "choque: se esperaban las versiones 1 a 4 y ninguna 5" >&2; exit 1; }
+  [ "$(psql "$BD_URL" -tAc "select string_agg(pa.id_externo, ',' order by pa.orden) from viajes_planner.paradas pa join viajes_planner.plan_versiones pv on pv.id = pa.plan_version_id where pv.plan_id = '$plan' and pv.version = 4")" = "p1,p2,p3" ] || {
+    echo "choque: la version 4 no conserva el orden de la 3" >&2; exit 1; }
+  # Sin concurrencia, la misma llamada con la base nueva crea la 5 (dat-ac2 sigue verde).
+  [ "$(psql "$BD_URL" -tAc "select version from viajes_planner.reordenar_dia_plan('$plan', 4, 0, '$pedido'::jsonb)")" = "5" ] || {
+    echo "choque: sin concurrencia no creó la version 5" >&2; exit 1; }
+  # El handler de unique_violation: un trigger que lanza 23505 al insertar la
+  # versión nueva de este plan hace lo que haría la colisión de un clon ajeno.
+  # La llamada tiene que salir con version-desfasada (P0001) y sin la copia a medias.
+  psql "$BD_URL" -v ON_ERROR_STOP=1 -q <<SQL
+create function viajes_planner.vbd_forzar_choque() returns trigger language plpgsql as \$\$
+begin
+  if new.plan_id = '$plan' and new.version = 6 then
+    raise exception 'duplicate key value violates unique constraint "plan_versiones_plan_id_version_key"' using errcode = '23505';
+  end if;
+  return new;
+end \$\$;
+create trigger vbd_forzar_choque before insert on viajes_planner.plan_versiones
+  for each row execute function viajes_planner.vbd_forzar_choque();
+SQL
+  local forzado
+  forzado=$(psql "$BD_URL" -v VERBOSITY=verbose -tAc "select * from viajes_planner.reordenar_dia_plan('$plan', 5, 0, '$pedido'::jsonb)" 2>&1 || true)
+  grep -q "P0001" <<<"$forzado" && grep -q "version-desfasada" <<<"$forzado" || {
+    echo "choque: un unique_violation no se tradujo a version-desfasada: $forzado" >&2; exit 1; }
+  [ "$(psql "$BD_URL" -tAc "select max(version) from viajes_planner.plan_versiones where plan_id = '$plan'")" = "5" ] || {
+    echo "choque: el unique_violation dejó una versión 6" >&2; exit 1; }
+  [ "$(psql "$BD_URL" -tAc "select has_function_privilege('anon', 'viajes_planner.reordenar_dia_plan(text, integer, integer, jsonb)', 'execute')")" = "f" ] || {
+    echo "choque: anon puede ejecutar reordenar_dia_plan" >&2; exit 1; }
+  echo "OK: un clon concurrente sin confirmar hace que reordenar_dia_plan acabe con version-desfasada (P0001) y sin versión suya."
+}
+
 case "$modo" in
   relleno) relleno ;;
   cupo) cupo ;;
@@ -502,5 +592,6 @@ case "$modo" in
   lugares) lugares ;;
   obsoleto) obsoleto ;;
   orden) orden ;;
-  *) echo "Modo desconocido: $modo (relleno, cupo, permisos, lugares, obsoleto u orden)" >&2; exit 2 ;;
+  choque) choque ;;
+  *) echo "Modo desconocido: $modo (relleno, cupo, permisos, lugares, obsoleto, orden o choque)" >&2; exit 2 ;;
 esac

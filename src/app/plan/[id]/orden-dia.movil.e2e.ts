@@ -200,7 +200,7 @@ test("sin conexión avisa y Reintentar guarda; una versión nueva en otra pantal
   expect(error).toBeNull();
   await pagina.getByRole("button", { name: bajar("Gamma") }).waitFor();
   await pagina.getByRole("button", { name: bajar("Beta") }).click();
-  await expect(pagina.getByText("Este plan ha cambiado en otra pantalla.", { exact: false })).toBeVisible();
+  await expect(pagina.getByText("El plan se acaba de actualizar mientras guardabas.", { exact: false })).toBeVisible();
   // Primero llega el 409 y luego la lectura del plan más reciente.
   await expect.poll(() => ordenPintado(pagina)).toEqual(["Alfa", "Beta", "Gamma"]);
   await contexto.close();

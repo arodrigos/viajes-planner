@@ -120,6 +120,30 @@ cada parada (`casado`, `sin-coincidencia`, `pendiente`, `sin-ubicacion`); el
 se marca `obsoleto` y el trabajador lo vuelve a casar. Sin clave de
 navegador, sin casar o sin cupo, el panel lo dice y enlaza a Google Maps.
 
+### Orden de paradas
+
+`POST /api/plan/[id]/orden` guarda el orden de un día como una versión nueva
+del plan, con la función SQL `reordenar_dia_plan` (solo `service_role`).
+Responde 409 `version-desfasada` si la última versión no es la que la persona
+tenía en pantalla, y la UI recoloca las paradas con la versión más reciente y
+enseña un aviso informativo.
+
+La función bloquea la fila del plan (`for update`), pero los clones de
+versión del trabajador no lo hacen. Si un clon se lleva la versión N+1 entre
+la lectura de la última versión y el insert de la reordenación, salta el
+`unique (plan_id, version)` (`unique_violation`, SQLSTATE 23505): antes llegaba
+al usuario como un 500. Desde la migración 034 el subbloque que clona
+traduce ese error a `version-desfasada`, y la ruta (y `errorDeFuncionSitio`
+para los sitios propios) trata además cualquier error con `code` 23505 como
+409. En las pruebas con dos sesiones reales, el insert de un clon sin
+confirmar toma un `KEY SHARE` sobre `planes` y el `for update` de la
+reordenación espera a que confirme, así que sale por el rechazo temprano; el
+`unique_violation` se fuerza con un trigger de prueba para comprobar su
+traducción. Para reproducirlo:
+`BD_URL=<url de la base de pruebas> bash scripts/verificar-bd-prueba.sh choque`.
+Los logs de la función en Vercel no estaban al alcance al escribir esto, así
+que la causa del 500 puntual original no está confirmada contra ellos.
+
 ### Salud del despliegue
 
 `GET /api/salud` responde 200 si todo está en orden y 503 si no. Informa de:
