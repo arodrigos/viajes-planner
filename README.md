@@ -3,30 +3,49 @@
 ## Qué es esto
 
 Planificador de viajes turísticos personal y familiar. Recibe criterios y
-limitaciones (fechas, ciudades, ritmo, si se viaja con niños) y devuelve un
-plan optimizado por días, con una guía interactiva en destino:
-
-- **Vista por días**: resumen del viaje, selector de día, un solo mapa y
-  menú de opciones.
-- **Tarjeta de parada** compacta, con tres paneles que se abren de uno en
-  uno: por qué se propone, consejos y curiosidades, y alternativas.
-- **Tarjeta «Ahora»** en el día de hoy: siguiente parada, progreso, hora
-  de salida hacia la siguiente y marcar como visitada.
-- Tramos entre paradas, alternativas con su guía y sitios visitados.
-- **Mis viajes**: ordenados en Próximos y Pasados, con fechas legibles y la
-  situación de cada viaje.
-- **Opiniones y horario · Google Maps**: panel de la tarjeta de parada con la
-  ficha oficial de Google del sitio (valoración, horario, reseñas y fotos),
-  solo para las paradas casadas con su lugar de Google.
-- **Términos y privacidad**: `/terminos` y `/privacidad`, públicas y
-  enlazadas en el pie.
-
-También genera una infografía del plan.
+limitaciones y devuelve un plan optimizado por días, con una guía
+interactiva en destino.
 
 Es un producto **personal, sin monetización**. De esa condición dependen el
 plan Hobby de Vercel, OpenFreeMap y la reutilización de contenido con
 licencia compartir igual. Las reglas que impone al código están en
 `CLAUDE.md`.
+
+## Funcionalidades
+
+- **Acceso con código por correo**: solo pueden pedirlo los correos de la
+  lista blanca (`CORREOS_PERMITIDOS`).
+- **Criterios del viaje**: destino o tipo de viaje, fechas o época, número
+  de días, personas y edades, perfil, presupuesto, cómo moverse entre
+  ciudades, ritmo, intereses y, opcionalmente, el alojamiento ya reservado.
+- **Vista por días**: resumen del viaje, selector de día, un solo mapa y
+  menú de opciones. Incluye la ruta entre ciudades, los eventos de cada día
+  y «Más sitios recomendados».
+- **Tarjeta de parada** compacta, con paneles que se abren de uno en uno:
+  por qué se propone, consejos y curiosidades, y alternativas.
+- **Tarjeta «Ahora»** en el día de hoy: siguiente parada, progreso, hora
+  de salida hacia la siguiente y marcar como visitada.
+- **Tramos** entre paradas consecutivas (medio, tiempo estimado y enlace),
+  calculados por distancia, sin API de rutas.
+- **Alternativas**: sustituir una parada por una alternativa, con su guía.
+- **Reordenar paradas** de un día arrastrándolas, con aviso de guardado,
+  «Deshacer» y «Reintentar». Si el plan cambió en otra pantalla, recoloca
+  las paradas con la versión más reciente y lo dice como información.
+- **Añadir un sitio** propio a un día, con nombre y nota opcional (con
+  «Deshacer»), y decir a mano la ciudad cuando no se ha podido identificar.
+- **Compartir**: el dueño da acceso de solo lectura a su plan por correo; la
+  persona invitada no ve importes ni alojamiento.
+- **Añadir al calendario**: descarga un `.ics` del plan.
+- **Infografía**: lámina del plan, visible dentro de él.
+- **Sin conexión**: la app se instala (PWA), guarda una copia del plan para
+  abrirlo sin red y permite «Guardar mapas para usar sin red».
+- **Opiniones y horario · Google Maps**: panel de la tarjeta de parada con la
+  ficha oficial de Google del sitio, solo para las paradas casadas con su
+  lugar de Google.
+- **Mis viajes**: Próximos y Pasados, con fechas legibles y la situación de
+  cada viaje; eliminar un viaje, pedir otro y regenerar un plan.
+- **Páginas públicas**: `/guia` (cómo funciona la aplicación), `/terminos` y
+  `/privacidad`, enlazadas en el pie.
 
 ## Stack y dependencias
 
@@ -34,7 +53,7 @@ licencia compartir igual. Las reglas que impone al código están en
 - **Supabase** (Postgres, Auth y RLS) dentro de un proyecto compartido, con
   el esquema propio `viajes_planner`. Los datos solo los lee y escribe el
   servidor con la clave de servicio: `anon` y `authenticated` no tienen
-  ningún privilegio sobre el esquema (migración 35), así que la API REST les
+  ningún privilegio sobre el esquema (migración 035), así que la API REST les
   responde «permiso denegado». Toda migración que cree una tabla, secuencia
   o función repite su `revoke` a `anon`/`authenticated` y el `grant` a
   `service_role`; `scripts/verificar-bd-prueba.sh privilegios` lo comprueba
@@ -47,8 +66,10 @@ licencia compartir igual. Las reglas que impone al código están en
   y el Places UI Kit (`gmp-place-details`, vía `@googlemaps/js-api-loader`)
   en el navegador para la ficha. Lo único que se guarda de Google es el
   `place_id`.
+- **Serwist** para la PWA y la copia sin conexión, **dnd-kit** para arrastrar
+  paradas e **ics** para el calendario.
 - Tests: **Vitest** (unitarios y de integración) y **Playwright** (e2e en
-  móvil, con goldens visuales).
+  móvil y escritorio, con goldens visuales).
 
 ## Arquitectura / estructura de carpetas
 
@@ -137,18 +158,12 @@ enseña un aviso informativo.
 La función bloquea la fila del plan (`for update`), pero los clones de
 versión del trabajador no lo hacen. Si un clon se lleva la versión N+1 entre
 la lectura de la última versión y el insert de la reordenación, salta el
-`unique (plan_id, version)` (`unique_violation`, SQLSTATE 23505): antes llegaba
-al usuario como un 500. Desde la migración 034 el subbloque que clona
-traduce ese error a `version-desfasada`, y la ruta (y `errorDeFuncionSitio`
-para los sitios propios) trata además cualquier error con `code` 23505 como
-409. En las pruebas con dos sesiones reales, el insert de un clon sin
-confirmar toma un `KEY SHARE` sobre `planes` y el `for update` de la
-reordenación espera a que confirme, así que sale por el rechazo temprano; el
-`unique_violation` se fuerza con un trigger de prueba para comprobar su
-traducción. Para reproducirlo:
+`unique (plan_id, version)` (`unique_violation`, SQLSTATE 23505). La función
+(migración 034) traduce ese error a `version-desfasada`, y la ruta (y
+`errorDeFuncionSitio` para los sitios propios) trata además cualquier error
+con `code` 23505 como 409, nunca como 500. El CI lo comprueba contra la pila
+local de Supabase:
 `BD_URL=<url de la base de pruebas> bash scripts/verificar-bd-prueba.sh choque`.
-Los logs de la función en Vercel no estaban al alcance al escribir esto, así
-que la causa del 500 puntual original no está confirmada contra ellos.
 
 ### Salud del despliegue
 
@@ -181,7 +196,7 @@ resto de la respuesta sigue. Nunca devuelve texto crudo de errores. El cron diar
 las 07:00 UTC (`vercel.json`).
 
 ```
-src/app/            páginas (criterios, plan, guía, mis viajes, términos, privacidad) y API (acceso, plan, trabajos, viajes, google, salud)
+src/app/            páginas (criterios, plan, guía, mis viajes, términos, privacidad) y API (acceso, auth, plan, trabajos, viajes, google, salud)
 src/lib/plan/       modelo del plan, días y tramos entre paradas
 src/lib/lugares/    resolución de lugares, ciudades y fotos con fuentes abiertas
 src/lib/guia/       consejos y curiosidades de cada parada (reglas, huella y reproceso)
@@ -191,7 +206,7 @@ src/lib/google/     cupo de Google, estados por parada, ficha y resumen para /ap
 src/lib/cola/, src/lib/trabajador/  cola de trabajos y su procesado (incluido el casado con Google)
 src/verificacion/   suite preview de Playwright contra un despliegue publicado
 src/lib/db/         cliente de Supabase atado al esquema del producto
-supabase/migrations/  migraciones versionadas (solo aditivas)
+supabase/migrations/  migraciones versionadas y solo aditivas (hoy hasta la 035)
 docs/               fuentes de datos, guía de estilo, relleno de planes, verificación con sesión y viajes por país
 .github/workflows/  CI, reintento del CI y «Pruebas a demanda»
 ```
@@ -222,9 +237,14 @@ cp .env.example .env.local   # y rellena las variables de abajo
 npm run dev
 ```
 
+`npm install` copia además el worker de MapLibre a `public/` (`postinstall`).
+`npm run build` falla si `CORREOS_PERMITIDOS` está vacía (`prebuild`). El
+trabajador se lanza aparte con `npm run trabajador:tick`.
+
 ## Variables de entorno necesarias
 
-Están en `.env.example`. Nunca se suben al repo.
+Están en `.env.example`, salvo `SALUD_ORIGEN_TRABAJADOR`. Nunca se suben al
+repo.
 
 | Variable | Para qué |
 |---|---|
@@ -238,9 +258,21 @@ Están en `.env.example`. Nunca se suben al repo.
 | `SALUD_ORIGEN_TRABAJADOR` | Origen con el que el **trabajador** apunta sus filas de salud y que `/api/salud` busca: si se fija, con el mismo valor en los dos entornos. Opcional: por defecto `trabajador` |
 | `GOOGLE_PLACES_CLAVE` | Solo en el entorno del **trabajador**, nunca en la web. Clave de Places API (New) para Text Search. Sin ella no se casa nada |
 
-Ninguna variable de modelo entra en el despliegue web. Las restricciones y
-cuotas de las dos claves de Google se configuran a mano en su consola
-(`docs/fuentes-de-datos.md`, «Google Maps Platform»).
+Ninguna variable de modelo entra en el despliegue web: `/api/salud` avisa si
+ve `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` o `CLAUDE_API_KEY`. Las
+restricciones y cuotas de las dos claves de Google se configuran a mano en su
+consola (`docs/fuentes-de-datos.md`, «Google Maps Platform»).
+
+Opcionales, con valor por defecto en el código (no están en `.env.example`):
+
+| Variable | Dónde se lee | Para qué |
+|---|---|---|
+| `TRABAJOS_LIMITE_POR_HORA`, `TRABAJOS_ARRENDAMIENTO_MIN`, `TRABAJOS_CADUCIDAD_HORAS` | `src/lib/cola/config.ts` | Trabajos por hora y usuario, arrendamiento de un trabajo y caducidad de los que nadie recoge |
+| `TRABAJADOR_MODELO`, `TRABAJADOR_CERROJO_TTL_MIN`, `TRABAJADOR_ESPERA_OCIOSA_MS`, `TRABAJADOR_INTERVALO_OCIOSO_MS` | `src/lib/trabajador/config.ts` | Modelo de generación, cerrojo y espera ociosa del trabajador |
+| `COMMIT_SHA` | `src/lib/salud.ts` | Commit que publica `/api/salud` fuera de Vercel (en Vercel sale de `VERCEL_GIT_COMMIT_SHA`) |
+| `NEXT_PUBLIC_SW_DESACTIVADO` | `src/app/RegistroSinConexion.tsx` | Con `1`, el siguiente despliegue desregistra el service worker y vacía su copia |
+
+La suite preview lee además las suyas (ver abajo).
 
 ## Cómo correr los tests
 
@@ -248,10 +280,17 @@ cuotas de las dos claves de Google se configuran a mano en su consola
 npm run lint
 npm run typecheck
 npm test                     # unitarios (Vitest)
-npm run test:integration     # contra el Supabase de desarrollo
-npm run test:e2e             # Playwright, móvil
+npm run test:integration     # contra la pila local de Supabase (supabase start)
+npm run test:e2e             # Playwright: proyectos chromium y movil
 npm run verificar:esqueleto  # build + arranque de producción + /api/salud + no-afiliación
 ```
+
+Los de integración y los e2e necesitan la pila local de Supabase levantada
+con la CLI de Supabase (`supabase start`, configuración en
+`supabase/config.toml`) y las variables `SUPABASE_*` apuntando a ella, como
+hace el CI. Las comprobaciones SQL de `scripts/verificar-bd-prueba.sh`
+(`relleno`, `cupo`, `permisos`, `lugares`, `obsoleto`, `orden`, `choque`,
+`privilegios`) van contra esa misma base con `BD_URL`.
 
 ### Suite preview (contra un despliegue publicado)
 
@@ -267,10 +306,19 @@ URL_OBJETIVO=https://… CORREO_ACCESO=… CODIGO_ACCESO=… npm run preparar:pl
 URL_OBJETIVO=https://… npx playwright test --project=preview
 ```
 
-Para «Compartir» (`src/app/plan/[id]/compartir.preview.e2e.ts`) hace falta un
-segundo usuario de pruebas, el invitado: `CORREO_INVITADO` y `CODIGO_INVITADO`.
-Sin ellos esos casos se saltan. Variables, tiempos, casos y qué correos están
-en qué lista en `docs/verificacion-con-sesion.md`.
+Variables de la suite:
+
+- `URL_OBJETIVO`: el despliegue contra el que se corre.
+- `CORREO_ACCESO` y `CODIGO_ACCESO`: el usuario de pruebas y su código de un
+  solo uso.
+- `CORREO_INVITADO` y `CODIGO_INVITADO`: el segundo usuario de pruebas, el
+  invitado de «Compartir» (`src/app/plan/[id]/compartir.preview.e2e.ts`).
+  Opcionales: sin ellos esos casos se saltan, no pasan en verde.
+- `PLAN_PRUEBA_ID`, `VERCEL_SESION`, `VERIFICACION_DIR` y
+  `VERIFICACION_SOLO_ENCOLAR`: opcionales.
+
+Qué hace cada una, tiempos, casos y qué correos están en qué lista en
+`docs/verificacion-con-sesion.md`.
 
 ### Pruebas a demanda
 
