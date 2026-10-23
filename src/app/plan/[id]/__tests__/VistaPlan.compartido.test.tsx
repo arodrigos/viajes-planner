@@ -69,6 +69,22 @@ describe("VistaPlan como invitado (cmu-ac2, cmu-ac6)", () => {
     expect(screen.queryByTestId("solo-lectura")).toBeNull();
   });
 
+  it("inv-ac1: para el invitado la primera parada va antes que el mapa, «Cómo leer» y «Guardar mapas»", async () => {
+    await pintar({ ...base, compartido: { rol: "miembro" } });
+    await screen.findByTestId("solo-lectura");
+    const primera = document.querySelector("li.tarjeta-parada")!;
+    const despues = [screen.getByTestId("mapa-falso"), screen.getByText("Cómo leer este plan"), screen.getByText(/Guardar mapas/)];
+    for (const el of despues) expect(primera.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("el dueño conserva el mapa y «Cómo leer» antes del itinerario", async () => {
+    await pintar({ ...base });
+    await waitFor(() => expect(screen.getByTestId("mapa-falso")).toBeInTheDocument());
+    const primera = document.querySelector("li.tarjeta-parada")!;
+    expect(primera.compareDocumentPosition(screen.getByTestId("mapa-falso")) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(primera.compareDocumentPosition(screen.getByText("Cómo leer este plan")) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  });
+
   it("un plan multiciudad compartido no pinta importes en la ruta (sin NaN)", async () => {
     const caja = { minLat: 38.6, maxLat: 38.8, minLon: -9.2, maxLon: -9 };
     await pintar({

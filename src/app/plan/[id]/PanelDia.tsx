@@ -261,6 +261,38 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
           );
         });
 
+  const seccionMapa =
+    (tieneAlgunaParada || etapa?.caja) &&
+      (puntos.length === 0 && !etapa?.caja ? (
+        // map-ac5: un día sin ninguna parada resuelta no tiene mapa, y se
+        // explica por qué en vez de dejar un hueco mudo.
+        <p className="mapa-sin-paradas">Sin mapa: ninguna parada de este día se ha podido ubicar todavía.</p>
+      ) : (
+        <div className="seccion-mapa-dia">
+          <MapaDia
+            alto={mapaAmpliado ? 420 : 200}
+            puntos={puntos}
+            paradaActivaId={paradaActivaId}
+            onSeleccionarParada={seleccionarParada}
+            idsVisitados={idsVisitados}
+            centroParadaId={siguienteParada?.id ?? null}
+            cajaEtapa={etapa?.caja}
+          />
+          <button type="button" className="boton" aria-expanded={mapaAmpliado} onClick={() => setMapaAmpliado(!mapaAmpliado)}>
+            {mapaAmpliado ? "Reducir mapa" : "Ampliar mapa"}
+          </button>
+          <ul className="pila enlaces-recorrido">
+            {tramos.map((tramo) => (
+              <li key={tramo.href}>
+                <a href={tramo.href} target="_blank" rel="noopener noreferrer">
+                  {tramo.etiqueta}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ));
+
   return (
     <section aria-labelledby="titulo-panel" className="seccion-dia" id={`dia-${indice}`}>
       {/* El foco pasa aquí al cambiar de día (VistaPlan); etv-ac2: en un
@@ -333,36 +365,7 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
       )}
       {!tieneAlgunaParada && <p className="dia-sin-paradas">Todavía no hay paradas planificadas para este día.</p>}
 
-      {(tieneAlgunaParada || etapa?.caja) &&
-        (puntos.length === 0 && !etapa?.caja ? (
-          // map-ac5: un día sin ninguna parada resuelta no tiene mapa, y se
-          // explica por qué en vez de dejar un hueco mudo.
-          <p className="mapa-sin-paradas">Sin mapa: ninguna parada de este día se ha podido ubicar todavía.</p>
-        ) : (
-          <div className="seccion-mapa-dia">
-            <MapaDia
-              alto={mapaAmpliado ? 420 : 200}
-              puntos={puntos}
-              paradaActivaId={paradaActivaId}
-              onSeleccionarParada={seleccionarParada}
-              idsVisitados={idsVisitados}
-              centroParadaId={siguienteParada?.id ?? null}
-              cajaEtapa={etapa?.caja}
-            />
-            <button type="button" className="boton" aria-expanded={mapaAmpliado} onClick={() => setMapaAmpliado(!mapaAmpliado)}>
-              {mapaAmpliado ? "Reducir mapa" : "Ampliar mapa"}
-            </button>
-            <ul className="pila enlaces-recorrido">
-              {tramos.map((tramo) => (
-                <li key={tramo.href}>
-                  <a href={tramo.href} target="_blank" rel="noopener noreferrer">
-                    {tramo.etiqueta}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+      {!soloLectura && seccionMapa}
 
       {recalculando && (
         <p role="status" className="ayuda recalculando">
@@ -400,6 +403,8 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
         </p>
       )}
       {puedeAnadirSitios && <AnadirSitio onAnadir={sitios.anadir} />}
+      {/* inv-ac1: el invitado llega a ver la primera parada sin desplazarse; el mapa va tras el itinerario. */}
+      {soloLectura && seccionMapa}
     </section>
   );
 }
