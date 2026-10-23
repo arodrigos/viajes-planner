@@ -8,6 +8,7 @@ import { CabeceraPlan } from "./CabeceraPlan";
 import { PanelDia } from "./PanelDia";
 import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
 import { Compartir } from "./Compartir";
+import { ComoLeerPlan } from "./ComoLeerPlan";
 import { GuardarMapas } from "./GuardarMapas";
 import { PanelResumen } from "./PanelResumen";
 import { SelectorDias } from "./SelectorDias";
@@ -202,7 +203,7 @@ export function VistaPlan({ id }: { id: string }) {
             soloLectura={soloLectura}
           />
           {esCopia && lectura?.leidoEn ? <FranjaCopia leidoEn={lectura.leidoEn} /> : lectura?.leidoEn ? <EstadoCopia planId={id} leidoEn={lectura.leidoEn} /> : null}
-          <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />
+          {!soloLectura && <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />}
           {!soloLectura && !esCopia && <Compartir planId={id} />}
           <SelectorDias fechas={fechas} elegido={dia} hoy={hoy} onElegir={elegir} />
           {dia === "resumen" ? (
@@ -238,6 +239,12 @@ export function VistaPlan({ id }: { id: string }) {
             })()
           )}
           <AvisoOrden orden={orden} />
+          {soloLectura && (
+            <>
+              <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />
+              <ComoLeerPlan />
+            </>
+          )}
         </>
       )}
     </div>

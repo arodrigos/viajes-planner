@@ -163,7 +163,7 @@ export function CabeceraPlan({ plan, planId, onRegenerado, onCiudadGuardada, sol
         <p key={aviso}>{aviso}</p>
       ))}
 
-      <ComoLeerPlan />
+      {!soloLectura && <ComoLeerPlan />}
     </header>
   );
 }
