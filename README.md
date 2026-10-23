@@ -3,11 +3,45 @@
 ## Qué es esto
 
 Planificador de viajes turísticos personal y familiar. Recibe criterios y
-limitaciones (fechas, ciudades, ritmo, si se viaja con niños) y devuelve un
-plan optimizado por días, con una guía interactiva en destino:
+limitaciones (fechas, ciudades, ritmo, intereses, si se viaja con niños) y
+devuelve un plan optimizado por días, con una guía interactiva en destino:
 
+- **Ritmo e intereses** en el formulario de criterios: ritmo `tranquilo`,
+  `normal` o `intenso` (mueve una parada arriba o abajo el tope por franja
+  del perfil) y hasta 3 intereses de una lista cerrada (museos, naturaleza,
+  gastronomía, parques y juegos para niños, monumentos, compras). Los
+  intereses solo viajan al prompt del modelo; la tarjeta de parada dice
+  «Encaja con tu interés: …» cuando su categoría casa con uno de ellos
+  (`src/lib/criterios/intereses.ts`).
 - **Vista por días**: resumen del viaje, selector de día, un solo mapa y
   menú de opciones.
+- **Orden del día**: subir y bajar paradas, arrastrarlas por el asa,
+  «Optimizar orden» (recorrido más corto) y deshacer.
+- **Sitios propios**: «Añadir un sitio» a un día, con nombre (2 a 80
+  caracteres) y una nota opcional (hasta 200). El trabajador lo busca después
+  como cualquier otra parada; la tarjeta enseña el estado de la búsqueda
+  (buscando, encontrado, no encontrado o error) y permite corregir el nombre o
+  quitar el sitio. Como mucho 20 sitios esperando búsqueda a la vez. La nota
+  es privada: no sale a ningún servicio externo ni al modelo, pero sí va al
+  `.ics` del calendario y la ve quien tenga acceso al plan.
+- **Compartir en solo lectura**: el dueño invita desde la sección
+  «Compartir» del plan a correos que ya están en `CORREOS_PERMITIDOS` (hasta
+  10 por plan) y puede quitarles el acceso. El invitado ve el plan en «Mis
+  viajes» con la etiqueta «Compartido contigo» y lo abre en solo lectura: ve
+  días, paradas y notas, pero no el presupuesto, el alojamiento, los costes de
+  traslado ni la ficha de Google, y no puede cambiar nada (ni orden, ni
+  sitios, ni alternativas, ni visitas). La proyección se recorta en el
+  servidor (`src/lib/plan/compartido.ts`) y todas las rutas de escritura
+  exigen ser el dueño. Si el dueño retira el acceso, la copia guardada del
+  invitado se borra cuando vuelve a abrir el plan con conexión.
+- **Sin conexión**: un service worker (Serwist) guarda una copia del plan y
+  de sus fotos para abrirlo sin red. Además, el botón «Guardar mapas para
+  usar sin red» descarga en el dispositivo los mapas de cada día con
+  paradas ubicadas, con aviso previo del tamaño estimado y del progreso. Solo
+  descarga al pulsarlo y con los límites que pide OpenFreeMap (zooms 10 a 14,
+  como mucho 150 teselas por día, 3 peticiones a la vez y parar a la primera
+  respuesta 429 o 5xx); detalle en `docs/fuentes-de-datos.md`, «Mapas sin
+  conexión». Lo guardado se borra al cerrar sesión o al eliminar el plan.
 - **Tarjeta de parada** compacta, con tres paneles que se abren de uno en
   uno: por qué se propone, consejos y curiosidades, y alternativas.
 - **Tarjeta «Ahora»** en el día de hoy: siguiente parada, progreso, hora
@@ -39,6 +73,8 @@ licencia compartir igual. Las reglas que impone al código están en
   o función repite su `revoke` a `anon`/`authenticated` y el `grant` a
   `service_role`; `scripts/verificar-bd-prueba.sh privilegios` lo comprueba
   y `scripts/verificar-privilegios-reales.sh` lo vigila en DEV tras migrar.
+- Copia sin conexión con **Serwist** (service worker, `src/app/sw.ts`) y
+  cálculo de teselas para los mapas guardados con `@mapbox/tilebelt`.
 - Mapa con **MapLibre** sobre **OpenFreeMap**. Lugares y fotos desde
   **Nominatim**, **Overpass API** y **Wikipedia/Wikimedia Commons/Wikidata**:
   servicios abiertos y sin cuenta (detalle en `docs/fuentes-de-datos.md`).
@@ -150,6 +186,25 @@ traducción. Para reproducirlo:
 Los logs de la función en Vercel no estaban al alcance al escribir esto, así
 que la causa del 500 puntual original no está confirmada contra ellos.
 
+### Sitios propios y compartir
+
+- **Sitios propios** (migración 031): `paradas` tiene `nota` (≤ 200
+  caracteres) y `propia`. `POST /api/plan/[id]/sitios` y `PATCH`/`DELETE
+  /api/plan/[id]/sitios/[idExterno]` llaman a las funciones SQL
+  `anadir_sitio_propio`, `corregir_sitio_propio` y `quitar_sitio_propio`,
+  que crean la versión siguiente del plan en una sola transacción (nunca
+  escriben sobre una versión existente) y responden 409 si la versión de
+  partida está desfasada. `clonar_version_plan` copia las dos columnas
+  nuevas. Ni el trabajador ni la guía leen `nota` (lo vigila
+  `src/lib/trabajador/__tests__/nota-no-sale.test.ts`).
+- **Compartir** (migraciones 032 y 033): tabla `miembros_plan` (plan,
+  correo en minúsculas, quién invitó). Solo la toca la web con la clave de
+  servicio, a través de `GET`/`POST /api/plan/[id]/miembros` y `DELETE
+  /api/plan/[id]/miembros/[miembroId]`, que solo admiten al dueño (un miembro
+  recibe 403 y un ajeno 404). La 033 quita a `authenticated` el `SELECT`
+  sobre la tabla. `rolEnPlan` y `exigirDuenyo` (`src/lib/plan/propiedad.ts`)
+  deciden el rol en cada ruta.
+
 ### Salud del despliegue
 
 `GET /api/salud` responde 200 si todo está en orden y 503 si no. Informa de:
@@ -181,8 +236,10 @@ resto de la respuesta sigue. Nunca devuelve texto crudo de errores. El cron diar
 las 07:00 UTC (`vercel.json`).
 
 ```
-src/app/            páginas (criterios, plan, guía, mis viajes, términos, privacidad) y API (acceso, plan, trabajos, viajes, google, salud)
-src/lib/plan/       modelo del plan, días y tramos entre paradas
+src/app/            páginas (criterios, plan, guía, mis viajes, sin conexión, términos, privacidad), service worker (sw.ts) y API (acceso, plan, trabajos, viajes, google, salud)
+src/lib/criterios/  esquema y validación de los criterios, ritmo e intereses
+src/lib/plan/       modelo del plan, días, tramos, sitios propios, miembros y proyección compartida
+src/lib/sinConexion/  reglas del service worker, copia del plan y mapas guardados
 src/lib/lugares/    resolución de lugares, ciudades y fotos con fuentes abiertas
 src/lib/guia/       consejos y curiosidades de cada parada (reglas, huella y reproceso)
 src/lib/alternativas/  alternativas de paradas y su equivalencia
@@ -238,7 +295,22 @@ Están en `.env.example`. Nunca se suben al repo.
 | `SALUD_ORIGEN_TRABAJADOR` | Origen con el que el **trabajador** apunta sus filas de salud y que `/api/salud` busca: si se fija, con el mismo valor en los dos entornos. Opcional: por defecto `trabajador` |
 | `GOOGLE_PLACES_CLAVE` | Solo en el entorno del **trabajador**, nunca en la web. Clave de Places API (New) para Text Search. Sin ella no se casa nada |
 
-Ninguna variable de modelo entra en el despliegue web. Las restricciones y
+Opcionales, leídas por el código pero fuera de `.env.example` (sin ellas
+se usa el valor por defecto que fija el propio código):
+
+| Variable | Dónde se lee | Para qué |
+|---|---|---|
+| `VERCEL_GIT_COMMIT_SHA` / `COMMIT_SHA` | `src/lib/salud.ts`, `serwist.config.mjs` | Commit que publica `/api/salud` y que versiona el service worker. Vercel pone la primera; `COMMIT_SHA` es el equivalente fuera de Vercel |
+| `NEXT_PUBLIC_SW_DESACTIVADO` | `src/app/RegistroSinConexion.tsx` | Con `1`, interruptor de emergencia: desregistra el service worker y vacía sus cachés en cada dispositivo |
+| `TRABAJOS_LIMITE_POR_HORA`, `TRABAJOS_ARRENDAMIENTO_MIN`, `TRABAJOS_CADUCIDAD_HORAS` | `src/lib/cola/config.ts` | Límites de la cola de trabajos |
+| `TRABAJADOR_MODELO`, `TRABAJADOR_CERROJO_TTL_MIN`, `TRABAJADOR_ESPERA_OCIOSA_MS`, `TRABAJADOR_INTERVALO_OCIOSO_MS` | `src/lib/trabajador/config.ts` | Solo en el **trabajador**: modelo de generación, cerrojo del tick y esperas en ocioso |
+
+Las variables de la suite preview (`URL_OBJETIVO`, `CORREO_ACCESO`,
+`CODIGO_ACCESO`, `CORREO_INVITADO`, `CODIGO_INVITADO`…) se describen más
+abajo y en `docs/verificacion-con-sesion.md`.
+
+Ninguna variable de modelo entra en el despliegue web: `/api/salud` avisa si
+encuentra `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` o `CLAUDE_API_KEY`. Las restricciones y
 cuotas de las dos claves de Google se configuran a mano en su consola
 (`docs/fuentes-de-datos.md`, «Google Maps Platform»).
 
@@ -251,6 +323,21 @@ npm test                     # unitarios (Vitest)
 npm run test:integration     # contra el Supabase de desarrollo
 npm run test:e2e             # Playwright, móvil
 npm run verificar:esqueleto  # build + arranque de producción + /api/salud + no-afiliación
+npm run comprobar:capturas   # tras los e2e: están todas las capturas de src/test-utils/capturas-esperadas.ts
+```
+
+### Ritmo e intereses con el modelo real
+
+`scripts/comprobar-ritmo-intereses.mjs` lee por stdin la salida de
+`generar:plan-real` con `--resolver` sobre
+`fixtures/criterios-ritmo-intereses.json` (Valencia, 3 días, ritmo
+`tranquilo`, intereses museos y parques para niños) y comprueba de forma
+determinista que hay como mucho una parada por franja y al menos dos paradas
+con un interés marcado. Necesita `claude` en el `PATH`, así que no corre en el
+CI:
+
+```bash
+npm run --silent generar:plan-real -- --criterios-fichero fixtures/criterios-ritmo-intereses.json --resolver | node scripts/comprobar-ritmo-intereses.mjs
 ```
 
 ### Suite preview (contra un despliegue publicado)
@@ -291,6 +378,11 @@ gh workflow run "Pruebas a demanda" --ref <rama> -f tipo=unit -f specs="src/lib/
 
 ## Changelog de cambios relevantes
 
+- **2026-10-20**:
+  - **Ritmo e intereses** en el formulario de criterios (#306, #312).
+  - **Mapas sin conexión**: «Guardar mapas para usar sin red» (#307, #309).
+  - **Sitios propios** con nota (#308, #311, migración 031).
+  - **Compartir en solo lectura** (#310, #313, migraciones 032 y 033).
 - **2026-10-17**:
   - **Cupo único de peticiones por tick** (#251): antes cada fase del barrido
     tenía su propio tope de 120, así que un tick podía sumar varias veces ese
