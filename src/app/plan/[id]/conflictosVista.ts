@@ -6,6 +6,7 @@ import type { DiaConflictable, ParadaConflictable } from "@/lib/plan/conflictos"
 export type { ConflictoDia } from "@/lib/plan/conflictos";
 import type { AlternativaArreglable, PlanArreglable } from "@/lib/plan/arreglos";
 import { horaDeMinutos } from "@/lib/plan/tiempos";
+import type { ElementoFijo } from "@/lib/reservas/enElDia";
 import type { HorarioForzado } from "@/lib/testing/ganchosUat";
 import type { DiaPublico } from "./tiposVista";
 
@@ -17,7 +18,11 @@ export interface DiaParaConflictos {
 // 1440 no cabe en "HH:MM": el fin de franja a medianoche se queda en el último minuto del día.
 const hora = (minutos: number) => horaDeMinutos(Math.min(minutos, 1439));
 
-export function diaParaConflictos(dia: DiaPublico, forzados: Readonly<Record<string, HorarioForzado>> = {}): DiaParaConflictos {
+// Las reservas de un día salen de la fecha: así el cálculo no sabe si vienen del
+// detalle del dueño o de la proyección mínima del invitado.
+export type FijosDeFecha = (fecha: string) => ElementoFijo[];
+
+export function diaParaConflictos(dia: DiaPublico, forzados: Readonly<Record<string, HorarioForzado>> = {}, fijos?: FijosDeFecha): DiaParaConflictos {
   const horarios: DiaParaConflictos["horarios"] = {};
   const ventanas = new Map<string, { desde: number; hasta: number }>();
   const paradas: ParadaConflictable[] = [];
@@ -42,15 +47,16 @@ export function diaParaConflictos(dia: DiaPublico, forzados: Readonly<Record<str
     const v = ventanas.get(f.id) ?? (f.ventana ? { desde: f.ventana.desdeMin, hasta: f.ventana.hastaMin } : undefined);
     return v ? [{ id: f.id, etiqueta: f.etiqueta, hora_inicio: hora(v.desde), hora_fin: hora(v.hasta) }] : [];
   });
-  return { dia: { fecha: dia.fecha, franjas, paradas }, horarios };
+  const reservas = fijos?.(dia.fecha) ?? [];
+  return { dia: { fecha: dia.fecha, franjas, paradas, ...(reservas.length > 0 ? { reservas } : {}) }, horarios };
 }
 
 // arreglo-un-toque: todos los días del plan en la forma que necesita
 // proponerArreglos, con las alternativas guardadas que se pueden comprobar.
-export function diasParaArreglos(dias: readonly DiaPublico[], forzados: Readonly<Record<string, HorarioForzado>> = {}): PlanArreglable {
+export function diasParaArreglos(dias: readonly DiaPublico[], forzados: Readonly<Record<string, HorarioForzado>> = {}, fijos?: FijosDeFecha): PlanArreglable {
   return {
     dias: dias.map((d) => {
-      const { dia } = diaParaConflictos(d, forzados);
+      const { dia } = diaParaConflictos(d, forzados, fijos);
       return {
         ...dia,
         ...(d.etapa !== undefined ? { etapa: d.etapa } : {}),

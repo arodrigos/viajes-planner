@@ -8,7 +8,10 @@ import { formatearFechaDia } from "@/lib/plan/dias";
 import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada } from "@/lib/plan/erroresParada";
 import { TEXTOS_CONFLICTOS } from "@/lib/textos/conflictos";
 import { horariosForzados, instalarGanchosUat, suscribirHorariosForzados, type HorarioForzado } from "@/lib/testing/ganchosUat";
-import { diaParaConflictos, diasParaArreglos, type ConflictoDia } from "./conflictosVista";
+import { diaParaConflictos, diasParaArreglos, type ConflictoDia, type FijosDeFecha } from "./conflictosVista";
+import { franjaDelElemento } from "@/lib/reservas/enElDia";
+import { TEXTOS_RESERVAS } from "@/lib/textos/reservas";
+import { TarjetaReserva } from "./TarjetaReserva";
 import type { ArregloPropuesto } from "@/lib/plan/arreglos";
 import { HojaArreglos } from "./HojaArreglos";
 import { TEXTOS_AHORA } from "@/lib/textos/ahora";
@@ -40,7 +43,7 @@ const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue 
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, version, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar, diasPlan, onArreglar, puedeAnadirSitios = false, soloLectura = false }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; version: number; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void; diasPlan?: readonly DiaPublico[]; onArreglar?: (arreglo: ArregloPropuesto, paradaId: string) => void; puedeAnadirSitios?: boolean; soloLectura?: boolean }) {
+export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, version, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar, diasPlan, onArreglar, fijos, hotel, puedeAnadirSitios = false, soloLectura = false }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; version: number; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void; diasPlan?: readonly DiaPublico[]; onArreglar?: (arreglo: ArregloPropuesto, paradaId: string) => void; fijos?: FijosDeFecha; hotel?: { nombre?: string; ubicacion?: { lat: number; lon: number } } | null; puedeAnadirSitios?: boolean; soloLectura?: boolean }) {
   // El orden de la pantalla se adelanta al del servidor mientras se guarda;
   // la copia del servidor se conserva para atar lo provisional a ella.
   const diaServidor = diaDelServidor;
@@ -87,7 +90,8 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
       vivo = false;
     };
   }, []);
-  const paraConflictos = diaParaConflictos(dia, forzados);
+  const paraConflictos = diaParaConflictos(dia, forzados, fijos);
+  const fijosDia = fijos?.(dia.fecha) ?? [];
   // Con un orden pendiente las horas guardadas ya no valen: se espera al plan nuevo.
   const evaluacion = modConflictos && !ordenPendiente ? modConflictos.evaluarDia(paraConflictos.dia, { opciones: { perfil: null }, horarios: paraConflictos.horarios }) : null;
   const conflictoDe = new Map((evaluacion?.conflictos ?? []).map((c) => [c.paradaId, c]));
@@ -100,14 +104,15 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
   async function abrirHoja(paradaId: string, nombre: string, conflicto: ConflictoDia) {
     if (!diasPlan) return;
     const { proponerArreglos } = await import("@/lib/plan/arreglos");
-    setHoja({ paradaId, nombre, opciones: proponerArreglos(diasParaArreglos(diasPlan, forzados), indice, conflicto, { opciones: { perfil: null } }) });
+    setHoja({ paradaId, nombre, opciones: proponerArreglos(diasParaArreglos(diasPlan, forzados, fijos), indice, conflicto, { opciones: { perfil: null } }) });
   }
 
   // optimizar-orden: se calcula aquí, en el navegador y sobre el orden que se ve;
   // el hook solo guarda. Una mejora de menos de 0,1 km no merece una versión.
   function optimizar() {
     if (!onOptimizar) return;
-    const ancla = diaServidor.ancla_alojamiento?.tipo === "zona-propuesta" ? diaServidor.ancla_alojamiento.centroide : null;
+    // El hotel con ubicación manda sobre la zona propuesta: es de donde sale de verdad.
+    const ancla = hotel?.ubicacion ?? (diaServidor.ancla_alojamiento?.tipo === "zona-propuesta" ? diaServidor.ancla_alojamiento.centroide : null);
     // Un orden más corto no puede dejar cerrado un sitio que hoy no lo está.
     const comprobar = modConflictos
       ? (orden: readonly EntradaOrden[]) => {
@@ -245,10 +250,28 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
 
   const ordenActual = ordenDeParadas(dia.paradas);
 
-  const franjasDelDia = (conAsa: boolean) =>
+  // Las reservas sin franja (el hotel, o una hora fuera de todas) van al final del día.
+  const ventanas = dia.franjas.flatMap((f) => (f.ventana ? [{ id: f.id, desdeMin: f.ventana.desdeMin, hastaMin: f.ventana.hastaMin }] : []));
+  const fijosSueltos = fijosDia.filter((f) => franjaDelElemento(f, ventanas) === null);
+  const franjasDelDia = (conAsa: boolean) => [
+    ...franjasConParadas(conAsa),
+    ...(fijosSueltos.length > 0
+      ? [
+          <div key="fijos-sueltos" className="seccion-franja">
+            <ul className="pila">
+              {fijosSueltos.map((f) => (
+                <TarjetaReserva key={f.reservaId} fijo={f} />
+              ))}
+            </ul>
+          </div>,
+        ]
+      : []),
+  ];
+  const franjasConParadas = (conAsa: boolean) =>
     dia.franjas.map((franja) => {
           const paradasDeLaFranja = paradasVista.filter((parada) => parada.franja_id === franja.id);
-          if (paradasDeLaFranja.length === 0) return null;
+          const fijosDeLaFranja = fijosDia.filter((f) => franjaDelElemento(f, ventanas) === franja.id);
+          if (paradasDeLaFranja.length === 0 && fijosDeLaFranja.length === 0) return null;
           return (
             <div key={franja.id} className="seccion-franja">
               <div
@@ -265,6 +288,9 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                 <h3>{franja.etiqueta}</h3>
               </div>
               <ul className="pila">
+                {fijosDeLaFranja.map((f) => (
+                  <TarjetaReserva key={f.reservaId} fijo={f} />
+                ))}
                 {paradasDeLaFranja.map((parada) => (
                   <TarjetaParada
                     key={parada.id}
@@ -355,6 +381,16 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
       {nConflictos > 0 && (
         <p className="contador-conflictos" data-testid="contador-conflictos">
           {nConflictos === 1 ? TEXTOS_CONFLICTOS.contadorUno.texto : TEXTOS_CONFLICTOS.contadorVarios.texto.replace("{n}", String(nConflictos))}
+        </p>
+      )}
+      {hotel?.ubicacion && hotel.nombre && (
+        <p className="ayuda" data-testid="sales-de" data-sensible>
+          {TEXTOS_RESERVAS.salesDe(hotel.nombre)}
+        </p>
+      )}
+      {hotel && !hotel.ubicacion && (
+        <p className="ayuda ayuda-hotel" data-testid="ayuda-ubicacion-hotel">
+          {TEXTOS_RESERVAS.anadeUbicacionHotel}
         </p>
       )}
       {conControles && (

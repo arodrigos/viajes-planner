@@ -276,6 +276,17 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   direcciones y notas no salen del servidor.
 - La ubicación del hotel es opcional: se toma del dispositivo o se pega y se
   interpreta en local, sin llamar a ningún mapa.
+- **En el día**: cada reserva con hora sale como tarjeta fija con candado en
+  su día (llegada, salida, entrada; el hotel, el día de entrada) y no se mueve
+  nunca: guardar una reserva no crea versión del plan ni cambia paradas
+  (`src/lib/reservas/enElDia.ts`). Una parada que pisa una entrada, que queda
+  antes de 60 min tras la llegada o después de 120 min (vuelo) o 45 (tren)
+  antes de la salida cuenta como conflicto, y «Arreglar» solo propone huecos
+  que no chocan con ninguna reserva. El .ics lleva un evento por reserva, cada
+  extremo en su zona horaria; el localizador solo va en el del dueño.
+- Con la ubicación del hotel, «Optimizar orden» parte de él en los días de la
+  estancia («Sales de: …», solo para el dueño); sin ubicación, el día lo
+  avisa. La vista compartida muestra solo tipo y hora.
 - Al eliminar un viaje se borran sus reservas de verdad (el borrado del viaje
   es una marca, así que no salta ningún `ON DELETE CASCADE`).
 

@@ -5,6 +5,7 @@
 import { nombreDiaSemana, ordenConParadaEnFranja, type DiaMovible } from "./aplicarArreglo";
 import { evaluarApertura, evaluarDia, type ConflictoDia, type ContextoConflictos, type DiaConflictable, type EvaluacionDia, type ParadaConflictable } from "./conflictos";
 import { horaDeMinutos } from "./tiempos";
+import type { ElementoFijo } from "@/lib/reservas/enElDia";
 import { TEXTOS_ARREGLOS } from "@/lib/textos/arreglos";
 
 export type ArregloPropuesto =
@@ -30,6 +31,8 @@ export interface DiaArreglable extends DiaMovible {
   // En un viaje de varias ciudades una parada no cruza de etapa.
   etapa?: number;
   paradas: ParadaArreglable[];
+  // Reservas con hora de ese día: cada opción se comprueba también contra ellas.
+  reservas?: ElementoFijo[];
 }
 
 export interface PlanArreglable {
@@ -47,10 +50,11 @@ function rellenar(plantilla: string, valores: Record<string, string>): string {
 }
 
 // Una parada nueva en el día no puede añadir conflictos a las demás ni tener el suyo.
-function sinEmpeorar(antes: EvaluacionDia, despues: EvaluacionDia, paradaId: string): boolean {
+function sinEmpeorar(antes: EvaluacionDia, despues: EvaluacionDia, paradaId: string, exigirHorarioConocido: boolean): boolean {
   if (despues.conflictos.some((c) => c.paradaId === paradaId)) return false;
-  // Lo desconocido no se vende como «abre»: si no se sabe, no se propone.
-  if (despues.sinConfirmar.includes(paradaId)) return false;
+  // Lo desconocido no se vende como «abre»: si no se sabe, no se propone. Si el
+  // choque es con una reserva, el horario del sitio no es lo que se arregla.
+  if (exigirHorarioConocido && despues.sinConfirmar.includes(paradaId)) return false;
   const previos = new Set(antes.conflictos.map((c) => c.paradaId));
   return despues.conflictos.every((c) => previos.has(c.paradaId));
 }
@@ -87,10 +91,13 @@ export function proponerArreglos(plan: PlanArreglable, diaIndex: number, conflic
   const dia = plan.dias[diaIndex];
   const parada = dia?.paradas.find((p) => p.id === conflicto.paradaId);
   const regla = parada?.lugar?.etiquetas.opening_hours;
-  if (!dia || !parada || !regla || !parada.coordenadas) return [];
+  const deReserva = conflicto.clase === "solapa-reserva" || conflicto.clase === "antes-de-llegada" || conflicto.clase === "despues-de-salida";
+  if (!dia || !parada || (!deReserva && (!regla || !parada.coordenadas))) return [];
+  const exigirHorario = !deReserva;
   const contextoPuro: ContextoConflictos = { opciones: contexto.opciones, ...(contexto.countryCode ? { countryCode: contexto.countryCode } : {}) };
   const opciones: ArregloPropuesto[] = [];
-  const motivo = (fecha: string) => motivoApertura(regla, parada.lugar?.etiquetas.check_date_opening_hours, fecha, parada.coordenadas!, contexto);
+  // Con un sitio sin horario conocido (choque con una reserva) el motivo es la reserva, no la apertura.
+  const motivo = (fecha: string) => (regla && parada.coordenadas ? motivoApertura(regla, parada.lugar?.etiquetas.check_date_opening_hours, fecha, parada.coordenadas, contexto) : TEXTOS_ARREGLOS.sinChoques.texto);
   const indiceActual = dia.franjas.findIndex((f) => f.id === parada.franja_id);
 
   // Primero las franjas más cercanas a la actual; a igual distancia, la posterior.
@@ -102,7 +109,7 @@ export function proponerArreglos(plan: PlanArreglable, diaIndex: number, conflic
   for (const { f } of porCercania(dia.franjas, indiceActual)) {
     if (f.id === parada.franja_id) continue;
     const candidato = conParadaEn(dia, ordenConParadaEnFranja(dia, parada.id, f.id));
-    if (!sinEmpeorar(antesDia, evaluarDia(candidato, contextoPuro), parada.id)) continue;
+    if (!sinEmpeorar(antesDia, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario)) continue;
     const porQue = motivo(dia.fecha);
     if (!porQue) continue;
     opciones.push({ tipo: "otra-franja", diaIndex, franjaId: f.id, etiqueta: rellenar(TEXTOS_ARREGLOS.pasarA.texto, { franja: conArticulo(f.etiqueta), motivo: porQue }) });
@@ -120,7 +127,7 @@ export function proponerArreglos(plan: PlanArreglable, diaIndex: number, conflic
       const trasladada: ParadaArreglable = { ...parada, franja_id: f.id };
       const orden = ordenConParadaEnFranja({ ...d, paradas: [...d.paradas, trasladada] }, parada.id, f.id);
       const candidato = conParadaEn({ ...d, paradas: [...d.paradas, trasladada] }, orden);
-      if (!sinEmpeorar(antes, evaluarDia(candidato, contextoPuro), parada.id)) continue;
+      if (!sinEmpeorar(antes, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario)) continue;
       const porQue = motivo(d.fecha);
       if (!porQue) continue;
       const etiqueta =
@@ -142,7 +149,7 @@ export function proponerArreglos(plan: PlanArreglable, diaIndex: number, conflic
       lugar: { etiquetas: { opening_hours: alternativa.opening_hours, ...(alternativa.check_date ? { check_date_opening_hours: alternativa.check_date } : {}) } },
     };
     const candidato = { ...dia, paradas: dia.paradas.map((p) => (p.id === parada.id ? sustituta : p)) };
-    if (!sinEmpeorar(antesDia, evaluarDia(candidato, contextoPuro), parada.id)) continue;
+    if (!sinEmpeorar(antesDia, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario)) continue;
     const porQue = motivoApertura(alternativa.opening_hours, alternativa.check_date, dia.fecha, alternativa.coordenadas, contexto);
     if (!porQue) continue;
     opciones.push({ tipo: "alternativa", alternativaId: alternativa.id, etiqueta: rellenar(TEXTOS_ARREGLOS.cambiarPor.texto, { nombre: alternativa.nombre, motivo: porQue }) });

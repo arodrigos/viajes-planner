@@ -4,6 +4,7 @@ import { clienteServicio } from "@/lib/db/cliente";
 import { generarIcsPlan } from "@/lib/plan/calendario";
 import { opcionesTramosDeTrabajo, rolEnPlan } from "@/lib/plan/propiedad";
 import { recuperarPlan } from "@/lib/plan/repositorio";
+import { reservasOpcionales } from "@/lib/reservas/repositorio";
 
 // ics-ac1: misma guarda que GET /api/plan/[id] -- un plan ajeno responde
 // 404, nunca 403.
@@ -21,7 +22,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   const plan = await recuperarPlan(supabase, id);
   if (!plan) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
 
-  const { contenido, nombreFichero } = generarIcsPlan(plan, opcionesTramosDeTrabajo(rol.trabajo));
+  // Las reservas son del dueño; el invitado solo recibe tipo y hora.
+  const reservas = await reservasOpcionales(supabase, id);
+  const { contenido, nombreFichero } = generarIcsPlan(plan, opcionesTramosDeTrabajo(rol.trabajo), reservas, rol.rol === "duenyo");
   return new NextResponse(contenido, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",

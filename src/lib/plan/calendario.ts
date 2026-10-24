@@ -11,6 +11,9 @@ import { calcularTiemposDia, type HorarioCalculado } from "./tiempos";
 import type { OpcionesTramos } from "./tramos";
 import type { Dia, Parada, Plan } from "./tipos";
 import { zonaDeParada } from "./zona";
+import { aReservasPublicas } from "@/lib/reservas/publico";
+import { TEXTOS_RESERVAS as TR } from "@/lib/textos/reservas";
+import type { Reserva, ReservaPublica } from "@/lib/reservas/tipos";
 
 const FRASE_HORARIO_ORIENTATIVO = "Horario orientativo según la franja del plan.";
 
@@ -50,16 +53,19 @@ function eventoDeParada(dia: Dia, horario: HorarioCalculado, parada: Parada, des
 // exactamente un DTSTART y un DTEND. Sin zona conocida se deja flotante.
 // No se añade VTIMEZONE: los lectores de calendario resuelven el nombre
 // IANA por su cuenta y el fichero sigue siendo válido para ellos.
-function conZona(ics: string, zonas: (string | null)[]): string {
-  const sustituir = (etiqueta: "DTSTART" | "DTEND") => {
+function conZona(ics: string, zonas: { inicio: string | null; fin: string | null }[]): string {
+  // Cada VEVENT lleva un DTSTART y un DTEND, pero un evento de día entero (el
+  // hotel) no tiene hora flotante que reemplazar: se cuenta igual para no
+  // desplazar las zonas de los eventos que vienen detrás.
+  const sustituir = (etiqueta: "DTSTART" | "DTEND", cual: "inicio" | "fin") => {
     let indice = 0;
-    ics = ics.replace(new RegExp(`^${etiqueta}:(\\d{8}T\\d{6})\\r\\n`, "gm"), (linea, instante: string) => {
-      const zona = zonas[indice++];
-      return zona ? `${etiqueta};TZID=${zona}:${instante}\r\n` : linea;
+    ics = ics.replace(new RegExp(`^${etiqueta}(?::(\\d{8}T\\d{6})|[^\\r\\n]*)\\r\\n`, "gm"), (linea, instante?: string) => {
+      const zona = zonas[indice++]?.[cual];
+      return instante && zona ? `${etiqueta};TZID=${zona}:${instante}\r\n` : linea;
     });
   };
-  sustituir("DTSTART");
-  sustituir("DTEND");
+  sustituir("DTSTART", "inicio");
+  sustituir("DTEND", "fin");
   return ics;
 }
 
@@ -68,11 +74,79 @@ export interface IcsPlan {
   nombreFichero: string;
 }
 
+type Zonas = { inicio: string | null; fin: string | null };
+
+function sumarDias(fecha: string, dias: number): DateArray {
+  const [a, m, d] = fecha.split("-").map(Number);
+  const f = new Date(Date.UTC(a, m - 1, d + dias));
+  return [f.getUTCFullYear(), f.getUTCMonth() + 1, f.getUTCDate()];
+}
+
+const minutosDe = (hora: string) => Number(hora.slice(0, 2)) * 60 + Number(hora.slice(3, 5));
+const DURACION_PUBLICA_MIN = 30;
+const DURACION_ENTRADA_MIN = 90;
+
+// El hotel es un evento de día entero: el .ics no inventa una hora de entrada.
+function hotelDiaEntero(inicio: string, fin: string | undefined, title: string, extra: Partial<EventAttributes> = {}): EventAttributes {
+  const hasta = fin && fin > inicio ? fin : undefined;
+  return { start: sumarDias(inicio, 0), end: hasta ? sumarDias(hasta, 0) : sumarDias(inicio, 1), title, ...extra };
+}
+
+function horaLocal(fecha: string, hora: string) {
+  return { start: fechaHoraComoArray(fecha, minutosDe(hora)), startInputType: "local" as const, startOutputType: "local" as const };
+}
+
+function finLocal(fecha: string, minutos: number) {
+  return { end: fechaHoraComoArray(fecha, minutos), endInputType: "local" as const, endOutputType: "local" as const };
+}
+
+// Un evento por reserva del dueño: el vuelo o tren va de su salida a su
+// llegada, cada extremo con su zona. El localizador solo está aquí.
+function eventoDeReserva(r: Reserva, zonaPlan: string | null): { evento: EventAttributes; zonas: Zonas } | null {
+  const detalle = [r.localizador ? `Localizador: ${r.localizador}` : "", r.direccion ?? "", r.notas ?? ""].filter(Boolean).join("\n");
+  const description = detalle || undefined;
+  if (r.tipo === "vuelo" || r.tipo === "tren") {
+    if (!r.hora_inicio || !r.hora_fin || !r.fecha_fin) return null;
+    const ida = r.sentido === "ida";
+    const titulo = r.tipo === "vuelo" ? (ida ? TR.vueloIda : TR.vueloVuelta) : ida ? TR.trenIda : TR.trenVuelta;
+    return {
+      evento: { ...horaLocal(r.fecha_inicio, r.hora_inicio), ...finLocal(r.fecha_fin, minutosDe(r.hora_fin)), title: `${titulo} · ${r.origen ?? ""} → ${r.destino ?? ""}`, ...(description ? { description } : {}) },
+      zonas: { inicio: r.zona_inicio ?? null, fin: r.zona_fin ?? null },
+    };
+  }
+  if (r.tipo === "hotel") {
+    return {
+      evento: hotelDiaEntero(r.fecha_inicio, r.fecha_fin, `${TR.hotel} ${r.nombre ?? ""}`.trim(), { ...(r.direccion ? { location: r.direccion } : {}), ...(description ? { description } : {}) }),
+      zonas: { inicio: null, fin: null },
+    };
+  }
+  if (!r.hora_inicio) return null;
+  const desde = minutosDe(r.hora_inicio);
+  const hasta = r.hora_fin && minutosDe(r.hora_fin) > desde ? minutosDe(r.hora_fin) : desde + DURACION_ENTRADA_MIN;
+  const zona = r.zona_inicio ?? zonaPlan;
+  return {
+    evento: { ...horaLocal(r.fecha_inicio, r.hora_inicio), ...finLocal(r.fecha_inicio, hasta), title: `${TR.entrada} ${r.nombre ?? ""}`.trim(), ...(r.direccion ? { location: r.direccion } : {}), ...(description ? { description } : {}) },
+    zonas: { inicio: zona, fin: zona },
+  };
+}
+
+// Para quien no es el dueño: solo el tipo genérico y la hora, nada de lo que
+// escribió el dueño.
+function eventoDeReservaPublica(r: ReservaPublica, zonaPlan: string | null): { evento: EventAttributes; zonas: Zonas } | null {
+  if (r.tipo === "hotel") return { evento: hotelDiaEntero(r.fecha, undefined, TR.hotel), zonas: { inicio: null, fin: null } };
+  if (!r.hora) return null;
+  const desde = minutosDe(r.hora);
+  const titulo = r.tipo === "entrada" ? TR.entrada : r.sentido === "ida" ? TR.llegada : TR.salida;
+  const hasta = desde + (r.tipo === "entrada" ? DURACION_ENTRADA_MIN : DURACION_PUBLICA_MIN);
+  return { evento: { ...horaLocal(r.fecha, r.hora), ...finLocal(r.fecha, hasta), title: titulo }, zonas: { inicio: zonaPlan, fin: zonaPlan } };
+}
+
 // `opciones` son las mismas que recibe aPlanPublico: si no, el .ics de un viaje
-// familiar daría minutos distintos de los de la tarjeta.
-export function generarIcsPlan(plan: Plan, opciones: OpcionesTramos): IcsPlan {
+// familiar daría minutos distintos de los de la tarjeta. `conDetalle` solo es
+// verdadero para el dueño: un invitado recibe únicamente el tipo y la hora.
+export function generarIcsPlan(plan: Plan, opciones: OpcionesTramos, reservas: readonly Reserva[] = [], conDetalle = true): IcsPlan {
   const eventos: EventAttributes[] = [];
-  const zonas: (string | null)[] = [];
+  const zonas: Zonas[] = [];
   for (const dia of plan.dias) {
     const { horarios } = calcularTiemposDia(dia, opciones);
     for (const parada of dia.paradas) {
@@ -81,8 +155,17 @@ export function generarIcsPlan(plan: Plan, opciones: OpcionesTramos): IcsPlan {
         throw new Error(`La parada ${parada.id} referencia una franja inexistente (${parada.franja_id})`);
       }
       eventos.push(eventoDeParada(dia, horario, parada, plan.destino));
-      zonas.push(zonaDeParada(parada, plan.ciudad?.caja));
+      const zona = zonaDeParada(parada, plan.ciudad?.caja);
+      zonas.push({ inicio: zona, fin: zona });
     }
+  }
+  const zonaPlan = zonas.find((z) => z.inicio)?.inicio ?? null;
+  const ordenadas = [...reservas].sort((a, b) => `${a.fecha_inicio}T${a.hora_inicio ?? ""}`.localeCompare(`${b.fecha_inicio}T${b.hora_inicio ?? ""}`));
+  const deReservas = conDetalle ? ordenadas.map((r) => eventoDeReserva(r, zonaPlan)) : aReservasPublicas(ordenadas).map((r) => eventoDeReservaPublica(r, zonaPlan));
+  for (const e of deReservas) {
+    if (!e) continue;
+    eventos.push(e.evento);
+    zonas.push(e.zonas);
   }
 
   const { error, value } = createEvents(eventos, { calName: `Viaje a ${plan.destino}` });

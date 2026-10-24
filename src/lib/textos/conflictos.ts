@@ -13,5 +13,8 @@ export const TEXTOS_CONFLICTOS = {
   fuenteSinFecha: t("ayuda", "Horario de OpenStreetMap, sin fecha de comprobación"),
   contadorUno: t("estado", "1 conflicto"),
   contadorVarios: t("estado", "{n} conflictos"),
+  chocaConEntrada: t("estado", "Choca con tu entrada de las {hora}"),
+  antesDeLlegada: t("estado", "Antes de tu llegada a las {hora}"),
+  despuesDeSalida: t("estado", "Después de tu salida a las {hora}"),
   ordenDejariaCerrado: t("ayuda", "El orden más corto dejaría {parada} cerrado; dejamos el orden como está"),
 } as const;

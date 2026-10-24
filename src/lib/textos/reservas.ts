@@ -51,6 +51,13 @@ export const TEXTOS_RESERVAS = {
   trenVuelta: "Tren de vuelta",
   hotel: "Hotel",
   entrada: "Entrada",
+  // En el día y en la vista compartida: el tipo genérico y la hora.
+  llegada: "Llegada",
+  salida: "Salida",
+  tarjetaFija: (titulo: string, hora?: string) => (hora ? `${titulo} · ${hora}` : titulo),
+  fija: "Reserva fija: no se mueve",
+  salesDe: (nombre: string) => `Sales de: ${nombre}`,
+  anadeUbicacionHotel: "Añade la ubicación del hotel para que el día salga de él",
   llega: (hora: string) => `llega ${hora}`,
   sale: (hora: string) => `sale ${hora}`,
   a: (hora: string) => `a las ${hora}`,
