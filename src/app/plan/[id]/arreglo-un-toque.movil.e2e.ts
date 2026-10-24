@@ -129,9 +129,6 @@ test.describe("arreglar un conflicto con un toque", () => {
       await expect(aviso.getByRole("button", { name: "Deshacer" })).toBeVisible();
       await capturar(pagina, "arreglo-un-toque", `movida-${tamano.nombre}`);
 
-      // arr-ac1: la versión subió en uno.
-      await expect.poll(() => versionMaxima(supabase, planId)).toBe(2);
-
       // uat-06: Deshacer devuelve la parada al lunes, a su franja y en primer lugar, con otra versión.
       await aviso.getByRole("button", { name: "Deshacer" }).click();
       await expect(aviso).toContainText("Parada restaurada");
@@ -143,6 +140,29 @@ test.describe("arreglar un conflicto con un toque", () => {
       await contexto.close();
     });
   }
+
+  test("Deshacer tocado cuando el arreglo ya se guardó devuelve la parada al lunes (arr-ac1, arr-ac3)", async ({ browser }) => {
+    const planId = "plan-arreglo-e2e-deshacer-tarde";
+    await sembrarPlan(supabase, usuarioId, planId);
+    const contexto = await browser.newContext({ viewport: { width: 360, height: 640 } });
+    const pagina = await contexto.newPage();
+    await entrar(pagina, planId, 1);
+    await forzar(pagina, "p-arr-1", CIERRA_EL_LUNES);
+    await tarjeta(pagina, "Museo del lunes").getByTestId("arreglar-parada").click();
+    await pagina.getByTestId("arreglo-otro-dia").click();
+    const aviso = pagina.getByTestId("aviso-arreglo");
+    await expect(aviso).toContainText("Movida al martes 8");
+    // arr-ac1: la versión subió en uno; con el arreglo ya guardado (y releído), el
+    // Deshacer debe salir con la versión que devolvió el servidor, no la de antes.
+    await expect.poll(() => versionMaxima(supabase, planId)).toBe(2);
+    await pagina.waitForTimeout(1500);
+    await aviso.getByRole("button", { name: "Deshacer" }).click();
+    await expect(tarjeta(pagina, "Museo del lunes")).toBeVisible();
+    await expect(aviso).toContainText("Parada restaurada");
+    await expect.poll(() => versionMaxima(supabase, planId)).toBe(3);
+    await expect(pagina.locator("li.tarjeta-parada").first()).toContainText("Museo del lunes");
+    await contexto.close();
+  });
 
   test("tras recargar la parada sigue en el día de destino (arr-ac1)", async ({ browser }) => {
     const planId = "plan-arreglo-e2e-recarga";

@@ -187,6 +187,33 @@ describe("useArreglos: aviso optimista (arr-ac1, latencia)", () => {
     expect(result.current.plan.dias[0].paradas.map((p) => p.id)).toEqual(["a", "b"]);
   });
 
+  it("Deshacer tocado cuando el arreglo ya se guardó y el plan de props sigue en la versión vieja envía el inverso con la versión del POST", async () => {
+    // El GET de releer no termina: reproduce al servidor lento, con el plan de
+    // props aún en v1 mientras el POST ya devolvió v2.
+    let posts = 0;
+    const fetchFalso = vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method !== "POST") return new Promise<Response>(() => {});
+      posts += 1;
+      return respuesta(200, { version: posts === 1 ? 2 : 3 });
+    });
+    vi.stubGlobal("fetch", fetchFalso);
+    const { result } = montar();
+    await act(async () => {
+      void result.current.aplicar(OTRO_DIA, "a", 0);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(posts).toBe(1));
+    // Re-renders cualesquiera entre el POST y el toque, como el real al leer el aviso.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    act(() => result.current.deshacer());
+    await waitFor(() => expect(posts).toBe(2));
+    const posteos = fetchFalso.mock.calls.filter(([, init]) => init?.method === "POST") as [string, RequestInit][];
+    expect(JSON.parse(posteos[1][1].body as string).version_base).toBe(2);
+    expect(result.current.plan.dias[0].paradas.map((p) => p.id)).toEqual(["a", "b"]);
+  });
+
   it("si el arreglo falla, el inverso encolado no se envía", async () => {
     let soltar: (r: Response) => void = () => {};
     const primero = new Promise<Response>((resolver) => {
