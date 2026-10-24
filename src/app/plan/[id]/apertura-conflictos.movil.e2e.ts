@@ -95,7 +95,7 @@ test.describe("conflictos de horario", () => {
     const codigo = await leerCodigo(CORREO);
     expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: CORREO, codigo } })).ok()).toBe(true);
     await pagina.clock.install({ time: new Date(ANTES_DEL_VIAJE) });
-    await pagina.goto(`/plan/${planId}?pruebas=1`);
+    await pagina.goto(`/plan/${planId}?dia=1&pruebas=1`);
 
     // Sin conflictos: ni contador ni distintivos.
     await expect(tarjeta(pagina, "Museo del lunes")).toBeVisible();
@@ -130,7 +130,7 @@ test.describe("conflictos de horario", () => {
     await contexto.request.post("/api/acceso/solicitar-codigo", { data: { email: CORREO } });
     const codigo = await leerCodigo(CORREO);
     await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: CORREO, codigo } });
-    await pagina.goto(`/plan/${planId}`);
+    await pagina.goto(`/plan/${planId}?dia=1`);
     await expect(tarjeta(pagina, "Museo del lunes")).toBeVisible();
     expect(await pagina.evaluate(() => "__debug" in window && "forzarHorarioParada" in (window as unknown as { __debug: object }).__debug)).toBe(false);
     await contexto.close();
