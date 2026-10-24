@@ -31,6 +31,16 @@ export const TEXTOS_GASTOS = {
   filaDia: (n: number, fecha: string) => `Día ${n} · ${fecha}`,
   deEstimado: (gastado: string, estimado: string) => `${gastado} de ${estimado}`,
   mas: (cantidad: string) => `+${cantidad}`,
+  // gastos-sin-conexion
+  pendiente: "Pendiente de subir",
+  sinSubir: (n: number) => (n === 1 ? "1 gasto sin subir" : `${n} gastos sin subir`),
+  sinSesion: (n: number) => (n === 1 ? "Inicia sesión para subir 1 gasto" : `Inicia sesión para subir ${n} gastos`),
+  enlaceAcceso: "Iniciar sesión",
+  rechazado: (motivo: string) => `No se ha podido subir: ${motivo}`,
+  rechazadoSinMotivo: "El servidor no ha aceptado este gasto. Edítalo o descártalo",
+  descartar: "Descartar",
+  errorEncolar: "No se ha podido guardar el gasto en este dispositivo. Inténtalo de nuevo",
+  sinCopia: "Sin conexión y sin una copia de los gastos en este dispositivo. Abre esta sección con conexión una vez",
 } as const;
 
 export const ERRORES_GASTO = {

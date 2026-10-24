@@ -305,7 +305,17 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   día o a «Todo el viaje», comida y entradas a su día. La regla se repite en
   `src/lib/gastos/validar.ts` y en los `CHECK` de la tabla.
 - Los invitados no reciben gastos, y al eliminar un viaje se borran de verdad.
-  Apuntar sin conexión llega en un bloque posterior.
+- **Sin conexión**: alta, edición y borrado de gastos pasan siempre por una cola
+  de salida en IndexedDB (`src/lib/sinConexion/colaSalida.ts`, genérica y
+  reutilizable, sobre `idb`). Se intenta subir enseguida; si no hay red, el gasto
+  sale con «Pendiente de subir» y arriba «N gastos sin subir», y los totales ya lo
+  cuentan. Se sube solo al volver la red, al volver la página a primer plano y al
+  abrir la sección, con el mismo id (el `PUT` es idempotente: nunca se duplica).
+  Un 401 deja los gastos pendientes con «Inicia sesión para subir N gastos»; un
+  rechazo (400, 409, 404) los deja en rojo con su motivo y «Editar» o «Descartar».
+  La lista que se ve es el espejo del servidor guardado en el dispositivo más lo
+  pendiente. Al cerrar sesión y al eliminar el viaje se vacían la cola y el espejo
+  (`src/lib/sinConexion/borrar.ts`). No toca el service worker.
 
 ### Salud del despliegue
 

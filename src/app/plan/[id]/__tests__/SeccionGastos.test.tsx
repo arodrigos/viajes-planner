@@ -27,7 +27,17 @@ function api(inicial: Gasto[] = []) {
       const metodo = init?.method ?? "GET";
       llamadas.push({ url, metodo, cuerpo: init?.body ? JSON.parse(String(init.body)) : undefined });
       if (metodo === "GET") return json(200, lista);
-      if (metodo === "PUT") return json(200, { ok: true });
+      // Servidor mínimo con estado: la lista que devuelve el GET tras subir
+      // refleja lo subido, como el de verdad.
+      const id = String(url).split("/").pop()!;
+      const i = lista.findIndex((g) => g.id === id);
+      if (metodo === "PUT") {
+        const gasto = { id, ...JSON.parse(String(init?.body)) } as Gasto;
+        if (i >= 0) lista[i] = gasto;
+        else lista.unshift(gasto);
+        return json(200, { ok: true });
+      }
+      if (i >= 0) lista.splice(i, 1);
       return json(204, null);
     }),
   );

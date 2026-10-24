@@ -1262,6 +1262,14 @@ footer a,
 .gasto-pasado {
   color: var(--peligro-texto);
 }
+.gasto-rechazado {
+  color: var(--peligro-texto);
+  flex-wrap: wrap;
+}
+.marca-pendiente {
+  font-size: 0.875rem;
+  font-style: italic;
+}
 .desglose-gastos > li {
   justify-content: space-between;
 }
