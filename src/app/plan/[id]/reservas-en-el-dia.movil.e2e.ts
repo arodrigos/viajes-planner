@@ -21,7 +21,13 @@ const HORA_ENTRADA = horaDeMinutos(minutosDeHora(MANANA.hora_inicio) + 30);
 async function enTresTamanos(pagina: Page, nombre: string) {
   for (const t of TAMANOS) {
     await pagina.setViewportSize({ width: t.ancho, height: t.alto });
-    expect(await pagina.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // Si desborda, el mensaje dice qué elemento se sale y a qué tamaño.
+    const anchos = await pagina.evaluate(() => ({
+      pantalla: window.innerWidth,
+      pagina: document.documentElement.scrollWidth,
+      anchos: [...document.querySelectorAll("body *")].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1).slice(0, 5).map((e) => `${e.tagName}.${e.className}:${Math.round(e.getBoundingClientRect().right)}`),
+    }));
+    expect(anchos.pagina, `${nombre} a ${t.ancho}: ${JSON.stringify(anchos)}`).toBeLessThanOrEqual(anchos.pantalla);
     await capturar(pagina, "reservas-en-el-dia", `${nombre}-${t.ancho}`);
   }
   await pagina.setViewportSize({ width: 360, height: 640 });

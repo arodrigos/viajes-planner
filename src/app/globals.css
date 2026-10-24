@@ -1245,3 +1245,8 @@ footer a,
 .ayuda-hotel {
   margin: 0;
 }
+
+.tarjeta-reserva .cuerpo-parada {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
