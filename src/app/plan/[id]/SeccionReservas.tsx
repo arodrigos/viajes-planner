@@ -57,7 +57,7 @@ export function SeccionReservas({ planId, fechas }: { planId: string; fechas: st
   const lleno = (reservas?.length ?? 0) >= TOPE_RESERVAS;
 
   return (
-    <details className="compartir pila" open={abierta} onToggle={(e) => setAbierta(e.currentTarget.open)}>
+    <details className="seccion-reservas pila" open={abierta} onToggle={(e) => setAbierta(e.currentTarget.open)}>
       <summary>{T.titulo}</summary>
       {errorLista && <p role="alert">{T.errorLista}</p>}
       {reservas !== null && reservas.length === 0 && formulario === null && <p className="ayuda" data-testid="reservas-vacio">{T.vacio}</p>}
