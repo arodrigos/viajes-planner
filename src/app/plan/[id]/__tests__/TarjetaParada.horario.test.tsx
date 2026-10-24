@@ -56,12 +56,9 @@ describe("TarjetaParada: procedencia del horario", () => {
     expect(screen.queryByRole("button", { name: "Compruébalo en Google" })).toBeNull();
   });
 
-  it("sin fecha dice «sin fecha de comprobación»; con posible cierre dice «puede estar cerrado»", () => {
-    const { rerender } = render(pintar({ horario: { ...parada.horario!, fuenteOsm: {} } }));
+  it("sin fecha dice «sin fecha de comprobación»", () => {
+    render(pintar({ horario: { ...parada.horario!, fuenteOsm: {} } }));
     expect(screen.getByTestId("procedencia-horario")).toHaveTextContent("sin fecha de comprobación");
-    rerender(pintar({ horario: { ...parada.horario!, fuenteOsm: { comprobadoEn: "2026-09" }, posibleCierre: true } }));
-    expect(screen.getByTestId("procedencia-horario")).toHaveTextContent("puede estar cerrado a esa hora");
-    expect(screen.getByRole("button", { name: "Compruébalo en Google" })).toBeInTheDocument();
   });
 
   it("una parada no casada nunca ofrece el botón", () => {

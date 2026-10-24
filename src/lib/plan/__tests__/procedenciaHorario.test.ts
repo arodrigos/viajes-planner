@@ -4,7 +4,7 @@ import { TEXTOS_HORARIO } from "@/lib/textos/horario";
 import { procedenciaHorario, type EntradaProcedenciaHorario } from "../procedenciaHorario";
 
 const HOY = "2026-10-08";
-const base: EntradaProcedenciaHorario = { tieneHorario: true, hoy: HOY, casada: true, posibleCierre: false };
+const base: EntradaProcedenciaHorario = { tieneHorario: true, hoy: HOY, casada: true };
 
 // dif-ac1: la tabla del diseño, literal.
 describe("procedenciaHorario (dif-ac1)", () => {
@@ -23,14 +23,8 @@ describe("procedenciaHorario (dif-ac1)", () => {
 
   it("una parada no casada nunca ofrece el botón, tenga la fecha que tenga", () => {
     for (const fecha of [undefined, "2010", "2026-10-01"]) {
-      expect(procedenciaHorario({ ...base, casada: false, fechaComprobacion: fecha, posibleCierre: true }).ofrecerGoogle).toBe(false);
+      expect(procedenciaHorario({ ...base, casada: false, fechaComprobacion: fecha }).ofrecerGoogle).toBe(false);
     }
-  });
-
-  it("un horario reciente con aviso de cierre ofrece el botón y avisa de que puede estar cerrado", () => {
-    const r = procedenciaHorario({ ...base, fechaComprobacion: "2026-09-01", posibleCierre: true });
-    expect(r.ofrecerGoogle).toBe(true);
-    expect(r.aviso).toBe(TEXTOS_HORARIO.avisoCierre.texto);
   });
 
   it("sin etiqueta opening_hours no hay rótulo ni aviso, pero la parada casada puede comprobarse", () => {
@@ -54,7 +48,6 @@ const entrada = fc.record({
   tieneHorario: fc.boolean(),
   hoy: fechaIso,
   casada: fc.boolean(),
-  posibleCierre: fc.boolean(),
 });
 
 const DIA_MS = 86_400_000;
@@ -68,7 +61,7 @@ describe("invariantes de procedenciaHorario", () => {
         if (!e.casada) return r.ofrecerGoogle === false;
         const inicio = e.fechaComprobacion ? `${e.fechaComprobacion}${e.fechaComprobacion.length === 4 ? "-01-01" : e.fechaComprobacion.length === 7 ? "-01" : ""}` : null;
         const antiguo = inicio === null || dias(inicio, e.hoy) > 730;
-        return antiguo ? r.ofrecerGoogle === true : r.ofrecerGoogle === e.posibleCierre;
+        return antiguo ? r.ofrecerGoogle === true : r.ofrecerGoogle === false;
       }),
     );
   });

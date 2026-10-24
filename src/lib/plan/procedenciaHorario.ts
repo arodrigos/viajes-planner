@@ -15,8 +15,6 @@ export interface EntradaProcedenciaHorario {
   hoy: string;
   // La parada tiene place_id de Google: sin él no hay ficha que abrir.
   casada: boolean;
-  // El horario de OSM dice que ese día a esa hora estará cerrado.
-  posibleCierre: boolean;
 }
 
 export interface ProcedenciaHorario {
@@ -39,7 +37,7 @@ export function procedenciaHorario(entrada: EntradaProcedenciaHorario): Proceden
   const hoy = parsearFecha(entrada.hoy);
   const antiguo = comprobado !== null && hoy !== null && (hoy - comprobado) / MS_POR_DIA > DIAS_MAXIMOS_SIN_COMPROBAR;
   const sinFecha = comprobado === null;
-  const ofrecerGoogle = entrada.casada && (sinFecha || antiguo || entrada.posibleCierre);
+  const ofrecerGoogle = entrada.casada && (sinFecha || antiguo);
 
   if (!entrada.tieneHorario) return { rotulo: null, aviso: null, ofrecerGoogle };
 
@@ -47,13 +45,7 @@ export function procedenciaHorario(entrada: EntradaProcedenciaHorario): Proceden
     comprobado === null
       ? TEXTOS_HORARIO.rotuloSinFecha.texto
       : TEXTOS_HORARIO.rotuloComprobado.texto.replace("{anio}", String(new Date(comprobado).getUTCFullYear()));
-  // El cierre es lo más concreto para quien va ese día, así que manda sobre el aviso de antigüedad.
-  const aviso = entrada.posibleCierre
-    ? TEXTOS_HORARIO.avisoCierre.texto
-    : sinFecha
-      ? TEXTOS_HORARIO.avisoSinFecha.texto
-      : antiguo
-        ? TEXTOS_HORARIO.avisoAntiguo.texto
-        : null;
+  // El cierre ya no se avisa aquí: lo dice el conflicto del día (conflictos.ts).
+  const aviso = sinFecha ? TEXTOS_HORARIO.avisoSinFecha.texto : antiguo ? TEXTOS_HORARIO.avisoAntiguo.texto : null;
   return { rotulo, aviso, ofrecerGoogle };
 }

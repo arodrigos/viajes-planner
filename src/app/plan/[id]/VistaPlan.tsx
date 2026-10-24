@@ -233,7 +233,7 @@ export function VistaPlan({ id }: { id: string }) {
                   onIrAResumen={() => elegir("resumen")}
                   ordenPendiente={orden.recalculando(indice) ? orden.ordenEnPantalla(indice) : undefined}
                   onMover={esCopia || soloLectura ? undefined : (idParada, direccion) => orden.mover(indice, idParada, direccion)}
-                  onOptimizar={esCopia || soloLectura ? undefined : (nuevo, aviso) => (nuevo ? orden.aplicarOrden(indice, nuevo, { inmediato: true, aviso }) : orden.informar(TEXTOS_ORDEN.yaOptimo))}
+                  onOptimizar={esCopia || soloLectura ? undefined : (nuevo, aviso) => (nuevo ? orden.aplicarOrden(indice, nuevo, { inmediato: true, aviso }) : orden.informar(aviso || TEXTOS_ORDEN.yaOptimo))}
                   // Soltar es un gesto único: no hay ráfaga que agrupar.
                   onReordenar={esCopia || soloLectura ? undefined : (nuevo) => orden.aplicarOrden(indice, nuevo, { inmediato: true })}
                 />

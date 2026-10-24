@@ -53,10 +53,13 @@ export interface HorarioPublico extends HorarioParada {
   apertura: string;
   // La etiqueta de OSM dice que a esa hora estará cerrado (o cerrará antes de
   // acabar la visita): alimenta el aviso «puede estar cerrado» de la tarjeta.
-  posibleCierre?: true;
   // Presente solo si el lugar trae opening_hours de OSM; `comprobadoEn` es su
   // check_date. La tarjeta no recibe el lugar entero, solo esto.
-  fuenteOsm?: { comprobadoEn?: string };
+  fuenteOsm?: { comprobadoEn?: string; regla?: string };
+  // Minutos desde la medianoche del día, para que el navegador recalcule los
+  // conflictos de horario sin las horas de franja (que siguen siendo internas):
+  // la parada (inicio, fin) y la ventana de su franja (desde, hasta).
+  minutos?: { inicio: number; fin: number; franjaDesde: number; franjaHasta: number };
 }
 
 export interface ParadaPublica extends Omit<Parada, "alternativas"> {
@@ -208,6 +211,7 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
   const horario: HorarioParada | undefined = calculado
     ? { inicio: horaDeMinutos(calculado.inicioMin), fin: horaDeMinutos(calculado.finMin), recortada: calculado.recortada }
     : undefined;
+  const franjaDeParada = dia.franjas.find((f) => f.id === parada.franja_id);
   const zona = zonaDeParada(parada, caja);
   const apertura = horario
     ? calcularApertura(parada.lugar?.etiquetas.opening_hours, { fecha: dia.fecha, inicio: horario.inicio, fin: horario.fin }, zona)
@@ -227,10 +231,12 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
             ...horario,
             ...(horario.recortada ? { aviso: avisoRecortada(etiquetaFranja, calculado?.excesoMin ?? 0) } : {}),
             apertura: textoApertura(apertura),
-            ...(parada.lugar?.etiquetas.opening_hours
-              ? { fuenteOsm: { ...(parada.lugar.etiquetas.check_date_opening_hours ? { comprobadoEn: parada.lugar.etiquetas.check_date_opening_hours } : {}) } }
+            ...(calculado && franjaDeParada
+              ? { minutos: { inicio: calculado.inicioMin, fin: calculado.finMin, franjaDesde: minutosDeHora(franjaDeParada.hora_inicio), franjaHasta: minutosDeHora(franjaDeParada.hora_fin) } }
               : {}),
-            ...(apertura.estado === "cerrada" ? { posibleCierre: true as const } : {}),
+            ...(parada.lugar?.etiquetas.opening_hours
+              ? { fuenteOsm: { ...(parada.lugar.etiquetas.check_date_opening_hours ? { comprobadoEn: parada.lugar.etiquetas.check_date_opening_hours } : {}), regla: parada.lugar.etiquetas.opening_hours } }
+              : {}),
           },
         }
       : {}),
