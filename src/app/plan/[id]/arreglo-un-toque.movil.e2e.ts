@@ -84,6 +84,8 @@ async function entrar(pagina: Page, planId: string, dia: number) {
   expect((await contexto.request.post("/api/acceso/verificar-codigo", { data: { email: CORREO, codigo } })).ok()).toBe(true);
   await pagina.clock.install({ time: new Date(ANTES_DEL_VIAJE) });
   await pagina.goto(`/plan/${planId}?dia=${dia}&pruebas=1`);
+  // Los ganchos de prueba se instalan al montar el panel del día.
+  await expect(tarjeta(pagina, "Museo del lunes")).toBeVisible();
 }
 
 test.describe("arreglar un conflicto con un toque", () => {
