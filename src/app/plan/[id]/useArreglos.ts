@@ -59,9 +59,14 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
   // Cada toque sube la época: un releer() lanzado antes no debe volver a pintar
   // un plan anterior al cambio optimista.
   const epoca = useRef(0);
+  // Última versión que el servidor confirmó en una respuesta. El plan de props
+  // no la alcanza hasta que releer() termina: sin esta ref, el efecto de abajo
+  // pisaba la versión del POST en cada render y el inverso salía con la vieja (409).
+  const versionConfirmada = useRef(plan.version);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    planRef.current = plan;
+    planRef.current = plan.version < versionConfirmada.current ? { ...plan, version: versionConfirmada.current } : plan;
+    versionConfirmada.current = Math.max(versionConfirmada.current, plan.version);
     alActualizarRef.current = alActualizar;
   });
   useEffect(
@@ -86,6 +91,7 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
       if (!r.ok) return null;
       const nuevo = (await r.json()) as PlanPublico;
       if (!forzar && (mia !== epoca.current || pendientes.current > 0)) return null;
+      versionConfirmada.current = Math.max(versionConfirmada.current, nuevo.version);
       planRef.current = nuevo;
       alActualizarRef.current(nuevo);
       return nuevo;
@@ -95,7 +101,8 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
   }, []);
 
   const enviar = useCallback(async (operacion: Operacion): Promise<Resultado> => {
-    const { id, version } = planRef.current;
+    const { id } = planRef.current;
+    const version = Math.max(planRef.current.version, versionConfirmada.current);
     let url = "";
     let cuerpo: Record<string, unknown>;
     if (operacion.tipo === "mover-dia") {
@@ -116,7 +123,10 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
         // (Deshacer) no espera a releer el plan entero.
         const datos = (await r.json().catch(() => null)) as { version?: unknown; plan?: { version?: unknown } } | null;
         const nueva = datos?.version ?? datos?.plan?.version;
-        if (typeof nueva === "number") planRef.current = { ...planRef.current, version: nueva };
+        if (typeof nueva === "number") {
+          versionConfirmada.current = Math.max(versionConfirmada.current, nueva);
+          planRef.current = { ...planRef.current, version: versionConfirmada.current };
+        }
         return "ok";
       }
       if (r.status === 409) return "desfasada";
@@ -154,8 +164,10 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
 
   const fallar = useCallback(
     async (resultado: Exclude<Resultado, "ok">, antes: PlanPublico) => {
-      alActualizarRef.current(antes);
-      planRef.current = antes;
+      // El servidor conserva lo ya confirmado: el plan revertido no debe bajar la versión.
+      const vuelto = antes.version < versionConfirmada.current ? { ...antes, version: versionConfirmada.current } : antes;
+      alActualizarRef.current(vuelto);
+      planRef.current = vuelto;
       if (resultado === "desfasada") {
         setError(TEXTOS_ARREGLOS.desfasada.texto);
         await releer(true);
