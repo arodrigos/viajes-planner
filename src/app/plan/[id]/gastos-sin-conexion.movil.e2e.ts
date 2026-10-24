@@ -79,7 +79,7 @@ async function abrirGastos(contexto: BrowserContext, planId: string) {
 
 test("sin conexión se apunta, se ve pendiente y al volver la red se sube una sola vez (off-ac1, off-ac2)", async ({ browser }) => {
   test.setTimeout(120_000);
-  const email = "ci-test-sin-conexion@example.com";
+  const email = "ci-test-gastos-offline@example.com";
   const planId = await sembrar(clienteDePrueba("servicio"), email);
   const contexto = await entrar(browser, email);
   const pagina = await abrirGastos(contexto, planId);
@@ -119,7 +119,7 @@ test("sin conexión se apunta, se ve pendiente y al volver la red se sube una so
 
 test("con la sesión caducada el gasto no se pierde y un rechazo se queda en rojo (off-ac3, off-ac4)", async ({ browser }) => {
   test.setTimeout(120_000);
-  const email = "ci-test-sin-conexion-401@example.com";
+  const email = "ci-test-gastos-offline-401@example.com";
   const planId = await sembrar(clienteDePrueba("servicio"), email);
   const contexto = await entrar(browser, email);
   const pagina = await abrirGastos(contexto, planId);
