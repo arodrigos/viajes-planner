@@ -1222,6 +1222,16 @@ footer a,
   border-radius: 1rem 1rem 0 0;
 }
 
+.hoja-arreglos ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hoja-arreglos li {
+  list-style: none;
+}
+
 .hoja-arreglos .boton {
   width: 100%;
   min-height: 2.75rem;

@@ -49,6 +49,9 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
   const alActualizarRef = useRef(alActualizar);
   const enCurso = useRef(false);
   const inverso = useRef<Operacion | null>(null);
+  // Resuelve cuando el servidor confirma (true) o rechaza (false) el arreglo en
+  // vuelo: «Deshacer» ya se ofrece antes y espera aquí para usar la versión nueva.
+  const vuelo = useRef<Promise<boolean> | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     planRef.current = plan;
@@ -155,6 +158,11 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
       mostrarAviso(null);
       const antes = planRef.current;
       const dia = antes.dias[diaIndex];
+      let confirmado = false;
+      let cerrarVuelo: (ok: boolean) => void = () => {};
+      vuelo.current = new Promise<boolean>((resolver) => {
+        cerrarVuelo = resolver;
+      });
       try {
         let operacion: Operacion;
         let texto: string;
@@ -183,13 +191,22 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
           mostrarAviso({ texto, conDeshacer: inverso.current !== null });
           return;
         }
+        // El aviso sale en el mismo frame que el cambio pintado: esperar al
+        // servidor y a releer el plan lo retrasaba 4-5 s (límite de 200 ms).
         const deshecho = pintar(operacion);
-        const resultado = await enviar(operacion);
-        if (resultado !== "ok") return await fallar(resultado, antes);
         inverso.current = deshecho;
-        await releer();
         mostrarAviso({ texto, conDeshacer: deshecho !== null });
+        const resultado = await enviar(operacion);
+        if (resultado !== "ok") {
+          inverso.current = null;
+          mostrarAviso(null);
+          return await fallar(resultado, antes);
+        }
+        confirmado = true;
+        await releer();
       } finally {
+        cerrarVuelo(confirmado);
+        vuelo.current = null;
         enCurso.current = false;
         setOcupado(false);
       }
@@ -199,13 +216,18 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
 
   const deshacer = useCallback(() => {
     const operacion = inverso.current;
-    if (!operacion || enCurso.current) return;
+    if (!operacion || (enCurso.current && !vuelo.current)) return;
     inverso.current = null;
-    enCurso.current = true;
-    setOcupado(true);
-    setError(null);
-    const antes = planRef.current;
+    const pendiente = vuelo.current;
     void (async () => {
+      // Si el arreglo aún se está guardando se espera a su confirmación; si
+      // falló, ya se revirtió solo y no hay nada que deshacer.
+      if (pendiente && !(await pendiente)) return;
+      enCurso.current = true;
+      setOcupado(true);
+      setError(null);
+      mostrarAviso(null);
+      const antes = planRef.current;
       try {
         pintar(operacion);
         const resultado = await enviar(operacion);
