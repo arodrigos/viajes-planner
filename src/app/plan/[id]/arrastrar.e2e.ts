@@ -67,7 +67,7 @@ test("arrastrar el asa de la tercera parada al primer puesto la deja la primera 
 
   // Si falla, el mensaje enseña el orden pintado y el aviso en vez de solo «no encontrado».
   await expect
-    .poll(async () => `${(await ordenPintado(pagina)).join(",")} | ${await pagina.locator(".aviso-orden-vivo").innerText()}`, { timeout: 15_000 })
+    .poll(async () => `${(await ordenPintado(pagina)).join(",")} | ${await pagina.locator(".aviso-orden-vivo:not(.aviso-arreglo-vivo)").innerText()}`, { timeout: 15_000 })
     .toContain("Orden guardado");
   await expect(pagina.getByRole("button", { name: "Deshacer" })).toBeVisible();
   await expect.poll(async () => (await ordenPintado(pagina)).join(",")).toBe("Gamma,Alfa,Beta,Delta");
@@ -124,7 +124,7 @@ test("soltar en otra franja le da esa franja a la parada (opción A)", async ({ 
 
   await arrastrarAsa(pagina, "Gamma", "Alfa");
   await expect
-    .poll(async () => `${(await ordenPintado(pagina)).join(",")} | ${await pagina.locator(".aviso-orden-vivo").innerText()}`, { timeout: 15_000 })
+    .poll(async () => `${(await ordenPintado(pagina)).join(",")} | ${await pagina.locator(".aviso-orden-vivo:not(.aviso-arreglo-vivo)").innerText()}`, { timeout: 15_000 })
     .toContain("Orden guardado");
   const guardada = await ultimaVersionDelDia(supabase, planId);
   expect(guardada.paradas.map((p) => `${p.id_externo}:${p.franja_id}`)).toEqual(["c:manana", "a:manana", "b:manana", "d:comida"]);
