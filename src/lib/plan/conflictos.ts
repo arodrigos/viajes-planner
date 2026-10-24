@@ -6,6 +6,7 @@ import { evaluarApertura, type ResultadoApertura } from "./apertura";
 import { calcularTiemposDia, horaDeMinutos, minutosDeHora } from "./tiempos";
 import type { OpcionesTramos } from "./tramos";
 import type { Franja } from "./tipos";
+import type { ElementoFijo } from "@/lib/reservas/enElDia";
 import { TEXTOS_CONFLICTOS } from "@/lib/textos/conflictos";
 
 // arreglos.ts la pide aquí para que la librería siga entrando por un solo módulo.
@@ -35,7 +36,13 @@ export interface DiaConflictable {
   fecha: string;
   franjas: Pick<Franja, "id" | "etiqueta" | "hora_inicio" | "hora_fin">[];
   paradas: ParadaConflictable[];
+  // Reservas con hora de ese día. Guardar una no mueve nada: solo cambia lo que sale aquí.
+  reservas?: ElementoFijo[];
 }
+
+// Margen de seguridad alrededor de una llegada o una salida.
+export const MARGEN_LLEGADA_MIN = 60;
+export const MARGEN_SALIDA_MIN = { vuelo: 120, tren: 45 } as const;
 
 export interface ContextoConflictos {
   opciones: OpcionesTramos;
@@ -43,6 +50,8 @@ export interface ContextoConflictos {
   // El navegador ya conoce las horas que calculó el servidor; si las pasa,
   // no se recalculan con otras opciones de trayecto.
   horarios?: Record<string, { inicioMin: number; finMin: number }>;
+  // Sustituye a dia.reservas cuando quien llama ya las tiene por separado.
+  reservasDelDia?: ElementoFijo[];
 }
 
 export interface EvaluacionDia {
@@ -68,18 +77,50 @@ function rellenar(plantilla: string, valores: Record<string, string>): string {
   return Object.entries(valores).reduce((texto, [clave, valor]) => texto.replace(`{${clave}}`, valor), plantilla);
 }
 
+// Un conflicto con una reserva depende solo de la hora de la parada y de la
+// reserva: no necesita horario OSM ni coordenadas.
+function conflictoConReserva(paradaId: string, horario: { inicioMin: number; finMin: number }, fijos: readonly ElementoFijo[]): ConflictoDia | null {
+  for (const f of fijos) {
+    if (f.sinHora) continue;
+    const base = { paradaId, reservaId: f.reservaId };
+    if (f.clase === "entrada" && horario.inicioMin < f.hastaMin && horario.finMin > f.desdeMin) {
+      return { ...base, clase: "solapa-reserva", texto: rellenar(TEXTOS_CONFLICTOS.chocaConEntrada.texto, { hora: horaDeMinutos(f.desdeMin) }) };
+    }
+    if (f.clase === "llegada" && horario.inicioMin < f.desdeMin + MARGEN_LLEGADA_MIN) {
+      return { ...base, clase: "antes-de-llegada", texto: rellenar(TEXTOS_CONFLICTOS.antesDeLlegada.texto, { hora: horaDeMinutos(f.desdeMin) }) };
+    }
+    if (f.clase === "salida" && horario.finMin > f.desdeMin - (f.tipo === "tren" ? MARGEN_SALIDA_MIN.tren : MARGEN_SALIDA_MIN.vuelo)) {
+      return { ...base, clase: "despues-de-salida", texto: rellenar(TEXTOS_CONFLICTOS.despuesDeSalida.texto, { hora: horaDeMinutos(f.desdeMin) }) };
+    }
+  }
+  return null;
+}
+
 export function evaluarDia(dia: DiaConflictable, contexto: ContextoConflictos): EvaluacionDia {
   const horarios = contexto.horarios ?? calcularTiemposDia(dia as unknown as Parameters<typeof calcularTiemposDia>[0], contexto.opciones).horarios;
   const franjaPorId = new Map(dia.franjas.map((f) => [f.id, f]));
   const conflictos: ConflictoDia[] = [];
   const sinConfirmar: string[] = [];
 
+  const fijos = contexto.reservasDelDia ?? dia.reservas ?? [];
+
   for (const parada of dia.paradas) {
+    const antes = conflictos.length;
+    evaluarHorario(parada);
+    // Un solo conflicto por parada: el de horario va primero, y arreglarlo exige arreglar los dos.
+    if (conflictos.length === antes && horarios[parada.id]) {
+      const deReserva = conflictoConReserva(parada.id, horarios[parada.id], fijos);
+      if (deReserva) conflictos.push(deReserva);
+    }
+  }
+  return { conflictos, sinConfirmar };
+
+  function evaluarHorario(parada: ParadaConflictable) {
     const reglaOsm = parada.lugar?.etiquetas.opening_hours;
     const franja = franjaPorId.get(parada.franja_id);
     const horario = horarios[parada.id];
     // Sin horario OSM, sin coordenadas o sin hora calculada no hay nada que comprobar.
-    if (!reglaOsm || !parada.coordenadas || !franja || !horario) continue;
+    if (!reglaOsm || !parada.coordenadas || !franja || !horario) return;
 
     const lugar = { lat: parada.coordenadas.lat, lon: parada.coordenadas.lon, ...(contexto.countryCode ? { country_code: contexto.countryCode } : {}) };
     const comun = { opening_hours: reglaOsm, check_date: parada.lugar?.etiquetas.check_date_opening_hours, fecha: dia.fecha, duracionMin: parada.duracion_min, lugar };
@@ -90,7 +131,7 @@ export function evaluarDia(dia: DiaConflictable, contexto: ContextoConflictos): 
     const enFranja: ResultadoApertura = evaluarApertura({ ...comun, desdeMin: franjaDesde, hastaMin: franjaHasta });
     if (enFranja.estado === "desconocido") {
       sinConfirmar.push(parada.id);
-      continue;
+      return;
     }
     if (enFranja.estado === "cerrado") {
       const primero = enFranja.intervalos[0];
@@ -103,7 +144,7 @@ export function evaluarDia(dia: DiaConflictable, contexto: ContextoConflictos): 
           : rellenar(TEXTOS_CONFLICTOS.cerradoEnFranjaSinHueco.texto, { franja: conArticulo(franja.etiqueta) })
         : rellenar(TEXTOS_CONFLICTOS.cerradoEnFranja.texto, { franja: conArticulo(franja.etiqueta), abre: horaDeMinutos(primero.desdeMin), cierra: horaDeMinutos(ultimo.hastaMin) });
       conflictos.push({ paradaId: parada.id, clase: "cerrado-en-franja", texto, procedencia });
-      continue;
+      return;
     }
 
     // Cabe en la franja: ahora, desde la hora a la que se llega. Esperar a que
@@ -114,7 +155,7 @@ export function evaluarDia(dia: DiaConflictable, contexto: ContextoConflictos): 
     const alLlegar = evaluarApertura({ ...comun, desdeMin: desde, hastaMin: hasta });
     if (alLlegar.estado === "desconocido") {
       sinConfirmar.push(parada.id);
-      continue;
+      return;
     }
     if (alLlegar.estado === "cerrado") {
       // El cierre que importa es el del último tramo abierto que ya había
@@ -129,7 +170,6 @@ export function evaluarDia(dia: DiaConflictable, contexto: ContextoConflictos): 
       conflictos.push({ paradaId: parada.id, clase: "cerrado-a-esa-hora", texto, procedencia });
     }
   }
-  return { conflictos, sinConfirmar };
 }
 
 export function detectarConflictosDia(dia: DiaConflictable, contexto: ContextoConflictos): ConflictoDia[] {

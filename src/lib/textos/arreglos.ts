@@ -5,6 +5,7 @@ export const TEXTOS_ARREGLOS = {
   tituloHoja: t("titulo", "Arreglar {parada}"),
   dejarla: t("boton", "Dejarla como está"),
   sinOpciones: t("vacio", "No hay otra franja ni otro día en que abra. Puedes dejarla o quitarla tú desde la tarjeta"),
+  sinChoques: t("ayuda", "sin choque con tus reservas"),
   abre: t("ayuda", "abre de {abre} a {cierra}"),
   pasarA: t("boton", "Pasar a {franja}: {motivo}"),
   llevarAl: t("boton", "Llevar al {dia}: {motivo}"),
