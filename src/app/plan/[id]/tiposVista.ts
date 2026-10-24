@@ -12,6 +12,8 @@ import type { EventosVersion } from "@/lib/eventos/tipos";
 export interface FranjaPublica {
   id: string;
   etiqueta: string;
+  // Ausente en una copia guardada antes de arreglo-un-toque.
+  ventana?: { desdeMin: number; hastaMin: number };
 }
 
 export interface ProcedenciaPublica {
@@ -37,6 +39,8 @@ export interface AlternativaPublica {
   distancia_m?: number;
   foto?: FotoPublica;
   coordenadas?: { lat: number; lon: number };
+  duracion_min?: number;
+  fuenteOsm?: { comprobadoEn?: string; regla: string };
   procedencia: ProcedenciaPublica;
   // encaje-y-paseo (enc-ac1): ya formateadas por el servidor
   // (formatearEtiquetasEncaje) -- este componente solo las pinta.
