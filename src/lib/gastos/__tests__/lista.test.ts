@@ -54,7 +54,7 @@ describe("fusionarLista (off-ac1, off-ac4)", () => {
           const unicas = [...new Map(ops.map(([id, tipo]) => [id, op(id, tipo)])).values()];
           const lista = fusionarLista(en_servidor.map((i) => g(i)), unicas);
           expect(new Set(lista.map((x) => x.id)).size).toBe(lista.length);
-          const esperados = new Set(en_servidor);
+          const esperados = new Set<string>(en_servidor);
           for (const o of unicas) {
             const id = o.clave.slice(6);
             if (o.tipo === "borrar") esperados.delete(id);
