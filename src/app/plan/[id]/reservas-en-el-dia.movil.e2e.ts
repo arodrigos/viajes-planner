@@ -58,7 +58,7 @@ test.describe("reservas en el día", () => {
         {
           fecha: "2027-06-11",
           franjas: FRANJAS,
-          paradas: [parada("d2a", "Paseo del Salón", "manana", 1), parada("d2b", "Mirador de San Nicolás", "manana", 2), parada("d2c", "Sacromonte", "tarde", 3), parada("d2d", "Corral del Carbón", "tarde", 4)],
+          paradas: [parada("d2a", "Paseo del Salón", "manana", 1), parada("d2b", "Mirador de San Nicolás", "tarde", 2), parada("d2c", "Sacromonte", "tarde", 3), parada("d2d", "Corral del Carbón", "tarde", 4)],
         },
       ],
     };
