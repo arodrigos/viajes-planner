@@ -26,7 +26,8 @@ function respuesta(status: number, error: string, mensaje: string) {
 
 function leerPeticion(cuerpo: unknown): PeticionOrden | null {
   if (typeof cuerpo !== "object" || cuerpo === null) return null;
-  const { version_base, dia_index, orden } = cuerpo as Record<string, unknown>;
+  const { version_base, dia_index, orden, deshacer } = cuerpo as Record<string, unknown>;
+  if (deshacer !== undefined && typeof deshacer !== "boolean") return null;
   if (!Number.isInteger(version_base) || (version_base as number) < 1) return null;
   if (!Number.isInteger(dia_index) || (dia_index as number) < 0) return null;
   if (!Array.isArray(orden) || orden.length === 0 || orden.length > MAX_PARADAS_POR_DIA) return null;
@@ -36,7 +37,7 @@ function leerPeticion(cuerpo: unknown): PeticionOrden | null {
     if (typeof id !== "string" || typeof franja_id !== "string" || id.length === 0 || id.length > 200 || franja_id.length > 50) return null;
     entradas.push({ id, franja_id });
   }
-  return { version_base: version_base as number, dia_index: dia_index as number, orden: entradas };
+  return { version_base: version_base as number, dia_index: dia_index as number, orden: entradas, deshacer: deshacer === true };
 }
 
 // Mismo 404 uniforme que el resto de /api/plan/[id] para un plan ajeno,
@@ -91,7 +92,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
       .eq("plan_id", id)
       .gte("creado_en", desde);
     if (errorConteo) throw new Error(errorConteo.message);
-    if ((count ?? 0) >= MAX_CAMBIOS_POR_HORA) return respuesta(429, "demasiados-cambios", MENSAJES.demasiados);
+    // Versión reservada para el Deshacer de un arreglo (arr-ac3).
+    if ((count ?? 0) >= MAX_CAMBIOS_POR_HORA + (peticion.deshacer ? 1 : 0)) return respuesta(429, "demasiados-cambios", MENSAJES.demasiados);
 
     const { error: errorRpc } = await supabase.rpc("reordenar_dia_plan", {
       p_plan_id: id,

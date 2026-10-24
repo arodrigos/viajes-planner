@@ -13,6 +13,7 @@ export interface PeticionOrden {
   version_base: number;
   dia_index: number;
   orden: EntradaOrden[];
+  deshacer?: boolean;
 }
 
 function indiceFranja(franjas: readonly { id: string }[], franjaId: string): number {

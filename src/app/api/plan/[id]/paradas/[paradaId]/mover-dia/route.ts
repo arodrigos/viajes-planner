@@ -22,17 +22,19 @@ interface Peticion {
   dia_destino: number;
   franja_id: string;
   posicion?: number;
+  deshacer: boolean;
 }
 
 function leerPeticion(cuerpo: unknown): Peticion | null {
   if (typeof cuerpo !== "object" || cuerpo === null) return null;
-  const { version_base, dia_origen, dia_destino, franja_id, posicion } = cuerpo as Record<string, unknown>;
+  const { version_base, dia_origen, dia_destino, franja_id, posicion, deshacer } = cuerpo as Record<string, unknown>;
+  if (deshacer !== undefined && typeof deshacer !== "boolean") return null;
   if (!Number.isInteger(version_base) || (version_base as number) < 1) return null;
   if (!Number.isInteger(dia_origen) || (dia_origen as number) < 0) return null;
   if (!Number.isInteger(dia_destino) || (dia_destino as number) < 0) return null;
   if (typeof franja_id !== "string" || franja_id.length === 0 || franja_id.length > 50) return null;
   if (posicion !== undefined && (!Number.isInteger(posicion) || (posicion as number) < 0 || (posicion as number) > 1000)) return null;
-  return { version_base: version_base as number, dia_origen: dia_origen as number, dia_destino: dia_destino as number, franja_id, ...(posicion !== undefined ? { posicion: posicion as number } : {}) };
+  return { version_base: version_base as number, dia_origen: dia_origen as number, dia_destino: dia_destino as number, franja_id, deshacer: deshacer === true, ...(posicion !== undefined ? { posicion: posicion as number } : {}) };
 }
 
 // arr-ac1: mismo 404 uniforme que el resto de /api/plan/[id] para un plan
@@ -59,10 +61,12 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
 
   try {
     // Cada arreglo es una versión entera, como un cambio de orden: mismo tope por hora.
+    // El Deshacer de un arreglo tiene una versión reservada por encima del tope:
+    // si no, el arreglo n.º 30 se aplicaría sin que se pudiera revertir (arr-ac3).
     const desde = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { count, error: errorConteo } = await supabase.from("plan_versiones").select("id", { count: "exact", head: true }).eq("plan_id", id).gte("creado_en", desde);
     if (errorConteo) throw new Error(errorConteo.message);
-    if ((count ?? 0) >= MAX_CAMBIOS_POR_HORA) return respuesta(429, "demasiados-cambios", MENSAJES.demasiados);
+    if ((count ?? 0) >= MAX_CAMBIOS_POR_HORA + (peticion.deshacer ? 1 : 0)) return respuesta(429, "demasiados-cambios", MENSAJES.demasiados);
 
     const { data, error } = await supabase.rpc("mover_parada_a_dia", {
       p_plan_id: id,

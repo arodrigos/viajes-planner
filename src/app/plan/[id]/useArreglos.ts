@@ -23,8 +23,8 @@ export interface Arreglos {
 }
 
 type Operacion =
-  | { tipo: "mover-dia"; movimiento: MovimientoDia }
-  | { tipo: "orden"; diaIndex: number; orden: EntradaOrden[] }
+  | { tipo: "mover-dia"; movimiento: MovimientoDia; deshacer?: boolean }
+  | { tipo: "orden"; diaIndex: number; orden: EntradaOrden[]; deshacer?: boolean }
   | { tipo: "sustituir"; paradaId: string; alternativaId: string };
 
 type Resultado = "ok" | "desfasada" | "demasiados" | "error";
@@ -101,10 +101,10 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
     if (operacion.tipo === "mover-dia") {
       const m = operacion.movimiento;
       url = `/api/plan/${id}/paradas/${m.paradaId}/mover-dia`;
-      cuerpo = { version_base: version, dia_origen: m.diaOrigen, dia_destino: m.diaDestino, franja_id: m.franjaId, ...(m.posicion !== undefined ? { posicion: m.posicion } : {}) };
+      cuerpo = { version_base: version, dia_origen: m.diaOrigen, dia_destino: m.diaDestino, franja_id: m.franjaId, ...(operacion.deshacer ? { deshacer: true } : {}), ...(m.posicion !== undefined ? { posicion: m.posicion } : {}) };
     } else if (operacion.tipo === "orden") {
       url = `/api/plan/${id}/orden`;
-      cuerpo = { version_base: version, dia_index: operacion.diaIndex, orden: operacion.orden };
+      cuerpo = { version_base: version, dia_index: operacion.diaIndex, orden: operacion.orden, ...(operacion.deshacer ? { deshacer: true } : {}) };
     } else {
       url = `/api/plan/${id}/paradas/${operacion.paradaId}/sustituir`;
       cuerpo = { alternativa_id: operacion.alternativaId };
@@ -239,8 +239,10 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
   );
 
   const deshacer = useCallback(() => {
-    const operacion = inverso.current;
-    if (!operacion) return;
+    const previa = inverso.current;
+    if (!previa) return;
+    // «sustituir» no tiene tope por hora; el resto marca el inverso para usar la versión reservada.
+    const operacion: Operacion = previa.tipo === "sustituir" ? previa : { ...previa, deshacer: true };
     inverso.current = null;
     const mia = (epoca.current += 1);
     setError(null);
