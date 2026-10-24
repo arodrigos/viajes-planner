@@ -17,7 +17,7 @@ export function piezasReserva(r: Reserva): string[] {
       return [titulo, `${r.origen ?? ""} → ${r.destino ?? ""}`, tiempo, r.localizador ?? ""].filter(Boolean);
     }
     case "hotel":
-      return [`${T.hotel} ${r.nombre ?? ""}`.trim(), r.fecha_fin ? T.hasta(diaCorto(r.fecha_fin)) : "", r.localizador ?? ""].filter(Boolean);
+      return [`${T.hotel} ${r.nombre ?? ""}`.trim(), r.fecha_fin ? T.hasta(diaCorto(r.fecha_fin)) : "", r.ubicacion ? T.ubicacionOk : "", r.localizador ?? ""].filter(Boolean);
     case "entrada":
       return [`${T.entrada} ${r.nombre ?? ""}`.trim(), r.hora_inicio ? T.a(r.hora_inicio) : "", r.localizador ?? ""].filter(Boolean);
   }
