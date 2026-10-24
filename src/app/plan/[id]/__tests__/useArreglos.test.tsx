@@ -72,7 +72,7 @@ describe("useArreglos: otro día (arr-ac1, arr-ac3)", () => {
     await waitFor(() => expect(result.current.aviso?.texto).toBe("Parada restaurada"));
     const [url, init] = fetchDeshacer.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/plan/plan-1/paradas/a/mover-dia");
-    expect(JSON.parse(init.body as string)).toEqual({ version_base: 2, dia_origen: 1, dia_destino: 0, franja_id: "manana", posicion: 0 });
+    expect(JSON.parse(init.body as string)).toEqual({ version_base: 2, dia_origen: 1, dia_destino: 0, franja_id: "manana", deshacer: true, posicion: 0 });
     expect(result.current.aviso?.conDeshacer).toBe(false);
   });
 });
