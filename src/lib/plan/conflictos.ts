@@ -8,6 +8,9 @@ import type { OpcionesTramos } from "./tramos";
 import type { Franja } from "./tipos";
 import { TEXTOS_CONFLICTOS } from "@/lib/textos/conflictos";
 
+// arreglos.ts la pide aquí para que la librería siga entrando por un solo módulo.
+export { evaluarApertura };
+
 export type ClaseConflicto = "cerrado-en-franja" | "cerrado-a-esa-hora" | "solapa-reserva" | "antes-de-llegada" | "despues-de-salida";
 
 export interface ConflictoDia {

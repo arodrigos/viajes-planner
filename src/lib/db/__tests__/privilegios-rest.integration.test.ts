@@ -69,6 +69,18 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY)("privilegios por RES
     expect([401, 403, 404]).toContain(r.status);
   });
 
+  // arr-ac4: la 036 cierra la función a todo lo que no sea service_role.
+  it("anon y authenticated no ejecutan mover_parada_a_dia", async () => {
+    for (const bearer of [ANON_KEY!, u1.accessToken]) {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/mover_parada_a_dia`, {
+        method: "POST",
+        headers: cabeceras(bearer, { "Content-Profile": ESQUEMA, "content-type": "application/json" }),
+        body: JSON.stringify({ p_plan_id: planId, p_version_base: 1, p_dia_origen: 0, p_parada_id: "x", p_dia_destino: 1, p_franja_id: "manana" }),
+      });
+      expect(r.status).not.toBe(200);
+    }
+  });
+
   it("anon y authenticated no ejecutan reordenar_dia_plan", async () => {
     for (const bearer of [ANON_KEY!, u1.accessToken]) {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/reordenar_dia_plan`, {

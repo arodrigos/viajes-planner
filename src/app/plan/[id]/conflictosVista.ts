@@ -2,6 +2,9 @@
 // horas de franja) y lo que necesita evaluarDia. Las horas salen de
 // `horario.minutos`, que el servidor ya calculó con las mismas funciones.
 import type { DiaConflictable, ParadaConflictable } from "@/lib/plan/conflictos";
+
+export type { ConflictoDia } from "@/lib/plan/conflictos";
+import type { AlternativaArreglable, PlanArreglable } from "@/lib/plan/arreglos";
 import { horaDeMinutos } from "@/lib/plan/tiempos";
 import type { HorarioForzado } from "@/lib/testing/ganchosUat";
 import type { DiaPublico } from "./tiposVista";
@@ -35,8 +38,31 @@ export function diaParaConflictos(dia: DiaPublico, forzados: Readonly<Record<str
     });
   }
   const franjas = dia.franjas.flatMap((f) => {
-    const v = ventanas.get(f.id);
+    // Una franja vacía no tiene paradas de las que sacar la ventana: la trae ella.
+    const v = ventanas.get(f.id) ?? (f.ventana ? { desde: f.ventana.desdeMin, hasta: f.ventana.hastaMin } : undefined);
     return v ? [{ id: f.id, etiqueta: f.etiqueta, hora_inicio: hora(v.desde), hora_fin: hora(v.hasta) }] : [];
   });
   return { dia: { fecha: dia.fecha, franjas, paradas }, horarios };
+}
+
+// arreglo-un-toque: todos los días del plan en la forma que necesita
+// proponerArreglos, con las alternativas guardadas que se pueden comprobar.
+export function diasParaArreglos(dias: readonly DiaPublico[], forzados: Readonly<Record<string, HorarioForzado>> = {}): PlanArreglable {
+  return {
+    dias: dias.map((d) => {
+      const { dia } = diaParaConflictos(d, forzados);
+      return {
+        ...dia,
+        ...(d.etapa !== undefined ? { etapa: d.etapa } : {}),
+        paradas: dia.paradas.map((p) => {
+          const alternativas = (d.paradas.find((x) => x.id === p.id)?.alternativas ?? []).flatMap((a): AlternativaArreglable[] =>
+            a.id && a.fuenteOsm && a.coordenadas && a.duracion_min
+              ? [{ id: a.id, nombre: a.nombre, duracion_min: a.duracion_min, coordenadas: a.coordenadas, opening_hours: a.fuenteOsm.regla, ...(a.fuenteOsm.comprobadoEn ? { check_date: a.fuenteOsm.comprobadoEn } : {}) }]
+              : [],
+          );
+          return alternativas.length > 0 ? { ...p, alternativas } : p;
+        }),
+      };
+    }),
+  };
 }

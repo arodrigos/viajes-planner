@@ -22,6 +22,9 @@ import { fotoSegura } from "@/lib/lugares/urlFoto";
 export interface FranjaPublica {
   id: string;
   etiqueta: string;
+  // Minutos desde la medianoche, como `horario.minutos` de las paradas: el
+  // navegador comprueba con ellos si otra franja sirve, aunque esté vacía.
+  ventana: { desdeMin: number; hastaMin: number };
 }
 
 // alt-ac5: la procedencia y la distancia de una alternativa se derivan al
@@ -38,6 +41,9 @@ export interface AlternativaPublica {
   foto?: Foto;
   coordenadas?: { lat: number; lon: number };
   procedencia: Procedencia;
+  // arreglo-un-toque: su horario de OSM, para comprobar en el navegador si
+  // abre en el hueco de una parada en conflicto.
+  fuenteOsm?: { comprobadoEn?: string; regla: string };
   // encaje-y-paseo (enc-ac1): hechos deterministas ya formateados como
   // texto ("A 350 m de la parada anterior", "Abre a esa hora"...) --
   // nunca las horas de franja en sí (esquema-plan-ac2), de las que se
@@ -192,6 +198,9 @@ function aAlternativaPublica(
     foto: fotoSegura(alternativa.foto),
     coordenadas: alternativa.coordenadas,
     procedencia,
+    ...(alternativa.lugar?.etiquetas.opening_hours
+      ? { fuenteOsm: { regla: alternativa.lugar.etiquetas.opening_hours, ...(alternativa.lugar.etiquetas.check_date_opening_hours ? { comprobadoEn: alternativa.lugar.etiquetas.check_date_opening_hours } : {}) } }
+      : {}),
     etiquetasEncaje,
   };
 }
@@ -287,7 +296,7 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
         fecha: dia.fecha,
         ...(dia.etapa !== undefined ? { etapa: dia.etapa } : {}),
         ancla_alojamiento: dia.ancla_alojamiento,
-        franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
+        franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta, ventana: { desdeMin: minutosDeHora(f.hora_inicio), hastaMin: minutosDeHora(f.hora_fin) } })),
         paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined), intereses, nombreCiudadDelDia(plan, dia))),
         paseo: calcularPaseoDia(resueltas, tramos, perfil) ?? undefined,
         ...(tramos.length > 0 ? { tramos } : {}),

@@ -13,6 +13,7 @@ import * as infografia from "../plan/[id]/infografia.png/route";
 import * as miembros from "../plan/[id]/miembros/route";
 import * as miembro from "../plan/[id]/miembros/[miembroId]/route";
 import * as orden from "../plan/[id]/orden/route";
+import * as moverDia from "../plan/[id]/paradas/[paradaId]/mover-dia/route";
 import * as sustituir from "../plan/[id]/paradas/[paradaId]/sustituir/route";
 import * as regenerar from "../plan/[id]/regenerar/route";
 import * as sitios from "../plan/[id]/sitios/route";
@@ -74,6 +75,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("matriz de roles por ruta (cmd-ac4)"
     { nombre: "GET infografia.png", metodo: "GET", url: (p) => `/api/plan/${p.planId}/infografia.png`, manejador: infografia.GET as Manejador, params: plan, lectura: true },
     { nombre: "POST regenerar", metodo: "POST", url: (p) => `/api/plan/${p.planId}/regenerar`, manejador: regenerar.POST as Manejador, params: plan, lectura: false },
     { nombre: "POST orden", metodo: "POST", url: (p) => `/api/plan/${p.planId}/orden`, cuerpo: { version_base: 1, dia_index: 0, orden: [{ id: "a", franja_id: "manana" }] }, manejador: orden.POST as Manejador, params: plan, lectura: false },
+    { nombre: "POST mover-dia", metodo: "POST", url: (p) => `/api/plan/${p.planId}/paradas/a/mover-dia`, cuerpo: { version_base: 1, dia_origen: 0, dia_destino: 1, franja_id: "manana" }, manejador: moverDia.POST as Manejador, params: (p) => ({ id: p.planId, paradaId: "a" }), lectura: false },
     { nombre: "POST sustituir", metodo: "POST", url: (p) => `/api/plan/${p.planId}/paradas/a/sustituir`, cuerpo: { alternativa_id: "x" }, manejador: sustituir.POST as Manejador, params: (p) => ({ id: p.planId, paradaId: "a" }), lectura: false },
     { nombre: "POST ciudad", metodo: "POST", url: (p) => `/api/plan/${p.planId}/ciudad`, cuerpo: { nombre: "Cádiz" }, manejador: ciudad.POST as Manejador, params: plan, lectura: false },
     { nombre: "POST visitas", metodo: "POST", url: (p) => `/api/plan/${p.planId}/visitas`, cuerpo: { parada_id: "a" }, manejador: visitas.POST as Manejador, params: plan, lectura: false },
@@ -136,6 +138,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("matriz de roles por ruta (cmd-ac4)"
       "plan/[id]/miembros/route.ts",
       "plan/[id]/miembros/[miembroId]/route.ts",
       "plan/[id]/orden/route.ts",
+      "plan/[id]/paradas/[paradaId]/mover-dia/route.ts",
       "plan/[id]/paradas/[paradaId]/sustituir/route.ts",
       "plan/[id]/regenerar/route.ts",
       "plan/[id]/reservas/route.ts",

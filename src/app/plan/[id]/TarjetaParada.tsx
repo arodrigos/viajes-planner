@@ -13,6 +13,7 @@ import { enlacesDeParada } from "@/lib/plan/enlacesParada";
 import { procedenciaHorario } from "@/lib/plan/procedenciaHorario";
 import { TEXTOS_FICHA } from "@/lib/textos/ficha";
 import type { ConflictoDia } from "@/lib/plan/conflictos";
+import { TEXTOS_ARREGLOS } from "@/lib/textos/arreglos";
 import { TEXTOS_CONFLICTOS } from "@/lib/textos/conflictos";
 import { TEXTOS_HORARIO } from "@/lib/textos/horario";
 import { IconoFranja } from "./iconosFranja";
@@ -44,6 +45,8 @@ interface Props {
   esHoy: boolean;
   // apertura-conflictos: lo decide PanelDia para todo el día a la vez.
   conflicto?: ConflictoDia;
+  // arreglo-un-toque: solo lo recibe el dueño; abre la hoja con las opciones.
+  onArreglar?: () => void;
   sinConfirmar?: boolean;
   esSiguiente: boolean;
   hrefComoLlegar?: string;
@@ -105,7 +108,7 @@ function TarjetaOrdenable(props: Props) {
   return <CuerpoTarjeta {...props} tarjetaRef={unir} asa={asa} arrastrando={isDragging} />;
 }
 
-function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, conflicto, sinConfirmar = false, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, sitio, soloLectura = false, asa, arrastrando }: PropsCuerpo) {
+function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, conflicto, onArreglar, sinConfirmar = false, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, sitio, soloLectura = false, asa, arrastrando }: PropsCuerpo) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const [fotoFallida, setFotoFallida] = useState(false);
   const alternativas = parada.alternativas ?? [];
@@ -206,6 +209,11 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
                   <span className="fuente-conflicto" data-testid="fuente-conflicto">
                     {anioComprobado ? TEXTOS_CONFLICTOS.fuente.texto.replace("{anio}", anioComprobado) : TEXTOS_CONFLICTOS.fuenteSinFecha.texto}
                   </span>
+                  {onArreglar && (
+                    <button type="button" className="boton" data-testid="arreglar-parada" onClick={onArreglar}>
+                      {TEXTOS_ARREGLOS.arreglar.texto}
+                    </button>
+                  )}
                 </p>
               )}
               {sinConfirmar && !conflicto && (
