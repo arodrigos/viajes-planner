@@ -1,11 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { aplicarOrden, ordenDeParadas, puedeMoverParada, type EntradaOrden } from "@/lib/plan/reordenar";
 import { MAX_UBICADAS_OPTIMIZAR, MEJORA_MINIMA_KM, MIN_UBICADAS_OPTIMIZAR, optimizarOrdenDia, ubicadasDelDia } from "@/lib/plan/optimizarOrden";
 import { formatearFechaDia } from "@/lib/plan/dias";
 import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada } from "@/lib/plan/erroresParada";
+import { TEXTOS_CONFLICTOS } from "@/lib/textos/conflictos";
+import { horariosForzados, instalarGanchosUat, suscribirHorariosForzados, type HorarioForzado } from "@/lib/testing/ganchosUat";
+import { diaParaConflictos } from "./conflictosVista";
 import { TEXTOS_AHORA } from "@/lib/textos/ahora";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
 import { formatearKm } from "@/lib/formato/numeros";
@@ -25,6 +28,8 @@ import type { DiaPublico } from "./tiposVista";
 // map-ac1: carga dinámica sin SSR -maplibre-gl exige `window` y no se
 // puede renderizar en el servidor (guía SSR de @vis.gl/react-maplibre).
 const MapaDia = dynamic(() => import("./MapaDia").then((m) => m.MapaDia), { ssr: false });
+
+const SIN_FORZADOS: Readonly<Record<string, HorarioForzado>> = {};
 
 const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue como estaba; vuelve a intentarlo.";
 
@@ -68,12 +73,44 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
         : null;
   const puntos = puntosDelDia(dia);
 
+  // apertura-conflictos: opening_hours pesa y solo hace falta aquí, así que va
+  // en su propio chunk y los conflictos aparecen cuando llega.
+  const forzados = useSyncExternalStore(suscribirHorariosForzados, horariosForzados, () => SIN_FORZADOS);
+  const [modConflictos, setModConflictos] = useState<typeof import("@/lib/plan/conflictos") | null>(null);
+  useEffect(() => {
+    instalarGanchosUat();
+    let vivo = true;
+    void import("@/lib/plan/conflictos").then((m) => vivo && setModConflictos(m));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  const paraConflictos = diaParaConflictos(dia, forzados);
+  // Con un orden pendiente las horas guardadas ya no valen: se espera al plan nuevo.
+  const evaluacion = modConflictos && !ordenPendiente ? modConflictos.evaluarDia(paraConflictos.dia, { opciones: { perfil: null }, horarios: paraConflictos.horarios }) : null;
+  const conflictoDe = new Map((evaluacion?.conflictos ?? []).map((c) => [c.paradaId, c]));
+  const sinConfirmar = new Set(evaluacion?.sinConfirmar ?? []);
+  const nConflictos = conflictoDe.size;
+
   // optimizar-orden: se calcula aquí, en el navegador y sobre el orden que se ve;
   // el hook solo guarda. Una mejora de menos de 0,1 km no merece una versión.
   function optimizar() {
     if (!onOptimizar) return;
     const ancla = diaServidor.ancla_alojamiento?.tipo === "zona-propuesta" ? diaServidor.ancla_alojamiento.centroide : null;
-    const resultado = optimizarOrdenDia(dia.paradas, dia.franjas, ancla);
+    // Un orden más corto no puede dejar cerrado un sitio que hoy no lo está.
+    const comprobar = modConflictos
+      ? (orden: readonly EntradaOrden[]) => {
+          const porId = new Map(paraConflictos.dia.paradas.map((p) => [p.id, p]));
+          const reordenado = aplicarOrden(paraConflictos.dia.paradas, [...orden]).filter((p) => porId.has(p.id));
+          return modConflictos.evaluarDia({ ...paraConflictos.dia, paradas: reordenado }, { opciones: { perfil: null } }).conflictos.map((c) => c.paradaId);
+        }
+      : undefined;
+    const resultado = optimizarOrdenDia(dia.paradas, dia.franjas, ancla, comprobar);
+    if (resultado.dejaCerrado?.length) {
+      const nombre = dia.paradas.find((p) => p.id === resultado.dejaCerrado![0])?.nombre ?? "";
+      onOptimizar(null, TEXTOS_CONFLICTOS.ordenDejariaCerrado.texto.replace("{parada}", nombre));
+      return;
+    }
     const mejora = resultado.kmAntes - resultado.kmDespues;
     if (!resultado.mejora || mejora < MEJORA_MINIMA_KM) onOptimizar(null, "");
     else onOptimizar(resultado.orden, `Recorrido más corto: ${formatearKm(mejora)} menos (estimación en línea recta)`);
@@ -233,6 +270,8 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                     solicitudAlternativas={solicitudAlternativas?.paradaId === parada.id ? solicitudAlternativas.veces : 0}
                     solicitudGoogle={solicitudGoogle?.paradaId === parada.id ? solicitudGoogle.veces : 0}
                     hoy={hoy}
+                    conflicto={conflictoDe.get(parada.id)}
+                    sinConfirmar={sinConfirmar.has(parada.id)}
                     esHoy={esHoy}
                     soloLectura={soloLectura}
                     esSiguiente={siguienteParada?.id === parada.id}
@@ -301,6 +340,11 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
         Día {indice + 1} · {formatearFechaDia(dia.fecha)}
         {etapa ? ` · ${etapa.ciudad}` : ""}
       </h2>
+      {nConflictos > 0 && (
+        <p className="contador-conflictos" data-testid="contador-conflictos">
+          {nConflictos === 1 ? TEXTOS_CONFLICTOS.contadorUno.texto : TEXTOS_CONFLICTOS.contadorVarios.texto.replace("{n}", String(nConflictos))}
+        </p>
+      )}
       {conControles && (
         <p className="ayuda ayuda-orden" id="ayuda-orden">
           Cambia el orden con ↑ ↓. Se guarda solo y puedes deshacerlo.

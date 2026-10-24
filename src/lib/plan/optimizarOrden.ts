@@ -23,7 +23,18 @@ export interface ResultadoOptimizar {
   kmDespues: number;
   // El orden devuelto es estrictamente más corto que el de entrada.
   mejora: boolean;
+  // Solo con comprobador: paradas que el orden más corto dejaría en conflicto
+  // de horario y que hoy no lo están. Se rellena cuando por eso no hay mejora.
+  dejaCerrado?: string[];
 }
+
+// Ids de las paradas con conflicto de horario en un orden dado. El comprobador
+// lo pone quien conoce horarios y franjas; aquí solo se cuenta.
+export type ComprobadorOrden = (orden: readonly EntradaOrden[]) => readonly string[];
+
+// Por encima de este número de órdenes válidos se usa la DP y se rechaza su
+// resultado si añade conflictos, en vez de enumerar.
+export const MAX_ORDENES_ENUMERAR = 40_320;
 
 type Punto = { lat: number; lon: number };
 
@@ -49,6 +60,105 @@ export function ubicadasDelDia(paradas: readonly { coordenadas?: unknown }[]): n
 // el alojamiento si tiene coordenadas y, si no, la primera parada ubicada, que
 // tampoco se mueve. Final libre.
 export function optimizarOrdenDia(
+  paradas: readonly ParadaOptimizable[],
+  franjas: readonly { id: string }[],
+  ancla: Punto | null,
+  comprobar?: ComprobadorOrden,
+): ResultadoOptimizar {
+  const sinConflictos = optimizarPorDistancia(paradas, franjas, ancla);
+  if (!comprobar) return sinConflictos;
+  return respetandoHorarios(paradas, franjas, ancla, comprobar, sinConflictos);
+}
+
+function factorial(n: number): number {
+  let r = 1;
+  for (let i = 2; i <= n; i++) r *= i;
+  return r;
+}
+
+// Elige el orden más corto que no añade conflictos de horario respecto al de
+// entrada. Si el más corto de todos ya cumple, es ese (la DP es exacta).
+function respetandoHorarios(
+  paradas: readonly ParadaOptimizable[],
+  franjas: readonly { id: string }[],
+  ancla: Punto | null,
+  comprobar: ComprobadorOrden,
+  optimo: ResultadoOptimizar,
+): ResultadoOptimizar {
+  if (!optimo.mejora) return optimo;
+  const entrada = paradas.map((p) => ({ id: p.id, franja_id: p.franja_id }));
+  const enConflictoAntes = new Set(comprobar(entrada));
+  const nuevos = (orden: readonly EntradaOrden[]): string[] => comprobar(orden).filter((id) => !enConflictoAntes.has(id));
+  const valido = (orden: readonly EntradaOrden[]): boolean => nuevos(orden).length === 0;
+
+  if (valido(optimo.orden)) return optimo;
+  const rechazado = nuevos(optimo.orden);
+  const sinCambios: ResultadoOptimizar = { orden: entrada, kmAntes: optimo.kmAntes, kmDespues: optimo.kmAntes, mejora: false };
+
+  // Se enumera solo si el número de órdenes válidos cabe: producto de los
+  // factoriales de las ubicadas de cada franja (el primero queda fijo sin ancla).
+  const indices: number[] = [];
+  paradas.forEach((p, i) => {
+    if (p.coordenadas) indices.push(i);
+  });
+  const rango = indices.map((i) => franjas.findIndex((f) => f.id === paradas[i].franja_id));
+  const porFranja = new Map<number, number>();
+  rango.forEach((r) => porFranja.set(r, (porFranja.get(r) ?? 0) + 1));
+  let ordenes = 1;
+  for (const [r, cuantas] of porFranja) {
+    const libres = !ancla && r === rango[0] ? cuantas - 1 : cuantas;
+    ordenes *= factorial(libres);
+    if (ordenes > MAX_ORDENES_ENUMERAR) break;
+  }
+  if (ordenes > MAX_ORDENES_ENUMERAR) return { ...sinCambios, ...(rechazado.length > 0 ? { dejaCerrado: rechazado } : {}) };
+
+  const puntos = indices.map((i) => paradas[i].coordenadas as Punto);
+  const n = indices.length;
+  const todos = (1 << n) - 1;
+  let mejorKm = optimo.kmAntes;
+  let mejorSecuencia: number[] | null = null;
+  const secuencia: number[] = [];
+
+  const aOrden = (sec: readonly number[]): EntradaOrden[] => {
+    const orden = paradas.map((p) => ({ id: p.id, franja_id: p.franja_id }));
+    sec.forEach((j, posicion) => {
+      orden[indices[posicion]] = { id: paradas[indices[j]].id, franja_id: paradas[indices[j]].franja_id };
+    });
+    return orden;
+  };
+
+  // Ramifica en orden de índice original (empates por el orden original) y
+  // poda por kilómetros antes de pagar el comprobador.
+  const visitar = (mascara: number, ultimo: number, acumulado: number): void => {
+    if (acumulado >= mejorKm - TOLERANCIA_KM) return;
+    if (mascara === todos) {
+      if (valido(aOrden(secuencia))) {
+        mejorKm = acumulado;
+        mejorSecuencia = [...secuencia];
+      }
+      return;
+    }
+    let minimo = Infinity;
+    for (let j = 0; j < n; j++) if (!(mascara & (1 << j)) && rango[j] < minimo) minimo = rango[j];
+    for (let j = 0; j < n; j++) {
+      if (mascara & (1 << j) || rango[j] !== minimo) continue;
+      const paso = secuencia.length === 0 ? (ancla ? km(ancla, puntos[j]) : 0) : km(puntos[ultimo], puntos[j]);
+      secuencia.push(j);
+      visitar(mascara | (1 << j), j, acumulado + paso);
+      secuencia.pop();
+    }
+  };
+  if (ancla) visitar(0, -1, 0);
+  else {
+    secuencia.push(0);
+    visitar(1, 0, 0);
+  }
+
+  if (mejorSecuencia === null) return { ...sinCambios, ...(rechazado.length > 0 ? { dejaCerrado: rechazado } : {}) };
+  return { orden: aOrden(mejorSecuencia), kmAntes: optimo.kmAntes, kmDespues: mejorKm, mejora: true };
+}
+
+function optimizarPorDistancia(
   paradas: readonly ParadaOptimizable[],
   franjas: readonly { id: string }[],
   ancla: Punto | null,

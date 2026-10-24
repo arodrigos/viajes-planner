@@ -62,11 +62,13 @@ export interface ParadaPublica {
   descripcion: string;
   procedencia: ProcedenciaPublica;
   coordenadas?: { lat: number; lon: number };
+  // Ya viaja en el JSON (sale de `...parada`); aquí se tipa porque los conflictos de horario lo necesitan.
+  duracion_min?: number;
   foto?: FotoPublica;
   alternativas?: AlternativaPublica[];
   // horario-local (hor-ac1/hor-ac2): ya resuelto por el servidor en hora
   // local del lugar.
-  horario?: { inicio: string; fin: string; recortada: boolean; aviso?: string; apertura: string; posibleCierre?: true; fuenteOsm?: { comprobadoEn?: string } };
+  horario?: { inicio: string; fin: string; recortada: boolean; aviso?: string; apertura: string; fuenteOsm?: { comprobadoEn?: string; regla?: string }; minutos?: { inicio: number; fin: number; franjaDesde: number; franjaHasta: number } };
   // bloque uso-en-destino (dest-ac1/dest-ac4): ausente cuando no está
   // visitada, mismo patrón que el resto de este tipo.
   visitada?: boolean;

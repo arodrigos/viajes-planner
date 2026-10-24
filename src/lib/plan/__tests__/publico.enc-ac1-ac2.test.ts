@@ -144,20 +144,18 @@ describe("aPlanPublico expone la procedencia del horario (dif-ac1)", () => {
   }
 
   it("con opening_hours y check_date lleva fuenteOsm.comprobadoEn", () => {
-    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00", check_date_opening_hours: "2023-05" })?.fuenteOsm).toEqual({ comprobadoEn: "2023-05" });
+    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00", check_date_opening_hours: "2023-05" })?.fuenteOsm).toEqual({ comprobadoEn: "2023-05", regla: "Mo-Su 10:00-20:00" });
   });
 
-  it("con opening_hours sin check_date lleva fuenteOsm vacía", () => {
-    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00" })?.fuenteOsm).toEqual({});
+  it("con opening_hours sin check_date lleva solo la regla en fuenteOsm", () => {
+    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00" })?.fuenteOsm).toEqual({ regla: "Mo-Su 10:00-20:00" });
   });
 
   it("sin opening_hours no hay fuenteOsm", () => {
     expect(conLugar({})?.fuenteOsm).toBeUndefined();
   });
 
-  it("marca posibleCierre solo cuando el horario dice cerrado ese día", () => {
-    // 2026-10-06 es martes.
-    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00; Tu off" })?.posibleCierre).toBe(true);
-    expect(conLugar({ opening_hours: "Mo-Su 09:00-20:00" })?.posibleCierre).toBeUndefined();
+  it("ya no marca posibleCierre: el cierre lo dice el conflicto del día", () => {
+    expect(conLugar({ opening_hours: "Mo-Su 10:00-20:00; Tu off" })).not.toHaveProperty("posibleCierre");
   });
 });
