@@ -77,6 +77,61 @@ describe("useArreglos: otro día (arr-ac1, arr-ac3)", () => {
   });
 });
 
+describe("useArreglos: aviso optimista (arr-ac1, latencia)", () => {
+  it("el aviso con Deshacer sale antes de que el servidor responda", async () => {
+    let soltar: (r: Response) => void = () => {};
+    const post = new Promise<Response>((resolver) => {
+      soltar = resolver;
+    });
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? post : respuesta(200, plan(2, ["b"], ["c", "a"])))));
+    const { result } = montar();
+    let fin: Promise<void> = Promise.resolve();
+    act(() => {
+      fin = result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    expect(result.current.aviso).toEqual({ texto: "Movida al martes 17", conDeshacer: true });
+    expect(result.current.plan.dias[1].paradas.map((p) => p.id)).toContain("a");
+    await act(async () => {
+      soltar(new Response("{}", { status: 200 }));
+      await fin;
+    });
+    expect(result.current.plan.version).toBe(2);
+  });
+
+  it("si el servidor rechaza, el aviso desaparece y se revierte", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => respuesta(500, {})));
+    const { result } = montar();
+    await act(async () => {
+      await result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    expect(result.current.aviso).toBeNull();
+    expect(result.current.plan).toBe(INICIAL);
+  });
+
+  it("Deshacer pulsado con el guardado en vuelo espera a la confirmación y usa la versión nueva", async () => {
+    let soltar: (r: Response) => void = () => {};
+    const primero = new Promise<Response>((resolver) => {
+      soltar = resolver;
+    });
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? primero : respuesta(200, plan(2, ["b"], ["c", "a"])))));
+    const { result } = montar();
+    let fin: Promise<void> = Promise.resolve();
+    act(() => {
+      fin = result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    act(() => result.current.deshacer());
+    const segundo = vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? respuesta(200, { version: 3 }) : respuesta(200, plan(2, ["b"], ["c", "a"]))));
+    vi.stubGlobal("fetch", segundo);
+    await act(async () => {
+      soltar(new Response("{}", { status: 200 }));
+      await fin;
+    });
+    await waitFor(() => expect(result.current.aviso?.texto).toBe("Parada restaurada"));
+    const post = segundo.mock.calls.find(([, init]) => init?.method === "POST") as [string, RequestInit];
+    expect(JSON.parse(post[1].body as string).version_base).toBe(2);
+  });
+});
+
 describe("useArreglos: fallos (arr-ac5)", () => {
   it("un 500 deja el plan como estaba y lo dice", async () => {
     vi.stubGlobal("fetch", vi.fn(() => respuesta(500, { error: "interno" })));

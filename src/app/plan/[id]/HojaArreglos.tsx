@@ -56,7 +56,7 @@ export function AvisoArreglo({ arreglos }: { arreglos: Arreglos }) {
           <div className="aviso-orden">
             <span>{arreglos.aviso.conDeshacer ? `${arreglos.aviso.texto} · ` : arreglos.aviso.texto}</span>
             {arreglos.aviso.conDeshacer && (
-              <button type="button" className="boton" onClick={arreglos.deshacer} disabled={arreglos.ocupado}>
+              <button type="button" className="boton" onClick={arreglos.deshacer}>
                 {TEXTOS_ARREGLOS.deshacer.texto}
               </button>
             )}
