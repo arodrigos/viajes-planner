@@ -11,8 +11,8 @@ export interface DiaParaConflictos {
   horarios: Record<string, { inicioMin: number; finMin: number }>;
 }
 
-// 1440 no cabe en "HH:MM": el fin de franja a medianoche se queda en 23:59.
-const hora = (minutos: number) => (minutos >= 1440 ? "23:59" : horaDeMinutos(minutos));
+// 1440 no cabe en "HH:MM": el fin de franja a medianoche se queda en el último minuto del día.
+const hora = (minutos: number) => horaDeMinutos(Math.min(minutos, 1439));
 
 export function diaParaConflictos(dia: DiaPublico, forzados: Readonly<Record<string, HorarioForzado>> = {}): DiaParaConflictos {
   const horarios: DiaParaConflictos["horarios"] = {};

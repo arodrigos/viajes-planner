@@ -84,7 +84,7 @@ function calcular(entrada: EntradaApertura): ResultadoApertura {
       const hastaMin = Math.min(entrada.hastaMin, minutosDePared(fin, base));
       if (hastaMin <= desdeMin) continue;
       const ultimo = intervalos[intervalos.length - 1];
-      // 00:00-24:00 llega partido por la medianoche: se une.
+      // Un intervalo de todo el día llega partido por la medianoche: se une.
       if (ultimo && ultimo.hastaMin >= desdeMin) ultimo.hastaMin = Math.max(ultimo.hastaMin, hastaMin);
       else intervalos.push({ desdeMin, hastaMin });
     }
