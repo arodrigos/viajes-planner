@@ -1168,13 +1168,15 @@ footer a,
 /* Compartir el plan (bloque compartir-ui). El correo largo no debe desbordar
    en 360 px, y quien recibe el plan lo sabe desde la cabecera y desde Mis viajes. */
 .compartir,
-.seccion-reservas {
+.seccion-reservas,
+.seccion-gastos {
   border: 1px solid var(--borde);
   border-radius: 0.375rem;
   padding: var(--espacio-2);
 }
 .compartir > summary,
-.seccion-reservas > summary {
+.seccion-reservas > summary,
+.seccion-gastos > summary {
   display: flex;
   align-items: center;
   min-height: 44px;
@@ -1182,7 +1184,8 @@ footer a,
   font-weight: 600;
 }
 .compartir li > span,
-.seccion-reservas li > span {
+.seccion-reservas li > span,
+.seccion-gastos li > span {
   overflow-wrap: anywhere;
 }
 .etiqueta-compartido {
@@ -1249,4 +1252,24 @@ footer a,
 .tarjeta-reserva .cuerpo-parada {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* gastos-datos-y-comparacion: el titular y las filas en rojo cuando se pasa. */
+.titular-gasto {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.gasto-pasado {
+  color: var(--peligro-texto);
+}
+.desglose-gastos > li {
+  justify-content: space-between;
+}
+.categorias-gasto > button {
+  flex: 1 1 40%;
+  min-height: 44px;
+}
+.categorias-gasto > button[aria-pressed="true"] {
+  font-weight: 700;
+  outline: 2px solid currentColor;
 }

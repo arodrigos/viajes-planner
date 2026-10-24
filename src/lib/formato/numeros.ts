@@ -19,6 +19,16 @@ export function formatearEuros(importe: number): string {
   return `${formatearNumero(importe)}${NBSP}€`;
 }
 
+// Gastos reales: con céntimos y coma decimal («1.174,50 €»), porque se apuntan
+// al céntimo. Entra en céntimos enteros para no pasar por coma flotante.
+const EUROS_CENTIMOS = new Intl.NumberFormat("es-ES", { useGrouping: "always", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export function formatearEurosCentimos(centimos: number): string {
+  const signo = centimos < 0 ? "-" : "";
+  const abs = Math.abs(centimos);
+  return `${signo}${EUROS_CENTIMOS.format(Math.floor(abs / 100) + (abs % 100) / 100)}${NBSP}€`;
+}
+
 export function formatearKm(km: number): string {
   return `${KM.format(km)} km`;
 }

@@ -27,6 +27,8 @@ export interface PresupuestoPublico {
   // Ausente cuando el trabajo no guarda presupuesto (no debería pasar: es
   // obligatorio en los criterios).
   tu_presupuesto_eur?: number;
+  // gastos-datos-y-comparacion: estimado de cada día, para compararlo con el gasto real.
+  por_dia?: { fecha: string; total_eur: number }[];
 }
 
 export function textoCabeceraPresupuesto(p: PresupuestoPublico): { resumen: string; aviso?: string } {

@@ -8,6 +8,7 @@ import { CabeceraPlan } from "./CabeceraPlan";
 import { PanelDia } from "./PanelDia";
 import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
 import { Compartir } from "./Compartir";
+import { SeccionGastos } from "./SeccionGastos";
 import { SeccionReservas } from "./SeccionReservas";
 import { hotelDelDia, reservasDelDia, reservasPublicasDelDia } from "@/lib/reservas/enElDia";
 import type { Reserva } from "@/lib/reservas/tipos";
@@ -240,6 +241,7 @@ export function VistaPlan({ id }: { id: string }) {
           {esCopia && lectura?.leidoEn ? <FranjaCopia leidoEn={lectura.leidoEn} /> : lectura?.leidoEn ? <EstadoCopia planId={id} leidoEn={lectura.leidoEn} /> : null}
           {!soloLectura && <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />}
           {!soloLectura && !esCopia && <SeccionReservas planId={id} fechas={fechas} onCambio={setReservasDueno} />}
+          {!soloLectura && !esCopia && plan.presupuesto && <SeccionGastos planId={id} fechas={fechas} hoy={hoy} presupuesto={plan.presupuesto} />}
           {!soloLectura && !esCopia && <Compartir planId={id} />}
           <SelectorDias fechas={fechas} elegido={dia} hoy={hoy} onElegir={elegir} />
           {dia === "resumen" ? (

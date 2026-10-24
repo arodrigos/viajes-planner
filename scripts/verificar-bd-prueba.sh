@@ -681,7 +681,7 @@ SQL
   n_rel=$(consulta "select count(*) from pg_class where relnamespace = 'viajes_planner'::regnamespace and relkind in ('r', 'p', 'v', 'm', 'f')")
   n_seq=$(consulta "select count(*) from pg_class where relnamespace = 'viajes_planner'::regnamespace and relkind = 'S'")
   n_fun=$(consulta "select count(*) from pg_proc where pronamespace = 'viajes_planner'::regnamespace")
-  [ "$n_fun" = "15" ] || { echo "privilegios: se esperaban 15 rutinas y hay $n_fun" >&2; exit 1; }
+  [ "$n_fun" = "16" ] || { echo "privilegios: se esperaban 16 rutinas y hay $n_fun" >&2; exit 1; }
   echo "OK: anon y authenticated sin privilegios en viajes_planner ($n_rel relaciones, $n_seq secuencias, $n_fun rutinas)"
 }
 

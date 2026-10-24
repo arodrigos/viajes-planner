@@ -290,6 +290,23 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
 - Al eliminar un viaje se borran sus reservas de verdad (el borrado del viaje
   es una marca, así que no salta ningún `ON DELETE CASCADE`).
 
+### Gastos del viaje
+
+- **Gastos** (migración 038): tabla `gastos` (importe en céntimos, día o «Todo el
+  viaje», categoría comida, entradas, transporte o alojamiento; hasta 500 por
+  viaje) y función `guardar_gasto`, con RLS activada y sin políticas: solo la
+  web con la clave de servicio. `GET /api/plan/[id]/gastos` y `PUT`/`DELETE
+  /api/plan/[id]/gastos/[gastoId]` admiten solo al dueño (un invitado o un
+  ajeno recibe 404, sin sesión 401). El id lo genera el cliente y el `PUT` es un
+  upsert idempotente: repetirlo no duplica y uno más viejo no pisa al más nuevo.
+- La sección «Gastos» de `/plan/[id]` compara lo gastado con el presupuesto
+  estimado del plan (`src/lib/gastos/comparar.ts`, en céntimos enteros): el
+  alojamiento solo contra el alojamiento estimado del viaje, el transporte a su
+  día o a «Todo el viaje», comida y entradas a su día. La regla se repite en
+  `src/lib/gastos/validar.ts` y en los `CHECK` de la tabla.
+- Los invitados no reciben gastos, y al eliminar un viaje se borran de verdad.
+  Apuntar sin conexión llega en un bloque posterior.
+
 ### Salud del despliegue
 
 `GET /api/salud` responde 200 si todo está en orden y 503 si no. Informa de:
