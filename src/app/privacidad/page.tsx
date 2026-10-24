@@ -64,6 +64,17 @@ export default function PrivacidadPage() {
         del sitio y la ciudad.
       </p>
 
+      <h2>Reservas y gastos</h2>
+      <p>
+        Si apuntas reservas (vuelos, trenes, hotel o entradas con hora) o gastos del viaje, se guardan con el plan:
+        tipo, fechas y horas, origen y destino, nombre, dirección, localizador, notas, la ubicación del hotel si la
+        das, y de los gastos su importe, día, categoría y concepto. Los usas tú para ver tu día; no se envían al
+        modelo, ni a Nominatim, Overpass, Google ni a ningún otro servicio externo. Solo quien creó el viaje las ve y las
+        cambia. Las personas con quienes compartes el viaje ven únicamente el tipo y la hora de cada reserva, nunca el
+        localizador, los nombres, las direcciones ni las notas, y no ven los gastos. Las reservas y los gastos se
+        borran al eliminar el viaje.
+      </p>
+
       <h2>Copia del plan en este dispositivo</h2>
       <p>
         Para que puedas ver un plan sin cobertura, la aplicación guarda en este dispositivo una copia de los planes

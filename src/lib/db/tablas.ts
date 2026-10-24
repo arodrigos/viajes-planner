@@ -16,6 +16,7 @@ export const TABLAS = [
   "salud",
   "cerrojo_trabajador",
   "miembros_plan",
+  "reservas",
 ] as const;
 
 export type Tabla = (typeof TABLAS)[number];
