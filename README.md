@@ -219,6 +219,26 @@ servidor solo añade a cada parada la regla y las horas ya calculadas
 está: con hasta 8 paradas ubicadas enumera los órdenes posibles y, si ninguno
 mejora sin añadir conflictos, deja el orden como está y lo dice.
 
+### Arreglar un conflicto con un toque
+
+Junto al aviso de una parada en conflicto, el dueño del plan ve «Arreglar». Abre
+una hoja desde abajo con hasta tres opciones, cada una con su motivo («Llevar
+al martes: abre de 10:00 a 18:00»): otra franja del mismo día, el día más
+cercano del viaje (sin cruzar de ciudad) o una alternativa guardada de la
+parada. `proponerArreglos` (`src/lib/plan/arreglos.ts`) solo ofrece lo que,
+aplicado, no crea otro conflicto, y nunca propone quitar la parada. Cada
+arreglo es una versión nueva del plan y el aviso «Movida al … · Deshacer» dura
+8 s: Deshacer devuelve la parada a su día, su franja y su posición. Si el
+servidor falla, la pantalla vuelve a como estaba y lo dice.
+
+Mover a otro día es `POST /api/plan/[id]/paradas/[paradaId]/mover-dia`
+(`version_base`, `dia_origen`, `dia_destino`, `franja_id`, `posicion` opcional),
+con la función SQL `mover_parada_a_dia` (migración 036, solo `service_role`) y
+el mismo tope de 30 versiones por hora que el orden. Otra franja usa `/orden`
+y la alternativa usa `/sustituir`. Para pintar sus opciones, el navegador
+recibe además la ventana en minutos de cada franja (`ventana`) y la regla OSM
+de cada alternativa (`fuenteOsm`).
+
 Para probarlo a mano, abre un plan con `?pruebas=1` y ejecuta en la consola
 `__debug.forzarHorarioParada({ paradaId, opening_hours: "Mo off; Tu-Su 10:00-18:00" })`.
 Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
@@ -285,7 +305,7 @@ src/lib/google/     cupo de Google, estados por parada, ficha y resumen para /ap
 src/lib/cola/, src/lib/trabajador/  cola de trabajos y su procesado (incluido el casado con Google)
 src/verificacion/   suite preview de Playwright contra un despliegue publicado
 src/lib/db/         cliente de Supabase atado al esquema del producto
-supabase/migrations/  migraciones versionadas y solo aditivas (hoy hasta la 035)
+supabase/migrations/  migraciones versionadas y solo aditivas (hoy hasta la 036)
 docs/               fuentes de datos, guía de estilo, relleno de planes, verificación con sesión y viajes por país
 .github/workflows/  CI, reintento del CI y «Pruebas a demanda»
 ```
