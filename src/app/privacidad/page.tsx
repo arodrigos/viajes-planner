@@ -72,7 +72,8 @@ export default function PrivacidadPage() {
         modelo, ni a Nominatim, Overpass, Google ni a ningún otro servicio externo. Solo quien creó el viaje las ve y las
         cambia. Las personas con quienes compartes el viaje ven únicamente el tipo y la hora de cada reserva, nunca el
         localizador, los nombres, las direcciones ni las notas, y no ven los gastos. Las reservas y los gastos se
-        borran al eliminar el viaje.
+        borran al eliminar el viaje. Los gastos que apuntas sin conexión esperan en este dispositivo hasta subirse, y
+        la copia de los gastos se borra de él al cerrar sesión o al eliminar el viaje.
       </p>
 
       <h2>Copia del plan en este dispositivo</h2>

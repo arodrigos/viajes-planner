@@ -121,7 +121,7 @@ export function PanelViajes() {
       <PanelAcceso
         onVerificado={() => {
           // ses-ac2: copias de una sesión anterior en este navegador.
-          void borrarCopias();
+          void borrarCopias({ conservarGastos: true });
           setNecesitaAcceso(false);
           setRecargaId((n) => n + 1);
         }}
