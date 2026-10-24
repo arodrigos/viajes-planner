@@ -2,11 +2,12 @@ import { TEXTOS_RESERVAS as T } from "@/lib/textos/reservas";
 import type { Reserva } from "./tipos";
 
 export function diaCorto(fecha: string): string {
-  return new Intl.DateTimeFormat("es", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${fecha}T00:00:00Z`));
+  const [anyo, mes, dia] = fecha.split("-").map(Number);
+  return new Intl.DateTimeFormat("es", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(anyo, mes - 1, dia)));
 }
 
 // Piezas de la línea de la tarjeta, en el orden en que se leen:
-// «Vuelo de ida · MAD → FCO · llega 13:00 · ABC123».
+// «Vuelo de ida · MAD → FCO · llega a la hora de fin · ABC123».
 export function piezasReserva(r: Reserva): string[] {
   const ida = r.sentido === "ida";
   switch (r.tipo) {

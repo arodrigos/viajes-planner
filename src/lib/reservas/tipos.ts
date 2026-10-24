@@ -22,7 +22,7 @@ export interface Reserva {
 
 // Lo único que recibe un invitado (decisión de Adrián): el tipo genérico y la
 // hora. Ni nombre, ni origen y destino, ni localizador, dirección, ubicación o
-// notas. Se pinta «Llegada · 13:00», «Salida · 18:40», «Entrada · 10:30» u «Hotel».
+// notas. Se pinta «Llegada», «Salida», «Entrada» u «Hotel» con su hora.
 export interface ReservaPublica {
   id: string;
   tipo: TipoReserva;
