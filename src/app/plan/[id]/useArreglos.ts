@@ -47,15 +47,18 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
   const [ocupado, setOcupado] = useState(false);
   const planRef = useRef(plan);
   const alActualizarRef = useRef(alActualizar);
-  const enCurso = useRef(false);
   const inverso = useRef<Operacion | null>(null);
-  // Resuelve cuando el servidor confirma (true) o rechaza (false) el arreglo en
-  // vuelo: «Deshacer» ya se ofrece antes y espera aquí para usar la versión nueva.
-  const vuelo = useRef<Promise<boolean> | null>(null);
-  // «Deshacer» pinta antes de enviar: un releer() del arreglo que aún vuele no
-  // debe volver a pintar el plan de antes de deshacer. Cada deshacer sube la época.
+  // Los envíos salen de uno en uno y en el orden en que se tocaron, cada uno con
+  // la versión que devolvió el anterior. Tocar mientras otro guarda se encadena
+  // detrás: nunca se descarta un toque en silencio.
+  const cola = useRef<Promise<void>>(Promise.resolve());
+  const pendientes = useRef(0);
+  // Si un envío falla, los que iban detrás partían de un plan que ya no existe:
+  // no se mandan y la pantalla queda como la dejó la reversión del fallido.
+  const fallos = useRef(0);
+  // Cada toque sube la época: un releer() lanzado antes no debe volver a pintar
+  // un plan anterior al cambio optimista.
   const epoca = useRef(0);
-  const deshaciendo = useRef(false);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     planRef.current = plan;
@@ -75,13 +78,14 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
     if (nuevo) temporizador.current = setTimeout(() => setAviso(null), DURACION_AVISO_ARREGLO_MS);
   }, []);
 
-  const releer = useCallback(async (): Promise<PlanPublico | null> => {
+  const releer = useCallback(async (forzar = false): Promise<PlanPublico | null> => {
     const mia = epoca.current;
+    if (!forzar && pendientes.current > 0) return null;
     try {
       const r = await fetch(`/api/plan/${planRef.current.id}`);
       if (!r.ok) return null;
       const nuevo = (await r.json()) as PlanPublico;
-      if (mia !== epoca.current) return null;
+      if (!forzar && (mia !== epoca.current || pendientes.current > 0)) return null;
       planRef.current = nuevo;
       alActualizarRef.current(nuevo);
       return nuevo;
@@ -154,7 +158,7 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
       planRef.current = antes;
       if (resultado === "desfasada") {
         setError(TEXTOS_ARREGLOS.desfasada.texto);
-        await releer();
+        await releer(true);
       } else {
         setError(resultado === "demasiados" ? TEXTOS_ARREGLOS.demasiados.texto : TEXTOS_ARREGLOS.errorRed.texto);
       }
@@ -162,104 +166,97 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
     [releer],
   );
 
+  const encolar = useCallback(
+    (operacion: Operacion, antes: PlanPublico): Promise<Resultado | "omitida"> => {
+      const generacion = fallos.current;
+      pendientes.current += 1;
+      setOcupado(true);
+      const tarea = cola.current.then(async (): Promise<Resultado | "omitida"> => {
+        if (fallos.current !== generacion) return "omitida";
+        const resultado = await enviar(operacion);
+        if (resultado !== "ok") {
+          fallos.current += 1;
+          inverso.current = null;
+          mostrarAviso(null);
+          await fallar(resultado, antes);
+        }
+        return resultado;
+      });
+      cola.current = tarea.then(
+        () => undefined,
+        () => undefined,
+      );
+      return tarea.finally(() => {
+        pendientes.current -= 1;
+        if (pendientes.current === 0) setOcupado(false);
+      });
+    },
+    [enviar, fallar, mostrarAviso],
+  );
+
   const aplicar = useCallback(
     async (arreglo: ArregloPropuesto, paradaId: string, diaIndex: number) => {
-      if (enCurso.current) return;
-      enCurso.current = true;
-      setOcupado(true);
+      epoca.current += 1;
       setError(null);
       mostrarAviso(null);
       const antes = planRef.current;
       const dia = antes.dias[diaIndex];
-      let confirmado = false;
-      let cerrarVuelo: (ok: boolean) => void = () => {};
-      vuelo.current = new Promise<boolean>((resolver) => {
-        cerrarVuelo = resolver;
-      });
-      try {
-        let operacion: Operacion;
-        let texto: string;
-        if (arreglo.tipo === "otra-franja") {
-          if (!dia) return;
-          operacion = { tipo: "orden", diaIndex, orden: ordenConParadaEnFranja(dia, paradaId, arreglo.franjaId) };
-          const franja = dia.franjas.find((f) => f.id === arreglo.franjaId);
-          texto = rellenar(TEXTOS_ARREGLOS.movidaA.texto, "franja", conArticulo(franja?.etiqueta ?? arreglo.franjaId));
-        } else if (arreglo.tipo === "otro-dia") {
-          const destino = antes.dias[arreglo.diaDestino];
-          if (!destino) return;
-          operacion = { tipo: "mover-dia", movimiento: { diaOrigen: diaIndex, diaDestino: arreglo.diaDestino, paradaId, franjaId: arreglo.franjaId } };
-          texto = rellenar(TEXTOS_ARREGLOS.movidaAl.texto, "dia", etiquetaDiaCorta(destino.fecha));
-        } else {
-          const original = dia?.paradas.find((p) => p.id === paradaId);
-          const nombreOriginal = original?.nombre;
-          const elegida = original?.alternativas?.find((a) => a.id === arreglo.alternativaId);
-          operacion = { tipo: "sustituir", paradaId, alternativaId: arreglo.alternativaId };
-          texto = rellenar(TEXTOS_ARREGLOS.cambiada.texto, "nombre", elegida?.nombre ?? "");
-          const resultado = await enviar(operacion);
-          if (resultado !== "ok") return await fallar(resultado, antes);
-          // La parada original queda entre las alternativas de la nueva: de ahí sale el Deshacer.
-          const fresco = await releer();
-          const vuelta = fresco?.dias[diaIndex]?.paradas.find((p) => p.id === paradaId)?.alternativas?.find((a) => a.nombre === nombreOriginal);
-          inverso.current = vuelta?.id ? { tipo: "sustituir", paradaId, alternativaId: vuelta.id } : null;
-          mostrarAviso({ texto, conDeshacer: inverso.current !== null });
-          return;
-        }
-        // El aviso sale en el mismo frame que el cambio pintado: esperar al
-        // servidor y a releer el plan lo retrasaba 4-5 s (límite de 200 ms).
-        const deshecho = pintar(operacion);
-        inverso.current = deshecho;
-        mostrarAviso({ texto, conDeshacer: deshecho !== null });
-        const resultado = await enviar(operacion);
-        if (resultado !== "ok") {
-          inverso.current = null;
-          mostrarAviso(null);
-          return await fallar(resultado, antes);
-        }
-        confirmado = true;
-        // «Deshacer» pendiente puede seguir ya: no tiene que esperar al releer.
-        cerrarVuelo(true);
-        await releer();
-      } finally {
-        cerrarVuelo(confirmado);
-        vuelo.current = null;
-        if (!deshaciendo.current) {
-          enCurso.current = false;
-          setOcupado(false);
-        }
+      let operacion: Operacion;
+      let texto: string;
+      if (arreglo.tipo === "otra-franja") {
+        if (!dia) return;
+        operacion = { tipo: "orden", diaIndex, orden: ordenConParadaEnFranja(dia, paradaId, arreglo.franjaId) };
+        const franja = dia.franjas.find((f) => f.id === arreglo.franjaId);
+        texto = rellenar(TEXTOS_ARREGLOS.movidaA.texto, "franja", conArticulo(franja?.etiqueta ?? arreglo.franjaId));
+      } else if (arreglo.tipo === "otro-dia") {
+        const destino = antes.dias[arreglo.diaDestino];
+        if (!destino) return;
+        operacion = { tipo: "mover-dia", movimiento: { diaOrigen: diaIndex, diaDestino: arreglo.diaDestino, paradaId, franjaId: arreglo.franjaId } };
+        texto = rellenar(TEXTOS_ARREGLOS.movidaAl.texto, "dia", etiquetaDiaCorta(destino.fecha));
+      } else {
+        const original = dia?.paradas.find((p) => p.id === paradaId);
+        const nombreOriginal = original?.nombre;
+        const elegida = original?.alternativas?.find((a) => a.id === arreglo.alternativaId);
+        texto = rellenar(TEXTOS_ARREGLOS.cambiada.texto, "nombre", elegida?.nombre ?? "");
+        const resultado = await encolar({ tipo: "sustituir", paradaId, alternativaId: arreglo.alternativaId }, antes);
+        if (resultado !== "ok") return;
+        // La parada original queda entre las alternativas de la nueva: de ahí sale el Deshacer.
+        const fresco = await releer();
+        const vuelta = fresco?.dias[diaIndex]?.paradas.find((p) => p.id === paradaId)?.alternativas?.find((a) => a.nombre === nombreOriginal);
+        inverso.current = vuelta?.id ? { tipo: "sustituir", paradaId, alternativaId: vuelta.id } : null;
+        mostrarAviso({ texto, conDeshacer: inverso.current !== null });
+        return;
       }
+      // El aviso sale en el mismo frame que el cambio pintado: esperar al
+      // servidor y a releer el plan lo retrasaba 4-5 s (límite de 200 ms).
+      const deshecho = pintar(operacion);
+      inverso.current = deshecho;
+      mostrarAviso({ texto, conDeshacer: deshecho !== null });
+      const resultado = await encolar(operacion, antes);
+      if (resultado === "ok") await releer();
     },
-    [enviar, fallar, mostrarAviso, pintar, releer],
+    [encolar, mostrarAviso, pintar, releer],
   );
 
   const deshacer = useCallback(() => {
     const operacion = inverso.current;
-    if (!operacion || (enCurso.current && !vuelo.current)) return;
+    if (!operacion) return;
     inverso.current = null;
-    const pendiente = vuelo.current;
+    const mia = (epoca.current += 1);
+    setError(null);
+    mostrarAviso(null);
+    // Se pinta ya, sin esperar al guardado del arreglo; si ese falla, su propia
+    // reversión devuelve el plan de antes y el inverso no llega a enviarse.
+    // `antes` es el plan con el arreglo aplicado: a él se vuelve si falla el inverso.
+    const antes = planRef.current;
+    pintar(operacion);
     void (async () => {
-      deshaciendo.current = true;
-      epoca.current += 1;
-      enCurso.current = true;
-      setOcupado(true);
-      setError(null);
-      mostrarAviso(null);
-      // Se pinta ya, sin esperar al guardado del arreglo; si ese falla, su
-      // propia reversión devuelve el plan de antes y aquí no hay nada que enviar.
-      const antes = planRef.current;
-      pintar(operacion);
-      try {
-        if (pendiente && !(await pendiente)) return;
-        const resultado = await enviar(operacion);
-        if (resultado !== "ok") return await fallar(resultado, antes);
-        await releer();
-        mostrarAviso({ texto: TEXTOS_ARREGLOS.restaurada.texto, conDeshacer: false });
-      } finally {
-        deshaciendo.current = false;
-        enCurso.current = false;
-        setOcupado(false);
-      }
+      const resultado = await encolar(operacion, antes);
+      if (resultado !== "ok") return;
+      await releer();
+      if (epoca.current === mia) mostrarAviso({ texto: TEXTOS_ARREGLOS.restaurada.texto, conDeshacer: false });
     })();
-  }, [enviar, fallar, mostrarAviso, pintar, releer]);
+  }, [encolar, mostrarAviso, pintar, releer]);
 
   return { aplicar, deshacer, aviso, error, ocupado };
 }

@@ -163,6 +163,35 @@ test.describe("arreglar un conflicto con un toque", () => {
     await contexto.close();
   });
 
+  test("arreglo, Deshacer y otro arreglo seguidos, con el servidor lento, no pierden ningún toque (arr-ac1, arr-ac3)", async ({ browser }) => {
+    const planId = "plan-arreglo-e2e-encadenado";
+    await sembrarPlan(supabase, usuarioId, planId);
+    const contexto = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+    const pagina = await contexto.newPage();
+    await entrar(pagina, planId, 1);
+    await forzar(pagina, "p-arr-1", CIERRA_EL_LUNES);
+    // El servidor tarda 2 s en cada movimiento: reproduce el UAT, donde se toca
+    // Deshacer y el siguiente arreglo con el guardado anterior aún en vuelo.
+    await pagina.route("**/mover-dia", async (ruta) => {
+      await new Promise((r) => setTimeout(r, 2_000));
+      await ruta.continue();
+    });
+    const lunes = tarjeta(pagina, "Museo del lunes");
+    await lunes.getByTestId("arreglar-parada").click();
+    await pagina.getByTestId("arreglo-otro-dia").click();
+    const aviso = pagina.getByTestId("aviso-arreglo");
+    await expect(aviso).toContainText("Movida al martes 8", { timeout: 1_000 });
+    await aviso.getByRole("button", { name: "Deshacer" }).click();
+    await expect(lunes).toBeVisible({ timeout: 1_000 });
+    await expect(pagina.locator("li.tarjeta-parada").first()).toContainText("Museo del lunes");
+    await lunes.getByTestId("arreglar-parada").click();
+    await pagina.getByTestId("arreglo-otro-dia").click();
+    await expect(lunes).toHaveCount(0, { timeout: 1_000 });
+    await expect(aviso).toContainText("Movida al martes 8", { timeout: 1_000 });
+    await expect.poll(() => versionMaxima(supabase, planId), { timeout: 20_000 }).toBe(4);
+    await contexto.close();
+  });
+
   test("si el servidor falla la parada se queda donde estaba y se dice (arr-ac5)", async ({ browser }) => {
     const planId = "plan-arreglo-e2e-fallo";
     await sembrarPlan(supabase, usuarioId, planId);

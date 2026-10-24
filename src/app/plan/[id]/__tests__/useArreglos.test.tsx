@@ -108,27 +108,105 @@ describe("useArreglos: aviso optimista (arr-ac1, latencia)", () => {
     expect(result.current.plan).toBe(INICIAL);
   });
 
-  it("Deshacer pulsado con el guardado en vuelo espera a la confirmación y usa la versión nueva", async () => {
+  it("Deshacer con el guardado en vuelo pinta ya la parada en el lunes y envía el inverso con la versión del primer POST, sin GET", async () => {
     let soltar: (r: Response) => void = () => {};
     const primero = new Promise<Response>((resolver) => {
       soltar = resolver;
     });
-    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? primero : respuesta(200, plan(2, ["b"], ["c", "a"])))));
+    let posts = 0;
+    const fetchFalso = vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method !== "POST") return respuesta(200, plan(3, ["a", "b"], ["c"]));
+      posts += 1;
+      return posts === 1 ? primero : respuesta(200, { version: 3 });
+    });
+    vi.stubGlobal("fetch", fetchFalso);
     const { result } = montar();
     let fin: Promise<void> = Promise.resolve();
     act(() => {
       fin = result.current.aplicar(OTRO_DIA, "a", 0);
     });
     act(() => result.current.deshacer());
-    const segundo = vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? respuesta(200, { version: 3 }) : respuesta(200, plan(2, ["b"], ["c", "a"]))));
-    vi.stubGlobal("fetch", segundo);
+    expect(result.current.plan.dias[0].paradas.map((p) => p.id)).toEqual(["a", "b"]);
     await act(async () => {
       soltar(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
       await fin;
     });
     await waitFor(() => expect(result.current.aviso?.texto).toBe("Parada restaurada"));
-    const post = segundo.mock.calls.find(([, init]) => init?.method === "POST") as [string, RequestInit];
-    expect(JSON.parse(post[1].body as string).version_base).toBe(2);
+    const llamadas = fetchFalso.mock.calls as [string, RequestInit][];
+    expect(llamadas[0][1].method).toBe("POST");
+    expect(llamadas[1][1].method).toBe("POST");
+    expect(JSON.parse(llamadas[1][1].body as string).version_base).toBe(2);
+  });
+
+  it("un toque dado mientras Deshacer aún guarda se encadena detrás y no se pierde", async () => {
+    let soltar: (r: Response) => void = () => {};
+    const lento = new Promise<Response>((resolver) => {
+      soltar = resolver;
+    });
+    let posts = 0;
+    const fetchFalso = vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method !== "POST") return respuesta(200, INICIAL);
+      posts += 1;
+      return posts === 2 ? lento : respuesta(200, { version: posts === 1 ? 2 : 3 });
+    });
+    vi.stubGlobal("fetch", fetchFalso);
+    const { result } = montar();
+    await act(async () => {
+      await result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    act(() => result.current.deshacer());
+    let fin: Promise<void> = Promise.resolve();
+    act(() => {
+      fin = result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    expect(result.current.plan.dias[1].paradas.map((p) => p.id)).toContain("a");
+    expect(result.current.aviso?.texto).toBe("Movida al martes 17");
+    await act(async () => {
+      soltar(new Response(JSON.stringify({ version: 3 }), { status: 200 }));
+      await fin;
+    });
+    const posteos = fetchFalso.mock.calls.filter(([, init]) => init?.method === "POST") as [string, RequestInit][];
+    expect(posteos).toHaveLength(3);
+    expect(JSON.parse(posteos[2][1].body as string).version_base).toBe(3);
+  });
+
+  it("un releer que llega tarde no devuelve la parada al martes", async () => {
+    let soltarGet: (r: Response) => void = () => {};
+    const getLento = new Promise<Response>((resolver) => {
+      soltarGet = resolver;
+    });
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? respuesta(200, { version: 2 }) : getLento)));
+    const { result } = montar();
+    await act(async () => {
+      await Promise.race([result.current.aplicar(OTRO_DIA, "a", 0), Promise.resolve()]);
+    });
+    act(() => result.current.deshacer());
+    await act(async () => {
+      soltarGet(new Response(JSON.stringify(plan(2, ["b"], ["c", "a"])), { status: 200 }));
+    });
+    expect(result.current.plan.dias[0].paradas.map((p) => p.id)).toEqual(["a", "b"]);
+  });
+
+  it("si el arreglo falla, el inverso encolado no se envía", async () => {
+    let soltar: (r: Response) => void = () => {};
+    const primero = new Promise<Response>((resolver) => {
+      soltar = resolver;
+    });
+    const fetchFalso = vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? primero : respuesta(200, INICIAL)));
+    vi.stubGlobal("fetch", fetchFalso);
+    const { result } = montar();
+    let fin: Promise<void> = Promise.resolve();
+    act(() => {
+      fin = result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    act(() => result.current.deshacer());
+    await act(async () => {
+      soltar(new Response("{}", { status: 500 }));
+      await fin;
+    });
+    expect(fetchFalso.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    expect(result.current.plan).toBe(INICIAL);
+    expect(result.current.error).toContain("No se ha podido mover la parada");
   });
 
   it("Deshacer pinta la parada de vuelta al instante, aunque el guardado siga en vuelo", async () => {
