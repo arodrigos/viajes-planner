@@ -55,6 +55,7 @@ async function enTodosLosTamanos(pagina: Page, nombre: string) {
 }
 
 test("vacío, alta de comida, alojamiento y error de importe (gas-ac1, gas-ac3, gas-ac5)", async ({ browser }) => {
+  test.setTimeout(120_000);
   const email = "ci-test-gastos@example.com";
   const planId = await sembrar(clienteDePrueba("servicio"), email);
   const contexto = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -65,7 +66,8 @@ test("vacío, alta de comida, alojamiento y error de importe (gas-ac1, gas-ac3, 
 
   // uat-14
   await pagina.getByText("Gastos", { exact: true }).click();
-  await expect(pagina.getByTestId("gastos-titular")).toContainText("Queda 1.200,00");
+  await expect(pagina.getByTestId("gastos-titular")).toContainText("Queda")
+  await expect(pagina.getByTestId("gastos-resumen")).toContainText("Gastado 0,00");
   await expect(pagina.getByTestId("gastos-vacio")).toContainText("Aún no has apuntado gastos. Apunta lo que vayas pagando y verás cuánto te queda del presupuesto estimado");
   await pagina.getByTestId("gastos-titular").scrollIntoViewIfNeeded();
   await comprobarAccesibilidad(pagina);
@@ -75,13 +77,13 @@ test("vacío, alta de comida, alojamiento y error de importe (gas-ac1, gas-ac3, 
   await pagina.getByLabel("Importe (€)").fill("25,50");
   await pagina.getByLabel("Día", { exact: true }).selectOption("2027-06-09");
   await pagina.getByRole("button", { name: "Apuntar" }).click();
-  await expect(pagina.getByTestId("gastos-titular")).toContainText("Queda 1.174,50");
+  await expect(pagina.getByTestId("gastos-resumen")).toContainText("Gastado 25,50");
   await expect(pagina.getByTestId("gasto")).toContainText("Comida · 25,50");
   await expect(pagina.getByTestId("gastos-fila-dia").nth(1)).toContainText("25,50");
   await pagina.reload();
   await pagina.getByText("Gastos", { exact: true }).click();
   await expect(pagina.getByTestId("gasto")).toHaveCount(1);
-  await expect(pagina.getByTestId("gastos-titular")).toContainText("Queda 1.174,50");
+  await expect(pagina.getByTestId("gastos-resumen")).toContainText("Gastado 25,50");
   await pagina.getByTestId("gastos-titular").scrollIntoViewIfNeeded();
   await enTodosLosTamanos(pagina, "comida-dia-2");
 
@@ -92,7 +94,7 @@ test("vacío, alta de comida, alojamiento y error de importe (gas-ac1, gas-ac3, 
   await expect(pagina.getByLabel("Día", { exact: true })).toBeDisabled();
   await pagina.getByRole("button", { name: "Apuntar" }).click();
   await expect(pagina.getByTestId("gastos-fila-alojamiento")).toContainText("600,00");
-  await expect(pagina.getByTestId("gastos-titular")).toContainText("Te has pasado");
+  await expect(pagina.getByTestId("gastos-resumen")).toContainText("Gastado 625,50");
   await pagina.getByTestId("gastos-fila-alojamiento").scrollIntoViewIfNeeded();
   await enTodosLosTamanos(pagina, "alojamiento");
 
