@@ -5,7 +5,7 @@
 // que aproxima calle sobre línea recta. Puro y testeable, igual que
 // equivalencia.ts, del que reutiliza distanciaMetros.
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
-import { calcularTramosDia } from "./tramos";
+import type { Tramo } from "./tramos";
 import type { Franja, Parada } from "./tipos";
 
 const UMBRAL_FAMILIAR_KM = 8;
@@ -88,10 +88,10 @@ function paradaMasAlejada(puntos: PuntoPaseo[]): PuntoPaseo {
 // 'pareja' | 'solo') -- cualquier valor distinto de 'familiar' cae en el
 // umbral no familiar, el más permisivo, igual que esEquivalente en
 // equivalencia.ts. El aviso de «mucho paseo» mira solo lo andado.
-export function calcularPaseoDia(puntos: PuntoPaseo[], perfil: string | null, transporte?: readonly string[] | null): ResultadoPaseo | null {
-  if (puntos.length < 2) return null;
+// Recibe los tramos ya calculados por tiempos.ts: el paseo no estima nada.
+export function calcularPaseoDia(puntos: PuntoPaseo[], tramos: readonly Tramo[], perfil: string | null): ResultadoPaseo | null {
+  if (puntos.length < 2 || tramos.length === 0) return null;
 
-  const tramos = calcularTramosDia(puntos, { perfil, transporte });
   const suma = (aPie: boolean) => Math.round(tramos.filter((t) => (t.modo === "a-pie") === aPie).reduce((total, t) => total + t.km, 0) * 10) / 10;
   const km = suma(true);
   const kmTransporte = suma(false);

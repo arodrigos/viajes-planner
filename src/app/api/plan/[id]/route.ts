@@ -5,7 +5,7 @@ import { aPlanPublico } from "@/lib/plan/publico";
 import { conEstadoGoogle, leerEstadosGoogle } from "@/lib/google/estados";
 import { aPlanCompartido } from "@/lib/plan/compartido";
 import { contarMiembros } from "@/lib/plan/miembros";
-import { rolEnPlan } from "@/lib/plan/propiedad";
+import { opcionesTramosDeTrabajo, rolEnPlan } from "@/lib/plan/propiedad";
 import { ErrorLecturaPlan, recuperarPlan, type PasoLecturaPlan } from "@/lib/plan/repositorio";
 
 // reg-ac3: estos son los mismos estados "en vuelo" de regenerar.ts -- aquí
@@ -57,7 +57,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   const regenerando = trabajo.regenerado_en !== null && ESTADOS_EN_VUELO.includes(trabajo.estado);
 
   try {
-    const publico = aPlanPublico(plan, trabajo.perfil, trabajo.presupuesto_eur, trabajo.transporte, trabajo.intereses);
+    const opciones = opcionesTramosDeTrabajo(trabajo);
+    const publico = aPlanPublico(plan, opciones.perfil, trabajo.presupuesto_eur, opciones.transporte, trabajo.intereses);
     // compartir-datos: el miembro recibe la proyección sin dinero ni alojamiento,
     // ni el id del trabajo, ni el aviso de regeneración, ni el estado de Google.
     if (rol.rol === "miembro") return NextResponse.json(aPlanCompartido(publico), { headers: cabeceras });

@@ -91,4 +91,13 @@ export const CAPTURAS_ESPERADAS = [
   { bloque: "sitio-propio-ui", fichero: "deshacer-1180.png" },
   { bloque: "orden-desfasada", fichero: "orden-desfasada.png" },
   { bloque: "acceso-retirado-sin-red", fichero: "acceso-retirado-sin-red.png" },
+  { bloque: "tiempos-unicos", fichero: "conector-y-rango-360.png" },
+  { bloque: "tiempos-unicos", fichero: "conector-y-rango-820.png" },
+  { bloque: "tiempos-unicos", fichero: "conector-y-rango-1180.png" },
+  { bloque: "tiempos-unicos", fichero: "ahora-salida-360.png" },
+  { bloque: "tiempos-unicos", fichero: "ahora-salida-820.png" },
+  { bloque: "tiempos-unicos", fichero: "ahora-salida-1180.png" },
+  { bloque: "tiempos-unicos", fichero: "recortada-360.png" },
+  { bloque: "tiempos-unicos", fichero: "recortada-820.png" },
+  { bloque: "tiempos-unicos", fichero: "recortada-1180.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];

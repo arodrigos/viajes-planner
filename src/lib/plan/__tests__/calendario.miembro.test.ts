@@ -2,7 +2,10 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { franjasComoArray } from "../config-franjas";
 import { generarIcsPlan } from "../calendario";
+import type { OpcionesTramos } from "../tramos";
 import type { Plan } from "../tipos";
+
+const SIN_OPCIONES: OpcionesTramos = { perfil: null };
 
 // pin-ac4: generarIcsPlan recibe el plan interno (con ancla y costes) y es la
 // ruta quien debe garantizar que el miembro no ve dinero ni dónde duerme.
@@ -38,7 +41,7 @@ describe("generarIcsPlan con un plan que lleva ancla y costes (pin-ac4)", () => 
   it("invariante: el .ics no contiene las coordenadas del ancla ni importes en euros", () => {
     fc.assert(
       fc.property(plan, ({ plan: p, ancla }) => {
-        const { contenido } = generarIcsPlan(p);
+        const { contenido } = generarIcsPlan(p, SIN_OPCIONES);
         expect(contenido).toContain("Sitio 0");
         expect(contenido).not.toContain(String(ancla.lat));
         expect(contenido).not.toContain(String(ancla.lon));

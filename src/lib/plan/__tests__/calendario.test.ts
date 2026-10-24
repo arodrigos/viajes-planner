@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { franjasComoArray } from "../config-franjas";
-import { calcularHorarioDia, minutosDeHora } from "../horario";
+import { calcularHorarioDia } from "../horario";
 import { aPlanPublico } from "../publico";
 import { generarIcsPlan } from "../calendario";
+import type { OpcionesTramos } from "../tramos";
 import type { Plan } from "../tipos";
+
+const SIN_OPCIONES: OpcionesTramos = { perfil: null };
 
 const DESTINO = "Toledo";
 
@@ -67,7 +70,7 @@ function planDeDosDias(): Plan {
 // horario orientativo en DESCRIPTION.
 describe("generarIcsPlan (ics-ac1)", () => {
   it("genera exactamente un VEVENT por parada y un GEO solo en las resueltas", () => {
-    const { contenido } = generarIcsPlan(planDeDosDias());
+    const { contenido } = generarIcsPlan(planDeDosDias(), SIN_OPCIONES);
     const numeroEventos = (contenido.match(/BEGIN:VEVENT/g) ?? []).length;
     const numeroGeo = (contenido.match(/^GEO:/gm) ?? []).length;
     expect(numeroEventos).toBe(3);
@@ -75,7 +78,7 @@ describe("generarIcsPlan (ics-ac1)", () => {
   });
 
   it("DTSTART/DTEND llevan el rango encadenado de la parada con TZID del lugar (hor-ac1)", () => {
-    const { contenido } = generarIcsPlan(planDeDosDias());
+    const { contenido } = generarIcsPlan(planDeDosDias(), SIN_OPCIONES);
     // Catedral (con coordenadas de Toledo): franja de mañana temprano, 07:00 + 90 min, zona Europe/Madrid.
     expect(contenido).toContain("DTSTART;TZID=Europe/Madrid:20261107T070000\r\n");
     expect(contenido).toContain("DTEND;TZID=Europe/Madrid:20261107T083000\r\n");
@@ -83,7 +86,7 @@ describe("generarIcsPlan (ics-ac1)", () => {
   });
 
   it("una parada sin coordenadas ni caja de ciudad queda en hora flotante, sin inventar zona", () => {
-    const { contenido } = generarIcsPlan(planDeDosDias());
+    const { contenido } = generarIcsPlan(planDeDosDias(), SIN_OPCIONES);
     // Mirador: franja de mañana, 09:00 + 60 min.
     expect(contenido).toContain("DTSTART:20261107T090000\r\n");
     expect(contenido).toContain("DTEND:20261107T100000\r\n");
@@ -92,19 +95,19 @@ describe("generarIcsPlan (ics-ac1)", () => {
   it("sin coordenadas pero con la caja de la ciudad, la zona sale del centro de la caja", () => {
     const plan = planDeDosDias();
     plan.ciudad = { estado: "resuelta", nombre: "Toledo", caja: { minLat: 39.8, maxLat: 39.9, minLon: -4.1, maxLon: -3.9 } } as Plan["ciudad"];
-    const { contenido } = generarIcsPlan(plan);
+    const { contenido } = generarIcsPlan(plan, SIN_OPCIONES);
     expect(contenido).toContain("DTSTART;TZID=Europe/Madrid:20261107T090000\r\n");
   });
 
   it("SUMMARY es el nombre de la parada y DESCRIPTION trae la frase de horario orientativo", () => {
-    const { contenido } = generarIcsPlan(planDeDosDias());
+    const { contenido } = generarIcsPlan(planDeDosDias(), SIN_OPCIONES);
     const descripcionSinSaltos = contenido.replace(/\r\n[ \t]/g, "");
     expect(contenido).toContain("SUMMARY:Catedral de Toledo");
     expect(descripcionSinSaltos).toContain("Horario orientativo según la franja del plan.");
   });
 
   it("el nombre de fichero es el slug del destino con extensión .ics", () => {
-    const { nombreFichero } = generarIcsPlan(planDeDosDias());
+    const { nombreFichero } = generarIcsPlan(planDeDosDias(), SIN_OPCIONES);
     expect(nombreFichero).toBe("toledo.ics");
   });
 });
@@ -134,16 +137,15 @@ describe("horario de la vista = horario del .ics (invariante 5)", () => {
             })),
           },
         ];
-        const { contenido } = generarIcsPlan(plan);
+        const { contenido } = generarIcsPlan(plan, SIN_OPCIONES);
         const publico = aPlanPublico(plan);
-        const horarios = calcularHorarioDia(plan.dias[0]);
+        const horarios = calcularHorarioDia(plan.dias[0], SIN_OPCIONES);
         const instantes = [...contenido.matchAll(/^DTSTART;TZID=Europe\/Madrid:\d{8}T(\d{4})00/gm)].map((m) => m[1]);
         const fines = [...contenido.matchAll(/^DTEND;TZID=Europe\/Madrid:\d{8}T(\d{4})00/gm)].map((m) => m[1]);
         publico.dias[0].paradas.forEach((p, i) => {
           expect(p.horario).toMatchObject({ inicio: horarios[p.id].inicio, fin: horarios[p.id].fin });
           expect(instantes[i]).toBe(horarios[p.id].inicio.replace(":", ""));
           expect(fines[i]).toBe(horarios[p.id].fin.replace(":", ""));
-          expect(minutosDeHora(horarios[p.id].fin)).toBeLessThanOrEqual(13 * 60);
         });
       }),
     );

@@ -1,10 +1,11 @@
 import { interesDeParada, type Interes } from "@/lib/criterios/intereses";
 import { calcularApertura, calcularEtiquetasEncaje, formatearEtiquetasEncaje, vecinosResueltos } from "@/lib/alternativas/encaje";
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
-import { avisoRecortada, calcularHorarioDia, horaDeMinutos, minutosDeHora, type HorarioParada } from "./horario";
+import { avisoRecortada, horaDeMinutos, minutosDeHora, type HorarioParada } from "./horario";
+import { calcularTiemposDia, type HorarioCalculado } from "./tiempos";
 import { zonaDeParada } from "./zona";
 import { calcularPaseoDia, ordenarParadasResueltas, type AvisoPaseo } from "./paseo";
-import { calcularTramosDia, type Tramo } from "./tramos";
+import type { OpcionesTramos, Tramo } from "./tramos";
 import type { AnclaAlojamiento, Dia, EtapaPlan, Foto, TrasladoPlan, OrigenAlternativa, Parada, Plan, Procedencia, Recomendacion } from "./tipos";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { CajaDelimitadora } from "@/lib/lugares/tipos";
@@ -195,11 +196,14 @@ function aAlternativaPublica(
 // de datos (como el de `scripts/generar-plan-real.ts --resolver`) se
 // serializaba siempre con `propuesto-sin-verificar` aunque `lugar` ya
 // tuviera coordenadas reales.
-function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, HorarioParada>, caja?: CajaDelimitadora, intereses: readonly Interes[] | null = null, ciudad = ""): ParadaPublica {
+function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, HorarioCalculado>, caja?: CajaDelimitadora, intereses: readonly Interes[] | null = null, ciudad = ""): ParadaPublica {
   const procedencia: Procedencia = parada.lugar
     ? { fuente: parada.lugar.fuente, url: parada.lugar.url }
     : { fuente: "propuesto-sin-verificar" };
-  const horario = horarios[parada.id];
+  const calculado = horarios[parada.id];
+  const horario: HorarioParada | undefined = calculado
+    ? { inicio: horaDeMinutos(calculado.inicioMin), fin: horaDeMinutos(calculado.finMin), recortada: calculado.recortada }
+    : undefined;
   const zona = zonaDeParada(parada, caja);
   const apertura = horario
     ? calcularApertura(parada.lugar?.etiquetas.opening_hours, { fecha: dia.fecha, inicio: horario.inicio, fin: horario.fin }, zona)
@@ -217,7 +221,7 @@ function aParadaPublica(dia: Dia, parada: Parada, horarios: Record<string, Horar
       ? {
           horario: {
             ...horario,
-            ...(horario.recortada ? { aviso: avisoRecortada(etiquetaFranja) } : {}),
+            ...(horario.recortada ? { aviso: avisoRecortada(etiquetaFranja, calculado?.excesoMin ?? 0) } : {}),
             apertura: textoApertura(apertura),
             ...(parada.lugar?.etiquetas.opening_hours
               ? { fuenteOsm: { ...(parada.lugar.etiquetas.check_date_opening_hours ? { comprobadoEn: parada.lugar.etiquetas.check_date_opening_hours } : {}) } }
@@ -255,6 +259,7 @@ function nombreCiudadDelDia(plan: Plan, dia: Dia): string {
 }
 
 export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null, intereses: readonly Interes[] | null = null): PlanPublico {
+  const opciones: OpcionesTramos = { perfil, transporte };
   const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur } = calcularPresupuesto(plan);
   return {
     id: plan.id,
@@ -263,7 +268,9 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
     personas: plan.personas,
     ...(zonaDelPlan(plan) ? { zona: zonaDelPlan(plan) } : {}),
     dias: plan.dias.map((dia) => {
-      const horarios = calcularHorarioDia(dia);
+      // Una sola llamada por día: conector, rango, paseo y «sal a las» salen
+      // de la misma cadena de tiempos.
+      const { tramos, horarios } = calcularTiemposDia(dia, opciones);
       const resueltas = ordenarParadasResueltas(dia.franjas, dia.paradas);
       return {
         fecha: dia.fecha,
@@ -271,8 +278,8 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
         ancla_alojamiento: dia.ancla_alojamiento,
         franjas: dia.franjas.map((f) => ({ id: f.id, etiqueta: f.etiqueta })),
         paradas: dia.paradas.map((parada) => aParadaPublica(dia, parada, horarios, plan.ciudad?.caja ?? (dia.etapa !== undefined ? plan.etapas?.[dia.etapa]?.ciudad.caja : undefined), intereses, nombreCiudadDelDia(plan, dia))),
-        paseo: calcularPaseoDia(resueltas, perfil, transporte) ?? undefined,
-        ...(resueltas.length >= 2 ? { tramos: calcularTramosDia(resueltas, { perfil, transporte }) } : {}),
+        paseo: calcularPaseoDia(resueltas, tramos, perfil) ?? undefined,
+        ...(tramos.length > 0 ? { tramos } : {}),
       };
     }),
     avisos: plan.avisos ?? [],
