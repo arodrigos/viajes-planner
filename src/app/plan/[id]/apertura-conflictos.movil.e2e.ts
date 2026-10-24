@@ -79,6 +79,8 @@ const TAMANOS = [
 ];
 
 test.describe("conflictos de horario", () => {
+  // Un solo worker siembra: createUser falla si dos beforeAll compiten por el mismo correo.
+  test.describe.configure({ mode: "serial" });
   let planId: string;
 
   test.beforeAll(async () => {
