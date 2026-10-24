@@ -2,7 +2,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { calcularPaseoDia } from "../paseo";
 import { formatearMinutos } from "@/lib/formato/numeros";
-import { calcularTramosDia, umbralAPieKm, type PuntoTramo } from "../tramos";
+import { umbralAPieKm, type PuntoTramo } from "../tramos";
+import { tramosConsecutivos } from "@/test-utils/tramosConsecutivos";
 import { urlRecorridoDia } from "../urlRecorridoDia";
 
 // tra-ac1 / cp-tra-01: coordenadas reales de Londres.
@@ -21,9 +22,9 @@ function parConKm(kmCalle: number): PuntoTramo[] {
   ];
 }
 
-describe("calcularTramosDia (tra-ac1, cp-tra-01)", () => {
+describe("estimarTramo (tra-ac1, cp-tra-01)", () => {
   it("Londres en familia: andando el corto, transporte público el largo", () => {
-    const [corto, largo] = calcularTramosDia(LONDRES, { perfil: "familiar" });
+    const [corto, largo] = tramosConsecutivos(LONDRES, { perfil: "familiar" });
     expect(corto.km).toBeCloseTo(1.1, 1);
     expect(corto.modo).toBe("a-pie");
     expect(corto.minutos).toBe(20);
@@ -38,28 +39,28 @@ describe("calcularTramosDia (tra-ac1, cp-tra-01)", () => {
   });
 
   it("límite familiar: 1,5 km a pie, 1,6 km transporte público", () => {
-    expect(calcularTramosDia(parConKm(1.5), { perfil: "familiar" })[0].modo).toBe("a-pie");
-    expect(calcularTramosDia(parConKm(1.6), { perfil: "familiar" })[0].modo).toBe("transporte-publico");
+    expect(tramosConsecutivos(parConKm(1.5), { perfil: "familiar" })[0].modo).toBe("a-pie");
+    expect(tramosConsecutivos(parConKm(1.6), { perfil: "familiar" })[0].modo).toBe("transporte-publico");
   });
 
   it("límite pareja: 2,0 km a pie, 2,1 km transporte público", () => {
-    expect(calcularTramosDia(parConKm(2.0), { perfil: "pareja" })[0].modo).toBe("a-pie");
-    expect(calcularTramosDia(parConKm(2.1), { perfil: "pareja" })[0].modo).toBe("transporte-publico");
+    expect(tramosConsecutivos(parConKm(2.0), { perfil: "pareja" })[0].modo).toBe("a-pie");
+    expect(tramosConsecutivos(parConKm(2.1), { perfil: "pareja" })[0].modo).toBe("transporte-publico");
   });
 
   it("pareja: el tramo largo de Londres sigue siendo transporte público", () => {
-    expect(calcularTramosDia(LONDRES, { perfil: "pareja" })[1].modo).toBe("transporte-publico");
+    expect(tramosConsecutivos(LONDRES, { perfil: "pareja" })[1].modo).toBe("transporte-publico");
   });
 
   it("solo coche: tramo largo en coche, 95 min y driving", () => {
-    const largo = calcularTramosDia(LONDRES, { perfil: "familiar", transporte: ["coche"] })[1];
+    const largo = tramosConsecutivos(LONDRES, { perfil: "familiar", transporte: ["coche"] })[1];
     expect(largo.modo).toBe("coche");
     expect(largo.minutos).toBe(95);
     expect(largo.href).toContain("travelmode=driving");
   });
 
   it("coche y tren: sigue siendo transporte público", () => {
-    expect(calcularTramosDia(LONDRES, { perfil: "familiar", transporte: ["coche", "tren"] })[1].modo).toBe("transporte-publico");
+    expect(tramosConsecutivos(LONDRES, { perfil: "familiar", transporte: ["coche", "tren"] })[1].modo).toBe("transporte-publico");
   });
 
   it("formatea minutos como horas y minutos", () => {
@@ -75,11 +76,11 @@ const perfil = fc.constantFrom("familiar", "pareja", "amigos", "solo", null);
 const transporte = fc.constantFrom(null, ["coche"], ["coche", "tren"], ["tren"], ["avion"]);
 const TRAVELMODE = { "a-pie": "walking", "transporte-publico": "transit", coche: "driving" } as const;
 
-describe("invariantes de calcularTramosDia (property tests, tra-ac1)", () => {
+describe("invariantes de estimarTramo (property tests, tra-ac1)", () => {
   it("n paradas dan n − 1 tramos (0 si n < 2), en orden", () => {
     fc.assert(
       fc.property(puntos, perfil, transporte, (ps, pf, tr) => {
-        const tramos = calcularTramosDia(ps, { perfil: pf, transporte: tr });
+        const tramos = tramosConsecutivos(ps, { perfil: pf, transporte: tr });
         expect(tramos).toHaveLength(Math.max(0, ps.length - 1));
         tramos.forEach((t, i) => {
           expect(t.desdeId).toBe(ps[i].id);
@@ -92,7 +93,7 @@ describe("invariantes de calcularTramosDia (property tests, tra-ac1)", () => {
   it("a-pie si y solo si km ≤ umbral del perfil", () => {
     fc.assert(
       fc.property(puntos, perfil, transporte, (ps, pf, tr) => {
-        for (const t of calcularTramosDia(ps, { perfil: pf, transporte: tr })) {
+        for (const t of tramosConsecutivos(ps, { perfil: pf, transporte: tr })) {
           expect(t.modo === "a-pie").toBe(t.km <= (pf === "familiar" ? 1.5 : 2.0));
           expect(umbralAPieKm(pf)).toBe(pf === "familiar" ? 1.5 : 2.0);
         }
@@ -103,7 +104,7 @@ describe("invariantes de calcularTramosDia (property tests, tra-ac1)", () => {
   it("minutos múltiplo de 5, positivo y no decreciente con km a igual modo", () => {
     fc.assert(
       fc.property(puntos, perfil, transporte, (ps, pf, tr) => {
-        const tramos = calcularTramosDia(ps, { perfil: pf, transporte: tr });
+        const tramos = tramosConsecutivos(ps, { perfil: pf, transporte: tr });
         for (const t of tramos) {
           expect(t.minutos % 5).toBe(0);
           expect(t.minutos).toBeGreaterThan(0);
@@ -116,7 +117,7 @@ describe("invariantes de calcularTramosDia (property tests, tra-ac1)", () => {
   it("el travelmode del href coincide con el modo", () => {
     fc.assert(
       fc.property(puntos, perfil, transporte, (ps, pf, tr) => {
-        for (const t of calcularTramosDia(ps, { perfil: pf, transporte: tr })) expect(t.href).toContain(`travelmode=${TRAVELMODE[t.modo]}`);
+        for (const t of tramosConsecutivos(ps, { perfil: pf, transporte: tr })) expect(t.href).toContain(`travelmode=${TRAVELMODE[t.modo]}`);
       }),
     );
   });
@@ -124,8 +125,9 @@ describe("invariantes de calcularTramosDia (property tests, tra-ac1)", () => {
   it("km a pie + km en transporte = suma de los tramos", () => {
     fc.assert(
       fc.property(puntos, perfil, transporte, (ps, pf, tr) => {
-        const paseo = calcularPaseoDia(ps.map((p) => ({ ...p, nombre: p.id })), pf, tr);
-        const total = calcularTramosDia(ps, { perfil: pf, transporte: tr }).reduce((s, t) => s + t.km, 0);
+        const tramos = tramosConsecutivos(ps, { perfil: pf, transporte: tr });
+        const paseo = calcularPaseoDia(ps.map((p) => ({ ...p, nombre: p.id })), tramos, pf);
+        const total = tramos.reduce((s, t) => s + t.km, 0);
         if (!paseo) {
           expect(ps.length).toBeLessThan(2);
           return;
@@ -138,7 +140,7 @@ describe("invariantes de calcularTramosDia (property tests, tra-ac1)", () => {
   it("urlRecorridoDia incluye travelmode=walking solo si todos los tramos son a pie", () => {
     fc.assert(
       fc.property(puntos, perfil, transporte, (ps, pf, tr) => {
-        const todoAPie = calcularTramosDia(ps, { perfil: pf, transporte: tr }).every((t) => t.modo === "a-pie");
+        const todoAPie = tramosConsecutivos(ps, { perfil: pf, transporte: tr }).every((t) => t.modo === "a-pie");
         for (const e of urlRecorridoDia(ps, todoAPie)) expect(e.href.includes("travelmode=walking")).toBe(todoAPie);
       }),
     );

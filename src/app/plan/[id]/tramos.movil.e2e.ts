@@ -4,7 +4,7 @@ import { leerCodigo } from "@/lib/auth/__tests__/mailpit";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { formatearKm } from "@/lib/formato/numeros";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
-import { calcularTramosDia } from "@/lib/plan/tramos";
+import { tramosConsecutivos } from "@/test-utils/tramosConsecutivos";
 
 // tra-ac2 / cp-tra-02: medio, tiempo y enlace entre paradas del día.
 test.use({ viewport: { width: 390, height: 844 } });
@@ -95,7 +95,7 @@ test("entre dos paradas lejanas se ve el medio, su tiempo y su enlace (tra-ac2, 
 
   // El km esperado sale de las coordenadas de la semilla: si cambian, el
   // test falla en vez de aceptar cualquier cifra.
-  const kmLargo = calcularTramosDia(
+  const kmLargo = tramosConsecutivos(
     [
       { id: "a", lat: 51.5117, lon: -0.124 },
       { id: "b", lat: 51.6906, lon: -0.4181 },

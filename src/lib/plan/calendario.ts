@@ -7,29 +7,32 @@
 import "server-only";
 import { createEvents, type DateArray, type EventAttributes } from "ics";
 import { slugDestino } from "@/lib/lugares/cacheSitios";
-import { calcularHorarioDia, type HorarioParada } from "./horario";
+import { calcularTiemposDia, type HorarioCalculado } from "./tiempos";
+import type { OpcionesTramos } from "./tramos";
 import type { Dia, Parada, Plan } from "./tipos";
 import { zonaDeParada } from "./zona";
 
 const FRASE_HORARIO_ORIENTATIVO = "Horario orientativo según la franja del plan.";
 
-function fechaHoraComoArray(fecha: string, hora: string): DateArray {
+// Los minutos pueden pasar de 1440 (una parada que cruza la medianoche): el
+// paso al día siguiente lo da Date.UTC, así que nunca sale una hora «24:35».
+function fechaHoraComoArray(fecha: string, minutos: number): DateArray {
   const [anio, mes, dia] = fecha.split("-").map(Number);
-  const [horaH, horaM] = hora.split(":").map(Number);
-  return [anio, mes, dia, horaH, horaM];
+  const f = new Date(Date.UTC(anio, mes - 1, dia, 0, minutos));
+  return [f.getUTCFullYear(), f.getUTCMonth() + 1, f.getUTCDate(), f.getUTCHours(), f.getUTCMinutes()];
 }
 
-// hor-ac1: los mismos rangos que enseña la tarjeta (calcularHorarioDia), no
+// hor-ac1: los mismos rangos que enseña la tarjeta (calcularTiemposDia), no
 // la ventana entera de la franja. Son hora LOCAL del lugar: "local"/"local"
 // evita que `ics` las reconvierta según el huso del proceso (no sería el
 // mismo en el trabajador que en Vercel); la zona se añade después como TZID (ver
 // conZona), porque `ics` solo sabe escribir hora flotante o UTC.
-function eventoDeParada(dia: Dia, horario: HorarioParada, parada: Parada, destino: string): EventAttributes {
+function eventoDeParada(dia: Dia, horario: HorarioCalculado, parada: Parada, destino: string): EventAttributes {
   return {
-    start: fechaHoraComoArray(dia.fecha, horario.inicio),
+    start: fechaHoraComoArray(dia.fecha, horario.inicioMin),
     startInputType: "local",
     startOutputType: "local",
-    end: fechaHoraComoArray(dia.fecha, horario.fin),
+    end: fechaHoraComoArray(dia.fecha, horario.finMin),
     endInputType: "local",
     endOutputType: "local",
     title: parada.nombre,
@@ -65,11 +68,13 @@ export interface IcsPlan {
   nombreFichero: string;
 }
 
-export function generarIcsPlan(plan: Plan): IcsPlan {
+// `opciones` son las mismas que recibe aPlanPublico: si no, el .ics de un viaje
+// familiar daría minutos distintos de los de la tarjeta.
+export function generarIcsPlan(plan: Plan, opciones: OpcionesTramos): IcsPlan {
   const eventos: EventAttributes[] = [];
   const zonas: (string | null)[] = [];
   for (const dia of plan.dias) {
-    const horarios = calcularHorarioDia(dia);
+    const { horarios } = calcularTiemposDia(dia, opciones);
     for (const parada of dia.paradas) {
       const horario = horarios[parada.id];
       if (!horario) {

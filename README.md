@@ -32,8 +32,16 @@ licencia compartir igual. Las reglas que impone al código están en
   por qué se propone, consejos y curiosidades, y alternativas.
 - **Tarjeta «Ahora»** en el día de hoy: siguiente parada, progreso, hora
   de salida hacia la siguiente y marcar como visitada.
-- **Tramos** entre paradas consecutivas (medio, tiempo estimado y enlace),
-  calculados por distancia, sin API de rutas.
+- **Tramos y horario** entre paradas consecutivas (medio, tiempo estimado y
+  enlace), calculados por distancia, sin API de rutas. Un único modelo
+  (`src/lib/plan/tiempos.ts`) da los mismos minutos al conector, al rango
+  «HH:MM – HH:MM» de la tarjeta, al «sal a las» de «Ahora» y al .ics: a pie
+  a 3,5 km/h con perfil familiar y 4 km/h con el resto, distancia en línea
+  recta × 1,3, redondeo a 5 min (mínimo 5) como único colchón, y 15 min si
+  falta la ubicación de alguna de las dos paradas. Si un tramo es en
+  transporte o coche, el horario cuenta ese modo. Una parada que no cabe en
+  su franja conserva su duración y avisa «Se pasa N min del final de la
+  mañana».
 - **Alternativas**: sustituir una parada por una alternativa, con su guía.
 - **Orden del día**: subir y bajar paradas, arrastrarlas por el asa,
   «Optimizar orden» (recorrido más corto) y deshacer.

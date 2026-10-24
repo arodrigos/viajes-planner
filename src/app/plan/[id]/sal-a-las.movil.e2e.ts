@@ -90,16 +90,16 @@ async function abrirConLaPrimeraVisitada(browser: Browser, email: string, planId
   return { contexto, ahora };
 }
 
-test("a tiempo: «Sal antes de las 11:15» (sal-ac1)", async ({ browser }) => {
+test("a tiempo: «Sal antes de las 11:20» (sal-ac1)", async ({ browser }) => {
   const email = "ci-test-sal-ac1@example.com";
   const planId = await sembrar(clienteDePrueba("servicio"), email, "a", LISBOA);
   const { contexto, ahora } = await abrirConLaPrimeraVisitada(browser, email, planId, "10:30:10", "Europe/Lisbon");
 
-  await expect(ahora).toContainText("Sal antes de las 11:15 para llegar a las 11:40 (≈ 20 min a pie)");
+  await expect(ahora).toContainText("Sal antes de las 11:20 para llegar a las 11:40 (≈ 20 min a pie)");
   // ah-ac2: la hora destaca y la línea no se pinta como ayuda pequeña y gris.
   const linea = ahora.locator("p", { hasText: "Sal antes de las" });
   await expect(linea).not.toHaveClass(/ayuda/);
-  await expect(linea.locator("time", { hasText: "11:15" })).toBeVisible();
+  await expect(linea.locator("time", { hasText: "11:20" })).toBeVisible();
   const pesoHora = await linea.locator("time").evaluate((el) => Number(getComputedStyle(el).fontWeight));
   expect(pesoHora).toBeGreaterThanOrEqual(600);
   const tamanoLinea = await linea.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
@@ -119,11 +119,11 @@ test("pasada la hora de salida dice cuándo llegarías y cuánto tarde (sal-ac2)
   expect(pesoLlegada).toBeGreaterThanOrEqual(600);
   await a.contexto.close();
 
-  // Dentro del margen de 5 min: ya pasó la hora de salida, pero se llega a tiempo.
+  // Sin segundo margen: un minuto después de la hora de salida ya se llega 1 min tarde.
   const margen = await sembrar(supabase, "ci-test-sal-ac2b@example.com", "c", LISBOA);
-  const b = await abrirConLaPrimeraVisitada(browser, "ci-test-sal-ac2b@example.com", margen, "11:16:10", "Europe/Lisbon");
-  await expect(b.ahora).toContainText("Si sales ya, llegas a las 11:36");
-  await expect(b.ahora).not.toContainText("tarde");
+  const b = await abrirConLaPrimeraVisitada(browser, "ci-test-sal-ac2b@example.com", margen, "11:21:10", "Europe/Lisbon");
+  await expect(b.ahora).toContainText("Si sales ya, llegas a las 11:41");
+  await expect(b.ahora).toContainText("1 min tarde");
   await b.contexto.close();
 });
 
@@ -132,6 +132,6 @@ test("el resultado no cambia con la zona horaria del móvil (sal-ac3)", async ({
   const planId = await sembrar(clienteDePrueba("servicio"), email, "d", LISBOA);
   const { contexto, ahora } = await abrirConLaPrimeraVisitada(browser, email, planId, "10:30:10", "America/New_York");
 
-  await expect(ahora).toContainText("Sal antes de las 11:15 para llegar a las 11:40 (≈ 20 min a pie)");
+  await expect(ahora).toContainText("Sal antes de las 11:20 para llegar a las 11:40 (≈ 20 min a pie)");
   await contexto.close();
 });

@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { INTERESES, type Interes } from "@/lib/criterios/intereses";
+import type { OpcionesTramos } from "./tramos";
 
 // planes no tiene su propia columna usuario_id: la propiedad se resuelve
 // por el trabajo que lo generó, la única tabla con esa columna (mismo
@@ -72,6 +73,12 @@ export async function trabajoDelPlan(
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer el trabajo del plan: ${error.message}`);
   return data ? aTrabajoDelPlan(data) : null;
+}
+
+// tiempos-unicos: la vista del plan y el .ics sacan perfil y transporte de aquí,
+// para que las dos den los mismos minutos para el mismo viaje.
+export function opcionesTramosDeTrabajo(trabajo: Pick<TrabajoDelPlan, "perfil" | "transporte">): OpcionesTramos {
+  return { perfil: trabajo.perfil, transporte: trabajo.transporte };
 }
 
 export type RolPlan = { rol: "duenyo"; trabajo: TrabajoDelPlan } | { rol: "miembro"; trabajo: TrabajoDelPlan };

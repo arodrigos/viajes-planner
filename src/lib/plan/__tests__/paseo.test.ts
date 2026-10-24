@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { formatearKm } from "@/lib/formato/numeros";
+import { tramosConsecutivos } from "@/test-utils/tramosConsecutivos";
 import { calcularPaseoDia, ordenarParadasPorFranja, ordenarParadasResueltas, type PuntoPaseo } from "../paseo";
+
+// El paseo recibe los tramos ya calculados; aquí se generan a mano para probarlo aislado.
+function paseoDe(puntos: PuntoPaseo[], perfil: string | null) {
+  return calcularPaseoDia(puntos, tramosConsecutivos(puntos, { perfil }), perfil);
+}
 
 // enc-ac2
 describe("calcularPaseoDia (enc-ac2)", () => {
@@ -13,14 +19,14 @@ describe("calcularPaseoDia (enc-ac2)", () => {
       { id: "b", nombre: "B", lat: 40 + UN_KM_EN_GRADOS, lon: -3.6921 },
       { id: "c", nombre: "C", lat: 40 + 2 * UN_KM_EN_GRADOS, lon: -3.6921 },
     ];
-    const resultado = calcularPaseoDia(puntos, "familiar");
+    const resultado = paseoDe(puntos, "familiar");
     expect(resultado).not.toBeNull();
     expect(resultado!.km).toBeCloseTo(2.6, 1);
   });
 
   it("menos de 2 paradas resueltas -> sin paseo (null)", () => {
-    expect(calcularPaseoDia([], "familiar")).toBeNull();
-    expect(calcularPaseoDia([{ id: "a", nombre: "A", lat: 0, lon: 0 }], "familiar")).toBeNull();
+    expect(paseoDe([], "familiar")).toBeNull();
+    expect(paseoDe([{ id: "a", nombre: "A", lat: 0, lon: 0 }], "familiar")).toBeNull();
   });
 
   it("perfil familiar: por debajo de 8 km no hay aviso", () => {
@@ -28,7 +34,7 @@ describe("calcularPaseoDia (enc-ac2)", () => {
       { id: "a", nombre: "A", lat: 40.4138, lon: -3.6921 },
       { id: "b", nombre: "B", lat: 40.42, lon: -3.69 },
     ];
-    const resultado = calcularPaseoDia(puntos, "familiar")!;
+    const resultado = paseoDe(puntos, "familiar")!;
     expect(resultado.km).toBeLessThan(8);
     expect(resultado.aviso).toBeUndefined();
   });
@@ -47,7 +53,7 @@ describe("calcularPaseoDia (enc-ac2)", () => {
 
   it("perfil familiar: por encima de 8 km andados, aviso con la parada más alejada", () => {
     // El primer tramo es el más corto: la última parada es la que más desvío añade.
-    const resultado = calcularPaseoDia(cadena([1.0, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4]), "familiar")!;
+    const resultado = paseoDe(cadena([1.0, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4]), "familiar")!;
     expect(resultado.km).toBeGreaterThan(8);
     expect(resultado.kmTransporte).toBeUndefined();
     expect(resultado.aviso?.paradaId).toBe("p8");
@@ -55,19 +61,19 @@ describe("calcularPaseoDia (enc-ac2)", () => {
   });
 
   it("perfil no familiar usa el umbral de 12 km: 9,5 km andados no avisa", () => {
-    const resultado = calcularPaseoDia(cadena([1.9, 1.9, 1.9, 1.9, 1.9]), "pareja")!;
+    const resultado = paseoDe(cadena([1.9, 1.9, 1.9, 1.9, 1.9]), "pareja")!;
     expect(resultado.km).toBeCloseTo(9.5, 0);
     expect(resultado.aviso).toBeUndefined();
   });
 
   it("perfil desconocido (null) cae en el umbral no familiar, el más permisivo", () => {
     const puntos = cadena([1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4]);
-    expect(calcularPaseoDia(puntos, "familiar")!.aviso).toBeDefined();
-    expect(calcularPaseoDia(puntos, null)!.aviso).toBeUndefined();
+    expect(paseoDe(puntos, "familiar")!.aviso).toBeDefined();
+    expect(paseoDe(puntos, null)!.aviso).toBeUndefined();
   });
 
   it("tramos-dia: los kilómetros en transporte no cuentan como andados ni disparan el aviso", () => {
-    const resultado = calcularPaseoDia(cadena([1.0, 30]), "familiar")!;
+    const resultado = paseoDe(cadena([1.0, 30]), "familiar")!;
     expect(resultado.km).toBe(1);
     expect(resultado.kmTransporte).toBe(30);
     expect(resultado.aviso).toBeUndefined();

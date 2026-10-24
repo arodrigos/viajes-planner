@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularTramosDia } from "../tramos";
+import { tramosConsecutivos } from "@/test-utils/tramosConsecutivos";
 import { MAX_UBICADAS_OPTIMIZAR, optimizarOrdenDia, ubicadasDelDia, type ParadaOptimizable } from "../optimizarOrden";
 
 const FRANJAS = [{ id: "manana" }, { id: "comida" }, { id: "tarde" }];
@@ -21,11 +21,11 @@ describe("optimizarOrdenDia", () => {
     expect(r.kmAntes).toBeGreaterThan(r.kmDespues);
   });
 
-  it("kmAntes es la suma de los tramos de calcularTramosDia más el del alojamiento, sin redondear", () => {
+  it("kmAntes es la suma de los tramos de los tramos más el del alojamiento, sin redondear", () => {
     const dia = [1, 5, 2, 4, 3].map((n) => sitio(`s${n}`, "manana", n));
     const puntos = dia.map((p) => ({ id: p.id, ...p.coordenadas! }));
-    const tramos = calcularTramosDia(puntos, { perfil: null });
-    const desdeAlojamiento = calcularTramosDia([{ id: "alojamiento", ...ALOJAMIENTO }, puntos[0]], { perfil: null });
+    const tramos = tramosConsecutivos(puntos, { perfil: null });
+    const desdeAlojamiento = tramosConsecutivos([{ id: "alojamiento", ...ALOJAMIENTO }, puntos[0]], { perfil: null });
     const redondeada = [...tramos, ...desdeAlojamiento].reduce((suma, t) => suma + t.km, 0);
     const { kmAntes } = optimizarOrdenDia(dia, FRANJAS, ALOJAMIENTO);
     // Cada tramo mostrado va redondeado a 0,1: la diferencia máxima son 0,05 por tramo.
