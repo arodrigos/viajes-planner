@@ -75,7 +75,7 @@ test("vacío, alta de comida, alojamiento y error de importe (gas-ac1, gas-ac3, 
 
   // uat-15
   await pagina.getByLabel("Importe (€)").fill("25,50");
-  await pagina.getByLabel("Día", { exact: true }).selectOption("2027-06-09");
+  await pagina.locator(".formulario-gasto select").selectOption("2027-06-09");
   await pagina.getByRole("button", { name: "Apuntar" }).click();
   await expect(pagina.getByTestId("gastos-resumen")).toContainText("Gastado 25,50");
   await expect(pagina.getByTestId("gasto")).toContainText("Comida · 25,50");
@@ -91,7 +91,7 @@ test("vacío, alta de comida, alojamiento y error de importe (gas-ac1, gas-ac3, 
   await pagina.getByLabel("Importe (€)").fill("600");
   await pagina.getByRole("button", { name: "Alojamiento" }).click();
   await expect(pagina.getByText("El alojamiento se compara con el alojamiento estimado de todo el viaje")).toBeVisible();
-  await expect(pagina.getByLabel("Día", { exact: true })).toBeDisabled();
+  await expect(pagina.locator(".formulario-gasto select")).toBeDisabled();
   await pagina.getByRole("button", { name: "Apuntar" }).click();
   await expect(pagina.getByTestId("gastos-fila-alojamiento")).toContainText("600,00");
   await expect(pagina.getByTestId("gastos-resumen")).toContainText("Gastado 625,50");
