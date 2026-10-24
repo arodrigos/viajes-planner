@@ -75,10 +75,13 @@ test.describe("reservas en el día", () => {
 
     const reservas = [
       { tipo: "vuelo", sentido: "ida", fecha_inicio: "2027-06-10", hora_inicio: "08:00", zona_inicio: "Europe/Madrid", fecha_fin: "2027-06-10", hora_fin: "13:00", zona_fin: "Europe/Rome", origen: "MAD", destino: "FCO", localizador: "ABC123" },
-      { tipo: "hotel", fecha_inicio: "2027-06-10", fecha_fin: "2027-06-12", nombre: "Hotel Sole", ubicacion: { lat: 37.17, lon: -3.59 } },
+      { tipo: "hotel", fecha_inicio: "2027-06-10", fecha_fin: "2027-06-11", nombre: "Hotel Sole", ubicacion: { lat: 37.17, lon: -3.59 } },
       { tipo: "entrada", fecha_inicio: "2027-06-11", hora_inicio: HORA_ENTRADA, nombre: "Galería Borghese" },
     ];
-    for (const r of reservas) expect((await contextoDuenyo.request.post(`/api/plan/${planId}/reservas`, { data: r })).ok()).toBe(true);
+    for (const r of reservas) {
+      const alta = await contextoDuenyo.request.post(`/api/plan/${planId}/reservas`, { data: r });
+      expect(alta.ok(), `${r.tipo}: ${await alta.text()}`).toBe(true);
+    }
     const invitacion = await contextoDuenyo.request.post(`/api/plan/${planId}/miembros`, { data: { correo: INVITADO } });
     expect(invitacion.ok()).toBe(true);
   });
