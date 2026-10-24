@@ -149,13 +149,18 @@ test.describe("arreglar un conflicto con un toque", () => {
     await entrar(pagina, planId, 1);
     await forzar(pagina, "p-arr-1", CIERRA_EL_LUNES);
     await tarjeta(pagina, "Museo del lunes").getByTestId("arreglar-parada").click();
+    // La relectura del plan es el GET a /api/plan/<id>; se espera su respuesta real
+    // en vez de un tiempo fijo (e2e-ac2).
+    const relectura = pagina.waitForResponse(
+      (r) => r.request().method() === "GET" && new URL(r.url()).pathname === `/api/plan/${planId}`,
+    );
     await pagina.getByTestId("arreglo-otro-dia").click();
     const aviso = pagina.getByTestId("aviso-arreglo");
     await expect(aviso).toContainText("Movida al martes 8");
     // arr-ac1: la versión subió en uno; con el arreglo ya guardado (y releído), el
     // Deshacer debe salir con la versión que devolvió el servidor, no la de antes.
     await expect.poll(() => versionMaxima(supabase, planId)).toBe(2);
-    await pagina.waitForTimeout(1500);
+    await relectura;
     await aviso.getByRole("button", { name: "Deshacer" }).click();
     await expect(tarjeta(pagina, "Museo del lunes")).toBeVisible();
     await expect(aviso).toContainText("Parada restaurada");
