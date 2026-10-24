@@ -2,9 +2,8 @@
 // opción se comprueba aplicándola al día resultante y volviendo a detectar
 // conflictos, así que una propuesta nunca crea otro conflicto. Nunca propone
 // quitar la parada.
-import { evaluarApertura } from "./apertura";
 import { nombreDiaSemana, ordenConParadaEnFranja, type DiaMovible } from "./aplicarArreglo";
-import { evaluarDia, type ConflictoDia, type ContextoConflictos, type DiaConflictable, type EvaluacionDia, type ParadaConflictable } from "./conflictos";
+import { evaluarApertura, evaluarDia, type ConflictoDia, type ContextoConflictos, type DiaConflictable, type EvaluacionDia, type ParadaConflictable } from "./conflictos";
 import { horaDeMinutos } from "./tiempos";
 import { TEXTOS_ARREGLOS } from "@/lib/textos/arreglos";
 

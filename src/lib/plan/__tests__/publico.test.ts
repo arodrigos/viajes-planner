@@ -18,6 +18,8 @@ describe("aPlanPublico", () => {
     expect(publico.dias[0].franjas[0]).toEqual({
       id: planFixture.dias[0].franjas[0].id,
       etiqueta: planFixture.dias[0].franjas[0].etiqueta,
+      // arreglo-un-toque: la ventana en minutos (ya viaja en cada horario) para las franjas vacías.
+      ventana: { desdeMin: 420, hastaMin: 540 },
     });
   });
 });

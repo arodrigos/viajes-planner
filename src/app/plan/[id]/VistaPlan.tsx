@@ -13,6 +13,8 @@ import { GuardarMapas } from "./GuardarMapas";
 import { PanelResumen } from "./PanelResumen";
 import { SelectorDias } from "./SelectorDias";
 import { AvisoOrden } from "./AvisoOrden";
+import { AvisoArreglo } from "./HojaArreglos";
+import { useArreglos } from "./useArreglos";
 import { TEXTOS_ORDEN, useOrdenDia } from "./useOrdenDia";
 import { borrarCopiaPlan } from "@/lib/sinConexion/borrar";
 import { CABECERA_REINTENTO, REINTENTO_COPIA_MS } from "@/lib/sinConexion/reglas";
@@ -81,6 +83,12 @@ export function VistaPlan({ id }: { id: string }) {
   // El plan que devuelve el guardado del orden sustituye al de la pantalla; una
   // copia guardada (sin red) no se reordena: los controles no se pintan.
   const orden = useOrdenDia(plan ?? PLAN_VACIO, (nuevo) => {
+    setPlan(nuevo);
+    setLectura({ leidoEn: new Date().toISOString(), esCopia: false });
+  });
+
+  // arreglo-un-toque: mismo canal que el orden para pintar el plan que cambia.
+  const arreglos = useArreglos(plan ?? PLAN_VACIO, (nuevo) => {
     setPlan(nuevo);
     setLectura({ leidoEn: new Date().toISOString(), esCopia: false });
   });
@@ -233,12 +241,15 @@ export function VistaPlan({ id }: { id: string }) {
                   onMover={esCopia || soloLectura ? undefined : (idParada, direccion) => orden.mover(indice, idParada, direccion)}
                   onOptimizar={esCopia || soloLectura ? undefined : (nuevo, aviso) => (nuevo ? orden.aplicarOrden(indice, nuevo, { inmediato: true, aviso }) : orden.informar(aviso || TEXTOS_ORDEN.yaOptimo))}
                   // Soltar es un gesto único: no hay ráfaga que agrupar.
+                  diasPlan={plan.dias}
+                  onArreglar={esCopia || soloLectura ? undefined : (arreglo, idParada) => void arreglos.aplicar(arreglo, idParada, indice)}
                   onReordenar={esCopia || soloLectura ? undefined : (nuevo) => orden.aplicarOrden(indice, nuevo, { inmediato: true })}
                 />
               );
             })()
           )}
           <AvisoOrden orden={orden} />
+          <AvisoArreglo arreglos={arreglos} />
           {soloLectura && (
             <>
               <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />

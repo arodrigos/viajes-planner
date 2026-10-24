@@ -8,7 +8,9 @@ import { formatearFechaDia } from "@/lib/plan/dias";
 import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada } from "@/lib/plan/erroresParada";
 import { TEXTOS_CONFLICTOS } from "@/lib/textos/conflictos";
 import { horariosForzados, instalarGanchosUat, suscribirHorariosForzados, type HorarioForzado } from "@/lib/testing/ganchosUat";
-import { diaParaConflictos } from "./conflictosVista";
+import { diaParaConflictos, diasParaArreglos, type ConflictoDia } from "./conflictosVista";
+import type { ArregloPropuesto } from "@/lib/plan/arreglos";
+import { HojaArreglos } from "./HojaArreglos";
 import { TEXTOS_AHORA } from "@/lib/textos/ahora";
 import { urlRecorridoDia } from "@/lib/plan/urlRecorridoDia";
 import { formatearKm } from "@/lib/formato/numeros";
@@ -38,7 +40,7 @@ const ERROR_CAMBIO_GENERICO = "No se ha podido cambiar la parada. El plan sigue 
 // vive en su propio componente para que el estado de "qué marcador está
 // activo" y las referencias a las tarjetas sean propios de ESTE día, sin
 // mezclarse con los de otro día del mismo plan.
-export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, version, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar, puedeAnadirSitios = false, soloLectura = false }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; version: number; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void; puedeAnadirSitios?: boolean; soloLectura?: boolean }) {
+export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos, planId, version, hoy, zona, onPlanActualizado, onIrAResumen, ordenPendiente, onMover, onOptimizar, onReordenar, diasPlan, onArreglar, puedeAnadirSitios = false, soloLectura = false }: { dia: DiaPublico; destino: string; indice: number; eventos: Evento[]; etapa?: { ciudad: string; caja?: CajaDelimitadora }; planId: string; version: number; hoy: string; zona?: string; onPlanActualizado: () => void; onIrAResumen: () => void; ordenPendiente?: EntradaOrden[]; onMover?: (id: string, direccion: "arriba" | "abajo") => void; onOptimizar?: (orden: EntradaOrden[] | null, aviso: string) => void; onReordenar?: (orden: EntradaOrden[]) => void; diasPlan?: readonly DiaPublico[]; onArreglar?: (arreglo: ArregloPropuesto, paradaId: string) => void; puedeAnadirSitios?: boolean; soloLectura?: boolean }) {
   // El orden de la pantalla se adelanta al del servidor mientras se guarda;
   // la copia del servidor se conserva para atar lo provisional a ella.
   const diaServidor = diaDelServidor;
@@ -91,6 +93,15 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
   const conflictoDe = new Map((evaluacion?.conflictos ?? []).map((c) => [c.paradaId, c]));
   const sinConfirmar = new Set(evaluacion?.sinConfirmar ?? []);
   const nConflictos = conflictoDe.size;
+
+  // arreglo-un-toque: las opciones se calculan al pulsar «Arreglar», con el plan
+  // entero (otro día es una opción) y en el mismo chunk que opening_hours.
+  const [hoja, setHoja] = useState<{ paradaId: string; nombre: string; opciones: ArregloPropuesto[] } | null>(null);
+  async function abrirHoja(paradaId: string, nombre: string, conflicto: ConflictoDia) {
+    if (!diasPlan) return;
+    const { proponerArreglos } = await import("@/lib/plan/arreglos");
+    setHoja({ paradaId, nombre, opciones: proponerArreglos(diasParaArreglos(diasPlan, forzados), indice, conflicto, { opciones: { perfil: null } }) });
+  }
 
   // optimizar-orden: se calcula aquí, en el navegador y sobre el orden que se ve;
   // el hook solo guarda. Una mejora de menos de 0,1 km no merece una versión.
@@ -271,6 +282,7 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                     solicitudGoogle={solicitudGoogle?.paradaId === parada.id ? solicitudGoogle.veces : 0}
                     hoy={hoy}
                     conflicto={conflictoDe.get(parada.id)}
+                    onArreglar={onArreglar && diasPlan && !soloLectura && conflictoDe.has(parada.id) ? () => void abrirHoja(parada.id, parada.nombre, conflictoDe.get(parada.id)!) : undefined}
                     sinConfirmar={sinConfirmar.has(parada.id)}
                     esHoy={esHoy}
                     soloLectura={soloLectura}
@@ -447,6 +459,17 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
         </p>
       )}
       {puedeAnadirSitios && <AnadirSitio onAnadir={sitios.anadir} />}
+      {hoja && (
+        <HojaArreglos
+          nombreParada={hoja.nombre}
+          opciones={hoja.opciones}
+          onCerrar={() => setHoja(null)}
+          onElegir={(arreglo) => {
+            setHoja(null);
+            onArreglar?.(arreglo, hoja.paradaId);
+          }}
+        />
+      )}
       {/* inv-ac1: el invitado llega a ver la primera parada sin desplazarse; el mapa va tras el itinerario. */}
       {soloLectura && seccionMapa}
     </section>

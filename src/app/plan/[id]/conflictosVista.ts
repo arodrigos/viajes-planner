@@ -2,6 +2,8 @@
 // horas de franja) y lo que necesita evaluarDia. Las horas salen de
 // `horario.minutos`, que el servidor ya calculó con las mismas funciones.
 import type { DiaConflictable, ParadaConflictable } from "@/lib/plan/conflictos";
+
+export type { ConflictoDia } from "@/lib/plan/conflictos";
 import type { AlternativaArreglable, PlanArreglable } from "@/lib/plan/arreglos";
 import { horaDeMinutos } from "@/lib/plan/tiempos";
 import type { HorarioForzado } from "@/lib/testing/ganchosUat";
