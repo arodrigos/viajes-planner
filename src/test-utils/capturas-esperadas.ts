@@ -100,4 +100,11 @@ export const CAPTURAS_ESPERADAS = [
   { bloque: "tiempos-unicos", fichero: "recortada-360.png" },
   { bloque: "tiempos-unicos", fichero: "recortada-820.png" },
   { bloque: "tiempos-unicos", fichero: "recortada-1180.png" },
+  { bloque: "apertura-conflictos", fichero: "cabecera-360x640.png" },
+  { bloque: "apertura-conflictos", fichero: "tarjeta-360x640.png" },
+  { bloque: "apertura-conflictos", fichero: "cabecera-820x1180.png" },
+  { bloque: "apertura-conflictos", fichero: "tarjeta-820x1180.png" },
+  { bloque: "apertura-conflictos", fichero: "cabecera-1180x820.png" },
+  { bloque: "apertura-conflictos", fichero: "tarjeta-1180x820.png" },
+  { bloque: "apertura-conflictos", fichero: "sin-confirmar-1180x820.png" },
 ] as const satisfies readonly { bloque: string; fichero: string }[];

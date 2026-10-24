@@ -352,6 +352,43 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+/* bloque apertura-conflictos: el rojo no va solo, lleva el aviso en texto. */
+.conflicto-parada {
+  margin: var(--espacio-1) 0 0;
+  padding: var(--espacio-1) var(--espacio-2);
+  border-left: 3px solid var(--peligro-borde);
+  background: var(--peligro-fondo);
+  color: var(--peligro-texto);
+  font-size: var(--texto-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.fuente-conflicto {
+  display: block;
+  font-size: var(--texto-pequeno);
+  font-weight: 400;
+}
+
+.horario-sin-confirmar {
+  margin: var(--espacio-1) 0 0;
+  font-size: var(--texto-pequeno);
+  color: var(--foreground);
+  opacity: 0.75;
+}
+
+.contador-conflictos {
+  display: inline-block;
+  margin: 0;
+  padding: 0 var(--espacio-2);
+  border: 1px solid var(--peligro-borde);
+  border-radius: 999px;
+  background: var(--peligro-fondo);
+  color: var(--peligro-texto);
+  font-size: var(--texto-base);
+  font-weight: 600;
+}
+
 /* bloque motivo-y-presupuesto: el motivo largo (300 caracteres) tiene que
    partirse dentro de los 390 px en vez de desbordar. */
 .motivo-parada,

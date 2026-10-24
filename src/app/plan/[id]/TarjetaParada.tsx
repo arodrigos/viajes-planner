@@ -12,6 +12,8 @@ import { FichaGoogle } from "./FichaGoogle";
 import { enlacesDeParada } from "@/lib/plan/enlacesParada";
 import { procedenciaHorario } from "@/lib/plan/procedenciaHorario";
 import { TEXTOS_FICHA } from "@/lib/textos/ficha";
+import type { ConflictoDia } from "@/lib/plan/conflictos";
+import { TEXTOS_CONFLICTOS } from "@/lib/textos/conflictos";
 import { TEXTOS_HORARIO } from "@/lib/textos/horario";
 import { IconoFranja } from "./iconosFranja";
 import { IconoSinFoto } from "./iconoSinFoto";
@@ -40,6 +42,9 @@ interface Props {
   // Día de hoy en el destino: la antigüedad del horario se mide contra él.
   hoy: string;
   esHoy: boolean;
+  // apertura-conflictos: lo decide PanelDia para todo el día a la vez.
+  conflicto?: ConflictoDia;
+  sinConfirmar?: boolean;
   esSiguiente: boolean;
   hrefComoLlegar?: string;
   visitaEnCurso: boolean;
@@ -100,7 +105,7 @@ function TarjetaOrdenable(props: Props) {
   return <CuerpoTarjeta {...props} tarjetaRef={unir} asa={asa} arrastrando={isDragging} />;
 }
 
-function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, sitio, soloLectura = false, asa, arrastrando }: PropsCuerpo) {
+function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, activa, solicitudAlternativas, solicitudGoogle, hoy, esHoy, conflicto, sinConfirmar = false, esSiguiente, hrefComoLlegar, visitaEnCurso, cambiando, error, onUsarAlternativa, onAlternarVisita, orden, sitio, soloLectura = false, asa, arrastrando }: PropsCuerpo) {
   const [abierto, setAbierto] = useState<PanelParada | null>(null);
   const [fotoFallida, setFotoFallida] = useState(false);
   const alternativas = parada.alternativas ?? [];
@@ -141,8 +146,10 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
     tieneHorario: Boolean(parada.horario?.fuenteOsm),
     hoy,
     casada: parada.google?.estado === "casado",
-    posibleCierre: Boolean(parada.horario?.posibleCierre),
   });
+  // Un cierre claro de OSM sigue ofreciendo comprobarlo en Google.
+  const ofrecerGoogle = procedencia.ofrecerGoogle || (conflicto !== undefined && parada.google?.estado === "casado");
+  const anioComprobado = conflicto?.procedencia?.comprobado?.slice(0, 4);
   const nConsejos = contarConsejosYCuriosidades(parada.guia, parada.curiosidades);
   // Un sitio propio aún sin ubicar no tiene precio, guía ni ficha de las que
   // hablar: solo su nota y cómo va la búsqueda.
@@ -192,8 +199,22 @@ function CuerpoTarjeta({ planId, parada, franjaId, ciudad, tramo, tarjetaRef, ac
                   {procedencia.aviso && ` · ${procedencia.aviso}`}
                 </p>
               )}
+              {conflicto && (
+                <p className="conflicto-parada" data-testid="conflicto-parada">
+                  <span aria-hidden="true">⚠ </span>
+                  {conflicto.texto}
+                  <span className="fuente-conflicto" data-testid="fuente-conflicto">
+                    {anioComprobado ? TEXTOS_CONFLICTOS.fuente.texto.replace("{anio}", anioComprobado) : TEXTOS_CONFLICTOS.fuenteSinFecha.texto}
+                  </span>
+                </p>
+              )}
+              {sinConfirmar && !conflicto && (
+                <p className="horario-sin-confirmar" data-testid="horario-sin-confirmar">
+                  {TEXTOS_CONFLICTOS.horarioSinConfirmar.texto}
+                </p>
+              )}
               {/* dif-ac2: abre el panel de esta misma tarjeta; si ya estaba montado no hay otra reserva. */}
-              {procedencia.ofrecerGoogle && (
+              {ofrecerGoogle && (
                 <button type="button" className="boton" data-testid="comprobar-en-google" onClick={() => setAbierto("google")}>
                   {TEXTOS_HORARIO.comprobarEnGoogle.texto}
                 </button>

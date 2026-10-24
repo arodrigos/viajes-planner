@@ -202,6 +202,27 @@ con `code` 23505 como 409, nunca como 500. El CI lo comprueba contra la pila
 local de Supabase:
 `BD_URL=<url de la base de pruebas> bash scripts/verificar-bd-prueba.sh choque`.
 
+### Conflictos de horario
+
+Cada día del plan avisa de las paradas que, según el `opening_hours` de
+OpenStreetMap, estarían cerradas en su franja o a la hora a la que se llega
+(`src/lib/plan/apertura.ts` y `src/lib/plan/conflictos.ts`). Solo un cerrado
+claro cuenta como conflicto: una etiqueta ausente, no interpretable, con
+tramos `unknown` o con festivos (`PH`/`SH`) sin país se rotula «Horario sin
+confirmar» y no suma al contador. Esperar a que un sitio abra no es conflicto.
+Se calcula al leer, en el navegador y con un `import()` diferido (la librería
+`opening_hours` va en su propio chunk); no se guarda nada en el plan. El
+servidor solo añade a cada parada la regla y las horas ya calculadas
+(`horario.fuenteOsm.regla`, `horario.minutos`).
+
+«Optimizar orden» no propone un orden que deje cerrado un sitio que hoy no lo
+está: con hasta 8 paradas ubicadas enumera los órdenes posibles y, si ninguno
+mejora sin añadir conflictos, deja el orden como está y lo dice.
+
+Para probarlo a mano, abre un plan con `?pruebas=1` y ejecuta en la consola
+`__debug.forzarHorarioParada({ paradaId, opening_hours: "Mo off; Tu-Su 10:00-18:00" })`.
+Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
+
 ### Sitios propios y compartir
 
 - **Sitios propios** (migración 031): `paradas` tiene `nota` (≤ 200
