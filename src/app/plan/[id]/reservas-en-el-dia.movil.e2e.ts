@@ -127,9 +127,9 @@ test.describe("reservas en el día", () => {
 
     await duenyo.goto(`/plan/${planId}?dia=2`);
     const posicion = async () => (await duenyo.locator("li.tarjeta-parada").allInnerTexts()).findIndex((t) => t.includes("Entrada"));
+    await expect(duenyo.getByTestId("tarjeta-reserva")).toContainText(`Entrada · ${HORA_ENTRADA}`);
     const antes = await posicion();
     expect(antes).toBeGreaterThanOrEqual(0);
-    await expect(duenyo.getByTestId("tarjeta-reserva")).toContainText(`Entrada · ${HORA_ENTRADA}`);
     await duenyo.getByRole("button", { name: "Optimizar orden" }).click();
     await expect(duenyo.locator(".aviso-orden")).toBeVisible();
     expect(await posicion()).toBe(antes);
