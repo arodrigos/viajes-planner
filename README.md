@@ -242,6 +242,23 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   sobre la tabla. `rolEnPlan` y `exigirDuenyo` (`src/lib/plan/propiedad.ts`)
   deciden el rol en cada ruta.
 
+### Reservas con hora fija
+
+- **Reservas** (migración 037): tabla `reservas` (vuelo, tren, hotel o entrada
+  con hora; hasta 30 por viaje) con RLS activada y sin políticas, igual que
+  el resto: solo la toca la web con la clave de servicio. Las rutas `GET`/`POST
+  /api/plan/[id]/reservas` y `PATCH`/`DELETE /api/plan/[id]/reservas/[reservaId]`
+  solo admiten al dueño (un invitado o un ajeno recibe 404, sin sesión 401).
+  Las reglas viven en `src/lib/reservas/validar.ts` y el `CHECK` de la tabla
+  las repite; hora local de pared, sin conversión de zona.
+- El invitado solo recibe en el JSON del plan `reservas` con id, tipo,
+  sentido, fecha y hora (`src/lib/reservas/publico.ts`); localizador, nombres,
+  direcciones y notas no salen del servidor.
+- La ubicación del hotel es opcional: se toma del dispositivo o se pega y se
+  interpreta en local, sin llamar a ningún mapa.
+- Al eliminar un viaje se borran sus reservas de verdad (el borrado del viaje
+  es una marca, así que no salta ningún `ON DELETE CASCADE`).
+
 ### Salud del despliegue
 
 `GET /api/salud` responde 200 si todo está en orden y 503 si no. Informa de:
@@ -285,7 +302,7 @@ src/lib/google/     cupo de Google, estados por parada, ficha y resumen para /ap
 src/lib/cola/, src/lib/trabajador/  cola de trabajos y su procesado (incluido el casado con Google)
 src/verificacion/   suite preview de Playwright contra un despliegue publicado
 src/lib/db/         cliente de Supabase atado al esquema del producto
-supabase/migrations/  migraciones versionadas y solo aditivas (hoy hasta la 035)
+supabase/migrations/  migraciones versionadas y solo aditivas (hoy hasta la 037)
 docs/               fuentes de datos, guía de estilo, relleno de planes, verificación con sesión y viajes por país
 .github/workflows/  CI, reintento del CI y «Pruebas a demanda»
 ```

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { aPlanPublico } from "@/lib/plan/publico";
+import { reservasOpcionales } from "@/lib/reservas/repositorio";
 import { conEstadoGoogle, leerEstadosGoogle } from "@/lib/google/estados";
 import { aPlanCompartido } from "@/lib/plan/compartido";
 import { contarMiembros } from "@/lib/plan/miembros";
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
 
   try {
     const opciones = opcionesTramosDeTrabajo(trabajo);
-    const publico = aPlanPublico(plan, opciones.perfil, trabajo.presupuesto_eur, opciones.transporte, trabajo.intereses);
+    const publico = aPlanPublico(plan, opciones.perfil, trabajo.presupuesto_eur, opciones.transporte, trabajo.intereses, await reservasOpcionales(supabase, id));
     // compartir-datos: el miembro recibe la proyección sin dinero ni alojamiento,
     // ni el id del trabajo, ni el aviso de regeneración, ni el estado de Google.
     if (rol.rol === "miembro") return NextResponse.json(aPlanCompartido(publico), { headers: cabeceras });

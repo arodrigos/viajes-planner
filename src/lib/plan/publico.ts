@@ -1,4 +1,6 @@
 import { interesDeParada, type Interes } from "@/lib/criterios/intereses";
+import { aReservasPublicas } from "@/lib/reservas/publico";
+import type { Reserva, ReservaPublica } from "@/lib/reservas/tipos";
 import { calcularApertura, calcularEtiquetasEncaje, formatearEtiquetasEncaje, vecinosResueltos } from "@/lib/alternativas/encaje";
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
 import { avisoRecortada, horaDeMinutos, minutosDeHora, type HorarioParada } from "./horario";
@@ -110,6 +112,8 @@ export interface DiaPublico {
 }
 
 export interface PlanPublico {
+  // reservas-datos: solo tipo genérico y hora (ReservaPublica), nunca el detalle.
+  reservas?: ReservaPublica[];
   id: string;
   version: number;
   destino: string;
@@ -264,7 +268,7 @@ function nombreCiudadDelDia(plan: Plan, dia: Dia): string {
   return etapa ?? plan.ciudad?.nombre ?? plan.destino;
 }
 
-export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null, intereses: readonly Interes[] | null = null): PlanPublico {
+export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null, intereses: readonly Interes[] | null = null, reservas: readonly Reserva[] = []): PlanPublico {
   const opciones: OpcionesTramos = { perfil, transporte };
   const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur } = calcularPresupuesto(plan);
   return {
@@ -273,6 +277,7 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
     destino: plan.destino,
     personas: plan.personas,
     ...(zonaDelPlan(plan) ? { zona: zonaDelPlan(plan) } : {}),
+    ...(reservas.length > 0 ? { reservas: aReservasPublicas(reservas) } : {}),
     dias: plan.dias.map((dia) => {
       // Una sola llamada por día: conector, rango, paseo y «sal a las» salen
       // de la misma cadena de tiempos.
