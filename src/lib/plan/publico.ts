@@ -279,7 +279,7 @@ function nombreCiudadDelDia(plan: Plan, dia: Dia): string {
 
 export function aPlanPublico(plan: Plan, perfil: string | null = null, presupuestoEur: number | null = null, transporte: readonly string[] | null = null, intereses: readonly Interes[] | null = null, reservas: readonly Reserva[] = []): PlanPublico {
   const opciones: OpcionesTramos = { perfil, transporte };
-  const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur } = calcularPresupuesto(plan);
+  const { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur, por_dia } = calcularPresupuesto(plan);
   return {
     id: plan.id,
     version: plan.version,
@@ -308,6 +308,6 @@ export function aPlanPublico(plan: Plan, perfil: string | null = null, presupues
     ...(plan.etapas ? { etapas: plan.etapas } : {}),
     ...(plan.traslados ? { traslados: plan.traslados } : {}),
     ...(plan.eventos ? { eventos: plan.eventos } : {}),
-    presupuesto: { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur, ...(presupuestoEur !== null ? { tu_presupuesto_eur: presupuestoEur } : {}) },
+    presupuesto: { total_eur, total_estimado_eur, total_de_fuente_eur, alojamiento_eur, traslados_eur, actividades_eur, por_dia, ...(presupuestoEur !== null ? { tu_presupuesto_eur: presupuestoEur } : {}) },
   };
 }

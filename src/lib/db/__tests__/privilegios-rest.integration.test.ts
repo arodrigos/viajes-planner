@@ -45,11 +45,11 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY)("privilegios por RES
     expect(Array.isArray(cuerpo), `${etiqueta} devolvió un array`).toBe(false);
   }
 
-  it.each(["planes", "plan_versiones", "paradas", "reservas"])("la clave anónima no lee %s", async (tabla) => {
+  it.each(["planes", "plan_versiones", "paradas", "reservas", "gastos"])("la clave anónima no lee %s", async (tabla) => {
     await exigirDenegada(await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?select=id`, { headers: cabeceras(ANON_KEY!) }), `anon ${tabla}`);
   });
 
-  it.each(["planes", "plan_versiones", "paradas", "trabajos", "miembros_plan", "reservas"])("un usuario autenticado no lee %s", async (tabla) => {
+  it.each(["planes", "plan_versiones", "paradas", "trabajos", "miembros_plan", "reservas", "gastos"])("un usuario autenticado no lee %s", async (tabla) => {
     await exigirDenegada(await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?select=id`, { headers: cabeceras(u1.accessToken) }), `u1 ${tabla}`);
   });
 
@@ -76,6 +76,18 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY)("privilegios por RES
         method: "POST",
         headers: cabeceras(bearer, { "Content-Profile": ESQUEMA, "content-type": "application/json" }),
         body: JSON.stringify({ p_plan_id: planId, p_version_base: 1, p_dia_origen: 0, p_parada_id: "x", p_dia_destino: 1, p_franja_id: "manana" }),
+      });
+      expect(r.status).not.toBe(200);
+    }
+  });
+
+  // gas-ac4: la 038 cierra guardar_gasto a todo lo que no sea service_role.
+  it("anon y authenticated no ejecutan guardar_gasto", async () => {
+    for (const bearer of [ANON_KEY!, u1.accessToken]) {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/guardar_gasto`, {
+        method: "POST",
+        headers: cabeceras(bearer, { "Content-Profile": ESQUEMA, "content-type": "application/json" }),
+        body: JSON.stringify({ p_plan_id: planId, p_id: "00000000-0000-4000-8000-000000000001", p_importe: 100, p_fecha: null, p_categoria: "transporte", p_concepto: null, p_actualizado: "2027-01-01T00:00:00Z" }),
       });
       expect(r.status).not.toBe(200);
     }
