@@ -9,6 +9,8 @@ import { PanelDia } from "./PanelDia";
 import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
 import { Compartir } from "./Compartir";
 import { SeccionReservas } from "./SeccionReservas";
+import { hotelDelDia, reservasDelDia, reservasPublicasDelDia } from "@/lib/reservas/enElDia";
+import type { Reserva } from "@/lib/reservas/tipos";
 import { ComoLeerPlan } from "./ComoLeerPlan";
 import { GuardarMapas } from "./GuardarMapas";
 import { PanelResumen } from "./PanelResumen";
@@ -39,6 +41,8 @@ export function VistaPlan({ id }: { id: string }) {
   const [recargarContador, setRecargarContador] = useState(0);
   const [elegidoPorUsuario, setElegidoPorUsuario] = useState<DiaElegido | null>(null);
   const moverFoco = useRef(false);
+  // Las reservas completas solo las tiene el dueño; un invitado usa plan.reservas.
+  const [reservasDueno, setReservasDueno] = useState<Reserva[] | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -77,6 +81,28 @@ export function VistaPlan({ id }: { id: string }) {
       cancelado = true;
     };
   }, [id, recargarContador]);
+
+  // La lista del dueño se pide al cargar para pintar sus reservas en el día
+  // sin esperar a que abra la sección «Reservas».
+  const esDueno = plan !== null && plan.compartido?.rol !== "miembro";
+  useEffect(() => {
+    if (!esDueno || lectura?.esCopia) return;
+    let vivo = true;
+    fetch(`/api/plan/${id}/reservas`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((datos: unknown) => {
+        if (vivo && Array.isArray(datos)) setReservasDueno(datos as Reserva[]);
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, [id, esDueno, lectura?.esCopia]);
+
+  const fijos = useMemo(
+    () => (reservasDueno ? (fecha: string) => reservasDelDia(reservasDueno, fecha) : (fecha: string) => reservasPublicasDelDia(plan?.reservas ?? [], fecha)),
+    [reservasDueno, plan?.reservas],
+  );
 
   const esCopia = lectura?.esCopia === true;
   const soloLectura = plan?.compartido?.rol === "miembro";
@@ -213,7 +239,7 @@ export function VistaPlan({ id }: { id: string }) {
           />
           {esCopia && lectura?.leidoEn ? <FranjaCopia leidoEn={lectura.leidoEn} /> : lectura?.leidoEn ? <EstadoCopia planId={id} leidoEn={lectura.leidoEn} /> : null}
           {!soloLectura && <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />}
-          {!soloLectura && !esCopia && <SeccionReservas planId={id} fechas={fechas} />}
+          {!soloLectura && !esCopia && <SeccionReservas planId={id} fechas={fechas} onCambio={setReservasDueno} />}
           {!soloLectura && !esCopia && <Compartir planId={id} />}
           <SelectorDias fechas={fechas} elegido={dia} hoy={hoy} onElegir={elegir} />
           {dia === "resumen" ? (
@@ -244,6 +270,11 @@ export function VistaPlan({ id }: { id: string }) {
                   onOptimizar={esCopia || soloLectura ? undefined : (nuevo, aviso) => (nuevo ? orden.aplicarOrden(indice, nuevo, { inmediato: true, aviso }) : orden.informar(aviso || TEXTOS_ORDEN.yaOptimo))}
                   // Soltar es un gesto único: no hay ráfaga que agrupar.
                   diasPlan={plan.dias}
+                  fijos={fijos}
+                  hotel={(() => {
+                    const h = reservasDueno && !soloLectura ? hotelDelDia(reservasDueno, diaPlan.fecha) : undefined;
+                    return h ? { nombre: h.nombre, ubicacion: h.ubicacion } : null;
+                  })()}
                   onArreglar={esCopia || soloLectura ? undefined : (arreglo, idParada) => void arreglos.aplicar(arreglo, idParada, indice)}
                   onReordenar={esCopia || soloLectura ? undefined : (nuevo) => orden.aplicarOrden(indice, nuevo, { inmediato: true })}
                 />

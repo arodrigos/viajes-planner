@@ -1225,3 +1225,23 @@ footer a,
   white-space: normal;
   text-align: left;
 }
+
+/* reservas-en-el-dia: la hora es lo que importa de una reserva fija. */
+.tarjeta-reserva {
+  align-items: center;
+  border-style: dashed;
+}
+
+.hora-reserva {
+  margin: 0;
+  font-size: var(--texto-grande, 1.25rem);
+  font-weight: 600;
+}
+
+.detalle-reserva {
+  margin: 0;
+}
+
+.ayuda-hotel {
+  margin: 0;
+}

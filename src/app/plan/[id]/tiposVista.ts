@@ -5,6 +5,7 @@ import type { AnclaAlojamiento, CosteParada, CuriosidadesParada, GuiaParada, Eta
 import type { Tramo } from "@/lib/plan/tramos";
 import type { PresupuestoPublico } from "@/lib/presupuesto/texto";
 import type { EventosVersion } from "@/lib/eventos/tipos";
+import type { ReservaPublica } from "@/lib/reservas/tipos";
 
 // Forma que el cliente recibe de /api/plan/[id]; sale de VistaPlan.tsx al
 // trocearlo en componentes.
@@ -136,6 +137,8 @@ export interface PlanPublico {
   // etapas-vista: solo en viajes de varias ciudades.
   etapas?: EtapaPlan[];
   traslados?: TrasladoPlan[];
+  // reservas-datos: el tipo genérico y la hora; el detalle del dueño se pide aparte.
+  reservas?: ReservaPublica[];
   // eventos: ausente mientras el trabajador no los haya consultado.
   eventos?: EventosVersion;
   personas?: number;

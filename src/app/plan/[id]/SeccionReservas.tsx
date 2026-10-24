@@ -9,7 +9,7 @@ import { FormularioReserva } from "./FormularioReserva";
 // Sección del dueño para apuntar a mano sus reservas. Guardar una reserva no
 // toca el plan: esta sección solo habla con /api/plan/[id]/reservas. La lista
 // se pide al abrirla (no al cargar el plan) porque son datos personales.
-export function SeccionReservas({ planId, fechas }: { planId: string; fechas: string[] }) {
+export function SeccionReservas({ planId, fechas, onCambio }: { planId: string; fechas: string[]; onCambio?: (reservas: Reserva[]) => void }) {
   const [abierta, setAbierta] = useState(false);
   const [reservas, setReservas] = useState<Reserva[] | null>(null);
   const [errorLista, setErrorLista] = useState(false);
@@ -33,6 +33,12 @@ export function SeccionReservas({ planId, fechas }: { planId: string; fechas: st
       vivo = false;
     };
   }, [abierta, reservas, planId]);
+
+  // El día necesita la lista del dueño para pintar sus reservas: se le avisa
+  // cada vez que cambia, sin que la sección deje de ser autónoma.
+  useEffect(() => {
+    if (reservas !== null) onCambio?.(reservas);
+  }, [reservas, onCambio]);
 
   const clave = (r: Reserva) => `${r.fecha_inicio}T${r.hora_inicio ?? ""}`;
   const ordenar = (lista: Reserva[]) => [...lista].sort((a, b) => clave(a).localeCompare(clave(b)));
