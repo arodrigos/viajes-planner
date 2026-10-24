@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { eliminarViaje } from "@/lib/cola/eliminar";
@@ -60,7 +61,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("/api/plan/[id]/reservas (res-ac1, r
     expect(mala.status).toBe(400);
     expect(Object.keys((await mala.json()).errores)).toContain("hora_fin");
     const noJson = await POST(
-      new Request(`http://localhost/api/plan/${id}/reservas`, { method: "POST", headers: { cookie: a.cookie, "content-type": "text/plain" }, body: "hola" }) as never,
+      new NextRequest(`http://localhost/api/plan/${id}/reservas`, { method: "POST", headers: { cookie: a.cookie, "content-type": "text/plain" }, body: "hola" }),
       contexto({ id }),
     );
     expect(noJson.status).toBe(415);
