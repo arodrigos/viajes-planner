@@ -45,11 +45,11 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY)("privilegios por RES
     expect(Array.isArray(cuerpo), `${etiqueta} devolvió un array`).toBe(false);
   }
 
-  it.each(["planes", "plan_versiones", "paradas"])("la clave anónima no lee %s", async (tabla) => {
+  it.each(["planes", "plan_versiones", "paradas", "reservas"])("la clave anónima no lee %s", async (tabla) => {
     await exigirDenegada(await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?select=id`, { headers: cabeceras(ANON_KEY!) }), `anon ${tabla}`);
   });
 
-  it.each(["planes", "plan_versiones", "paradas", "trabajos", "miembros_plan"])("un usuario autenticado no lee %s", async (tabla) => {
+  it.each(["planes", "plan_versiones", "paradas", "trabajos", "miembros_plan", "reservas"])("un usuario autenticado no lee %s", async (tabla) => {
     await exigirDenegada(await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?select=id`, { headers: cabeceras(u1.accessToken) }), `u1 ${tabla}`);
   });
 

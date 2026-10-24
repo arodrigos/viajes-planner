@@ -141,6 +141,8 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("matriz de roles por ruta (cmd-ac4)"
       "plan/[id]/paradas/[paradaId]/mover-dia/route.ts",
       "plan/[id]/paradas/[paradaId]/sustituir/route.ts",
       "plan/[id]/regenerar/route.ts",
+      "plan/[id]/reservas/route.ts",
+      "plan/[id]/reservas/[reservaId]/route.ts",
       "plan/[id]/sitios/route.ts",
       "plan/[id]/sitios/[idExterno]/route.ts",
       "plan/[id]/visitas/route.ts",

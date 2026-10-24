@@ -3,6 +3,7 @@ import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { conEstadoGoogle, leerEstadosGoogle } from "@/lib/google/estados";
 import { aPlanPublico } from "@/lib/plan/publico";
+import { reservasOpcionales } from "@/lib/reservas/repositorio";
 import { exigirDuenyo, opcionesTramosDeTrabajo } from "@/lib/plan/propiedad";
 import { recuperarPlan } from "@/lib/plan/repositorio";
 import { validarOrden, type EntradaOrden, type PeticionOrden } from "@/lib/plan/reordenar";
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
     const plan = await recuperarPlan(supabase, id);
     if (!plan) return NextResponse.json({ error: "no encontrado" }, { status: 404 });
     const opciones = opcionesTramosDeTrabajo(trabajo);
-    const publico = aPlanPublico(plan, opciones.perfil, trabajo.presupuesto_eur, opciones.transporte, trabajo.intereses);
+    const publico = aPlanPublico(plan, opciones.perfil, trabajo.presupuesto_eur, opciones.transporte, trabajo.intereses, await reservasOpcionales(supabase, id));
     const conGoogle = await leerEstadosGoogle(supabase, plan).then(
       (estados) => conEstadoGoogle(publico, estados),
       () => publico,
