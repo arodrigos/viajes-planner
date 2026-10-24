@@ -52,6 +52,10 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
   // Resuelve cuando el servidor confirma (true) o rechaza (false) el arreglo en
   // vuelo: «Deshacer» ya se ofrece antes y espera aquí para usar la versión nueva.
   const vuelo = useRef<Promise<boolean> | null>(null);
+  // «Deshacer» pinta antes de enviar: un releer() del arreglo que aún vuele no
+  // debe volver a pintar el plan de antes de deshacer. Cada deshacer sube la época.
+  const epoca = useRef(0);
+  const deshaciendo = useRef(false);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     planRef.current = plan;
@@ -72,10 +76,12 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
   }, []);
 
   const releer = useCallback(async (): Promise<PlanPublico | null> => {
+    const mia = epoca.current;
     try {
       const r = await fetch(`/api/plan/${planRef.current.id}`);
       if (!r.ok) return null;
       const nuevo = (await r.json()) as PlanPublico;
+      if (mia !== epoca.current) return null;
       planRef.current = nuevo;
       alActualizarRef.current(nuevo);
       return nuevo;
@@ -101,7 +107,14 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
     }
     try {
       const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
-      if (r.ok) return "ok";
+      if (r.ok) {
+        // La versión nueva viene en la propia respuesta: así el siguiente envío
+        // (Deshacer) no espera a releer el plan entero.
+        const datos = (await r.json().catch(() => null)) as { version?: unknown; plan?: { version?: unknown } } | null;
+        const nueva = datos?.version ?? datos?.plan?.version;
+        if (typeof nueva === "number") planRef.current = { ...planRef.current, version: nueva };
+        return "ok";
+      }
       if (r.status === 409) return "desfasada";
       if (r.status === 429) return "demasiados";
       return "error";
@@ -203,12 +216,16 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
           return await fallar(resultado, antes);
         }
         confirmado = true;
+        // «Deshacer» pendiente puede seguir ya: no tiene que esperar al releer.
+        cerrarVuelo(true);
         await releer();
       } finally {
         cerrarVuelo(confirmado);
         vuelo.current = null;
-        enCurso.current = false;
-        setOcupado(false);
+        if (!deshaciendo.current) {
+          enCurso.current = false;
+          setOcupado(false);
+        }
       }
     },
     [enviar, fallar, mostrarAviso, pintar, releer],
@@ -220,21 +237,24 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
     inverso.current = null;
     const pendiente = vuelo.current;
     void (async () => {
-      // Si el arreglo aún se está guardando se espera a su confirmación; si
-      // falló, ya se revirtió solo y no hay nada que deshacer.
-      if (pendiente && !(await pendiente)) return;
+      deshaciendo.current = true;
+      epoca.current += 1;
       enCurso.current = true;
       setOcupado(true);
       setError(null);
       mostrarAviso(null);
+      // Se pinta ya, sin esperar al guardado del arreglo; si ese falla, su
+      // propia reversión devuelve el plan de antes y aquí no hay nada que enviar.
       const antes = planRef.current;
+      pintar(operacion);
       try {
-        pintar(operacion);
+        if (pendiente && !(await pendiente)) return;
         const resultado = await enviar(operacion);
         if (resultado !== "ok") return await fallar(resultado, antes);
         await releer();
         mostrarAviso({ texto: TEXTOS_ARREGLOS.restaurada.texto, conDeshacer: false });
       } finally {
+        deshaciendo.current = false;
         enCurso.current = false;
         setOcupado(false);
       }

@@ -123,12 +123,24 @@ describe("useArreglos: aviso optimista (arr-ac1, latencia)", () => {
     const segundo = vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? respuesta(200, { version: 3 }) : respuesta(200, plan(2, ["b"], ["c", "a"]))));
     vi.stubGlobal("fetch", segundo);
     await act(async () => {
-      soltar(new Response("{}", { status: 200 }));
+      soltar(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
       await fin;
     });
     await waitFor(() => expect(result.current.aviso?.texto).toBe("Parada restaurada"));
     const post = segundo.mock.calls.find(([, init]) => init?.method === "POST") as [string, RequestInit];
     expect(JSON.parse(post[1].body as string).version_base).toBe(2);
+  });
+
+  it("Deshacer pinta la parada de vuelta al instante, aunque el guardado siga en vuelo", async () => {
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? new Promise<Response>(() => {}) : respuesta(200, INICIAL))));
+    const { result } = montar();
+    act(() => {
+      void result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    expect(result.current.plan).not.toBe(INICIAL);
+    act(() => result.current.deshacer());
+    await waitFor(() => expect(result.current.plan.dias.map((d) => d.paradas.map((p) => p.id))).toEqual(INICIAL.dias.map((d) => d.paradas.map((p) => p.id))));
+    expect(result.current.aviso).toBeNull();
   });
 });
 
