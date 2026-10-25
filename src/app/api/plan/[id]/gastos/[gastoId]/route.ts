@@ -15,7 +15,7 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   if (supabase instanceof Response) return supabase;
   if (!esUuid(gastoId)) return NextResponse.json({ error: E.cuerpo }, { status: 400 });
   try {
-    const leido = await leerCuerpoGasto(request);
+    const leido = await leerCuerpoGasto(request, supabase, id);
     if ("respuesta" in leido) return leido.respuesta;
     if (!leido.resultado.ok) return NextResponse.json({ error: mensajeErrores(leido.resultado.errores), errores: leido.resultado.errores }, { status: 400 });
     if ((await contarGastos(supabase, id)) >= TOPE_GASTOS && !(await existeGastoEnPlan(supabase, id, gastoId))) {

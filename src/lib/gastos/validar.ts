@@ -41,7 +41,13 @@ export function importeACentimos(texto: string): number | null {
   return Number.isSafeInteger(centimos) ? centimos : null;
 }
 
-export function validarGasto(entrada: unknown): ResultadoGasto {
+export interface ContextoGasto {
+  // Días del viaje (YYYY-MM-DD). El formulario solo deja elegir uno de ellos y
+  // la ruta exige lo mismo; sin ellos solo se comprueba que la fecha exista.
+  fechasViaje?: readonly string[];
+}
+
+export function validarGasto(entrada: unknown, contexto: ContextoGasto = {}): ResultadoGasto {
   if (typeof entrada !== "object" || entrada === null || Array.isArray(entrada)) return { ok: false, errores: { general: E.cuerpo } };
   const e = entrada as Record<string, unknown>;
   const errores: ErroresGasto = {};
@@ -54,7 +60,7 @@ export function validarGasto(entrada: unknown): ResultadoGasto {
 
   const sinFecha = e.fecha === undefined || e.fecha === null || e.fecha === "";
   const fecha = sinFecha ? null : fechaValida(e.fecha);
-  if (!sinFecha && fecha === null) errores.fecha = E.fecha;
+  if (!sinFecha && (fecha === null || (contexto.fechasViaje && !contexto.fechasViaje.includes(fecha)))) errores.fecha = E.fecha;
   else if (categoria === "alojamiento" && fecha !== null) errores.fecha = E.alojamientoSinDia;
   else if ((categoria === "comida" || categoria === "entradas") && fecha === null) errores.fecha = E.elegirDia;
 

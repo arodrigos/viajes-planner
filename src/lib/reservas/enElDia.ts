@@ -80,3 +80,21 @@ export function franjaDelElemento(fijo: ElementoFijo, franjas: readonly { id: st
   if (fijo.sinHora) return null;
   return franjas.find((f) => fijo.desdeMin >= f.desdeMin && fijo.desdeMin < f.hastaMin)?.id ?? null;
 }
+
+export type ElementoDeFranja<T> = { fijo: ElementoFijo } | { parada: T };
+
+// Dentro de una franja el día se lee en orden de hora: cada elemento fijo va
+// justo antes de la primera parada que empieza a su hora o después. Las
+// paradas conservan su orden (es el del usuario) y una parada sin hora no
+// sirve de referencia, así que no adelanta ni retrasa ningún fijo. A igual
+// hora va antes el fijo: es lo que no se mueve.
+export function intercalarFijos<T>(paradas: readonly T[], fijos: readonly ElementoFijo[], inicioMin: (parada: T) => number | undefined): ElementoDeFranja<T>[] {
+  const pendientes = [...fijos].sort((a, b) => a.desdeMin - b.desdeMin);
+  const resultado: ElementoDeFranja<T>[] = [];
+  for (const parada of paradas) {
+    const inicio = inicioMin(parada);
+    while (inicio !== undefined && pendientes.length > 0 && pendientes[0].desdeMin <= inicio) resultado.push({ fijo: pendientes.shift()! });
+    resultado.push({ parada });
+  }
+  return [...resultado, ...pendientes.map((fijo) => ({ fijo }))];
+}

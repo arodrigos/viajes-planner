@@ -65,6 +65,24 @@ describe("reservas en el día (res-dia-ac1)", () => {
     expect(await screen.findByTestId("sales-de")).toHaveTextContent("Sales de: Hotel Sole");
   });
 
+  it("la entrada se pinta en su hora dentro de la franja, tras la parada que acaba antes, con su candado", async () => {
+    const entrada: Reserva = { id: "e1", tipo: "entrada", fecha_inicio: FECHA, hora_inicio: "10:30", nombre: "Musei Vaticani" };
+    const conManana = plan();
+    conManana.dias[0].paradas = [
+      { id: "b", franja_id: "manana", nombre: "Basilica di San Pietro", descripcion: "d", coordenadas: { lat: 41.9, lon: 12.45 }, procedencia: { fuente: "osm", url: "https://www.openstreetmap.org/way/2" }, horario: { inicio: "09:00", fin: "10:00", recortada: false, apertura: "" } },
+      ...conManana.dias[0].paradas,
+    ] as typeof conManana.dias[0]["paradas"];
+    simular(conManana, [entrada]);
+    render(<VistaPlan id="p" />);
+    const tarjetaEntrada = await screen.findByTestId("tarjeta-reserva");
+    expect(within(tarjetaEntrada).getByText("Entrada · 10:30")).toBeInTheDocument();
+    expect(tarjetaEntrada.querySelector(".candado-reserva")).not.toBeNull();
+    const manana = screen.getByRole("heading", { name: "Mañana" }).closest(".seccion-franja") as HTMLElement;
+    const basilica = within(manana).getByText("Basilica di San Pietro").closest("li")!;
+    expect(manana.contains(tarjetaEntrada)).toBe(true);
+    expect(basilica.compareDocumentPosition(tarjetaEntrada) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("sin ubicación del hotel, el día lo explica en vez de inventar un punto de partida", async () => {
     simular(plan(), [{ ...HOTEL, ubicacion: undefined }]);
     render(<VistaPlan id="p" />);

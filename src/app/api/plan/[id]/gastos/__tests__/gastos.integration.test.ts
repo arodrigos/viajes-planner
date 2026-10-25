@@ -16,7 +16,8 @@ const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const T1 = "2027-01-01T10:00:00.000Z";
 const T0 = "2027-01-01T09:00:00.000Z";
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const ENTRADAS = { importe_centimos: 1200, categoria: "entradas", fecha: "2027-03-06", actualizado_cliente: T1 };
+// 2027-03-05 es el único día del plan sembrado: una fecha fuera del viaje se rechaza.
+const ENTRADAS = { importe_centimos: 1200, categoria: "entradas", fecha: "2027-03-05", actualizado_cliente: T1 };
 
 describe.skipIf(!SUPABASE_URL || !ANON_KEY)("/api/plan/[id]/gastos (gas-ac2, gas-ac4, gas-ac6)", () => {
   const servicio = clienteDePrueba("servicio");
@@ -59,7 +60,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("/api/plan/[id]/gastos (gas-ac2, gas
     expect(await filas(id)).toEqual([{ id: uuid(1), importe_centimos: 1700 }]);
   });
 
-  it("gas-ac2: DELETE de lo que no existe da 204; categoría inválida y regla de día dan 400 con texto; sin JSON 415", async () => {
+  it("gas-ac2: DELETE de lo que no existe da 204; categoría inválida, regla de día y fecha fuera del viaje dan 400 con texto; sin JSON 415", async () => {
     const id = await plan("reglas");
     expect((await quitar(a, id, uuid(2))).status).toBe(204);
     expect((await quitar(a, id, uuid(2))).status).toBe(204);
@@ -68,6 +69,9 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("/api/plan/[id]/gastos (gas-ac2, gas
     expect((await ocio.json()).error).toBe(E.categoria);
     expect((await (await poner(a, id, uuid(3), { ...ENTRADAS, categoria: "alojamiento" })).json()).error).toBe(E.alojamientoSinDia);
     expect((await (await poner(a, id, uuid(3), { ...ENTRADAS, fecha: null })).json()).error).toBe(E.elegirDia);
+    const fueraDelViaje = await poner(a, id, uuid(3), { ...ENTRADAS, fecha: "2030-01-01" });
+    expect(fueraDelViaje.status).toBe(400);
+    expect((await fueraDelViaje.json()).error).toBe(E.fecha);
     expect((await poner(a, id, uuid(3), { ...ENTRADAS, categoria: "transporte", fecha: null })).status).toBe(200);
     const noJson = await PUT(
       new NextRequest(`http://localhost/api/plan/${id}/gastos/${uuid(4)}`, { method: "PUT", headers: { cookie: a.cookie, "content-type": "text/plain" }, body: "hola" }),
