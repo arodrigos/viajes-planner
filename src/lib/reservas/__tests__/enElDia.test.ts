@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { franjaDelElemento, hotelDelDia, reservasDelDia, reservasPublicasDelDia } from "../enElDia";
+import { franjaDelElemento, hotelDelDia, intercalarFijos, reservasDelDia, reservasPublicasDelDia, type ElementoFijo } from "../enElDia";
 import { aReservasPublicas } from "../publico";
 import type { Reserva } from "../tipos";
 
@@ -49,6 +49,26 @@ describe("reservasDelDia (res-dia-ac1)", () => {
     expect(franjaDelElemento({ reservaId: "x", tipo: "entrada", clase: "entrada", desdeMin: 630, hastaMin: 720 }, franjas)).toBe("manana");
     expect(franjaDelElemento({ reservaId: "x", tipo: "entrada", clase: "entrada", desdeMin: 23 * 60 + 30, hastaMin: 1500 }, franjas)).toBeNull();
     expect(franjaDelElemento({ reservaId: "h", tipo: "hotel", clase: "hotel", desdeMin: 1439, hastaMin: 1439, sinHora: true }, franjas)).toBeNull();
+  });
+});
+
+describe("intercalarFijos (res-dia-ac1)", () => {
+  const fijo = (id: string, desdeMin: number): ElementoFijo => ({ reservaId: id, tipo: "entrada", clase: "entrada", desdeMin, hastaMin: desdeMin + 90 });
+  const paradas = [
+    { id: "a", inicio: 9 * 60 },
+    { id: "b", inicio: 11 * 60 },
+    { id: "c", inicio: undefined },
+    { id: "d", inicio: 12 * 60 },
+  ];
+  const leer = (r: ReturnType<typeof intercalarFijos<(typeof paradas)[number]>>) => r.map((e) => ("fijo" in e ? e.fijo.reservaId : e.parada.id));
+
+  it("la entrada de las 10:30 va tras la parada de las 09:00 y antes de la de las 11:00, no la primera de la franja", () => {
+    expect(leer(intercalarFijos(paradas, [fijo("e1", 10 * 60 + 30)], (p) => p.inicio))).toEqual(["a", "e1", "b", "c", "d"]);
+  });
+
+  it("antes de todo, a la misma hora que una parada, tras todo; una parada sin hora no cuenta y nada se pierde", () => {
+    const fijos = [fijo("tarde", 13 * 60), fijo("pronto", 8 * 60), fijo("empate", 11 * 60), fijo("tras-sin-hora", 11 * 60 + 30)];
+    expect(leer(intercalarFijos(paradas, fijos, (p) => p.inicio))).toEqual(["pronto", "a", "empate", "b", "c", "tras-sin-hora", "d", "tarde"]);
   });
 });
 

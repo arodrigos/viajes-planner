@@ -9,7 +9,8 @@ import { ERRORES_VACIOS, fijarError, leerError, limpiarError, type ErroresParada
 import { TEXTOS_CONFLICTOS } from "@/lib/textos/conflictos";
 import { horariosForzados, instalarGanchosUat, suscribirHorariosForzados, type HorarioForzado } from "@/lib/testing/ganchosUat";
 import { diaParaConflictos, diasParaArreglos, type ConflictoDia, type FijosDeFecha } from "./conflictosVista";
-import { franjaDelElemento } from "@/lib/reservas/enElDia";
+import { franjaDelElemento, intercalarFijos } from "@/lib/reservas/enElDia";
+import { minutosDeHora } from "@/lib/plan/tiempos";
 import { TEXTOS_RESERVAS } from "@/lib/textos/reservas";
 import { TarjetaReserva } from "./TarjetaReserva";
 import type { ArregloPropuesto } from "@/lib/plan/arreglos";
@@ -288,51 +289,52 @@ export function PanelDia({ dia: diaDelServidor, indice, etapa, destino, eventos,
                 <h3>{franja.etiqueta}</h3>
               </div>
               <ul className="pila">
-                {fijosDeLaFranja.map((f) => (
-                  <TarjetaReserva key={f.reservaId} fijo={f} />
-                ))}
-                {paradasDeLaFranja.map((parada) => (
-                  <TarjetaParada
-                    key={parada.id}
-                    planId={planId}
-                    parada={nombresProvisionales?.[parada.id] ? { ...parada, nombre: nombresProvisionales[parada.id] } : parada}
-                    franjaId={franja.id}
-                    ciudad={etapa?.ciudad ?? destino}
-                    tramo={tramoHasta.get(parada.id)}
-                    tarjetaRef={(elemento) => {
-                      if (elemento) refsTarjetas.current.set(parada.id, elemento);
-                      else refsTarjetas.current.delete(parada.id);
-                    }}
-                    activa={parada.id === paradaActivaId}
-                    solicitudAlternativas={solicitudAlternativas?.paradaId === parada.id ? solicitudAlternativas.veces : 0}
-                    solicitudGoogle={solicitudGoogle?.paradaId === parada.id ? solicitudGoogle.veces : 0}
-                    hoy={hoy}
-                    conflicto={conflictoDe.get(parada.id)}
-                    onArreglar={onArreglar && diasPlan && !soloLectura && conflictoDe.has(parada.id) ? () => void abrirHoja(parada.id, parada.nombre, conflictoDe.get(parada.id)!) : undefined}
-                    sinConfirmar={sinConfirmar.has(parada.id)}
-                    esHoy={esHoy}
-                    soloLectura={soloLectura}
-                    esSiguiente={siguienteParada?.id === parada.id}
-                    hrefComoLlegar={hrefComoLlegar ?? undefined}
-                    visitaEnCurso={paradaConVisitaEnCurso === parada.id}
-                    cambiando={cambiando}
-                    error={leerError(errores, parada.id)}
-                    onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
-                    onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
-                    sitio={!soloLectura && parada.propia && !sitios.anadidos.includes(parada) ? { onCorregir: (nombre) => sitios.corregir(parada.id, nombre), onQuitar: () => sitios.quitar(parada.id) } : undefined}
-                    arrastre={conAsa && conControles && !sitios.anadidos.includes(parada) ? { indice: paradasDeLaFranja.indexOf(parada), reducirMovimiento: reducirMovimiento() } : undefined}
-                    orden={
-                      conControles && !sitios.anadidos.includes(parada)
-                        ? {
-                            numero: dia.paradas.indexOf(parada) + 1,
-                            esPrimera: !puedeMoverParada(ordenActual, parada.id, "arriba"),
-                            esUltima: !puedeMoverParada(ordenActual, parada.id, "abajo"),
-                            onMover: (direccion) => onMover(parada.id, direccion),
-                          }
-                        : undefined
-                    }
-                  />
-                ))}
+                {intercalarFijos(paradasDeLaFranja, fijosDeLaFranja, (p) => (p.horario ? minutosDeHora(p.horario.inicio) : undefined)).map((pieza) => {
+                  if ("fijo" in pieza) return <TarjetaReserva key={pieza.fijo.reservaId} fijo={pieza.fijo} />;
+                  const parada = pieza.parada;
+                  return (
+                    <TarjetaParada
+                      key={parada.id}
+                      planId={planId}
+                      parada={nombresProvisionales?.[parada.id] ? { ...parada, nombre: nombresProvisionales[parada.id] } : parada}
+                      franjaId={franja.id}
+                      ciudad={etapa?.ciudad ?? destino}
+                      tramo={tramoHasta.get(parada.id)}
+                      tarjetaRef={(elemento) => {
+                        if (elemento) refsTarjetas.current.set(parada.id, elemento);
+                        else refsTarjetas.current.delete(parada.id);
+                      }}
+                      activa={parada.id === paradaActivaId}
+                      solicitudAlternativas={solicitudAlternativas?.paradaId === parada.id ? solicitudAlternativas.veces : 0}
+                      solicitudGoogle={solicitudGoogle?.paradaId === parada.id ? solicitudGoogle.veces : 0}
+                      hoy={hoy}
+                      conflicto={conflictoDe.get(parada.id)}
+                      onArreglar={onArreglar && diasPlan && !soloLectura && conflictoDe.has(parada.id) ? () => void abrirHoja(parada.id, parada.nombre, conflictoDe.get(parada.id)!) : undefined}
+                      sinConfirmar={sinConfirmar.has(parada.id)}
+                      esHoy={esHoy}
+                      soloLectura={soloLectura}
+                      esSiguiente={siguienteParada?.id === parada.id}
+                      hrefComoLlegar={hrefComoLlegar ?? undefined}
+                      visitaEnCurso={paradaConVisitaEnCurso === parada.id}
+                      cambiando={cambiando}
+                      error={leerError(errores, parada.id)}
+                      onUsarAlternativa={(alternativaId, nombre) => usarAlternativa(parada.id, alternativaId, nombre)}
+                      onAlternarVisita={(visitadaActualmente) => alternarVisita(parada.id, visitadaActualmente)}
+                      sitio={!soloLectura && parada.propia && !sitios.anadidos.includes(parada) ? { onCorregir: (nombre) => sitios.corregir(parada.id, nombre), onQuitar: () => sitios.quitar(parada.id) } : undefined}
+                      arrastre={conAsa && conControles && !sitios.anadidos.includes(parada) ? { indice: paradasDeLaFranja.indexOf(parada), reducirMovimiento: reducirMovimiento() } : undefined}
+                      orden={
+                        conControles && !sitios.anadidos.includes(parada)
+                          ? {
+                              numero: dia.paradas.indexOf(parada) + 1,
+                              esPrimera: !puedeMoverParada(ordenActual, parada.id, "arriba"),
+                              esUltima: !puedeMoverParada(ordenActual, parada.id, "abajo"),
+                              onMover: (direccion) => onMover(parada.id, direccion),
+                            }
+                          : undefined
+                      }
+                    />
+                  );
+                })}
               </ul>
             </div>
           );

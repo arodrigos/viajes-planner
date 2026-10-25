@@ -4,7 +4,7 @@
 // quitar la parada.
 import { nombreDiaSemana, ordenConParadaEnFranja, type DiaMovible } from "./aplicarArreglo";
 import { evaluarApertura, evaluarDia, type ConflictoDia, type ContextoConflictos, type DiaConflictable, type EvaluacionDia, type ParadaConflictable } from "./conflictos";
-import { horaDeMinutos } from "./tiempos";
+import { calcularTiemposDia, horaDeMinutos } from "./tiempos";
 import type { ElementoFijo } from "@/lib/reservas/enElDia";
 import { TEXTOS_ARREGLOS } from "@/lib/textos/arreglos";
 
@@ -59,6 +59,15 @@ function sinEmpeorar(antes: EvaluacionDia, despues: EvaluacionDia, paradaId: str
   return despues.conflictos.every((c) => previos.has(c.paradaId));
 }
 
+// Pasarse del final de la franja no cuenta como conflicto (la tarjeta solo
+// avisa de que va recortada), pero un arreglo que deja la visita a medias en
+// otra franja no arregla nada: solo se propone lo que cabe entero. Ninguna
+// opción recorta la duración, porque la duración no la decide el arreglo.
+function cabeEnSuFranja(dia: DiaArreglable, paradaId: string, contexto: ContextoConflictos): boolean {
+  const horario = calcularTiemposDia(dia as unknown as Parameters<typeof calcularTiemposDia>[0], contexto.opciones).horarios[paradaId];
+  return horario !== undefined && horario.excesoMin === 0;
+}
+
 // De la apertura del día entero sale el motivo que ve la persona: abre de X a Y.
 function motivoApertura(regla: string, checkDate: string | undefined, fecha: string, parada: { lat: number; lon: number }, contexto: ContextoConflictos): string | null {
   const dia = evaluarApertura({
@@ -109,7 +118,7 @@ export function proponerArreglos(plan: PlanArreglable, diaIndex: number, conflic
   for (const { f } of porCercania(dia.franjas, indiceActual)) {
     if (f.id === parada.franja_id) continue;
     const candidato = conParadaEn(dia, ordenConParadaEnFranja(dia, parada.id, f.id));
-    if (!sinEmpeorar(antesDia, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario)) continue;
+    if (!sinEmpeorar(antesDia, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario) || !cabeEnSuFranja(candidato, parada.id, contextoPuro)) continue;
     const porQue = motivo(dia.fecha);
     if (!porQue) continue;
     opciones.push({ tipo: "otra-franja", diaIndex, franjaId: f.id, etiqueta: rellenar(TEXTOS_ARREGLOS.pasarA.texto, { franja: conArticulo(f.etiqueta), motivo: porQue }) });
@@ -127,7 +136,7 @@ export function proponerArreglos(plan: PlanArreglable, diaIndex: number, conflic
       const trasladada: ParadaArreglable = { ...parada, franja_id: f.id };
       const orden = ordenConParadaEnFranja({ ...d, paradas: [...d.paradas, trasladada] }, parada.id, f.id);
       const candidato = conParadaEn({ ...d, paradas: [...d.paradas, trasladada] }, orden);
-      if (!sinEmpeorar(antes, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario)) continue;
+      if (!sinEmpeorar(antes, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario) || !cabeEnSuFranja(candidato, parada.id, contextoPuro)) continue;
       const porQue = motivo(d.fecha);
       if (!porQue) continue;
       const etiqueta =
@@ -149,7 +158,7 @@ export function proponerArreglos(plan: PlanArreglable, diaIndex: number, conflic
       lugar: { etiquetas: { opening_hours: alternativa.opening_hours, ...(alternativa.check_date ? { check_date_opening_hours: alternativa.check_date } : {}) } },
     };
     const candidato = { ...dia, paradas: dia.paradas.map((p) => (p.id === parada.id ? sustituta : p)) };
-    if (!sinEmpeorar(antesDia, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario)) continue;
+    if (!sinEmpeorar(antesDia, evaluarDia(candidato, contextoPuro), parada.id, exigirHorario) || !cabeEnSuFranja(candidato, parada.id, contextoPuro)) continue;
     const porQue = motivoApertura(alternativa.opening_hours, alternativa.check_date, dia.fecha, alternativa.coordenadas, contexto);
     if (!porQue) continue;
     opciones.push({ tipo: "alternativa", alternativaId: alternativa.id, etiqueta: rellenar(TEXTOS_ARREGLOS.cambiarPor.texto, { nombre: alternativa.nombre, motivo: porQue }) });

@@ -42,7 +42,7 @@ export function FormularioGasto({ fechas, diaInicial, inicial, onGuardar, onCanc
     setErrorServidor(null);
     const centimos = importeACentimos(importe);
     const candidato = { importe_centimos: centimos ?? 0, fecha: fechaEfectiva === "" ? null : fechaEfectiva, categoria, concepto, actualizado_cliente: new Date().toISOString() };
-    const r = validarGasto(candidato);
+    const r = validarGasto(candidato, { fechasViaje: fechas });
     if (centimos === null || !r.ok) {
       setErrores(!r.ok ? { ...r.errores, ...(centimos === null ? { importe_centimos: E.importe } : {}) } : { importe_centimos: E.importe });
       return;

@@ -30,6 +30,13 @@ describe("validarGasto (gas-ac2)", () => {
     expect(validarGasto({ ...base, categoria: "transporte", fecha: null }).ok).toBe(true);
     expect(validarGasto({ ...base, categoria: "ocio" })).toMatchObject({ ok: false, errores: { categoria: E.categoria } });
   });
+  it("con los días del viaje, una fecha fuera de ellos es la misma «Elige un día válido del viaje»", () => {
+    const fechasViaje = ["2027-03-05", "2027-03-06"];
+    expect(validarGasto({ ...base, fecha: "2030-01-01" }, { fechasViaje })).toMatchObject({ ok: false, errores: { fecha: E.fecha } });
+    expect(validarGasto({ ...base, categoria: "transporte", fecha: "2027-03-07" }, { fechasViaje })).toMatchObject({ ok: false, errores: { fecha: E.fecha } });
+    expect(validarGasto(base, { fechasViaje }).ok).toBe(true);
+    expect(validarGasto({ ...base, categoria: "transporte", fecha: null }, { fechasViaje }).ok).toBe(true);
+  });
   it("rechaza importes fuera de rango", () => {
     for (const importe_centimos of [0, -1, 10_000_001, 1.5, "3"]) expect(validarGasto({ ...base, importe_centimos })).toMatchObject({ ok: false, errores: { importe_centimos: E.importe } });
   });

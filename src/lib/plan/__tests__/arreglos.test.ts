@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { moverParadaDeDia, ordenConParadaEnFranja, type MovimientoDia } from "../aplicarArreglo";
 import { proponerArreglos, type DiaArreglable, type ParadaArreglable, type PlanArreglable } from "../arreglos";
 import { detectarConflictosDia, evaluarDia } from "../conflictos";
+import { calcularTiemposDia } from "../tiempos";
 
 const FRANJAS = [
   { id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" },
@@ -57,6 +58,28 @@ describe("proponerArreglos (arr-ac2)", () => {
     expect(proponerArreglos(plan, 0, conflictoDe(plan, 0, "p"), ctx)).toEqual([]);
   });
 
+  it("no propone pasar a una franja en la que la visita no cabe entera: la comida acaba a las 15:30 y el Coliseo acabaría más tarde", () => {
+    const franjas = [
+      { id: "manana", etiqueta: "Mañana", hora_inicio: "09:00", hora_fin: "13:00" },
+      { id: "comida", etiqueta: "Comida", hora_inicio: "13:30", hora_fin: "15:30" },
+      { id: "tarde", etiqueta: "Tarde", hora_inicio: "16:00", hora_fin: "20:00" },
+    ];
+    const entradaVaticano = { reservaId: "e1", tipo: "entrada" as const, clase: "entrada" as const, desdeMin: 9 * 60, hastaMin: 12 * 60 };
+    const coliseo = parada("coliseo", "manana", undefined, { duracion_min: 120 });
+    const almuerzo = parada("almuerzo", "comida", undefined, { duracion_min: 60 });
+    const plan: PlanArreglable = { dias: [{ fecha: FECHAS[0], franjas, paradas: [coliseo, almuerzo], reservas: [entradaVaticano] }] };
+    const conflicto = conflictoDe(plan, 0, "coliseo");
+    expect(conflicto.clase).toBe("solapa-reserva");
+
+    // Sin el arreglo, la primera opción sería la comida (la franja más cercana) aunque se pase de las 15:30.
+    const enComida = { ...plan.dias[0], paradas: ordenConParadaEnFranja(plan.dias[0], "coliseo", "comida").map((e) => ({ ...[coliseo, almuerzo].find((p) => p.id === e.id)!, franja_id: e.franja_id })) };
+    expect(calcularTiemposDia(enComida as never, ctx.opciones).horarios.coliseo.excesoMin).toBeGreaterThan(0);
+
+    const opciones = proponerArreglos(plan, 0, conflicto, ctx);
+    expect(opciones.some((o) => o.tipo === "otra-franja" && o.franjaId === "comida")).toBe(false);
+    expect(opciones[0]).toMatchObject({ tipo: "otra-franja", franjaId: "tarde", etiqueta: "Pasar a la tarde: sin choque con tus reservas" });
+  });
+
   it("tiene en cuenta que llegará después de lo que ya hay en la franja", () => {
     // El martes la mañana ya tiene una visita larga: P llegaría pasadas las 11:30 y su sitio cierra a las 11:00.
     const ocupado = parada("q", "manana", undefined, { duracion_min: 150 });
@@ -66,7 +89,7 @@ describe("proponerArreglos (arr-ac2)", () => {
 });
 
 // Invariantes (P19): para cualquier plan generado, cada opción deja a la
-// parada sin conflicto y no añade ninguno a las demás; son como mucho 3 y
+// parada sin conflicto, entera dentro de su franja y no añade ninguno a las demás; son como mucho 3 y
 // nunca la franja y el día en que ya está.
 const reglas = ["Mo off; Tu-Su 10:00-18:00", "Mo-Fr 09:00-14:00", "Tu,Th 15:00-19:00", "Mo-Su 08:00-22:00", "We-Su 10:00-13:00; Mo 16:00-19:00"];
 const paradasArb = (prefijo: string) =>
@@ -78,7 +101,7 @@ const planArb = fc
   }));
 
 describe("proponerArreglos: invariantes", () => {
-  it("toda opción deja la parada sin conflicto, no añade otros y no pasa de 3", () => {
+  it("toda opción deja la parada sin conflicto y entera en su franja, no añade otros y no pasa de 3", () => {
     fc.assert(
       fc.property(planArb, (plan) => {
         for (let d = 0; d < plan.dias.length; d++) {
@@ -103,6 +126,7 @@ describe("proponerArreglos: invariantes", () => {
               const antes = o.tipo === "otro-dia" ? evaluarDia(plan.dias[o.diaDestino], ctx) : evaluarDia(plan.dias[d], ctx);
               const despues = evaluarDia(resultante, ctx);
               expect(despues.conflictos.some((x) => x.paradaId === c.paradaId)).toBe(false);
+              expect(calcularTiemposDia(resultante as never, ctx.opciones).horarios[c.paradaId].excesoMin).toBe(0);
               const previos = new Set(antes.conflictos.map((x) => x.paradaId));
               expect(despues.conflictos.every((x) => previos.has(x.paradaId))).toBe(true);
             }
