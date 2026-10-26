@@ -226,7 +226,10 @@ una hoja desde abajo con hasta tres opciones, cada una con su motivo («Llevar
 al martes: abre de 10:00 a 18:00»): otra franja del mismo día, el día más
 cercano del viaje (sin cruzar de ciudad) o una alternativa guardada de la
 parada. `proponerArreglos` (`src/lib/plan/arreglos.ts`) solo ofrece lo que,
-aplicado, no crea otro conflicto, y nunca propone quitar la parada. Cada
+aplicado, no crea otro conflicto y deja la visita entera dentro de su franja
+de destino (si se saldría de ella, esa opción no aparece y se prueba la
+siguiente; ninguna opción recorta la duración), y nunca propone quitar la
+parada. Cada
 arreglo es una versión nueva del plan y el aviso «Movida al … · Deshacer» dura
 8 s: Deshacer devuelve la parada a su día, su franja y su posición. Si el
 servidor falla, la pantalla vuelve a como estaba y lo dice.
@@ -279,7 +282,10 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
 - **En el día**: cada reserva con hora sale como tarjeta fija con candado en
   su día (llegada, salida, entrada; el hotel, el día de entrada) y no se mueve
   nunca: guardar una reserva no crea versión del plan ni cambia paradas
-  (`src/lib/reservas/enElDia.ts`). Una parada que pisa una entrada, que queda
+  (`src/lib/reservas/enElDia.ts`). Dentro de su franja va en orden de hora
+  (`intercalarFijos`): justo antes de la primera parada que empieza a su hora
+  o más tarde; las paradas conservan su orden, una parada sin hora no sirve
+  de referencia y, a igual hora, va primero la reserva. Una parada que pisa una entrada, que queda
   antes de 60 min tras la llegada o después de 120 min (vuelo) o 45 (tren)
   antes de la salida cuenta como conflicto, y «Arreglar» solo propone huecos
   que no chocan con ninguna reserva. El .ics lleva un evento por reserva, cada
@@ -299,6 +305,11 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   /api/plan/[id]/gastos/[gastoId]` admiten solo al dueño (un invitado o un
   ajeno recibe 404, sin sesión 401). El id lo genera el cliente y el `PUT` es un
   upsert idempotente: repetirlo no duplica y uno más viejo no pisa al más nuevo.
+- La fecha de un gasto tiene que ser un día del viaje (o ninguna, «Todo el
+  viaje»). El formulario y el `PUT` aplican la misma regla (`validarGasto` con
+  `fechasViaje`): el `PUT` lee los días del plan y responde 400 con el mismo
+  texto que el formulario, «Elige un día válido del viaje», sin guardar nada.
+  Si el plan no se puede leer, responde 500 en vez de aceptar sin comprobar.
 - La sección «Gastos» de `/plan/[id]` compara lo gastado con el presupuesto
   estimado del plan (`src/lib/gastos/comparar.ts`, en céntimos enteros): el
   alojamiento solo contra el alojamiento estimado del viaje, el transporte a su
@@ -511,6 +522,14 @@ gh workflow run "Pruebas a demanda" --ref <rama> -f tipo=unit -f specs="src/lib/
 
 ## Changelog de cambios relevantes
 
+- **2026-10-25** (#373):
+  - **Reservas en su hora**: la tarjeta fija de una reserva se intercala por
+    hora entre las paradas de su franja, en vez de salir la primera.
+  - **Arreglos que caben**: «Pasar a…», «Llevar al…» y «Cambiar por…» solo se
+    ofrecen si la visita cabe entera en la franja de destino.
+  - **Gastos solo en días del viaje**: `PUT /api/plan/[id]/gastos/[gastoId]`
+    rechaza con 400 una fecha que no es día del viaje, con el texto del
+    formulario.
 - **2026-10-20**:
   - **Ritmo e intereses** en el formulario de criterios (#306, #312).
   - **Mapas sin conexión**: «Guardar mapas para usar sin red» (#307, #309).
