@@ -476,6 +476,16 @@ Si una ruta falla solo en Vercel por un fichero que falta, se revierte
 quitando la clave. El número de funciones no cambia con este recorte; solo lo
 baja agrupar rutas.
 
+**Agrupar rutas de API en despachadores: no se hace.** El total (100,55 MB) ya
+está por debajo del presupuesto de 150 MB; lo que queda por encima del
+umbral de 20 es el número de funciones (39 en el trazado local, 25 de ellas
+rutas de API). Agrupar obligaría a mover los manejadores de auth, permisos y
+reservas a módulos y reescribir los imports de los tests de integración, a
+cambio de poco peso: cada función suelta pesa 2-3 MB y la parte grande, el
+binario de `sharp` de la infografía, no se reparte entre despachadores. Si la
+vista *Resources* de Vercel mostrara que el coste real sigue lejos del
+trazado local, esta es la palanca que queda.
+
 ## Cómo correr los tests
 
 ```bash
