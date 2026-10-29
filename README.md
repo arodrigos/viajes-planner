@@ -486,6 +486,10 @@ binario de `sharp` de la infografía, no se reparte entre despachadores. Si la
 vista *Resources* de Vercel mostrara que el coste real sigue lejos del
 trazado local, esta es la palanca que queda.
 
+El CI falla si el informe supera el presupuesto de
+`scripts/comprobar-presupuesto-despliegue.mjs` (40 funciones, 150 MB):
+`node scripts/comprobar-presupuesto-despliegue.mjs informe.json`.
+
 ## Cómo correr los tests
 
 ```bash
