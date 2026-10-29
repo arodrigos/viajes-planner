@@ -442,6 +442,33 @@ encuentra `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` o `CLAUDE_API_KEY`.
 Las restricciones y cuotas de las dos claves de Google se configuran a mano
 en su consola (`docs/fuentes-de-datos.md`, «Google Maps Platform»).
 
+## Tamaño del despliegue de Vercel
+
+Cada ruta de servidor es una función de Vercel con los ficheros que traza
+`next build`, y todas cuentan contra los 10 GB de Function Storage del plan
+gratuito. `scripts/medir-despliegue.mjs` lee ese trazado
+(`.next/server/**/*.nft.json`) y escribe un informe con el número de
+funciones, los digests distintos, el tamaño de cada una y los paquetes más
+pesados. Solo lleva nombres de ruta, de paquete y tamaños.
+
+```bash
+npm run build
+node scripts/medir-despliegue.mjs --salida informe.json   # sin --salida, a stdout
+```
+
+Sin `next build` previo, sale con error. Para comparar un cambio de
+empaquetado, mide antes y después con el mismo comando y cambiando una sola
+cosa cada vez. La medida es del trazado local: el tamaño real de un
+despliegue se confirma en la vista *Resources* de Vercel.
+
+| Medida | Funciones | Digests distintos | Total |
+|---|---|---|---|
+| Antes (cabeza de `dev`, `908641b`) | 39 | 39 | 127,62 MB |
+
+En la medida de referencia, `/api/plan/[id]/infografia.png` pesa 51,14 MB
+(todas las variantes de `sharp`/libvips) y el resto de funciones, entre 2 y
+3 MB cada una.
+
 ## Cómo correr los tests
 
 ```bash
