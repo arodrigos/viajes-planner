@@ -12,7 +12,7 @@ const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 // nueva bajo /api/plan/[id] entra sola en la prueba y falla si no tiene guarda.
 type Modulo = Record<string, unknown>;
 // El glob lo resuelve Vite; el tsconfig del producto no carga sus tipos.
-const RUTAS = (import.meta as unknown as { glob: (patron: string) => Record<string, () => Promise<Modulo>> }).glob("../**/route.{ts,tsx}");
+const RUTAS = (import.meta as unknown as { glob: (patron: string) => Record<string, () => Promise<Modulo>> }).glob("../**/{route,manejador}.{ts,tsx}");
 const ESCRIBEN = ["POST", "PUT", "PATCH", "DELETE"] as const;
 
 type Manejador = (request: ReturnType<typeof peticion>, ctx: ReturnType<typeof contexto>) => Promise<Response>;
@@ -31,7 +31,7 @@ const CUERPOS: Record<string, unknown> = {
 function rutaDeFichero(fichero: string, ids: Record<string, string>): { url: string; clave: string } {
   const segmentos = fichero
     .replace(/^\.\.\//, "")
-    .replace(/\/?route\.tsx?$/, "")
+    .replace(/\/?(route|manejador)\.tsx?$/, "")
     .split("/")
     .filter(Boolean);
   const url = segmentos.map((s) => ids[s] ?? s).join("/");
@@ -75,6 +75,8 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("el miembro no puede escribir por ni
     const ids = { "[id]": planId, "[idExterno]": "propia-0001", "[paradaId]": "a", "[miembroId]": idOtroMiembro };
     const lista: { etiqueta: string; metodo: string; url: string; clave: string; manejador: Manejador }[] = [];
     for (const [fichero, cargar] of Object.entries(RUTAS)) {
+      // Los despachadores agrupados no son endpoints: reparten a los manejadores, que ya están en el glob.
+      if (fichero.includes("[...ruta]")) continue;
       const modulo = await cargar();
       for (const metodo of ESCRIBEN) {
         if (typeof modulo[metodo] !== "function") continue;
@@ -128,14 +130,14 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("el miembro no puede escribir por ni
   });
 
   it("miembros no devuelve al miembro los correos de otros", async () => {
-    const { GET } = (await RUTAS["../miembros/route.ts"]()) as unknown as { GET: Manejador };
+    const { GET } = (await RUTAS["../miembros/manejador.ts"]()) as unknown as { GET: Manejador };
     const respuesta = await GET(peticion(`/api/plan/${planId}/miembros`, "GET", miembro.cookie), contexto({ id: planId }));
     expect([403, 404]).toContain(respuesta.status);
     expect(await respuesta.text()).not.toContain(otroMiembro.email);
   });
 
   it("el .ics y la lámina del miembro no filtran presupuesto, alojamiento ni su ubicación", async () => {
-    const { GET: calendario } = (await RUTAS["../calendario.ics/route.ts"]()) as unknown as { GET: Manejador };
+    const { GET: calendario } = (await RUTAS["../calendario.ics/manejador.ts"]()) as unknown as { GET: Manejador };
     const r = await calendario(peticion(`/api/plan/${planId}/calendario.ics`, "GET", miembro.cookie), contexto({ id: planId }));
     expect(r.status).toBe(200);
     expect(r.headers.get("content-type")).toContain("text/calendar");
