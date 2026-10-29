@@ -476,6 +476,10 @@ Si una ruta falla solo en Vercel por un fichero que falta, se revierte
 quitando la clave. El número de funciones no cambia con este recorte; solo lo
 baja agrupar rutas.
 
+El CI falla si el informe supera el presupuesto de
+`scripts/comprobar-presupuesto-despliegue.mjs` (40 funciones, 150 MB):
+`node scripts/comprobar-presupuesto-despliegue.mjs informe.json`.
+
 ## Cómo correr los tests
 
 ```bash

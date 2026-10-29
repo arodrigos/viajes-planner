@@ -397,6 +397,11 @@ jobs:
       # Supabase real, que ese script omite a propósito para otro criterio
       # (ver la cabecera de scripts/verificar-viajes.sh).
       - run: bash scripts/verificar-viajes.sh
+      # Guardarraíl del tamaño del despliegue: reutiliza el .next que acaba de
+      # dejar verificar-viajes.sh, sin un segundo build.
+      - run: |
+          node scripts/medir-despliegue.mjs --salida "$RUNNER_TEMP/informe-despliegue.json"
+          node scripts/comprobar-presupuesto-despliegue.mjs "$RUNNER_TEMP/informe-despliegue.json"
       # unif-ac5: smoke_test del manifiesto contra un build de producción
       # real -no solo el manejador en memoria de test:integration de arriba-,
       # en el job que ya tiene la pila local de Supabase levantada.
