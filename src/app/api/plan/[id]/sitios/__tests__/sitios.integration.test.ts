@@ -4,8 +4,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan, recuperarPlan } from "@/lib/plan/repositorio";
 import type { Parada, Plan } from "@/lib/plan/tipos";
-import { DELETE, PATCH } from "../[idExterno]/route";
-import { POST } from "../route";
+import { DELETE, PATCH } from "../[idExterno]/manejador";
+import { POST } from "../manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

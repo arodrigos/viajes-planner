@@ -21,8 +21,8 @@ afterEach(() => {
 });
 
 describe("comprobar-presupuesto-despliegue", () => {
-  it("pasa con el despliegue actual (39 funciones, 100,55 MB)", () => {
-    const r = correr(JSON.stringify({ funciones: 39, total_mb: 100.55 }));
+  it("pasa con el despliegue actual (18 funciones, 59,14 MB)", () => {
+    const r = correr(JSON.stringify({ funciones: 18, total_mb: 59.14 }));
     expect(r.status).toBe(0);
   });
 
@@ -31,16 +31,16 @@ describe("comprobar-presupuesto-despliegue", () => {
   });
 
   it("falla y dice qué superó si pasa de MB", () => {
-    const r = correr(JSON.stringify({ funciones: 39, total_mb: 151 }));
+    const r = correr(JSON.stringify({ funciones: 18, total_mb: 151 }));
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("total_mb");
     expect(r.stderr).not.toContain("funciones:");
   });
 
   it("falla y dice qué superó si pasa de funciones", () => {
-    const r = correr(JSON.stringify({ funciones: 41, total_mb: 100 }));
+    const r = correr(JSON.stringify({ funciones: 21, total_mb: 100 }));
     expect(r.status).toBe(1);
-    expect(r.stderr).toContain("funciones: 41 > 40");
+    expect(r.stderr).toContain("funciones: 21 > 20");
   });
 
   it("falla con un informe ilegible o incompleto", () => {

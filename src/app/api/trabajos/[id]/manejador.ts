@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
@@ -6,7 +7,7 @@ import { obtenerTrabajo } from "@/lib/cola/consultar";
 // El trabajo de otro usuario responde 404, no 403: no hay que confirmarle a
 // nadie que un identificador existe si no es suyo (mismo criterio que el
 // modelo de amenazas aplica a los planes).
-export async function GET(request: NextRequest, ctx: RouteContext<"/api/trabajos/[id]">) {
+export async function GET(request: NextRequest, ctx: ContextoRuta<"/api/trabajos/[id]">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

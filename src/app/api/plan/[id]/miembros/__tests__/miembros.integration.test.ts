@@ -3,8 +3,8 @@ import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { invitar, limpiarPlanes, sembrarPlan } from "@/test-utils/semilla-compartir";
 import { contexto, peticion, usuarioDePrueba, type UsuarioDePrueba } from "@/test-utils/sesiones";
 import { MAX_MIEMBROS, MENSAJES_MIEMBROS } from "@/lib/plan/miembros";
-import { DELETE } from "../[miembroId]/route";
-import { GET, POST } from "../route";
+import { DELETE } from "../[miembroId]/manejador";
+import { GET, POST } from "../manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

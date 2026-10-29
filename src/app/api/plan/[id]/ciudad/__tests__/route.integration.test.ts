@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { Plan } from "@/lib/plan/tipos";
-import { MENSAJE_DEMASIADO_PRONTO, POST as ciudad } from "../route";
+import { MENSAJE_DEMASIADO_PRONTO, POST as ciudad } from "../manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

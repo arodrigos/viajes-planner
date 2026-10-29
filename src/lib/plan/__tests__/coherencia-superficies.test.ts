@@ -26,7 +26,7 @@ vi.mock("@/lib/plan/propiedad", async (original) => {
   };
 });
 
-import { GET as getIcs } from "@/app/api/plan/[id]/calendario.ics/route";
+import { GET as getIcs } from "@/app/api/plan/[id]/calendario.ics/manejador";
 import { GET as getPlan } from "@/app/api/plan/[id]/route";
 
 const plan = (): Plan =>

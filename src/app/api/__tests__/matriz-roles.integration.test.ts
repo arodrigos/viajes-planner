@@ -5,21 +5,21 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { invitar, limpiarPlanes, sembrarPlan } from "@/test-utils/semilla-compartir";
 import { contexto, peticion, usuarioDePrueba, type UsuarioDePrueba } from "@/test-utils/sesiones";
-import * as ficha from "../google/ficha/route";
+import * as ficha from "../google/ficha/manejador";
 import * as planGet from "../plan/[id]/route";
-import * as calendario from "../plan/[id]/calendario.ics/route";
-import * as ciudad from "../plan/[id]/ciudad/route";
+import * as calendario from "../plan/[id]/calendario.ics/manejador";
+import * as ciudad from "../plan/[id]/ciudad/manejador";
 import * as infografia from "../plan/[id]/infografia.png/route";
-import * as miembros from "../plan/[id]/miembros/route";
-import * as miembro from "../plan/[id]/miembros/[miembroId]/route";
-import * as orden from "../plan/[id]/orden/route";
-import * as moverDia from "../plan/[id]/paradas/[paradaId]/mover-dia/route";
-import * as sustituir from "../plan/[id]/paradas/[paradaId]/sustituir/route";
-import * as regenerar from "../plan/[id]/regenerar/route";
-import * as sitios from "../plan/[id]/sitios/route";
-import * as sitio from "../plan/[id]/sitios/[idExterno]/route";
-import * as visitas from "../plan/[id]/visitas/route";
-import * as viaje from "../viajes/[id]/route";
+import * as miembros from "../plan/[id]/miembros/manejador";
+import * as miembro from "../plan/[id]/miembros/[miembroId]/manejador";
+import * as orden from "../plan/[id]/orden/manejador";
+import * as moverDia from "../plan/[id]/paradas/[paradaId]/mover-dia/manejador";
+import * as sustituir from "../plan/[id]/paradas/[paradaId]/sustituir/manejador";
+import * as regenerar from "../plan/[id]/regenerar/manejador";
+import * as sitios from "../plan/[id]/sitios/manejador";
+import * as sitio from "../plan/[id]/sitios/[idExterno]/manejador";
+import * as visitas from "../plan/[id]/visitas/manejador";
+import * as viaje from "../viajes/[id]/manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -44,7 +44,9 @@ function rutasDeDisco(dir: string, base = dir): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const completa = path.join(dir, e.name);
     if (e.isDirectory()) return rutasDeDisco(completa, base);
-    return /^route\.tsx?$/.test(e.name) ? [path.relative(base, completa).replace(/\.tsx$/, ".ts")] : [];
+    // Los manejadores agrupados (manejador.ts) cuentan como la route.ts que eran; los despachadores no son endpoints.
+    if (!/^(route|manejador)\.tsx?$/.test(e.name) || completa.includes("[...ruta]")) return [];
+    return [path.relative(base, completa).replace(/(route|manejador)\.tsx?$/, "route.ts")];
   });
 }
 

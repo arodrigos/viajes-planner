@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan, recuperarPlan } from "@/lib/plan/repositorio";
 import type { Parada, Plan } from "@/lib/plan/tipos";
-import { POST as moverDia } from "../route";
+import { POST as moverDia } from "../manejador";
 
 // arr-ac1, arr-ac3, arr-ac4: la ruta y la función 036 contra la base de prueba
 // del CI. Sin SUPABASE_URL (en local) se saltan; el CI las ejecuta.

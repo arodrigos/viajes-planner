@@ -15,7 +15,7 @@ vi.mock("@/lib/google/ficha", () => ({
 }));
 vi.mock("@/lib/google/obsoleto", () => ({ registrarObsoleto: (...args: unknown[]) => registrarObsoleto(...args) }));
 
-import { POST } from "../route";
+import { POST } from "../manejador";
 
 const peticion = () =>
   new NextRequest("http://localhost/api/google/ficha", {

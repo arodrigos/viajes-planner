@@ -27,7 +27,7 @@ vi.mock("@/lib/db/cliente", () => ({
   },
 }));
 
-import { POST } from "../route";
+import { POST } from "../manejador";
 
 const MENSAJE = "El plan se acaba de actualizar mientras guardabas. Hemos cargado la versión más reciente; vuelve a ordenar si lo necesitas.";
 

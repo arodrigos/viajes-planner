@@ -6,7 +6,7 @@ import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { guardarPlan, recuperarPlan } from "@/lib/plan/repositorio";
 import { sustituirParada } from "@/lib/plan/sustituir";
 import type { Plan } from "@/lib/plan/tipos";
-import { DELETE, POST } from "../route";
+import { DELETE, POST } from "../manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

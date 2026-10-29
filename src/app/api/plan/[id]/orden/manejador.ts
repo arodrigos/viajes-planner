@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
@@ -43,7 +44,7 @@ function leerPeticion(cuerpo: unknown): PeticionOrden | null {
 // Mismo 404 uniforme que el resto de /api/plan/[id] para un plan ajeno,
 // inexistente o con el trabajo eliminado. La RPC solo la ejecuta service_role,
 // así que la propiedad se comprueba aquí y no en la base.
-export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/orden">) {
+export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/orden">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

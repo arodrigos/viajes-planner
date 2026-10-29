@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GET } from "@/app/api/salud/route";
+import { GET } from "@/app/api/salud/manejador";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import { _reiniciarCacheRellenoParaTests } from "@/lib/relleno";

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest } from "next/server";
 import { beforeAll, describe, expect, it } from "vitest";
-import { GET } from "@/app/api/trabajos/[id]/route";
+import { GET } from "@/app/api/trabajos/[id]/manejador";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

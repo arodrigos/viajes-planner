@@ -465,6 +465,7 @@ despliegue se confirma en la vista *Resources* de Vercel.
 |---|---|---|---|
 | Antes (cabeza de `dev`, `908641b`) | 39 | 39 | 127,62 MB |
 | Tras `outputFileTracingExcludes` de sharp (musl y WebAssembly) | 39 | 39 | 100,55 MB |
+| Tras agrupar las rutas de API en dos despachadores | 18 | 18 | 59,14 MB |
 
 En la medida de referencia, `/api/plan/[id]/infografia.png` pesa 51,14 MB
 (todas las variantes de `sharp`/libvips) y el resto de funciones, entre 2 y
@@ -473,21 +474,21 @@ En la medida de referencia, `/api/plan/[id]/infografia.png` pesa 51,14 MB
 `next.config.ts` excluye de todas las rutas las variantes de `sharp` para musl
 y WebAssembly (Vercel usa glibc x64): la infografía baja de 51,14 a 24,07 MB.
 Si una ruta falla solo en Vercel por un fichero que falta, se revierte
-quitando la clave. El número de funciones no cambia con este recorte; solo lo
-baja agrupar rutas.
+quitando la clave. El número de funciones no cambia con este recorte; lo baja agrupar rutas.
 
-**Agrupar rutas de API en despachadores: no se hace.** El total (100,55 MB) ya
-está por debajo del presupuesto de 150 MB; lo que queda por encima del
-umbral de 20 es el número de funciones (39 en el trazado local, 25 de ellas
-rutas de API). Agrupar obligaría a mover los manejadores de auth, permisos y
-reservas a módulos y reescribir los imports de los tests de integración, a
-cambio de poco peso: cada función suelta pesa 2-3 MB y la parte grande, el
-binario de `sharp` de la infografía, no se reparte entre despachadores. Si la
-vista *Resources* de Vercel mostrara que el coste real sigue lejos del
-trazado local, esta es la palanca que queda.
+**Rutas de API agrupadas.** Cada `route.ts` se empaqueta como una función
+aparte, con el runtime de Next dentro. Por eso los manejadores de API (salvo
+`/api/plan`, `/api/plan/[id]` e `infografia.png`, que necesita sus fuentes y
+`sharp`) son `manejador.ts` y los reparten dos despachadores:
+`src/app/api/[...ruta]/route.ts` y `src/app/api/plan/[id]/[...ruta]/route.ts`,
+con una tabla `{ patrón, módulo }` cada uno (`src/lib/api/despachar.ts`).
+Las URLs, métodos y códigos no cambian: sin coincidencia responde 404 y, con
+el patrón pero sin ese método, 405 con `Allow`. Sesión y permisos siguen dentro
+de cada manejador. **Un endpoint nuevo se añade a la tabla del despachador**
+(un test falla si un `manejador.ts` no está en ninguna).
 
 El CI falla si el informe supera el presupuesto de
-`scripts/comprobar-presupuesto-despliegue.mjs` (40 funciones, 150 MB):
+`scripts/comprobar-presupuesto-despliegue.mjs` (20 funciones, 150 MB):
 `node scripts/comprobar-presupuesto-despliegue.mjs informe.json`.
 
 ## Cómo correr los tests

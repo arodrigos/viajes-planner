@@ -7,8 +7,8 @@ import { ERRORES_GASTO as E } from "@/lib/textos/gastos";
 import { invitar, limpiarPlanes, sembrarPlan } from "@/test-utils/semilla-compartir";
 import { contexto, peticion, usuarioDePrueba, type UsuarioDePrueba } from "@/test-utils/sesiones";
 import { GET as GET_PLAN } from "../../route";
-import { DELETE, PUT } from "../[gastoId]/route";
-import { GET } from "../route";
+import { DELETE, PUT } from "../[gastoId]/manejador";
+import { GET } from "../manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

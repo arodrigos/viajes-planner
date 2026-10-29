@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
@@ -8,7 +9,7 @@ import { reservasOpcionales } from "@/lib/reservas/repositorio";
 
 // ics-ac1: misma guarda que GET /api/plan/[id] -- un plan ajeno responde
 // 404, nunca 403.
-export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/calendario.ics">) {
+export async function GET(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/calendario.ics">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

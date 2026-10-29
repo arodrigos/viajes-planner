@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { recuperarPlan } from "@/lib/plan/repositorio";
 import { GET as getPlan } from "@/app/api/plan/[id]/route";
-import { DELETE as deleteViaje } from "@/app/api/viajes/[id]/route";
+import { DELETE as deleteViaje } from "@/app/api/viajes/[id]/manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

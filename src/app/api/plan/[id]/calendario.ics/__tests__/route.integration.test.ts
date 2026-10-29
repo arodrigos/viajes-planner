@@ -5,7 +5,7 @@ import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { franjasComoArray } from "@/lib/plan/config-franjas";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { Plan } from "@/lib/plan/tipos";
-import { GET } from "../route";
+import { GET } from "../manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

@@ -1,13 +1,13 @@
 // Guardarraíl del tamaño del despliegue: lee el informe de
 // `medir-despliegue.mjs` y sale con código 1 si supera el presupuesto.
-// Los límites dejan holgura sobre la medida actual (39 funciones, 100,55 MB)
+// Los límites dejan holgura sobre la medida actual (18 funciones, 59,14 MB)
 // para que un cambio normal no lo dispare, pero sí uno que reintroduzca las
 // variantes de sharp o duplique rutas.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const PRESUPUESTO = { funciones: 40, total_mb: 150 };
+export const PRESUPUESTO = { funciones: 20, total_mb: 150 };
 
 export function comprobarPresupuesto(informe, presupuesto = PRESUPUESTO) {
   const excesos = [];

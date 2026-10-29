@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { actualizarReserva, borrarReserva } from "@/lib/reservas/repositorio";
 import { comoDuenyo, leerCuerpoReserva, mensajeErrores, respuestaFallo } from "@/lib/reservas/ruta";
@@ -8,7 +9,7 @@ const noEncontrada = () => NextResponse.json({ error: ERRORES_RESERVA.noEncontra
 
 // PATCH sustituye la reserva entera (el formulario manda todos sus campos):
 // así un campo vaciado se borra y no queda un resto de la versión anterior.
-export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/reservas/[reservaId]">) {
+export async function PATCH(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/reservas/[reservaId]">) {
   const { id, reservaId } = await ctx.params;
   const supabase = await comoDuenyo(request, id);
   if (supabase instanceof Response) return supabase;
@@ -24,7 +25,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/plan/[
   }
 }
 
-export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/reservas/[reservaId]">) {
+export async function DELETE(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/reservas/[reservaId]">) {
   const { id, reservaId } = await ctx.params;
   const supabase = await comoDuenyo(request, id);
   if (supabase instanceof Response) return supabase;

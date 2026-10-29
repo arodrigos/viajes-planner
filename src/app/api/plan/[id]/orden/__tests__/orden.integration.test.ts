@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan } from "@/lib/plan/repositorio";
 import type { Parada, Plan } from "@/lib/plan/tipos";
-import { MAX_CAMBIOS_POR_HORA, POST as orden } from "../route";
+import { MAX_CAMBIOS_POR_HORA, POST as orden } from "../manejador";
 
 // orc-ac2: la ruta usa el cliente real salvo en la RPC, que se dobla solo
 // cuando la prueba lo pide con `rpcForzada`.
