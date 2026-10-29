@@ -20,8 +20,8 @@ const PERMITIDOS = new Set([
   "src/lib/db/clienteDePrueba.ts",
   "src/lib/auth/sesion.ts",
   "src/middleware.ts",
-  "src/app/api/acceso/verificar-codigo/route.ts",
-  "src/app/api/auth/cerrar-sesion/route.ts",
+  "src/app/api/acceso/verificar-codigo/manejador.ts",
+  "src/app/api/auth/cerrar-sesion/manejador.ts",
   "src/test-utils/sesiones.ts",
 ]);
 const SOLO_AUTH = [...PERMITIDOS].filter((f) => !f.startsWith("src/lib/db/"));
@@ -65,7 +65,7 @@ describe("solo clienteServicio toca datos (grt-ac3)", () => {
 
   it("clienteAnonimo solo se pasa a código que llama a .auth.*", () => {
     const usuarios = TODOS.filter((f) => f !== "src/lib/db/cliente.ts" && /\bclienteAnonimo\b/.test(leer(f)));
-    expect(usuarios).toEqual(["src/app/api/acceso/solicitar-codigo/route.ts"]);
+    expect(usuarios).toEqual(["src/app/api/acceso/solicitar-codigo/manejador.ts"]);
     // El cliente anónimo entra en procesarSolicitudCodigo: ahí no puede haber datos.
     const consumidor = leer("src/lib/auth/solicitarCodigo.ts");
     expect(consumidor).not.toMatch(/\.(from|rpc|schema)\(/);
