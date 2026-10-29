@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
@@ -23,7 +24,7 @@ async function leerCuerpoYParadaId(request: NextRequest): Promise<{ paradaId: st
 
 // dest-ac1: mismo criterio que sustituir/route.ts -- un plan ajeno responde
 // 404, nunca 403.
-export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/visitas">) {
+export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/visitas">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[i
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/visitas">) {
+export async function DELETE(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/visitas">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

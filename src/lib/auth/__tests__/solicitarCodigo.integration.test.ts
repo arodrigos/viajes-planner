@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { procesarSolicitudCodigo } from "@/lib/auth/solicitarCodigo";
-import { POST as postSolicitarCodigo } from "@/app/api/acceso/solicitar-codigo/route";
+import { POST as postSolicitarCodigo } from "@/app/api/acceso/solicitar-codigo/manejador";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

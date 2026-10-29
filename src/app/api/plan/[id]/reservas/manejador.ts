@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { contarReservas, crearReserva, listarReservas } from "@/lib/reservas/repositorio";
 import { comoDuenyo, leerCuerpoReserva, mensajeErrores, respuestaFallo } from "@/lib/reservas/ruta";
@@ -7,7 +8,7 @@ import { TEXTOS_RESERVAS } from "@/lib/textos/reservas";
 // Reservas del viaje: datos personales (localizador, horas, hotel). Solo las
 // lee y escribe el dueño; un invitado o un ajeno recibe el mismo 404 que para
 // un plan que no existe. Ninguna de estas rutas toca el plan ni crea versión.
-export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/reservas">) {
+export async function GET(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/reservas">) {
   const { id } = await ctx.params;
   const supabase = await comoDuenyo(request, id);
   if (supabase instanceof Response) return supabase;
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
   }
 }
 
-export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/reservas">) {
+export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/reservas">) {
   const { id } = await ctx.params;
   const supabase = await comoDuenyo(request, id);
   if (supabase instanceof Response) return supabase;

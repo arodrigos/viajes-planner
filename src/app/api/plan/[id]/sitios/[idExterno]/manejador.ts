@@ -1,10 +1,11 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { exigirDuenyo } from "@/lib/plan/propiedad";
 import { errorDeFuncionSitio, MENSAJES_SITIO, validarSitio } from "@/lib/plan/sitiosPropios";
 
-type Contexto = RouteContext<"/api/plan/[id]/sitios/[idExterno]">;
+type Contexto = ContextoRuta<"/api/plan/[id]/sitios/[idExterno]">;
 
 function versionBaseValida(valor: unknown): number | null {
   return Number.isInteger(valor) && (valor as number) >= 1 ? (valor as number) : null;

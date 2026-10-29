@@ -3,7 +3,7 @@ import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { ALOJAMIENTO_SEMILLA, invitar, limpiarPlanes, sembrarPlan } from "@/test-utils/semilla-compartir";
 import { contexto, peticion, usuarioDePrueba, type UsuarioDePrueba } from "@/test-utils/sesiones";
 import { GET as infografia } from "../infografia.png/route";
-import { GET as calendario } from "../calendario.ics/route";
+import { GET as calendario } from "../calendario.ics/manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

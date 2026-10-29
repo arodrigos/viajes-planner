@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
@@ -6,7 +7,7 @@ import { exigirDuenyo } from "@/lib/plan/propiedad";
 
 // Solo el dueño ve y cambia con quién se comparte su plan: el miembro recibe
 // 403 y un ajeno el 404 de siempre.
-export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/miembros">) {
+export async function GET(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/miembros">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
 
 const ESTADO_HTTP = { invalido: 400, "no-permitido": 422, propio: 422, lleno: 422 } as const;
 
-export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/miembros">) {
+export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/miembros">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

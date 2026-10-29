@@ -16,7 +16,7 @@ vi.mock("@/lib/db/cliente", () => ({
   },
 }));
 
-import { POST } from "../route";
+import { POST } from "../manejador";
 
 async function pedir(cuerpo: unknown = { version_base: 3, dia_origen: 0, dia_destino: 1, franja_id: "manana" }) {
   const peticion = new NextRequest("http://localhost/api/plan/p1/paradas/a/mover-dia", {

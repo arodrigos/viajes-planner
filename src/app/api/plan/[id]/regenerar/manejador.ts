@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { regenerarViaje } from "@/lib/cola/regenerar";
@@ -10,7 +11,7 @@ const MENSAJE_DEMASIADO_PRONTO = "Solo se puede regenerar un viaje una vez por h
 // reg-ac3: plan ajeno o trabajo eliminado (marcado) -> 404 (nunca 403,
 // mismo criterio que GET /api/plan/[id] y que sustituir); sin cuerpo que
 // leer, sin invocar al modelo ni a ninguna fuente externa.
-export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/regenerar">) {
+export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/regenerar">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

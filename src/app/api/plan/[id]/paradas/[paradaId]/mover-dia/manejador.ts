@@ -1,8 +1,9 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { exigirDuenyo } from "@/lib/plan/propiedad";
-import { MAX_CAMBIOS_POR_HORA } from "@/app/api/plan/[id]/orden/route";
+import { MAX_CAMBIOS_POR_HORA } from "@/app/api/plan/[id]/orden/manejador";
 import { TEXTOS_ARREGLOS } from "@/lib/textos/arreglos";
 
 const MENSAJES = {
@@ -40,7 +41,7 @@ function leerPeticion(cuerpo: unknown): Peticion | null {
 // arr-ac1: mismo 404 uniforme que el resto de /api/plan/[id] para un plan
 // ajeno. La función SQL solo la ejecuta service_role, así que la propiedad se
 // comprueba aquí.
-export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/paradas/[paradaId]/mover-dia">) {
+export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/paradas/[paradaId]/mover-dia">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

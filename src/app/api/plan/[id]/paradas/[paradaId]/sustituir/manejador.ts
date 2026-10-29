@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
@@ -7,7 +8,7 @@ import { sustituirParada } from "@/lib/plan/sustituir";
 // alt-ac6: mismo criterio que GET /api/plan/[id] -- un plan ajeno responde
 // 404, nunca 403; este endpoint no invoca al modelo ni a ninguna fuente
 // externa, solo lee y reescribe el plan guardado.
-export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/paradas/[paradaId]/sustituir">) {
+export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/paradas/[paradaId]/sustituir">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

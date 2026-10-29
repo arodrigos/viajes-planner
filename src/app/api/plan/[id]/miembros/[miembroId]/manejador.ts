@@ -1,10 +1,11 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { quitarMiembro } from "@/lib/plan/miembros";
 import { exigirDuenyo } from "@/lib/plan/propiedad";
 
-export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/miembros/[miembroId]">) {
+export async function DELETE(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/miembros/[miembroId]">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

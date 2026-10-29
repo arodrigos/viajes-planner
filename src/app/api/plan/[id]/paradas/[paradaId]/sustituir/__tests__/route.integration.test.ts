@@ -4,7 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 import { guardarPlan, recuperarPlan } from "@/lib/plan/repositorio";
 import type { Plan } from "@/lib/plan/tipos";
-import { POST as sustituir } from "../route";
+import { POST as sustituir } from "../manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

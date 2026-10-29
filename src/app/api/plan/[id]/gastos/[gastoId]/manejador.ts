@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { borrarGasto, contarGastos, existeGastoEnPlan, GastoDeOtroPlan, guardarGasto } from "@/lib/gastos/repositorio";
 import { comoDuenyo, leerCuerpoGasto, mensajeErrores, respuestaFallo } from "@/lib/gastos/ruta";
@@ -9,7 +10,7 @@ import { ERRORES_GASTO as E } from "@/lib/textos/gastos";
 // Upsert idempotente: el id lo genera el cliente, así que repetir el PUT (un
 // reintento tras un corte de red) no duplica, y uno más viejo que lo guardado
 // no lo pisa. Siempre 200 si es válido.
-export async function PUT(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/gastos/[gastoId]">) {
+export async function PUT(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/gastos/[gastoId]">) {
   const { id, gastoId } = await ctx.params;
   const supabase = await comoDuenyo(request, id);
   if (supabase instanceof Response) return supabase;
@@ -30,7 +31,7 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/plan/[id
 }
 
 // 204 exista o no el gasto: borrar dos veces es lo mismo que borrar una.
-export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/gastos/[gastoId]">) {
+export async function DELETE(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/gastos/[gastoId]">) {
   const { id, gastoId } = await ctx.params;
   const supabase = await comoDuenyo(request, id);
   if (supabase instanceof Response) return supabase;

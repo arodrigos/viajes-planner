@@ -1,3 +1,4 @@
+import type { ContextoRuta } from "@/lib/api/contexto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
@@ -18,7 +19,7 @@ function leerNombre(cuerpo: unknown): string | null {
 // man-ac4: mismo criterio que visitas/route.ts y sustituir/route.ts -- un
 // plan ajeno, inexistente o con el trabajo marcado eliminado responde 404
 // con el mismo cuerpo exacto, nunca 403 ni un 404 distinto.
-export async function POST(request: NextRequest, ctx: RouteContext<"/api/plan/[id]/ciudad">) {
+export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[id]/ciudad">) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 

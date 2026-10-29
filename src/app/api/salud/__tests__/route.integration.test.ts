@@ -1,7 +1,7 @@
 import { ORIGEN_TRABAJADOR } from "@/lib/salud";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GET } from "@/app/api/salud/route";
+import { GET } from "@/app/api/salud/manejador";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

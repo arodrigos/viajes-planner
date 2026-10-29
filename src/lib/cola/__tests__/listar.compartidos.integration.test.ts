@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
-import { GET as listado } from "@/app/api/viajes/route";
+import { GET as listado } from "@/app/api/viajes/manejador";
 import { GET as plan } from "@/app/api/plan/[id]/route";
 import { invitar, limpiarPlanes, sembrarPlan } from "@/test-utils/semilla-compartir";
 import { contexto, peticion, usuarioDePrueba, type UsuarioDePrueba } from "@/test-utils/sesiones";

@@ -2,9 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
 import { clienteDePrueba } from "@/lib/db/clienteDePrueba";
-import { POST as postVerificarCodigo } from "@/app/api/acceso/verificar-codigo/route";
+import { POST as postVerificarCodigo } from "@/app/api/acceso/verificar-codigo/manejador";
 import { POST as postPlan } from "@/app/api/plan/route";
-import { GET as getTrabajo } from "@/app/api/trabajos/[id]/route";
+import { GET as getTrabajo } from "@/app/api/trabajos/[id]/manejador";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;

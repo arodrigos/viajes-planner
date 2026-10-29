@@ -18,7 +18,7 @@ vi.mock("@/lib/db/cliente", () => ({
   clienteServicio: () => ({ from: () => consultaVacia(), rpc }),
 }));
 
-import { GET } from "@/app/api/salud/route";
+import { GET } from "@/app/api/salud/manejador";
 
 beforeEach(() => {
   _reiniciarCacheRellenoParaTests();
