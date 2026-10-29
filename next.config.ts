@@ -10,6 +10,16 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/plan/[id]/infografia.png": ["./assets/fuentes/**"],
   },
+  // Vercel corre Linux x64 con glibc: sharp carga el binario nativo de esa
+  // plataforma y nunca llega a las variantes musl ni a la de WebAssembly, que
+  // sumaban ~27 MB a cada función que traza sharp.
+  outputFileTracingExcludes: {
+    "/*": [
+      "./node_modules/@img/sharp-libvips-linuxmusl-x64/**",
+      "./node_modules/@img/sharp-linuxmusl-x64/**",
+      "./node_modules/@img/sharp-wasm32/**",
+    ],
+  },
   async headers() {
     return [
       {

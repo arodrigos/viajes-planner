@@ -464,10 +464,17 @@ despliegue se confirma en la vista *Resources* de Vercel.
 | Medida | Funciones | Digests distintos | Total |
 |---|---|---|---|
 | Antes (cabeza de `dev`, `908641b`) | 39 | 39 | 127,62 MB |
+| Tras `outputFileTracingExcludes` de sharp (musl y WebAssembly) | 39 | 39 | 100,55 MB |
 
 En la medida de referencia, `/api/plan/[id]/infografia.png` pesa 51,14 MB
 (todas las variantes de `sharp`/libvips) y el resto de funciones, entre 2 y
 3 MB cada una.
+
+`next.config.ts` excluye de todas las rutas las variantes de `sharp` para musl
+y WebAssembly (Vercel usa glibc x64): la infografía baja de 51,14 a 24,07 MB.
+Si una ruta falla solo en Vercel por un fichero que falta, se revierte
+quitando la clave. El número de funciones no cambia con este recorte; solo lo
+baja agrupar rutas.
 
 ## Cómo correr los tests
 
