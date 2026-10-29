@@ -328,6 +328,34 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   pendiente. Al cerrar sesión y al eliminar el viaje se vacían la cola y el espejo
   (`src/lib/sinConexion/borrar.ts`). No toca el service worker.
 
+### Pedir el código de acceso: qué ve la persona y qué se registra
+
+`POST /api/acceso/solicitar-codigo` responde siempre el mismo `200` con el
+mismo mensaje («Si tu correo está autorizado, te llegará un código en un
+minuto. Si no te llega, espera un minuto y vuelve a pedirlo.») tanto si el
+correo está autorizado como si no, y también cuando Supabase Auth rechaza el
+envío: así nadie puede averiguar quién está en la lista. El detalle real va
+solo al log del servidor (`console.warn`, evento `solicitar-codigo-rechazado`,
+con `tipo`, `http_equivalente`, `status` y `code`; nunca el mensaje de Auth ni
+el correo).
+
+| Situación | Lo que ve la persona | Log (`http_equivalente`) | Qué hacer |
+|---|---|---|---|
+| Envío correcto, o correo no autorizado | El aviso fijo | Sin entrada | Nada |
+| Límite de envíos (`over_email_send_rate_limit`, `over_request_rate_limit`) | El aviso fijo | `tipo: limite-envios`, `429` | Esperar un minuto; si se repite, el SMTP por defecto de DEV tiene un límite de envíos por hora muy bajo y es compartido |
+| Dirección rechazada (`email_address_invalid`, `email_address_not_authorized`) | El aviso fijo | `tipo: correo-invalido`, `400` | El SMTP por defecto solo envía a direcciones autorizadas del proyecto |
+| Error de Auth no clasificado o Supabase caído | El aviso fijo | `tipo: fallo-envio`, `502` | Revisar el estado de Supabase Auth |
+| Lista blanca vacía | Texto genérico de fallo | `500` real | Arreglar `CORREOS_PERMITIDOS` |
+
+El tiempo de respuesta puede diferir entre un correo autorizado y uno que no
+(el segundo no llama a Supabase): fuga residual de temporización conocida y no
+tratada.
+
+Pruebas y UAT no llaman nunca a `signInWithOtp` contra el Supabase real, para
+no gastar el límite de envíos compartido: usan dobles del cliente,
+`page.route`, o entran con `/admin/generate_link` y un usuario de prueba ya
+existente.
+
 ### Salud del despliegue
 
 `GET /api/salud` responde 200 si todo está en orden y 503 si no. Informa de:

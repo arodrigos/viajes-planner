@@ -5,7 +5,25 @@ import { ConfiguracionCorreosPermitidosVacia, correoPermitido } from "./allowlis
 export type ResultadoSolicitudCodigo =
   | { estado: "enviado" }
   | { estado: "correo-no-permitido" }
-  | { estado: "configuracion-invalida"; motivo: string };
+  | { estado: "configuracion-invalida"; motivo: string }
+  | { estado: "rechazado-por-auth"; tipo: TipoRechazoAuth; status?: number; code?: string };
+
+export type TipoRechazoAuth = "limite-envios" | "correo-invalido" | "fallo-envio";
+
+// Se clasifica por `code` y `status`, nunca por el texto del mensaje, que
+// Supabase puede cambiar y que lleva el correo. El `status` solo sirve de
+// respaldo cuando no llega `code`.
+export function clasificarErrorAuth(error: unknown): { tipo: TipoRechazoAuth; status?: number; code?: string } {
+  const bruto = (typeof error === "object" && error !== null ? error : {}) as { status?: unknown; code?: unknown };
+  const status = typeof bruto.status === "number" ? bruto.status : undefined;
+  const code = typeof bruto.code === "string" ? bruto.code : undefined;
+  let tipo: TipoRechazoAuth = "fallo-envio";
+  if (code === "over_email_send_rate_limit" || code === "over_request_rate_limit") tipo = "limite-envios";
+  else if (code === "email_address_invalid" || code === "email_address_not_authorized") tipo = "correo-invalido";
+  else if (code === undefined && status === 429) tipo = "limite-envios";
+  else if (code === undefined && status === 400) tipo = "correo-invalido";
+  return { tipo, status, code };
+}
 
 // Separado de la Route Handler para poder probar el gate de la lista
 // blanca sin depender de una petición HTTP real ni de la entrega de
@@ -41,7 +59,13 @@ export async function procesarSolicitudCodigo(
 
   if (!permitido) return { estado: "correo-no-permitido" };
 
-  const { error } = await supabase.auth.signInWithOtp({ email: correo });
-  if (error) throw new Error(`No se pudo enviar el código: ${error.message}`);
+  // Una excepción del cliente (red caída, Supabase fuera) es un fallo de
+  // envío más: el manejador la trata igual que cualquier rechazo de Auth.
+  try {
+    const { error } = await supabase.auth.signInWithOtp({ email: correo });
+    if (error) return { estado: "rechazado-por-auth", ...clasificarErrorAuth(error) };
+  } catch {
+    return { estado: "rechazado-por-auth", tipo: "fallo-envio" };
+  }
   return { estado: "enviado" };
 }

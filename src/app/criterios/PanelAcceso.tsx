@@ -19,6 +19,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
   const [codigo, setCodigo] = useState("");
   const [enviandoEmail, setEnviandoEmail] = useState(false);
   const [enviandoCodigo, setEnviandoCodigo] = useState(false);
+  const [avisoCodigo, setAvisoCodigo] = useState<string | null>(null);
   const [errorEmail, setErrorEmail] = useState<string | null>(null);
   const [errorCodigo, setErrorCodigo] = useState<string | null>(null);
   const [segundosParaReenvio, setSegundosParaReenvio] = useState(0);
@@ -47,6 +48,10 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
         setErrorEmail("No se ha podido enviar el código. Inténtalo de nuevo en un momento.");
         return;
       }
+      // El servidor responde el mismo mensaje siempre (límite, dirección
+      // rechazada o envío correcto); aquí solo se muestra, sin ramificar.
+      const cuerpo = (await respuesta.json().catch(() => null)) as { mensaje?: unknown } | null;
+      setAvisoCodigo(typeof cuerpo?.mensaje === "string" ? cuerpo.mensaje : null);
       setPaso("codigo");
       setSegundosParaReenvio(SEGUNDOS_REENVIO);
     } catch {
@@ -124,6 +129,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
   return (
     <form onSubmit={alSubmitCodigo} aria-label="Introducir código" className="formulario">
       <p role="status">Te hemos enviado un código a {email}. Escríbelo aquí sin salir de esta pantalla.</p>
+      {avisoCodigo && <p className="ayuda">{avisoCodigo}</p>}
       {/* txt-ac1: el código no es un simple candado de la pantalla, es un inicio
           de sesión -con cuenta propia detrás- y hoy nadie se lo dice al usuario
           antes de pedírselo. */}
