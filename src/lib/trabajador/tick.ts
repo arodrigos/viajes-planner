@@ -151,7 +151,9 @@ export async function tick(supabase: SupabaseClient, opciones: OpcionesTick): Pr
           googleClave = opciones.google.clave ? 1 : 0;
           // Un fallo de Google no puede tumbar el tick: el resto del barrido ya está hecho.
           try {
-            googlePeticiones = (await casarLugaresPendientes(supabase, opciones.google)).peticiones;
+            const casado = await casarLugaresPendientes(supabase, opciones.google);
+            googlePeticiones = casado.peticiones;
+            if (casado.ultimoError) console.warn(`[trabajador] casado de place_id: ${casado.errores} con error, el último: ${casado.ultimoError}`);
           } catch (error) {
             console.error("[trabajador] casado de place_id falló:", error instanceof Error ? error.message : "error desconocido");
           }

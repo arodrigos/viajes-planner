@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { distanciaMetros } from "@/lib/alternativas/equivalencia";
 import { conCupo } from "@/lib/google/cupo";
+import { mensajeAcotado } from "@/lib/mensajeAcotado";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
 import type { CategoriaParada, Lugar } from "@/lib/plan/tipos";
 
@@ -104,10 +105,13 @@ export interface ResultadoCasado {
   casadas: number;
   sinCoincidencia: number;
   errores: number;
+  // Por qué falló la última petición contada en `errores`: sin esto un
+  // «error» en lugares_google no dice si fue un 403, un 429 o la red.
+  ultimoError: string | null;
   topeAgotado: boolean;
 }
 
-const VACIO: ResultadoCasado = { clavePresente: false, candidatas: 0, peticiones: 0, casadas: 0, sinCoincidencia: 0, errores: 0, topeAgotado: false };
+const VACIO: ResultadoCasado = { clavePresente: false, candidatas: 0, peticiones: 0, casadas: 0, sinCoincidencia: 0, errores: 0, ultimoError: null, topeAgotado: false };
 
 // La clave va en cabecera, nunca en la URL (acaba en logs de proxies), y el
 // mensaje de error solo lleva el código HTTP: ni la URL ni el cuerpo.
@@ -235,7 +239,8 @@ export async function casarLugaresPendientes(supabase: SupabaseClient, opciones:
         const encontrados = await buscarEnGoogle(peticion, clave, candidato.consulta, candidato.ancla, candidato.umbralM);
         const placeId = elegirCoincidencia(candidato.ancla, candidato.umbralM, encontrados);
         return placeId ? { estado: "casado", placeId } : { estado: "sin-coincidencia", placeId: null };
-      } catch {
+      } catch (error) {
+        resultado.ultimoError = mensajeAcotado(error);
         // Se guarda como «error» y no se lanza: un lugar que falla no corta el
         // tick para los demás, y necesitaCasado lo vuelve a pedir en el siguiente.
         return { estado: "error", placeId: null };

@@ -4,6 +4,7 @@ import type { FuenteGuia } from "@/lib/guia/wikivoyage";
 import { enriquecerEventosPendientes, type ResultadoEventos } from "@/lib/eventos/enriquecer";
 import type { FuenteEventos } from "@/lib/eventos/calcular";
 import "server-only";
+import { mensajeAcotado } from "@/lib/mensajeAcotado";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolverNombre } from "@/lib/lugares/resolverPlan";
 import { cualificadorDeEtapa } from "@/lib/etapas/porEtapa";
@@ -418,10 +419,6 @@ export interface ContadoresAlternativas {
   // Mensaje (acotado) del último error interno: es lo que dice POR QUÉ una
   // parada real no gana alternativas (un CHECK, un NOT NULL, RLS...).
   ultimoError: string | null;
-}
-
-function mensajeAcotado(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 160);
 }
 
 function contarSinDatos(contadores: ContadoresAlternativas, categoria: CategoriaParada | null, lat: number | null): void {

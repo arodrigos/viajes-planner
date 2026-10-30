@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { crearTrabajoGeneracion } from "@/lib/cola/crear";
+import { leerCuerpoJson } from "@/lib/api/cuerpo";
 
 // acceso-ac1 / acceso-ac3: sin sesión, 401 (acceso-ac1); criterios
 // inválidos, 400; límite superado, 429 (acceso-ac1); si no, 202 con el
@@ -10,12 +11,9 @@ export async function POST(request: NextRequest) {
   const sesion = await requireSesion(request);
   if (sesion instanceof Response) return sesion;
 
-  let criterios: unknown;
-  try {
-    criterios = await request.json();
-  } catch {
-    return NextResponse.json({ error: "el cuerpo de la petición no es JSON válido" }, { status: 400 });
-  }
+  const leido = await leerCuerpoJson(request);
+  if ("respuesta" in leido) return leido.respuesta;
+  const criterios = leido.cuerpo;
 
   const supabase = clienteServicio();
   const resultado = await crearTrabajoGeneracion(supabase, sesion.usuarioId, criterios);

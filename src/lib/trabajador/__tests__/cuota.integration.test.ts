@@ -84,7 +84,6 @@ function haceHoras(horas: number): string {
 // deja de necesitar el @ts-expect-error y "tsc --noEmit" falla con
 // "Unused '@ts-expect-error' directive", que es justo la señal de que el
 // 100 fabricado ha vuelto a colarse.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _tipoUsedPercentageEsNullable(resetsAt: string): number {
   const limite = new LimiteDeUsoAlcanzado(resetsAt, null);
   // @ts-expect-error usedPercentage es number | null: asignarlo directamente a number debe fallar.

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { clienteServicio } from "@/lib/db/cliente";
 import { leerEstadoGoogle } from "@/lib/google/resumen";
 import { leerEstadoRelleno } from "@/lib/relleno";
+import { mensajeAcotado } from "@/lib/mensajeAcotado";
 import {
   construirSalud,
   ESQUEMA_VERSION,
@@ -71,9 +72,11 @@ async function comprobarSupabase(): Promise<EstadoSupabase> {
       ultimoResultado: (data?.resultado as ResultadoTickTrabajador | null) ?? null,
       pasadaAlternativas,
     };
-  } catch {
+  } catch (error) {
     // Supabase caída se publica como estado y no como 500: salud tiene que
-    // seguir respondiendo justo cuando hay que diagnosticar.
+    // seguir respondiendo justo cuando hay que diagnosticar. El motivo va solo
+    // al log, porque la respuesta es pública.
+    console.error("[salud] no se pudo leer Supabase:", mensajeAcotado(error));
     return { estado: "error", vistoHaceSeg: null, commitSha: null, ultimoResultado: null, pasadaAlternativas: null };
   }
 }
