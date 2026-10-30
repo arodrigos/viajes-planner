@@ -4,6 +4,7 @@ import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { exigirDuenyo } from "@/lib/plan/propiedad";
 import { sustituirParada } from "@/lib/plan/sustituir";
+import { leerCuerpoJson } from "@/lib/api/cuerpo";
 
 // alt-ac6: mismo criterio que GET /api/plan/[id] -- un plan ajeno responde
 // 404, nunca 403; este endpoint no invoca al modelo ni a ninguna fuente
@@ -18,12 +19,9 @@ export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[i
   const guarda = await exigirDuenyo(supabase, id, sesion);
   if (guarda instanceof Response) return guarda;
 
-  let cuerpo: unknown;
-  try {
-    cuerpo = await request.json();
-  } catch {
-    return NextResponse.json({ error: "el cuerpo de la petición no es JSON válido" }, { status: 400 });
-  }
+  const leido = await leerCuerpoJson(request);
+  if ("respuesta" in leido) return leido.respuesta;
+  const cuerpo = leido.cuerpo;
   const alternativaId = (cuerpo as { alternativa_id?: unknown })?.alternativa_id;
   if (typeof alternativaId !== "string" || alternativaId.length === 0) {
     return NextResponse.json({ error: "falta 'alternativa_id'" }, { status: 400 });

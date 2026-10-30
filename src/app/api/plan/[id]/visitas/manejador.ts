@@ -4,6 +4,7 @@ import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { exigirDuenyo } from "@/lib/plan/propiedad";
 import { desmarcarVisitada, marcarVisitada } from "@/lib/plan/visitas";
+import { leerCuerpoJson } from "@/lib/api/cuerpo";
 
 function leerParadaId(cuerpo: unknown): string | null {
   const valor = (cuerpo as { parada_id?: unknown })?.parada_id;
@@ -11,12 +12,9 @@ function leerParadaId(cuerpo: unknown): string | null {
 }
 
 async function leerCuerpoYParadaId(request: NextRequest): Promise<{ paradaId: string } | NextResponse> {
-  let cuerpo: unknown;
-  try {
-    cuerpo = await request.json();
-  } catch {
-    return NextResponse.json({ error: "el cuerpo de la petición no es JSON válido" }, { status: 400 });
-  }
+  const leido = await leerCuerpoJson(request);
+  if ("respuesta" in leido) return leido.respuesta;
+  const cuerpo = leido.cuerpo;
   const paradaId = leerParadaId(cuerpo);
   if (!paradaId) return NextResponse.json({ error: "falta 'parada_id'" }, { status: 400 });
   return { paradaId };

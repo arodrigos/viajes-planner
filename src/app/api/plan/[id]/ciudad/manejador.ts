@@ -4,6 +4,7 @@ import { requireSesion } from "@/lib/auth/sesion";
 import { clienteServicio } from "@/lib/db/cliente";
 import { pedirCiudadManual } from "@/lib/plan/ciudadManual";
 import { exigirDuenyo } from "@/lib/plan/propiedad";
+import { leerCuerpoJson } from "@/lib/api/cuerpo";
 
 // man-ac3: textos exactos del diseño, también usados por
 // src/app/plan/[id]/__tests__/avisoCiudad.test.tsx para comprobar que la
@@ -29,12 +30,9 @@ export async function POST(request: NextRequest, ctx: ContextoRuta<"/api/plan/[i
   const guarda = await exigirDuenyo(supabase, id, sesion);
   if (guarda instanceof Response) return guarda;
 
-  let cuerpo: unknown;
-  try {
-    cuerpo = await request.json();
-  } catch {
-    return NextResponse.json({ error: "el cuerpo de la petición no es JSON válido" }, { status: 400 });
-  }
+  const leido = await leerCuerpoJson(request);
+  if ("respuesta" in leido) return leido.respuesta;
+  const cuerpo = leido.cuerpo;
   const nombre = leerNombre(cuerpo);
   if (nombre === null) return NextResponse.json({ error: "falta 'nombre'" }, { status: 400 });
 
