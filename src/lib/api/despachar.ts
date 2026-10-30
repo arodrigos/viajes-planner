@@ -24,6 +24,8 @@ export function casar(patron: string, pathname: string): Record<string, string> 
       try {
         params[m[1]] = decodeURIComponent(r[i]);
       } catch {
+        // Un «%» mal formado se trata como ruta que no casa: sin coincidencia
+        // acaba en 404, no en un 500 lanzado fuera de todo manejador.
         return null;
       }
     } else if (p[i] !== r[i]) return null;

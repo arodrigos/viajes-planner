@@ -72,6 +72,8 @@ async function comprobarSupabase(): Promise<EstadoSupabase> {
       pasadaAlternativas,
     };
   } catch {
+    // Supabase caída se publica como estado y no como 500: salud tiene que
+    // seguir respondiendo justo cuando hay que diagnosticar.
     return { estado: "error", vistoHaceSeg: null, commitSha: null, ultimoResultado: null, pasadaAlternativas: null };
   }
 }

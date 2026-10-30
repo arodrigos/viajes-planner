@@ -236,6 +236,8 @@ export async function casarLugaresPendientes(supabase: SupabaseClient, opciones:
         const placeId = elegirCoincidencia(candidato.ancla, candidato.umbralM, encontrados);
         return placeId ? { estado: "casado", placeId } : { estado: "sin-coincidencia", placeId: null };
       } catch {
+        // Se guarda como «error» y no se lanza: un lugar que falla no corta el
+        // tick para los demás, y necesitaCasado lo vuelve a pedir en el siguiente.
         return { estado: "error", placeId: null };
       }
     });
