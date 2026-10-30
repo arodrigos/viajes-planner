@@ -9,6 +9,12 @@ import type { DiaPublico, PlanPublico } from "./tiposVista";
 
 export const DURACION_AVISO_ARREGLO_MS = 8_000;
 
+function pareceUnPlan(datos: unknown): datos is PlanPublico {
+  if (typeof datos !== "object" || datos === null) return false;
+  const { version, dias } = datos as { version?: unknown; dias?: unknown };
+  return typeof version === "number" && Number.isFinite(version) && Array.isArray(dias);
+}
+
 export interface AvisoArreglo {
   texto: string;
   conDeshacer: boolean;
@@ -89,7 +95,10 @@ export function useArreglos(plan: PlanPublico, alActualizar: (plan: PlanPublico)
     try {
       const r = await fetch(`/api/plan/${planRef.current.id}`);
       if (!r.ok) return null;
-      const nuevo = (await r.json()) as PlanPublico;
+      const nuevo: unknown = await r.json();
+      // Un cuerpo sin versión numérica dejaba NaN en versionConfirmada y el
+      // siguiente envío salía sin version_base válida: se trata como un fallo.
+      if (!pareceUnPlan(nuevo)) return null;
       if (!forzar && (mia !== epoca.current || pendientes.current > 0)) return null;
       versionConfirmada.current = Math.max(versionConfirmada.current, nuevo.version);
       planRef.current = nuevo;

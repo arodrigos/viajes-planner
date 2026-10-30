@@ -282,6 +282,31 @@ describe("useArreglos: fallos (arr-ac5)", () => {
     expect(result.current.plan.version).toBe(5);
   });
 
+  it.each([{}, [{}], { version: "5", dias: [] }, { version: 5 }])("un 409 seguido de una relectura sin forma de plan (%j) deja el plan como estaba", async (cuerpo) => {
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? respuesta(409, { error: "version-desfasada" }) : respuesta(200, cuerpo))));
+    const { result } = montar();
+    await act(async () => {
+      await result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    expect(result.current.error).toContain("El plan ha cambiado");
+    expect(result.current.plan).toBe(INICIAL);
+  });
+
+  it("tras guardar, una relectura {} no pisa el plan y el siguiente envío lleva la versión del POST", async () => {
+    const fetchFalso = vi.fn((_url: string, init?: RequestInit) => (init?.method === "POST" ? respuesta(200, { version: 2 }) : respuesta(200, {})));
+    vi.stubGlobal("fetch", fetchFalso);
+    const { result } = montar();
+    await act(async () => {
+      await result.current.aplicar(OTRO_DIA, "a", 0);
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.plan.dias[1].paradas.map((p) => p.id)).toEqual(["c", "a"]);
+    act(() => result.current.deshacer());
+    await waitFor(() => expect(fetchFalso.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(2));
+    const [, init] = fetchFalso.mock.calls.filter(([, i]) => i?.method === "POST")[1] as [string, RequestInit];
+    expect(JSON.parse(init.body as string).version_base).toBe(2);
+  });
+
   it("un 429 enseña el mensaje del tope", async () => {
     vi.stubGlobal("fetch", vi.fn(() => respuesta(429, { error: "demasiados-cambios" })));
     const { result } = montar();

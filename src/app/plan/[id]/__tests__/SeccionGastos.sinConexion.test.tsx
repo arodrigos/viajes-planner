@@ -19,14 +19,14 @@ const json = (status: number, cuerpo: unknown) => new Response(status === 204 ? 
 // Servidor con estado y con un interruptor de red: sin red, todo fetch lanza.
 function servidor(inicial: Gasto[] = [SUBIDO]) {
   const lista = [...inicial];
-  const estado = { enLinea: true, putEstado: 200 as number, putCuerpo: undefined as unknown, llamadas: [] as { metodo: string; url: string }[] };
+  const estado = { enLinea: true, putEstado: 200 as number, putCuerpo: undefined as unknown, getCuerpo: undefined as unknown, llamadas: [] as { metodo: string; url: string }[] };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       if (!estado.enLinea) throw new TypeError("Failed to fetch");
       const metodo = init?.method ?? "GET";
       estado.llamadas.push({ metodo, url });
-      if (metodo === "GET") return json(200, lista);
+      if (metodo === "GET") return json(200, estado.getCuerpo ?? lista);
       const id = String(url).split("/").pop()!;
       const i = lista.findIndex((g) => g.id === id);
       if (metodo === "PUT") {
@@ -109,6 +109,28 @@ describe("SeccionGastos sin conexión (off-ac1..off-ac4, uat-17, uat-18)", () =>
   it("sin red y sin copia no inventa una lista vacía: avisa", async () => {
     const s = servidor();
     s.estado.enLinea = false;
+    render(<SeccionGastos planId="plan-1" fechas={FECHAS} hoy="2026-01-01" presupuesto={PRESUPUESTO} />);
+    await userEvent.setup().click(screen.getByText("Gastos"));
+    expect(await screen.findByText(/No se han podido cargar los gastos/)).toBeTruthy();
+    expect(screen.queryByTestId("gastos-titular")).toBeNull();
+  });
+
+  it.each([{}, [{}], [{ ...SUBIDO, importe_centimos: "1000" }]])("una lista del servidor sin forma de gastos (%j) no pisa la copia previa", async (cuerpo) => {
+    const s = servidor();
+    await abrir();
+    cleanup();
+    s.estado.getCuerpo = cuerpo;
+    await abrir();
+    await waitFor(() => expect(s.estado.llamadas.filter((l) => l.metodo === "GET")).toHaveLength(2));
+    expect(screen.getAllByTestId("gasto")).toHaveLength(1);
+    expect(screen.getByTestId("gastos-titular").textContent).toContain("Queda 1.190,00");
+    expect(screen.queryByText(/No se han podido cargar los gastos/)).toBeNull();
+    expect((await colaDeSalida().leerEspejo<Gasto>("plan-1"))?.datos).toEqual([SUBIDO]);
+  });
+
+  it.each([{}, [{}]])("sin copia previa, una lista sin forma de gastos (%j) avisa igual que un fallo", async (cuerpo) => {
+    const s = servidor();
+    s.estado.getCuerpo = cuerpo;
     render(<SeccionGastos planId="plan-1" fechas={FECHAS} hoy="2026-01-01" presupuesto={PRESUPUESTO} />);
     await userEvent.setup().click(screen.getByText("Gastos"));
     expect(await screen.findByText(/No se han podido cargar los gastos/)).toBeTruthy();

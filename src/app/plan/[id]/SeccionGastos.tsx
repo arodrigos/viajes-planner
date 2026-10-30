@@ -23,6 +23,12 @@ const MS_DESHACER = 8000;
 // Sin sesión no hay un fallo que vaya a cambiar solo; se vuelve a mirar de vez en cuando.
 const MS_REINTENTO_SIN_SESION = 30_000;
 
+function pareceUnGasto(g: unknown): g is Gasto {
+  if (typeof g !== "object" || g === null) return false;
+  const { id, importe_centimos } = g as { id?: unknown; importe_centimos?: unknown };
+  return typeof id === "string" && typeof importe_centimos === "number" && Number.isFinite(importe_centimos);
+}
+
 function aPresupuesto(p: PresupuestoPublico, fechas: string[]) {
   // Planes calculados antes de por_dia: sin desglose por día, todo a cero.
   return { por_dia: p.por_dia ?? fechas.map((fecha) => ({ fecha, total_eur: 0 })), total_eur: p.total_eur, alojamiento_eur: p.alojamiento_eur ?? 0 };
@@ -61,10 +67,12 @@ export function SeccionGastos({ planId, fechas, hoy, presupuesto }: Props) {
       const r = await fetch(`/api/plan/${planId}/gastos`);
       if (!r.ok) return false;
       const datos: unknown = await r.json();
-      if (!Array.isArray(datos)) return false;
-      setEspejo(datos as Gasto[]);
+      // Un elemento sin id o sin importe rompía la suma y la lista, y además
+      // se quedaba guardado en el espejo para la próxima vez sin red.
+      if (!Array.isArray(datos) || !datos.every(pareceUnGasto)) return false;
+      setEspejo(datos);
       setErrorLista(false);
-      await colaDeSalida().guardarEspejo(planId, datos as Gasto[]).catch(() => undefined);
+      await colaDeSalida().guardarEspejo(planId, datos).catch(() => undefined);
       return true;
     } catch {
       return false;
