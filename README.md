@@ -131,6 +131,23 @@ Dos mitades que no se pisan:
     llamadas que resuelve la caché, así que es una cota superior. El
     resultado del tick lo publica como `peticiones_externas`.
 
+### Mapa de carpetas
+
+Dónde buscar cada cosa antes de leer el detalle de cada funcionalidad:
+
+| Carpeta | Qué hay |
+|---|---|
+| `src/app/` | Páginas (`criterios`, `trabajos/[id]`, `plan/[id]`, `viajes`, `guia`…), el service worker (`sw.ts`) y las rutas de API. Los e2e viven junto a la pantalla que prueban (`*.e2e.ts`, `*.movil.e2e.ts`) |
+| `src/app/api/` | Manejadores de API (`manejador.ts`) repartidos por los dos despachadores (ver «Tamaño del despliegue de Vercel») |
+| `src/lib/` | Lógica sin interfaz, una carpeta por dominio: `plan` (tipos, tiempos, horario, conflictos, compartir), `criterios`, `cola` (trabajos encolados), `trabajador` (la mitad que piensa), `lugares` y `guia` (fuentes abiertas), `google`, `etapas` (viajes multiciudad), `alternativas`, `eventos`, `reservas`, `gastos`, `presupuesto`, `infografia`, `sinConexion`, `auth`, `db`, `textos` (todos los textos visibles) |
+| `src/verificacion/` | Suite preview contra un despliegue publicado (no corre en el CI) |
+| `src/test-utils/` | Ayudas de los e2e: capturas, sesiones y la lista de capturas esperadas |
+| `scripts/` | Tick del trabajador, comprobaciones del CI (`verificar-*.sh`, `comprobar-*.mjs`) y generadores de ejemplos y goldens |
+| `supabase/` | Configuración de la pila local y migraciones numeradas del esquema `viajes_planner` |
+| `fixtures/` | Criterios de ejemplo y respuestas grabadas de servicios externos para los tests sin red |
+| `docs/` | Diseño de detalle: fuentes de datos, guía de estilo, relleno de planes, verificación con sesión y viajes por país |
+| `assets/fuentes/` | Fuentes tipográficas de la infografía |
+
 ### Curiosidades verificadas
 
 Las curiosidades de cada parada son frases **literales** de Wikipedia y
@@ -430,6 +447,7 @@ cp .env.example .env.local   # y rellena las variables de abajo
 npm run dev
 ```
 
+Node 22, la misma versión que usa el CI.
 `npm install` copia además el worker de MapLibre a `public/` (`postinstall`).
 `npm run build` falla si `CORREOS_PERMITIDOS` está vacía (`prebuild`). El
 trabajador se lanza aparte con `npm run trabajador:tick`.

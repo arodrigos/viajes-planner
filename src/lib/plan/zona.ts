@@ -10,6 +10,8 @@ function zonaDeCoordenadas(lat: number, lon: number): string | null {
   try {
     return tzLookup(lat, lon);
   } catch {
+    // tz-lookup lanza con coordenadas fuera de rango; sin zona, la apertura
+    // queda «desconocida» en vez de tumbar el cálculo del día.
     return null;
   }
 }

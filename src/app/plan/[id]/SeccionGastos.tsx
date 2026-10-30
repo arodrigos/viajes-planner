@@ -48,6 +48,8 @@ export function SeccionGastos({ planId, fechas, hoy, presupuesto }: Props) {
     try {
       setOperaciones(await colaDeSalida().pendientes(planId));
     } catch {
+      // Sin IndexedDB utilizable (navegación privada, cuota) no hay cola que
+      // enseñar; la lista del servidor sigue funcionando.
       setOperaciones([]);
     }
   }, [planId]);

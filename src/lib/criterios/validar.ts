@@ -1,6 +1,5 @@
 import Ajv from "ajv";
 import { esquemaCriterios } from "./esquema";
-import type { CriteriosViaje } from "./tipos";
 
 const ajv = new Ajv({ allErrors: true, strict: true });
 const validarEstructura = ajv.compile(esquemaCriterios);
@@ -27,8 +26,4 @@ export function validarCriterios(data: unknown): ResultadoValidacionCriterios {
     return `${e.instancePath || "(raíz)"} ${e.message}`;
   });
   return { valido, errores: [...new Set(errores)] };
-}
-
-export function esCriteriosViaje(data: unknown): data is CriteriosViaje {
-  return validarEstructura(data) as boolean;
 }
