@@ -617,6 +617,16 @@ gh workflow run "Pruebas a demanda" --ref <rama> -f tipo=unit -f specs="src/lib/
 
 ## Changelog de cambios relevantes
 
+- **2026-10-29** (#378, #379):
+  - **Presupuesto del despliegue en el CI** (#378):
+    `scripts/comprobar-presupuesto-despliegue.mjs` lee el informe de
+    `scripts/medir-despliegue.mjs` y el CI falla si lo supera; reutiliza el
+    build de `scripts/verificar-viajes.sh`, sin un segundo build.
+  - **Rutas de API agrupadas** (#379): los manejadores pasan a `manejador.ts`
+    y los sirven los despachadores `src/app/api/[...ruta]/route.ts` y
+    `src/app/api/plan/[id]/[...ruta]/route.ts`; de 39 a 18 funciones y de
+    100,55 a 59,14 MB en el trazado local. Las URLs y respuestas no cambian.
+    El presupuesto baja a 20 funciones y 150 MB.
 - **2026-10-25** (#373):
   - **Reservas en su hora**: la tarjeta fija de una reserva se intercala por
     hora entre las paradas de su franja, en vez de salir la primera.
