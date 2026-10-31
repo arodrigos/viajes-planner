@@ -60,6 +60,7 @@ const AVISO_REENVIO_SERVIDOR =
 const AVISO_REENVIO_RED =
   "No se ha podido enviar otro código: parece que no hay conexión. Compruébala e inténtalo de nuevo. Si ya te llegó un código, puedes seguir usándolo mientras no caduque.";
 
+// El anunciador de rutas de Next también es un role=alert: se cuenta solo el del formulario.
 async function hastaPasoCodigoReenvio(page: Page, siguientes: Array<"500" | "red" | "ok">) {
   await page.clock.install();
   const cola = [...siguientes];
@@ -84,7 +85,7 @@ test("un reenvío en 500 avisa debajo del botón, conserva lo escrito y deja el 
   const boton = page.getByRole("button", { name: "Pedir otro código", exact: true });
   await boton.click();
 
-  const alerta = page.getByRole("alert");
+  const alerta = page.getByRole("form", { name: "Introducir código" }).getByRole("alert");
   await expect(alerta).toHaveCount(1);
   await expect(alerta).toHaveText(AVISO_REENVIO_SERVIDOR);
   const cajaBoton = await boton.boundingBox();
@@ -103,7 +104,7 @@ test("un reenvío en 500 avisa debajo del botón, conserva lo escrito y deja el 
 test("un reenvío sin red avisa de la conexión en el mismo sitio", async ({ page }) => {
   await hastaPasoCodigoReenvio(page, ["red"]);
   await page.getByRole("button", { name: "Pedir otro código", exact: true }).click();
-  await expect(page.getByRole("alert")).toHaveText(AVISO_REENVIO_RED);
+  await expect(page.getByRole("form", { name: "Introducir código" }).getByRole("alert")).toHaveText(AVISO_REENVIO_RED);
   await expect(page.getByLabel("Código de acceso")).toHaveValue("123");
   await capturar(page, "mensajes-error-codigo-4-reenvio-red");
 });
@@ -112,9 +113,9 @@ test("tras un fallo, un reintento correcto quita el aviso y vuelve la cuenta atr
   await hastaPasoCodigoReenvio(page, ["500", "ok"]);
   const boton = page.getByRole("button", { name: "Pedir otro código", exact: true });
   await boton.click();
-  await expect(page.getByRole("alert")).toHaveCount(1);
+  await expect(page.getByRole("form", { name: "Introducir código" }).getByRole("alert")).toHaveCount(1);
   await boton.click();
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("form", { name: "Introducir código" }).getByRole("alert")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Pedir otro código \(\d+ s\)/ })).toBeDisabled();
   await capturar(page, "mensajes-error-codigo-5-reenvio-recuperado");
 });
