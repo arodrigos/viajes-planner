@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CODIGO_VALIDO } from "@/lib/auth/codigoValido";
+import { mensajeFalloReenvio } from "./avisoReenvio";
 
 type Paso = "email" | "codigo";
 
@@ -22,14 +23,27 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
   const [avisoCodigo, setAvisoCodigo] = useState<string | null>(null);
   const [errorEmail, setErrorEmail] = useState<string | null>(null);
   const [errorCodigo, setErrorCodigo] = useState<string | null>(null);
+  const [errorReenvio, setErrorReenvio] = useState<string | null>(null);
+  const [reenviando, setReenviando] = useState(false);
   const [segundosParaReenvio, setSegundosParaReenvio] = useState(0);
   const campoCodigoRef = useRef<HTMLInputElement>(null);
+  const botonReenvioRef = useRef<HTMLButtonElement>(null);
+  const restaurarFocoReenvio = useRef(false);
 
   useEffect(() => {
     if (segundosParaReenvio <= 0) return;
     const id = setInterval(() => setSegundosParaReenvio((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [segundosParaReenvio]);
+
+  // Un botón desactivado pierde el foco; sin devolverlo, tras el fallo quien
+  // usa teclado o lector de pantalla se quedaría en el cuerpo de la página.
+  useEffect(() => {
+    if (!reenviando && restaurarFocoReenvio.current) {
+      restaurarFocoReenvio.current = false;
+      botonReenvioRef.current?.focus();
+    }
+  }, [reenviando]);
 
   // pantalla-ac8(d): la respuesta de solicitar-codigo es UNIFORME para un
   // correo autorizado y uno que no lo está (mismo estado, mismo cuerpo), así
@@ -61,6 +75,35 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
     }
   }
 
+  // El reenvío tiene su propio estado de error: el de pedirCodigo solo se pinta
+  // en el paso del correo y aquí la persona se quedaba sin respuesta. Tras un
+  // fallo no se reinicia la cuenta atrás: el botón vuelve al momento.
+  async function pedirOtroCodigo() {
+    if (reenviando) return;
+    restaurarFocoReenvio.current = document.activeElement === botonReenvioRef.current;
+    setReenviando(true);
+    setErrorReenvio(null);
+    setErrorCodigo(null);
+    try {
+      const respuesta = await fetch("/api/acceso/solicitar-codigo", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!respuesta.ok) {
+        setErrorReenvio(mensajeFalloReenvio({ tipo: "respuesta", status: respuesta.status }));
+        return;
+      }
+      const cuerpo = (await respuesta.json().catch(() => null)) as { mensaje?: unknown } | null;
+      setAvisoCodigo(typeof cuerpo?.mensaje === "string" ? cuerpo.mensaje : null);
+      setSegundosParaReenvio(SEGUNDOS_REENVIO);
+    } catch {
+      setErrorReenvio(mensajeFalloReenvio({ tipo: "red" }));
+    } finally {
+      setReenviando(false);
+    }
+  }
+
   async function alSubmitEmail(e: React.FormEvent) {
     e.preventDefault();
     await pedirCodigo();
@@ -70,6 +113,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
     e.preventDefault();
     setEnviandoCodigo(true);
     setErrorCodigo(null);
+    setErrorReenvio(null);
     try {
       const respuesta = await fetch("/api/acceso/verificar-codigo", {
         method: "POST",
@@ -167,9 +211,18 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
       <button type="submit" disabled={enviandoCodigo || !CODIGO_VALIDO.test(codigo)}>
         {enviandoCodigo ? "Comprobando…" : "Confirmar código"}
       </button>
-      <button type="button" onClick={() => void pedirCodigo()} disabled={segundosParaReenvio > 0 || enviandoEmail}>
-        {segundosParaReenvio > 0 ? `Pedir otro código (${segundosParaReenvio} s)` : "Pedir otro código"}
+      <button type="button" ref={botonReenvioRef} onClick={() => void pedirOtroCodigo()} disabled={segundosParaReenvio > 0 || reenviando}>
+        {reenviando
+          ? "Enviando otro código…"
+          : segundosParaReenvio > 0
+            ? `Pedir otro código (${segundosParaReenvio} s)`
+            : "Pedir otro código"}
       </button>
+      {errorReenvio && (
+        <p role="alert" className="pila">
+          {errorReenvio}
+        </p>
+      )}
       {errorCodigo && (
         <p role="alert" className="pila">
           {errorCodigo}
