@@ -12,7 +12,8 @@ export type TipoRechazoAuth = "limite-envios" | "correo-invalido" | "fallo-envio
 
 // Se clasifica por `code` y `status`, nunca por el texto del mensaje, que
 // Supabase puede cambiar y que lleva el correo. El `status` solo sirve de
-// respaldo cuando no llega `code`.
+// respaldo cuando el `code` no es uno de los conocidos (o no llega); un 429
+// con un code nuevo sigue siendo un límite, no un fallo de envío.
 export function clasificarErrorAuth(error: unknown): { tipo: TipoRechazoAuth; status?: number; code?: string } {
   const bruto = (typeof error === "object" && error !== null ? error : {}) as { status?: unknown; code?: unknown };
   const status = typeof bruto.status === "number" ? bruto.status : undefined;
@@ -20,7 +21,7 @@ export function clasificarErrorAuth(error: unknown): { tipo: TipoRechazoAuth; st
   let tipo: TipoRechazoAuth = "fallo-envio";
   if (code === "over_email_send_rate_limit" || code === "over_request_rate_limit") tipo = "limite-envios";
   else if (code === "email_address_invalid" || code === "email_address_not_authorized") tipo = "correo-invalido";
-  else if (code === undefined && status === 429) tipo = "limite-envios";
+  else if (status === 429) tipo = "limite-envios";
   else if (code === undefined && status === 400) tipo = "correo-invalido";
   return { tipo, status, code };
 }

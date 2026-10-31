@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fc from "fast-check";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { procesarSolicitudCodigo } from "@/lib/auth/solicitarCodigo";
+import { clasificarErrorAuth, procesarSolicitudCodigo } from "@/lib/auth/solicitarCodigo";
 
 // es-4: ninguna prueba llama a signInWithOtp contra Supabase real; el cliente
 // es siempre un doble, así no se consume el límite de envíos compartido.
@@ -42,10 +42,30 @@ describe("procesarSolicitudCodigo: errores de Auth (es-1)", () => {
     ["sin code y 400", { status: 400 }, "correo-invalido"],
     ["email_address_not_authorized", { status: 422, code: "email_address_not_authorized" }, "correo-invalido"],
     ["over_request_rate_limit", { status: 429, code: "over_request_rate_limit" }, "limite-envios"],
+    ["code desconocido y 429", { status: 429, code: "limite_nuevo_x" }, "limite-envios"],
     ["code desconocido y 500", { status: 500, code: "unexpected_failure" }, "fallo-envio"],
   ])("%s", async (_n, error, tipo) => {
     const { cliente } = clienteConError(error);
     expect(await procesarSolicitudCodigo(cliente, CORREO)).toMatchObject({ estado: "rechazado-por-auth", tipo });
+  });
+
+  it("invariante: un code conocido conserva su tipo con cualquier status; uno desconocido con 429 es límite", () => {
+    const conocidos: Record<string, string> = {
+      over_email_send_rate_limit: "limite-envios",
+      over_request_rate_limit: "limite-envios",
+      email_address_invalid: "correo-invalido",
+      email_address_not_authorized: "correo-invalido",
+    };
+    fc.assert(
+      fc.property(fc.option(fc.string(), { nil: undefined }), fc.constantFrom(400, 422, 429, 500), (code, status) => {
+        const { tipo } = clasificarErrorAuth({ status, code });
+        if (code !== undefined && Object.hasOwn(conocidos, code)) expect(tipo).toBe(conocidos[code]);
+        else if (status === 429) expect(tipo).toBe("limite-envios");
+      }),
+    );
+    for (const [code, tipo] of Object.entries(conocidos)) {
+      for (const status of [400, 422, 429, 500]) expect(clasificarErrorAuth({ status, code }).tipo).toBe(tipo);
+    }
   });
 
   it("una excepción del cliente -> fallo-envio, sin lanzar", async () => {
