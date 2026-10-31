@@ -27,12 +27,23 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
   const [reenviando, setReenviando] = useState(false);
   const [segundosParaReenvio, setSegundosParaReenvio] = useState(0);
   const campoCodigoRef = useRef<HTMLInputElement>(null);
+  const botonReenvioRef = useRef<HTMLButtonElement>(null);
+  const restaurarFocoReenvio = useRef(false);
 
   useEffect(() => {
     if (segundosParaReenvio <= 0) return;
     const id = setInterval(() => setSegundosParaReenvio((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [segundosParaReenvio]);
+
+  // Un botón desactivado pierde el foco; sin devolverlo, tras el fallo quien
+  // usa teclado o lector de pantalla se quedaría en el cuerpo de la página.
+  useEffect(() => {
+    if (!reenviando && restaurarFocoReenvio.current) {
+      restaurarFocoReenvio.current = false;
+      botonReenvioRef.current?.focus();
+    }
+  }, [reenviando]);
 
   // pantalla-ac8(d): la respuesta de solicitar-codigo es UNIFORME para un
   // correo autorizado y uno que no lo está (mismo estado, mismo cuerpo), así
@@ -69,6 +80,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
   // fallo no se reinicia la cuenta atrás: el botón vuelve al momento.
   async function pedirOtroCodigo() {
     if (reenviando) return;
+    restaurarFocoReenvio.current = document.activeElement === botonReenvioRef.current;
     setReenviando(true);
     setErrorReenvio(null);
     setErrorCodigo(null);
@@ -199,7 +211,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
       <button type="submit" disabled={enviandoCodigo || !CODIGO_VALIDO.test(codigo)}>
         {enviandoCodigo ? "Comprobando…" : "Confirmar código"}
       </button>
-      <button type="button" onClick={() => void pedirOtroCodigo()} disabled={segundosParaReenvio > 0 || reenviando}>
+      <button type="button" ref={botonReenvioRef} onClick={() => void pedirOtroCodigo()} disabled={segundosParaReenvio > 0 || reenviando}>
         {reenviando
           ? "Enviando otro código…"
           : segundosParaReenvio > 0
