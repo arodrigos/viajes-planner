@@ -50,6 +50,8 @@ describe("POST /api/acceso/solicitar-codigo (es-2, es-5)", () => {
 
   it.each([
     ["límite", { status: 429, code: "over_email_send_rate_limit", message: "you can only request this after 59 seconds" }, "limite-envios", 429],
+    ["límite con code desconocido", { status: 429, code: "limite_nuevo_x", message: "slow down" }, "limite-envios", 429],
+    ["límite sin code", { status: 429, code: undefined, message: "slow down" }, "limite-envios", 429],
     ["correo inválido", { status: 400, code: "email_address_invalid", message: "Email address is invalid" }, "correo-invalido", 400],
     ["no clasificado", { status: 500, code: "raro", message: "boom" }, "fallo-envio", 502],
   ])("%s: 200 idéntico y el detalle solo en el log", async (_n, error, tipo, http) => {
