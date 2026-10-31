@@ -75,7 +75,7 @@ async function hastaPasoCodigoReenvio(page: Page, siguientes: Array<"500" | "red
   await page.getByRole("button", { name: "Pedir código de acceso" }).click();
   await expect(page.getByRole("form", { name: "Introducir código" })).toBeVisible();
   await page.getByLabel("Código de acceso").fill("123");
-  await page.clock.fastForward(61_000);
+  await page.clock.runFor(61_000);
   await expect(page.getByRole("button", { name: "Pedir otro código", exact: true })).toBeEnabled();
 }
 

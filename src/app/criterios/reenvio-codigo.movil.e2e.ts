@@ -33,7 +33,7 @@ test("tras un reenvío fallido, el reintento envía el código y se canjea con l
   await page.getByRole("button", { name: "Pedir código de acceso" }).click();
   await expect(page.getByRole("form", { name: "Introducir código" })).toBeVisible();
 
-  await page.clock.fastForward(61_000);
+  await page.clock.runFor(61_000);
   await page.getByRole("button", { name: "Pedir otro código", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Pedir otro código", exact: true })).toBeEnabled();
