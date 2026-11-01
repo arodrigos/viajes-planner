@@ -29,6 +29,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
   const campoCodigoRef = useRef<HTMLInputElement>(null);
   const botonReenvioRef = useRef<HTMLButtonElement>(null);
   const restaurarFocoReenvio = useRef(false);
+  const alertaReenvioRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (segundosParaReenvio <= 0) return;
@@ -44,6 +45,13 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
       botonReenvioRef.current?.focus();
     }
   }, [reenviando]);
+
+  // En un móvil pequeño el aviso se monta por debajo del borde de la pantalla y
+  // la persona no ve respuesta alguna. scrollIntoView no mueve el foco, que se
+  // queda en el botón. El `?.` es por jsdom, que no implementa el método.
+  useEffect(() => {
+    if (errorReenvio) alertaReenvioRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [errorReenvio]);
 
   // pantalla-ac8(d): la respuesta de solicitar-codigo es UNIFORME para un
   // correo autorizado y uno que no lo está (mismo estado, mismo cuerpo), así
@@ -219,7 +227,7 @@ export function PanelAcceso({ onVerificado }: { onVerificado: () => void }) {
             : "Pedir otro código"}
       </button>
       {errorReenvio && (
-        <p role="alert" className="pila">
+        <p role="alert" className="pila" ref={alertaReenvioRef}>
           {errorReenvio}
         </p>
       )}
