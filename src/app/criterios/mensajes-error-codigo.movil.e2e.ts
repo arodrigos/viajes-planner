@@ -119,3 +119,23 @@ test("tras un fallo, un reintento correcto quita el aviso y vuelve la cuenta atr
   await expect(page.getByRole("button", { name: /Pedir otro código \(\d+ s\)/ })).toBeDisabled();
   await capturar(page, "mensajes-error-codigo-5-reenvio-recuperado");
 });
+
+// reenvio-ac1/ac2: a 360x640 el aviso tiene que quedar dentro del viewport sin
+// que nadie desplace la página a mano, con el foco aún en el botón.
+for (const [fallo, texto] of [["500", AVISO_REENVIO_SERVIDOR], ["red", AVISO_REENVIO_RED]] as const) {
+  test(`a 360x640 el aviso del reenvío (${fallo}) se ve sin desplazar la página`, async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await hastaPasoCodigoReenvio(page, [fallo]);
+    await page.getByRole("button", { name: "Pedir otro código", exact: true }).click();
+    const alerta = page.getByRole("form", { name: "Introducir código" }).getByRole("alert");
+    await expect(alerta).toHaveText(texto);
+    await expect
+      .poll(() => alerta.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return r.top >= 0 && r.bottom <= window.innerHeight;
+      }))
+      .toBe(true);
+    expect(await page.evaluate(() => document.activeElement?.textContent)).toBe("Pedir otro código");
+    await capturar(page, `mensajes-error-codigo-6-reenvio-${fallo}-360x640`);
+  });
+}
