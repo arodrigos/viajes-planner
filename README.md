@@ -359,7 +359,7 @@ el correo).
 | Situación | Lo que ve la persona | Log (`http_equivalente`) | Qué hacer |
 |---|---|---|---|
 | Envío correcto, o correo no autorizado | El aviso fijo | Sin entrada | Nada |
-| Límite de envíos (`over_email_send_rate_limit`, `over_request_rate_limit`) | El aviso fijo | `tipo: limite-envios`, `429` | Esperar un minuto; si se repite, el SMTP por defecto de DEV tiene un límite de envíos por hora muy bajo y es compartido |
+| Límite de envíos (`over_email_send_rate_limit`, `over_request_rate_limit`, o cualquier otro `code` no reconocido que llegue con `status` 429) | El aviso fijo | `tipo: limite-envios`, `429` | Esperar un minuto; si se repite, el SMTP por defecto de DEV tiene un límite de envíos por hora muy bajo y es compartido |
 | Dirección rechazada (`email_address_invalid`, `email_address_not_authorized`) | El aviso fijo | `tipo: correo-invalido`, `400` | El SMTP por defecto solo envía a direcciones autorizadas del proyecto |
 | Error de Auth no clasificado o Supabase caído | El aviso fijo | `tipo: fallo-envio`, `502` | Revisar el estado de Supabase Auth |
 | Lista blanca vacía | Texto genérico de fallo | `500` real | Arreglar `CORREOS_PERMITIDOS` |
@@ -367,6 +367,17 @@ el correo).
 El tiempo de respuesta puede diferir entre un correo autorizado y uno que no
 (el segundo no llama a Supabase): fuga residual de temporización conocida y no
 tratada.
+
+La clasificación vive en `clasificarErrorAuth` (`src/lib/auth/solicitarCodigo.ts`)
+y mira solo `code` y `status`, nunca el texto del mensaje.
+
+En el paso del código, «Pedir otro código» (disponible 60 s después del envío
+anterior) muestra «Enviando otro código…» mientras espera. Si la petición
+falla, aparece un aviso propio junto al botón (`role="alert"`), la cuenta atrás
+no se reinicia y el botón recupera el foco. El aviso solo distingue entre «el
+servidor no pudo» y «no hay red» (`src/app/criterios/avisoReenvio.ts`), nunca
+por el status ni por el cuerpo, así que no delata la lista blanca; los dos
+recuerdan que un código ya recibido sigue valiendo mientras no caduque.
 
 Pruebas y UAT no llaman nunca a `signInWithOtp` contra el Supabase real, para
 no gastar el límite de envíos compartido: usan dobles del cliente,
@@ -617,6 +628,37 @@ gh workflow run "Pruebas a demanda" --ref <rama> -f tipo=unit -f specs="src/lib/
 
 ## Changelog de cambios relevantes
 
+- **2026-10-31** (#399, #400, #401):
+  - **429 sin `code` conocido** (#399): un rechazo de Auth con `status` 429 y
+    un `code` que no está entre los conocidos se registra como
+    `limite-envios` (429) y no como `fallo-envio` (502). Lo que ve la persona
+    no cambia.
+  - **Pruebas de protección del plan** (#400): tests de integración de
+    `orden`, `paradas/[paradaId]/mover-dia` y `reservas` con un plan propio y
+    uno ajeno (`src/app/api/plan/[id]/__tests__/orden.integration.test.ts`,
+    `src/app/api/plan/[id]/__tests__/mover-dia.integration.test.ts`,
+    `src/app/api/plan/[id]/__tests__/reservas.integration.test.ts`), y
+    `src/app/api/plan/[id]/__tests__/tabla-despachador.integration.test.ts`,
+    que comprueba que el despachador sigue sirviendo esas rutas. La semilla
+    común está en `src/test-utils/semilla-edicion.ts`.
+  - **Aviso al fallar «Pedir otro código»** (#401): ver «Pedir el código de
+    acceso» más arriba.
+- **2026-10-30** (#392, #393):
+  - **Errores con rastro** (#392): el casado de `place_id` guarda el motivo
+    del último fallo (`ultimoError`) y el tick lo escribe en el log con
+    `console.warn`; `/api/salud` escribe en el log por qué no pudo leer
+    Supabase, pero su respuesta no cambia. Los tres sitios recortan el mensaje
+    con `mensajeAcotado` (`src/lib/mensajeAcotado.ts`, 160 caracteres).
+  - **Lectura común del cuerpo JSON** (#392): `leerCuerpoJson`
+    (`src/lib/api/cuerpo.ts`) devuelve el mismo 400 de siempre y la usan
+    `POST /api/plan` y las rutas `visitas`, `ciudad` y `sustituir`.
+  - **ESLint** (#392): `@typescript-eslint/no-unused-vars` ignora las
+    variables con prefijo `_` y los hermanos de un `...resto` al
+    desestructurar.
+  - **Respuestas con forma inesperada** (#393): la sección «Gastos» descarta
+    una lista con algún elemento sin `id` o sin `importe_centimos` numérico
+    (no la pinta ni la guarda en el espejo sin conexión), y «Arreglar» trata
+    como fallo un plan recargado sin `version` numérica o sin `dias`.
 - **2026-10-29** (#378, #379):
   - **Presupuesto del despliegue en el CI** (#378):
     `scripts/comprobar-presupuesto-despliegue.mjs` lee el informe de
