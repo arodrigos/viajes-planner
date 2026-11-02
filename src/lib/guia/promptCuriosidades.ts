@@ -5,6 +5,7 @@ import type { CandidatasSitio } from "./candidatas";
 
 export const MAX_CANDIDATAS_PROMPT = 700;
 export const MAX_ELEGIDAS_POR_SITIO = 4;
+export const MAX_TEXTO_CANDIDATA = 600;
 
 export interface SitioEnPrompt {
   clave: string;
@@ -13,10 +14,14 @@ export interface SitioEnPrompt {
 
 // El bloque <datos> es lo único que viene de fuera. Las candidatas ya no
 // pueden contener «<» ni «>» (se descartan al construirlas), así que ninguna
-// cierra el bloque ni abre otra etiqueta.
+// cierra el bloque ni abre otra etiqueta. Aquí se vuelve a quitar y se acota
+// la longitud por si algún día cambia cómo se construyen.
+function comoDato(texto: string, maximo: number): string {
+  return texto.replace(/[<>\n]/g, " ").slice(0, maximo);
+}
 export function promptCuriosidades(sitios: SitioEnPrompt[]): string {
   const bloque = sitios
-    .map(({ clave, datos }) => [`${clave} — ${datos.sitio.nombre.replace(/[<>\n]/g, " ").slice(0, 80)}`, ...datos.candidatas.map((c) => `${c.id}: ${c.texto}`)].join("\n"))
+    .map(({ clave, datos }) => [`${clave} — ${comoDato(datos.sitio.nombre, 80)}`, ...datos.candidatas.map((c) => `${c.id}: ${comoDato(c.texto, MAX_TEXTO_CANDIDATA)}`)].join("\n"))
     .join("\n\n");
   return [
     "Eres un selector de curiosidades para una guía de viaje. NO escribes ni traduces nada: solo eliges.",

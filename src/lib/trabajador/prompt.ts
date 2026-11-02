@@ -142,9 +142,15 @@ Los "dias" de las etapas suman exactamente ${criterios.dias}. Cada elemento de "
 Todas las paradas de un día son de la ciudad de su etapa.`;
 }
 
+// JSON.stringify no escapa «<» ni «>»: un criterio con «</criterios-usuario>»
+// cerraría el bloque de datos. Escapados siguen siendo JSON válido.
+function criteriosComoDato(criterios: CriteriosViaje): string {
+  return JSON.stringify(criterios).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
+}
+
 export function construirPrompt(criterios: CriteriosViaje, zonas?: readonly string[]): string {
   const etapas = zonas && zonas.length > 0 ? `\n\n${instruccionesEtapas(criterios, zonas)}` : "";
-  return `${instruccionesFormato(criterios)}\n\n${instruccionesGeneracion(criterios)}${etapas}\n\n<criterios-usuario>\n${JSON.stringify(criterios)}\n</criterios-usuario>`;
+  return `${instruccionesFormato(criterios)}\n\n${instruccionesGeneracion(criterios)}${etapas}\n\n<criterios-usuario>\n${criteriosComoDato(criterios)}\n</criterios-usuario>`;
 }
 
 export function construirPromptReintento(promptOriginal: string, errores: ErrorValidacion[]): string {
