@@ -6,7 +6,7 @@ export const esquemaCriterios = {
   additionalProperties: false,
   required: ["destino_o_tipo", "fechas", "dias", "personas", "perfil", "presupuesto_eur"],
   properties: {
-    destino_o_tipo: { type: "string", minLength: 1 },
+    destino_o_tipo: { type: "string", minLength: 1, maxLength: 120 },
     fechas: {
       oneOf: [
         {
@@ -23,7 +23,7 @@ export const esquemaCriterios = {
           type: "object",
           additionalProperties: false,
           required: ["modo", "epoca"],
-          properties: { modo: { const: "epoca" }, epoca: { type: "string", minLength: 1 } },
+          properties: { modo: { const: "epoca" }, epoca: { type: "string", minLength: 1, maxLength: 60 } },
         },
       ],
     },
@@ -31,6 +31,7 @@ export const esquemaCriterios = {
     personas: {
       type: "array",
       minItems: 1,
+      maxItems: 20,
       items: {
         type: "object",
         additionalProperties: false,
@@ -44,7 +45,7 @@ export const esquemaCriterios = {
       type: "object",
       additionalProperties: false,
       required: ["direccion"],
-      properties: { direccion: { type: "string", minLength: 1 } },
+      properties: { direccion: { type: "string", minLength: 1, maxLength: 200 } },
     },
     transporte: {
       type: "array",
