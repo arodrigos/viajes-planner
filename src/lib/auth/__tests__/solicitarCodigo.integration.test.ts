@@ -82,7 +82,8 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("POST /api/acceso/solicitar-codigo (
     expect(correos).toContain(emailAutorizado);
     expect(correos).not.toContain(emailNoAutorizado);
 
-    const respuestaMailpit = await fetch(`http://127.0.0.1:54324/api/v1/messages?limit=50`);
+    // Mailpit local de `supabase start`, solo en loopback: sin TLS a propósito.
+    const respuestaMailpit = await fetch(`http://127.0.0.1:54324/api/v1/messages?limit=50`); // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
     const { messages } = (await respuestaMailpit.json()) as { messages: { To: { Address: string }[] }[] };
     const destinatarios = messages.flatMap((m) => m.To?.map((d) => d.Address) ?? []);
     expect(destinatarios).toContain(emailAutorizado);

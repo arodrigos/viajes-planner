@@ -11,7 +11,9 @@ interface MensajeResumen {
 }
 
 async function buscarMensaje(email: string): Promise<MensajeResumen | undefined> {
-  const respuesta = await fetch(`${URL_MAILPIT}/api/v1/messages?limit=50`);
+  // Mailpit solo escucha en 127.0.0.1 dentro de `supabase start`: el tráfico
+  // no sale de la máquina, así que pedir TLS aquí no protege nada.
+  const respuesta = await fetch(`${URL_MAILPIT}/api/v1/messages?limit=50`); // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
   if (!respuesta.ok) throw new Error(`Mailpit respondió ${respuesta.status} al listar mensajes`);
   const { messages } = (await respuesta.json()) as { messages: MensajeResumen[] };
   return messages.find((mensaje) => mensaje.To?.some((destinatario) => destinatario.Address === email));
