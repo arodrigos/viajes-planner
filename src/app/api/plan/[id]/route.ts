@@ -71,7 +71,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plan/[id
     // La hora de lectura la pone el servidor (no la cabecera Date, que un
     // intermediario puede tocar): el SW solo guarda respuestas que la traen.
     const compartidoCon = await contarMiembros(supabase, id);
-    return NextResponse.json({ ...conGoogle, regenerando, trabajoId: trabajo.id, ...(compartidoCon > 0 ? { compartidoCon } : {}) }, { headers: cabeceras });
+    return NextResponse.json({ ...conGoogle, regenerando, trabajoId: trabajo.id, ...(compartidoCon > 0 ? { compartidoCon } : {}), ...(trabajo.preparativos ? { preparativos: trabajo.preparativos } : {}) }, { headers: cabeceras });
   } catch (fallo) {
     return respuestaFalloLectura(new ErrorLecturaPlan("presentar", fallo instanceof Error ? `${fallo.name}: ${fallo.message}` : "error desconocido"), "presentar");
   }

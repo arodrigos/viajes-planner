@@ -1,5 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { MODOS_TRANSPORTE, type Fechas, type Modo } from "@/lib/criterios/tipos";
+import type { DatosPreparativos } from "@/lib/preparativos/tipos";
 import { INTERESES, type Interes } from "@/lib/criterios/intereses";
 import type { OpcionesTramos } from "./tramos";
 
@@ -44,14 +46,31 @@ export interface TrabajoDelPlan {
   transporte: string[] | null;
   // Para citar el interés en «por qué te lo proponemos».
   intereses: Interes[] | null;
+  // Solo datos estructurados para la lista de preparativos (edades, perfil,
+  // fechas, transporte): nunca texto libre. Null si los criterios no los traen.
+  preparativos: DatosPreparativos | null;
+}
+
+function aDatosPreparativos(c: { personas?: unknown; perfil?: unknown; fechas?: unknown; dias?: unknown; transporte?: unknown } | null): DatosPreparativos | null {
+  if (!c || !Array.isArray(c.personas) || typeof c.dias !== "number") return null;
+  const f = c.fechas as { modo?: unknown; inicio?: unknown; fin?: unknown; epoca?: unknown } | null;
+  const fechas: Fechas | null =
+    f?.modo === "fechas" && typeof f.inicio === "string" && typeof f.fin === "string" ? { modo: "fechas", inicio: f.inicio, fin: f.fin }
+    : f?.modo === "epoca" && typeof f.epoca === "string" ? { modo: "epoca", epoca: f.epoca } : null;
+  const perfil = (["familiar", "amigos", "pareja", "solo"] as const).find((p) => p === c.perfil);
+  if (!fechas || !perfil) return null;
+  const personas = c.personas.flatMap((p) => (typeof (p as { edad?: unknown })?.edad === "number" ? [{ edad: (p as { edad: number }).edad }] : []));
+  const transporte = Array.isArray(c.transporte) ? c.transporte.filter((m): m is Modo => (MODOS_TRANSPORTE as readonly unknown[]).includes(m)) : [];
+  return { personas, perfil, fechas, dias: c.dias, transporte };
 }
 
 function aTrabajoDelPlan(data: { id: string; estado: string; regenerado_en: string | null; criterios: unknown }): TrabajoDelPlan {
-  const criterios = data.criterios as { perfil?: string; presupuesto_eur?: number; transporte?: unknown; intereses?: unknown } | null;
+  const criterios = data.criterios as { perfil?: string; presupuesto_eur?: number; transporte?: unknown; intereses?: unknown; personas?: unknown; fechas?: unknown; dias?: unknown } | null;
   return { id: data.id, estado: data.estado, regenerado_en: data.regenerado_en, perfil: criterios?.perfil ?? null,
     presupuesto_eur: typeof criterios?.presupuesto_eur === "number" ? criterios.presupuesto_eur : null,
     transporte: Array.isArray(criterios?.transporte) ? criterios.transporte.filter((m): m is string => typeof m === "string") : null,
     intereses: Array.isArray(criterios?.intereses) ? criterios.intereses.filter((i): i is Interes => (INTERESES as readonly unknown[]).includes(i)) : null,
+    preparativos: aDatosPreparativos(criterios),
   };
 }
 

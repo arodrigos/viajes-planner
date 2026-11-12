@@ -1,3 +1,4 @@
+import type { DatosPreparativos } from "@/lib/preparativos/tipos";
 import type { Interes } from "@/lib/criterios/intereses";
 import type { EstadoGoogleParada } from "@/lib/google/estados";
 import type { CiudadEfectiva } from "@/lib/lugares/ciudad";
@@ -147,5 +148,7 @@ export interface PlanPublico {
   // compartir-datos: número de personas con acceso (solo lo ve el dueño) y,
   // en la proyección del miembro, su rol. Sin `compartido` el plan es del dueño.
   compartidoCon?: number;
+  // preparativos: solo en la respuesta del dueño; el miembro no la recibe.
+  preparativos?: DatosPreparativos;
   compartido?: { rol: "miembro" };
 }
