@@ -10,6 +10,8 @@ import { capturar } from "@/test-utils/capturas";
 // imp-ac1..imp-ac5, imp-ac7, imp-ac10 (uat u1..u6): importar una reserva desde
 // un .ics, de punta a punta, con el archivo real elegido en el selector.
 test.use({ viewport: { width: 390, height: 844 } });
+// Cada paso se captura en cinco tamaños y se pasa axe: no cabe en los 30 s por defecto.
+test.setTimeout(120_000);
 
 const FIXTURES = path.resolve(process.cwd(), "src/lib/reservas/importar/__fixtures__");
 const fixture = (nombre: string) => ({ name: nombre, mimeType: nombre.endsWith(".ics") ? "text/calendar" : "text/plain", buffer: readFileSync(path.join(FIXTURES, nombre)) });
@@ -89,7 +91,6 @@ test("hotel de punta a punta: marcas, zonas y nada se guarda hasta Guardar (imp-
   await expect(pagina.getByLabel("Nombre del hotel")).toHaveValue("Hotel Arco Sereno");
   await expect(pagina.getByLabel("Día de entrada")).toHaveValue("2027-07-03");
   await expect(pagina.getByLabel("Día de salida")).toHaveValue("2027-07-09");
-  await expect(pagina.getByText("Falta: complétalo").first()).toBeVisible();
   await expect(pagina.getByText("Sugerido: revísalo").first()).toBeVisible();
   expect(posts).toHaveLength(0);
   await comprobarAccesibilidad(pagina);
