@@ -11,7 +11,7 @@ import { capturar } from "@/test-utils/capturas";
 // un .ics, de punta a punta, con el archivo real elegido en el selector.
 test.use({ viewport: { width: 390, height: 844 } });
 
-const FIXTURES = path.resolve(import.meta.dirname, "../../../lib/reservas/importar/__fixtures__");
+const FIXTURES = path.resolve(process.cwd(), "src/lib/reservas/importar/__fixtures__");
 const fixture = (nombre: string) => ({ name: nombre, mimeType: nombre.endsWith(".ics") ? "text/calendar" : "text/plain", buffer: readFileSync(path.join(FIXTURES, nombre)) });
 const TAMANOS = [
   { ancho: 360, alto: 640 },
