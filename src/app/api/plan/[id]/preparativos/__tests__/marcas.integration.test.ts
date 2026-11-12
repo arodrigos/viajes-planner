@@ -13,8 +13,11 @@ import { GET } from "../manejador";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-const T1 = "2027-06-01T10:00:00.000Z";
-const T0 = "2027-06-01T09:00:00.000Z";
+// Relativas a ahora: validarMarca rechaza fechas a más de 24 h en el futuro.
+const AHORA = Date.now();
+const T0 = new Date(AHORA - 2 * 3600_000).toISOString();
+const T1 = new Date(AHORA - 3600_000).toISOString();
+const T2 = new Date(AHORA - 1800_000).toISOString();
 const ELEMENTO = [...IDS_PREPARATIVOS][0];
 
 describe.skipIf(!SUPABASE_URL || !ANON_KEY)("/api/plan/[id]/preparativos (dat-ac1..ac6)", () => {
@@ -54,7 +57,7 @@ describe.skipIf(!SUPABASE_URL || !ANON_KEY)("/api/plan/[id]/preparativos (dat-ac
     const r = await lista(a, id);
     expect(r.headers.get("cache-control")).toContain("no-store");
     expect(await r.json()).toEqual({ marcas: [{ elemento: ELEMENTO, estado: "hecho", actualizado_cliente: T1 }] });
-    expect((await poner(a, id, ELEMENTO, { estado: "no_hace_falta", actualizado_cliente: "2027-06-01T11:00:00.000Z" })).status).toBe(200);
+    expect((await poner(a, id, ELEMENTO, { estado: "no_hace_falta", actualizado_cliente: T2 })).status).toBe(200);
     expect(await filas(id)).toEqual([{ elemento: ELEMENTO, estado: "no_hace_falta" }]);
   });
 
