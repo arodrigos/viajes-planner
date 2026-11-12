@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { borrarGastosDelPlan } from "@/lib/gastos/repositorio";
+import { borrarMarcasDelPlan } from "@/lib/preparativos/repositorio";
 import { borrarReservasDelPlan } from "@/lib/reservas/repositorio";
 
 // borrar-ac2/borrar-ac3: MARCA, nunca borra -la fila, su plan, sus versiones
@@ -14,7 +15,7 @@ import { borrarReservasDelPlan } from "@/lib/reservas/repositorio";
 // identificador existe si no es (ya) suyo.
 //
 // res-ac6, gas-ac6: lo único que SÍ se borra de verdad son las reservas y los
-// gastos del viaje (datos personales nuevos: localizador, horas, hotel, importes). Un ON DELETE CASCADE hacia
+// gastos y marcas de preparativos del viaje (datos personales nuevos: localizador, horas, hotel, importes). Un ON DELETE CASCADE hacia
 // planes nunca salta con el borrado marcado, así que se borran aquí, ANTES de
 // marcar: si el borrado falla, el viaje sigue vivo y se puede reintentar.
 export async function eliminarViaje(supabase: SupabaseClient, trabajoId: string, usuarioId: string): Promise<boolean> {
@@ -30,6 +31,7 @@ export async function eliminarViaje(supabase: SupabaseClient, trabajoId: string,
   if (trabajo.plan_id) {
     await borrarReservasDelPlan(supabase, trabajo.plan_id as string);
     await borrarGastosDelPlan(supabase, trabajo.plan_id as string);
+    await borrarMarcasDelPlan(supabase, trabajo.plan_id as string);
   }
   const { data, error } = await supabase
     .from("trabajos")

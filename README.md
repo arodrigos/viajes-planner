@@ -327,6 +327,14 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   /api/plan/[id]/gastos/[gastoId]` admiten solo al dueño (un invitado o un
   ajeno recibe 404, sin sesión 401). El id lo genera el cliente y el `PUT` es un
   upsert idempotente: repetirlo no duplica y uno más viejo no pisa al más nuevo.
+- **Marcas de preparativos** (migración 039): tabla `preparativos_marcas` (plan,
+  elemento del catálogo y estado pendiente, hecho o no_hace_falta) y función
+  `guardar_marca_preparativo`, con RLS activada y sin políticas (solo la web con
+  la clave de servicio). `GET /api/plan/[id]/preparativos` y `PUT
+  /api/plan/[id]/preparativos/[elemento]` admiten solo al dueño (invitado o ajeno
+  404, sin sesión 401). El `PUT` es un upsert idempotente: gana la marca con
+  `actualizado_cliente` más nuevo y una más vieja responde 200 sin pisar. Eliminar
+  el viaje borra sus marcas.
 - La fecha de un gasto tiene que ser un día del viaje (o ninguna, «Todo el
   viaje»). El formulario y el `PUT` aplican la misma regla (`validarGasto` con
   `fechasViaje`): el `PUT` lee los días del plan y responde 400 con el mismo
