@@ -49,14 +49,24 @@ export function SeccionGastos({ planId, fechas, hoy, presupuesto }: Props) {
   const [deshacer, setDeshacer] = useState<Gasto | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abiertaRef = useRef(false);
+  // Las promesas de IndexedDB y fetch pueden resolverse tras desmontar; un
+  // setState entonces llega a `window` ya destruido (jsdom en los tests).
+  const montado = useRef(true);
+  useEffect(() => {
+    montado.current = true;
+    return () => {
+      montado.current = false;
+    };
+  }, []);
 
   const refrescarOperaciones = useCallback(async () => {
     try {
-      setOperaciones(await colaDeSalida().pendientes(planId));
+      const pendientes = await colaDeSalida().pendientes(planId);
+      if (montado.current) setOperaciones(pendientes);
     } catch {
       // Sin IndexedDB utilizable (navegación privada, cuota) no hay cola que
       // enseñar; la lista del servidor sigue funcionando.
-      setOperaciones([]);
+      if (montado.current) setOperaciones([]);
     }
   }, [planId]);
 
@@ -70,8 +80,10 @@ export function SeccionGastos({ planId, fechas, hoy, presupuesto }: Props) {
       // Un elemento sin id o sin importe rompía la suma y la lista, y además
       // se quedaba guardado en el espejo para la próxima vez sin red.
       if (!Array.isArray(datos) || !datos.every(pareceUnGasto)) return false;
-      setEspejo(datos);
-      setErrorLista(false);
+      if (montado.current) {
+        setEspejo(datos);
+        setErrorLista(false);
+      }
       await colaDeSalida().guardarEspejo(planId, datos).catch(() => undefined);
       return true;
     } catch {
