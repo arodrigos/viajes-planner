@@ -139,7 +139,7 @@ Dónde buscar cada cosa antes de leer el detalle de cada funcionalidad:
 |---|---|
 | `src/app/` | Páginas (`criterios`, `trabajos/[id]`, `plan/[id]`, `viajes`, `guia`…), el service worker (`sw.ts`) y las rutas de API. Los e2e viven junto a la pantalla que prueban (`*.e2e.ts`, `*.movil.e2e.ts`) |
 | `src/app/api/` | Manejadores de API (`manejador.ts`) repartidos por los dos despachadores (ver «Tamaño del despliegue de Vercel») |
-| `src/lib/` | Lógica sin interfaz, una carpeta por dominio: `plan` (tipos, tiempos, horario, conflictos, compartir), `criterios`, `cola` (trabajos encolados), `trabajador` (la mitad que piensa), `lugares` y `guia` (fuentes abiertas), `google`, `etapas` (viajes multiciudad), `alternativas`, `eventos`, `reservas`, `gastos`, `presupuesto`, `infografia`, `sinConexion`, `auth`, `db`, `textos` (todos los textos visibles) |
+| `src/lib/` | Lógica sin interfaz, una carpeta por dominio: `plan` (tipos, tiempos, horario, conflictos, compartir), `criterios`, `cola` (trabajos encolados), `trabajador` (la mitad que piensa), `lugares` y `guia` (fuentes abiertas), `google`, `etapas` (viajes multiciudad), `alternativas`, `eventos`, `reservas`, `gastos`, `presupuesto`, `preparativos` (plantilla determinista de preparativos y equipaje, con el porqué de cada elemento), `infografia`, `sinConexion`, `auth`, `db`, `textos` (todos los textos visibles) |
 | `src/verificacion/` | Suite preview contra un despliegue publicado (no corre en el CI) |
 | `src/test-utils/` | Ayudas de los e2e: capturas, sesiones y la lista de capturas esperadas |
 | `scripts/` | Tick del trabajador, comprobaciones del CI (`verificar-*.sh`, `comprobar-*.mjs`) y generadores de ejemplos y goldens |
