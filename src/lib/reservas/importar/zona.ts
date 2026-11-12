@@ -16,3 +16,8 @@ export function aLocal(instanteMs: number, zona: string): { fecha: string; hora:
   const g = (t: string) => partes.find((p) => p.type === t)?.value ?? "00";
   return { fecha: `${g("year")}-${g("month")}-${g("day")}`, hora: `${g("hour")}:${g("minute")}` };
 }
+
+// Centro de la caja de la ciudad del plan, para deducir su zona horaria.
+export function centroDeCaja(caja?: { minLat: number; maxLat: number; minLon: number; maxLon: number }): { lat: number; lon: number } | null {
+  return caja ? { lat: (caja.minLat + caja.maxLat) / 2, lon: (caja.minLon + caja.maxLon) / 2 } : null;
+}
