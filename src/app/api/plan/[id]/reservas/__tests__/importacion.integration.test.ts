@@ -9,7 +9,8 @@ const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 // Cuerpo como el que produce la importación de hotel-booking.ics, con un
 // salto de línea en el nombre: lo que un .ics ajeno podría traer.
-const HOTEL_IMPORTADO = { tipo: "hotel", nombre: "Hotel\r\nX", fecha_inicio: "2027-07-03", fecha_fin: "2027-07-09", direccion: "Via dei Fiori 12, Roma", ubicacion: { lat: 41.9, lon: 12.49 } };
+// Las fechas caen dentro del viaje sembrado (2027-03-05): validarReserva rechaza lo que queda fuera.
+const HOTEL_IMPORTADO = { tipo: "hotel", nombre: "Hotel\r\nX", fecha_inicio: "2027-03-05", fecha_fin: "2027-03-05", direccion: "Via dei Fiori 12, Roma", ubicacion: { lat: 41.9, lon: 12.49 } };
 
 // imp-ac6: la importación no tiene ruta propia; estas pruebas fijan que guardar
 // por la ruta de siempre sigue siendo cosa solo del dueño.
