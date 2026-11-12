@@ -17,7 +17,13 @@ function servidor(): Servidor {
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     if (!e.enLinea) throw new TypeError("Failed to fetch");
     if ((init?.method ?? "GET") === "GET") return e.get === 200 ? json(200, { marcas: e.marcas }) : json(e.get, { error: "x" });
-    e.puts.push({ url, cuerpo: JSON.parse(String(init?.body)) });
+    const cuerpo = JSON.parse(String(init?.body)) as { estado: string; actualizado_cliente: string };
+    e.puts.push({ url, cuerpo });
+    // Como el servidor real: lo guardado es lo que devuelve el siguiente GET.
+    if (e.put === 200) {
+      const elemento = url.split("/").pop()!;
+      e.marcas = [...(e.marcas as { elemento: string }[]).filter((m) => m.elemento !== elemento), { elemento, ...cuerpo }];
+    }
     return e.put === 200 ? json(200, { ok: true }) : json(e.put, { error: "rechazada" });
   }));
   return e;
