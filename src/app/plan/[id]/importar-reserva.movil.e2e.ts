@@ -136,7 +136,7 @@ test("varios eventos: lista, «siguiente (n de N)» y cero peticiones hasta Guar
   await expect(pagina.getByText("Falta: complétalo").first()).toBeVisible();
   expect(posts).toHaveLength(0);
   await enTodosLosTamanos(pagina, "vuelo-revisar");
-  await pagina.getByLabel("Sentido").selectOption({ index: 1 });
+  await pagina.getByLabel("Trayecto").selectOption("ida");
   await pagina.getByRole("button", { name: "Guardar" }).click();
   await expect(pagina.getByTestId("importar-aviso")).toContainText("Importar la siguiente del archivo (2 de 2)");
   await enTodosLosTamanos(pagina, "siguiente");
