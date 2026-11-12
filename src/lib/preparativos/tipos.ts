@@ -1,0 +1,24 @@
+import type { Fechas, Modo, Perfil } from "@/lib/criterios/tipos";
+import type { TipoReserva } from "@/lib/reservas/tipos";
+
+export type CategoriaPreparativo = "documentos" | "ninos" | "salud" | "ropa" | "electronica" | "antes-de-salir";
+
+export interface ElementoPreparativo {
+  id: string;
+  categoria: CategoriaPreparativo;
+  texto: string;
+  porque: string;
+  fuente?: { titulo: string; url: string; revisado: string };
+}
+
+// Solo datos estructurados: ningún texto libre del plan entra aquí.
+export interface EntradaPreparativos {
+  personas: { edad: number }[];
+  perfil: Perfil;
+  fechas: Fechas;
+  dias: number;
+  latitud: number | null;
+  pais: string | null;
+  transporte: Modo[];
+  tiposReserva: TipoReserva[];
+}
