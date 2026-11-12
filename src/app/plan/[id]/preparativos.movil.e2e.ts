@@ -31,7 +31,7 @@ async function sembrar(supabase: SupabaseClient, email: string) {
   const criterios = {
     perfil: "familiar",
     personas: [{ edad: 1 }, { edad: 6 }, { edad: 38 }, { edad: 40 }],
-    fechas: { inicio: "2027-07-03", fin: "2027-07-09" },
+    fechas: { modo: "fechas", inicio: "2027-07-03", fin: "2027-07-09" },
     dias: 7,
   };
   const { error: errorTrabajo } = await supabase.from("trabajos").insert({ usuario_id: usuario.user.id, tipo: "generacion", criterios, estado: "completado", plan_id: planId });
