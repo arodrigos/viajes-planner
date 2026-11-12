@@ -54,6 +54,9 @@
   --peligro-fondo: #fecaca;
   --peligro-texto: #7f1d1d;
   --peligro-borde: #dc2626;
+  --aviso-fondo: #fef3c7;
+  --aviso-texto: #78350f;
+  --aviso-borde: #b45309;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -87,6 +90,9 @@
     --peligro-fondo: #450a0a;
     --peligro-texto: #fecaca;
     --peligro-borde: #f87171;
+    --aviso-fondo: #422006;
+    --aviso-texto: #fde68a;
+    --aviso-borde: #f59e0b;
   }
 
   html {
@@ -1290,4 +1296,34 @@ footer a,
 .categorias-gasto > button[aria-pressed="true"] {
   font-weight: 700;
   outline: 2px solid currentColor;
+}
+
+/* ics-importar: lo que falta (amarillo) y lo deducido llevan texto además del
+   color, y su borde no depende solo del tono. */
+.campo-aviso {
+  padding: var(--espacio-2);
+  border: 2px solid var(--aviso-borde);
+  background: var(--aviso-fondo);
+  color: var(--aviso-texto);
+}
+.marca-aviso {
+  font-weight: 700;
+  font-size: var(--texto-pequeno);
+}
+.aviso-importar {
+  padding: var(--espacio-3);
+  border-left: 4px solid var(--aviso-borde);
+  background: var(--aviso-fondo);
+  color: var(--aviso-texto);
+}
+.boton-importar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  min-height: var(--objetivo-tactil);
+  cursor: pointer;
+}
+.tarjeta-evento-ics {
+  padding: var(--espacio-3);
+  border: 1px solid var(--borde);
 }

@@ -89,3 +89,37 @@ export const ERRORES_RESERVA = {
   noEncontrada: "no encontrado",
   interno: "No se ha podido guardar la reserva.",
 } as const;
+
+// Importar una reserva desde un .ics (ics-importar). El fichero se lee en el
+// móvil: los textos lo dicen y los errores explican qué hacer.
+export const TEXTOS_IMPORTAR = {
+  boton: "Importar desde archivo",
+  elige: "Elige una opción",
+  leyendo: "Leyendo el archivo…",
+  ayudaIphone: "En iPhone, guárdalo antes en Archivos: en el correo, toca el adjunto .ics y elige «Guardar en Archivos». Si lo abres con Calendario, no se queda guardado.",
+  privacidad: "El archivo se lee en tu móvil y no se sube",
+  rellenado: "Rellenado desde el archivo. Revísalo antes de guardar: no se guarda nada hasta que pulses «Guardar».",
+  falta: "Falta: complétalo",
+  sugerido: "Sugerido: revísalo",
+  zonaSalida: (zona: string) => `Zona de salida: ${zona}`,
+  zonaLlegada: (zona: string) => `Zona de llegada: ${zona}`,
+  sinZona: "El archivo no dice la zona horaria: la hora se toma tal cual, como hora local del lugar",
+  tituloLista: (n: number) => `Este archivo trae ${n} reservas`,
+  usarEsta: "Usar esta",
+  fueraDelViaje: "Esta fecha cae fuera de tu viaje: la reserva no se podrá guardar sin cambiarla",
+  sinTitulo: "(sin título)",
+  parece: { vuelo: "Parece un vuelo", tren: "Parece un tren", hotel: "Parece un hotel", entrada: "Parece una entrada" },
+  horaDe: (ciudad: string) => `hora de ${ciudad}`,
+  guardada: "Reserva guardada",
+  siguiente: (n: number, total: number) => `Importar la siguiente del archivo (${n} de ${total})`,
+  topeEnArchivo: "Has llegado al máximo de 30 reservas: las demás del archivo no se pueden importar",
+  topeBoton: "Has llegado al máximo de 30 reservas en este viaje: borra alguna para importar más",
+  errores: {
+    "no-es-ics": "Este archivo no es un calendario (.ics). Busca en el correo el adjunto que termina en .ics y elígelo.",
+    "demasiado-grande": "Este archivo es demasiado grande para ser una reserva (máximo 256 KB). Busca el adjunto .ics de la confirmación.",
+    "sin-eventos": "Este calendario no trae ninguna reserva. Prueba con el .ics de la confirmación o apúntala a mano.",
+    "demasiados-eventos": "Este archivo trae más de 20 eventos: parece un calendario completo, no una reserva. Elige el .ics de la confirmación.",
+    malformado: "No se ha podido leer este archivo. Prueba con otro .ics o apunta la reserva a mano.",
+    "sin-conexion": "Necesitas conexión la primera vez que importas. Conéctate, vuelve a intentarlo y después podrás importar sin red.",
+  },
+} as const;

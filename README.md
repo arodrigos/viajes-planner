@@ -296,6 +296,14 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   eventos, ignora las repeticiones y devuelve fecha, hora y zona de cada
   extremo; `aBorradorReserva` lo convierte en un borrador que nunca inventa
   sentido, localizador ni notas. El fichero no se sube a ningún sitio.
+- **Importar desde archivo** (`ImportarReservas.tsx`, en la sección Reservas del
+  dueño): elige un `.ics`, y si trae varios eventos sale una lista para ir
+  eligiendo uno a uno («siguiente, n de N»). El formulario se abre rellenado con
+  «Falta: complétalo» y «Sugerido: revísalo» en cada campo; no se guarda nada
+  hasta pulsar Guardar, y entonces va por la misma ruta `POST /api/plan/[id]/reservas`
+  que el alta a mano. Tope de 30 reservas por viaje. `ical.js` solo viaja en un
+  chunk diferido del cliente: `npm run build && node scripts/comprobar-chunk-ical.mjs`
+  lo comprueba (Turbopack deja además una copia SSR que nunca se ejecuta).
 - El invitado solo recibe en el JSON del plan `reservas` con id, tipo,
   sentido, fecha y hora (`src/lib/reservas/publico.ts`); localizador, nombres,
   direcciones y notas no salen del servidor.
