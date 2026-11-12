@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { IDS_PREPARATIVOS } from "./catalogo";
-import { ESTADOS_MARCA, validarMarca } from "./validar";
+import { IDS_PREPARATIVOS } from "../catalogo";
+import { ESTADOS_MARCA, validarMarca } from "../validar";
 
 const AHORA = Date.parse("2027-06-01T12:00:00Z");
 const id = [...IDS_PREPARATIVOS][0];
