@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { comprobarFichero, leerIcs } from "./leerIcs";
-import { MOTIVOS_FALLO } from "./leerIcs";
+import { comprobarFichero, leerIcs } from "../leerIcs";
+import { MOTIVOS_FALLO } from "../leerIcs";
 
-const fixture = (n: string) => readFileSync(join(__dirname, "__fixtures__", n), "utf8");
+const fixture = (n: string) => readFileSync(join(__dirname, "..", "__fixtures__", n), "utf8");
 const vevent = (i: number) => `BEGIN:VEVENT\r\nUID:${i}@x\r\nDTSTART:20270703T100000Z\r\nSUMMARY:E${i}\r\nEND:VEVENT\r\n`;
 const calendario = (n: number) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//t//ES\r\n${Array.from({ length: n }, (_, i) => vevent(i)).join("")}END:VCALENDAR\r\n`;
 

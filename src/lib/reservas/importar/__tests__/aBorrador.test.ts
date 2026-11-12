@@ -1,8 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { LIMITES } from "../validar";
-import { aBorradorReserva, sugerirTipo } from "./aBorrador";
-import type { EventoIcs, Momento } from "./tipos";
+import { LIMITES } from "../../validar";
+import { aBorradorReserva, sugerirTipo } from "../aBorrador";
+import type { EventoIcs, Momento } from "../tipos";
 
 const tz = (fecha: string, hora: string, zona: string): Momento => ({ fecha, hora, zona, forma: "tzid", zonaDeducida: false });
 const dia = (fecha: string): Momento => ({ fecha, hora: null, zona: null, forma: "fecha", zonaDeducida: false });
