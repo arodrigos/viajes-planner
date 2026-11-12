@@ -269,9 +269,9 @@ jobs:
           rutinas_public=$(contar "select count(*) from information_schema.routines where routine_schema = 'public'")
           echo "tablas: viajes_planner=$tablas_vp public=$tablas_public"
           echo "rutinas: viajes_planner=$rutinas_vp public=$rutinas_public"
-          [ "$tablas_vp" -eq 21 ]
+          [ "$tablas_vp" -eq 22 ]
           [ "$tablas_public" -eq 0 ]
-          [ "$rutinas_vp" -eq 16 ]
+          [ "$rutinas_vp" -eq 17 ]
           [ "$rutinas_public" -eq 0 ]
       # sal-ac2: estado_relleno() contra Postgres real por psql directo, la
       # misma comprobación que el gatekeeper lanza contra su base de prueba.
