@@ -291,6 +291,11 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   solo admiten al dueño (un invitado o un ajeno recibe 404, sin sesión 401).
   Las reglas viven en `src/lib/reservas/validar.ts` y el `CHECK` de la tabla
   las repite; hora local de pared, sin conversión de zona.
+- Lector de `.ics` en el navegador (`src/lib/reservas/importar/`): `leerIcs` carga
+  `ical.js` (2.2.1 exacto) con `import()` dinámico, admite hasta 256 KB y 20
+  eventos, ignora las repeticiones y devuelve fecha, hora y zona de cada
+  extremo; `aBorradorReserva` lo convierte en un borrador que nunca inventa
+  sentido, localizador ni notas. El fichero no se sube a ningún sitio.
 - El invitado solo recibe en el JSON del plan `reservas` con id, tipo,
   sentido, fecha y hora (`src/lib/reservas/publico.ts`); localizador, nombres,
   direcciones y notas no salen del servidor.
