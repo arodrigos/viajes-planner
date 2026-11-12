@@ -343,6 +343,13 @@ Solo cambia la etiqueta en el navegador; sin `?pruebas=1` el gancho no existe.
   404, sin sesión 401). El `PUT` es un upsert idempotente: gana la marca con
   `actualizado_cliente` más nuevo y una más vieja responde 200 sin pisar. Eliminar
   el viaje borra sus marcas.
+- **Lista de preparativos** (pantalla del plan, solo el dueño): sección plegable
+  «Preparativos y equipaje» con la lista que genera `generarPreparativos` a partir
+  de los criterios del viaje (`/api/plan/[id]` los devuelve al dueño como
+  `preparativos`). Las casillas se marcan al instante y se suben por la cola de
+  salida `viajes-preparativos` (IndexedDB, al menos una vez), también sin red;
+  «No me hace falta» se puede deshacer 5 s o recuperar después. Los textos están en
+  `src/lib/textos/preparativos.ts`. Borrar la copia sin conexión vacía esa cola.
 - La fecha de un gasto tiene que ser un día del viaje (o ninguna, «Todo el
   viaje»). El formulario y el `PUT` aplican la misma regla (`validarGasto` con
   `fechasViaje`): el `PUT` lee los días del plan y responde 400 con el mismo
