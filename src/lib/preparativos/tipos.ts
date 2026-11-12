@@ -22,3 +22,8 @@ export interface EntradaPreparativos {
   transporte: Modo[];
   tiposReserva: TipoReserva[];
 }
+
+// Lo que el servidor da al dueño en /api/plan/[id] para que el cliente genere la
+// lista (también sin red, desde la copia del plan): el resto de EntradaPreparativos
+// sale del propio plan (latitud) y de las reservas (tipos).
+export type DatosPreparativos = Pick<EntradaPreparativos, "personas" | "perfil" | "fechas" | "dias" | "transporte">;

@@ -9,6 +9,7 @@ import { PanelDia } from "./PanelDia";
 import { EstadoCopia, FranjaCopia } from "./EstadoCopia";
 import { Compartir } from "./Compartir";
 import { SeccionGastos } from "./SeccionGastos";
+import { SeccionPreparativos } from "./SeccionPreparativos";
 import { SeccionReservas } from "./SeccionReservas";
 import { centroDeCaja } from "@/lib/reservas/importar/zona";
 import { hotelDelDia, reservasDelDia, reservasPublicasDelDia } from "@/lib/reservas/enElDia";
@@ -100,6 +101,9 @@ export function VistaPlan({ id }: { id: string }) {
       vivo = false;
     };
   }, [id, esDueno, lectura?.esCopia]);
+
+  // Referencia estable: la lista de preparativos se recalcula solo si cambian los tipos.
+  const tiposReserva = useMemo(() => (reservasDueno ?? []).map((r) => r.tipo), [reservasDueno]);
 
   const fijos = useMemo(
     () => (reservasDueno ? (fecha: string) => reservasDelDia(reservasDueno, fecha) : (fecha: string) => reservasPublicasDelDia(plan?.reservas ?? [], fecha)),
@@ -243,6 +247,14 @@ export function VistaPlan({ id }: { id: string }) {
           {!soloLectura && <GuardarMapas planId={id} dias={plan.dias} puedeGuardar={!esCopia} />}
           {!soloLectura && !esCopia && <SeccionReservas planId={id} fechas={fechas} onCambio={setReservasDueno} centroDestino={centroDeCaja(plan.ciudad?.caja)} />}
           {!soloLectura && !esCopia && plan.presupuesto && <SeccionGastos planId={id} fechas={fechas} hoy={hoy} presupuesto={plan.presupuesto} />}
+          {!soloLectura && (
+            <SeccionPreparativos
+              planId={id}
+              datos={plan.preparativos}
+              latitud={plan.ciudad?.caja ? (plan.ciudad.caja.minLat + plan.ciudad.caja.maxLat) / 2 : null}
+              tiposReserva={tiposReserva}
+            />
+          )}
           {!soloLectura && !esCopia && <Compartir planId={id} />}
           <SelectorDias fechas={fechas} elegido={dia} hoy={hoy} onElegir={elegir} />
           {dia === "resumen" ? (

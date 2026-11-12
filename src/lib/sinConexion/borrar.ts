@@ -1,4 +1,5 @@
 import { colaDeSalida } from "@/lib/gastos/cola";
+import { colaPreparativos } from "@/lib/preparativos/cola";
 import { borrarMapasPlan } from "./mapas";
 import { CACHE_DATOS, CACHE_FOTOS, CACHE_MAPA } from "./reglas";
 
@@ -17,6 +18,8 @@ async function vaciarCola(vaciar: () => Promise<void>): Promise<void> {
 // en la cola: una sesión caducada no puede costar los gastos que no se subieron.
 export async function borrarCopias(opciones: { conservarGastos?: boolean } = {}): Promise<void> {
   if (!opciones.conservarGastos) await vaciarCola(() => colaDeSalida().vaciarTodo());
+  // Las marcas revelan que viajan niños: salen siempre, también tras entrar con el código.
+  await vaciarCola(() => colaPreparativos().vaciarTodo());
   if (typeof caches === "undefined") return;
   try {
     await Promise.all([caches.delete(CACHE_DATOS), caches.delete(CACHE_FOTOS), caches.delete(CACHE_MAPA)]);
@@ -29,6 +32,7 @@ export async function borrarCopias(opciones: { conservarGastos?: boolean } = {})
 // compartidas entre planes, y caducan solas a los 30 días.
 export async function borrarCopiaPlan(planId: string): Promise<void> {
   await vaciarCola(() => colaDeSalida().vaciarAmbito(planId));
+  await vaciarCola(() => colaPreparativos().vaciarAmbito(planId));
   if (typeof caches === "undefined") return;
   await borrarMapasPlan(planId);
   try {

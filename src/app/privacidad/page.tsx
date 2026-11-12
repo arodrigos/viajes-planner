@@ -76,6 +76,18 @@ export default function PrivacidadPage() {
         la copia de los gastos se borra de él al cerrar sesión o al eliminar el viaje.
       </p>
 
+      <h2>Lista de preparativos y equipaje</h2>
+      <p>
+        Cada viaje trae una lista de preparativos que se genera en tu navegador con las edades y el perfil que
+        indicaste al crear el viaje (las introduce el adulto que lo crea), la estación y el destino, y los tipos de
+        reserva que apuntaste. De la lista se guarda solo qué elementos marcas (hecho o «No me hace falta») y cuándo;
+        sirve para que veas tu maleta igual en otro dispositivo. No se envía al modelo ni a ningún servicio externo.
+        Solo quien creó el viaje la ve: las personas con quienes lo compartes no la ven. Las marcas se borran al
+        eliminar el viaje; las que haces sin conexión esperan en este dispositivo hasta subirse y su copia se borra al
+        cerrar sesión o al eliminar el viaje. Si importas una reserva desde un archivo .ics, el archivo se lee en tu
+        móvil y no se sube: solo se guarda la reserva que revisas y guardas tú.
+      </p>
+
       <h2>Copia del plan en este dispositivo</h2>
       <p>
         Para que puedas ver un plan sin cobertura, la aplicación guarda en este dispositivo una copia de los planes
