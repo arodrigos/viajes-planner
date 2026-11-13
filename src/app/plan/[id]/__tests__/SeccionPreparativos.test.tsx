@@ -11,12 +11,15 @@ import { SeccionPreparativos } from "../SeccionPreparativos";
 const DATOS: DatosPreparativos = { personas: [{ edad: 1 }, { edad: 6 }, { edad: 38 }, { edad: 40 }], perfil: "familiar", fechas: { modo: "fechas", inicio: "2027-07-03", fin: "2027-07-09" }, dias: 7, transporte: [] };
 const json = (status: number, cuerpo: unknown) => new Response(JSON.stringify(cuerpo), { status });
 
-interface Servidor { enLinea: boolean; put: number; get: number; marcas: unknown[]; puts: { url: string; cuerpo: { estado: string } }[] }
+interface Servidor { retenerGet: Promise<void> | null; enLinea: boolean; put: number; get: number; marcas: unknown[]; puts: { url: string; cuerpo: { estado: string } }[] }
 function servidor(): Servidor {
-  const e: Servidor = { enLinea: true, put: 200, get: 200, marcas: [], puts: [] };
+  const e: Servidor = { retenerGet: null, enLinea: true, put: 200, get: 200, marcas: [], puts: [] };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     if (!e.enLinea) throw new TypeError("Failed to fetch");
-    if ((init?.method ?? "GET") === "GET") return e.get === 200 ? json(200, { marcas: e.marcas }) : json(e.get, { error: "x" });
+    if ((init?.method ?? "GET") === "GET") {
+      await e.retenerGet;
+      return e.get === 200 ? json(200, { marcas: e.marcas }) : json(e.get, { error: "x" });
+    }
     const cuerpo = JSON.parse(String(init?.body)) as { estado: string; actualizado_cliente: string };
     e.puts.push({ url, cuerpo });
     // Como el servidor real: lo guardado es lo que devuelve el siguiente GET.
@@ -56,6 +59,27 @@ describe("SeccionPreparativos", () => {
     await waitFor(() => expect(s.puts).toHaveLength(1));
     expect(s.puts[0].url).toBe("/api/plan/p1/preparativos/panales");
     expect(s.puts[0].cuerpo.estado).toBe("hecho");
+  });
+
+  it("lis-ac1: al subir la marca la casilla no vuelve al estado viejo mientras llega el GET, y dos toques acaban en el último", async () => {
+    const s = servidor();
+    montar();
+    await abrir();
+    // Con el GET posterior a la subida retenido se ve el hueco que antes dejaba la fila desmarcada.
+    let soltar!: () => void;
+    s.retenerGet = new Promise<void>((r) => { soltar = r; });
+    await userEvent.click(screen.getByRole("checkbox", { name: "Pañales" }));
+    await waitFor(() => expect(s.puts).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByTestId("preparativos-sin-subir")).toBeNull());
+    expect(screen.getByRole("checkbox", { name: "Pañales" })).toBeChecked();
+    expect(screen.getByTestId("preparativos-progreso")).toHaveTextContent(/^1 de \d+ listos$/);
+    // Segundo toque en ese hueco: parte de «hecho» y desmarca.
+    await userEvent.click(screen.getByRole("checkbox", { name: "Pañales" }));
+    expect(screen.getByRole("checkbox", { name: "Pañales" })).not.toBeChecked();
+    soltar();
+    await waitFor(() => expect(s.puts.at(-1)?.cuerpo.estado).toBe("pendiente"));
+    await waitFor(() => expect(screen.queryByTestId("preparativos-sin-subir")).toBeNull());
+    expect(screen.getByRole("checkbox", { name: "Pañales" })).not.toBeChecked();
   });
 
   it("lis-ac2: sin red queda pendiente y al volver se sube sola", async () => {
