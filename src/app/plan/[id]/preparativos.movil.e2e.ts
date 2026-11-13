@@ -100,3 +100,32 @@ test("marcar sobrevive a la recarga, funciona sin red y 'No me hace falta' se de
   await comprobarAccesibilidad(pagina);
   await contexto.close();
 });
+
+test("un invitado no ve la sección ni los datos de preparativos (lis-ac5)", async ({ browser }) => {
+  const supabase = clienteDePrueba();
+  const planId = await sembrar(supabase, "ci-test-prep-inv-duenyo@example.com");
+  const correoInvitado = "ci-test-prep-inv-miembro@example.com";
+  const { error } = await supabase.auth.admin.createUser({ email: correoInvitado, email_confirm: true });
+  if (error) throw new Error(`No se pudo crear el invitado: ${error.message}`);
+
+  const contextoDuenyo = await browser.newContext();
+  await entrar(contextoDuenyo, "ci-test-prep-inv-duenyo@example.com");
+  const invitacion = await contextoDuenyo.request.post(`/api/plan/${planId}/miembros`, { data: { correo: correoInvitado } });
+  expect(invitacion.ok()).toBe(true);
+
+  const contextoInvitado = await browser.newContext();
+  await entrar(contextoInvitado, correoInvitado);
+  const pagina = await contextoInvitado.newPage();
+  await pagina.goto(`/plan/${planId}`);
+  await expect(pagina.getByTestId("solo-lectura")).toBeVisible();
+  await expect(pagina.locator("details.seccion-preparativos")).toHaveCount(0);
+  await expect(pagina.getByText("Pañales")).toHaveCount(0);
+
+  // La API tampoco da nada: ni el plan trae 'preparativos' ni las marcas se leen.
+  const plan = (await (await contextoInvitado.request.get(`/api/plan/${planId}`)).json()) as Record<string, unknown>;
+  expect(plan).not.toHaveProperty("preparativos");
+  expect((await contextoInvitado.request.get(`/api/plan/${planId}/preparativos`)).status()).toBe(404);
+
+  await contextoDuenyo.close();
+  await contextoInvitado.close();
+});
