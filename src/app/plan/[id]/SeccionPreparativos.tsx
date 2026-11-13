@@ -29,6 +29,19 @@ function pareceMarca(m: unknown): m is MarcaLocal {
   return typeof elemento === "string" && typeof actualizado_cliente === "string" && (estado === "pendiente" || estado === "hecho" || estado === "no_hace_falta");
 }
 
+// Pasa a `marcas` lo que la cola acaba de subir, con el sello con que se envió.
+function aplicarSubidas(marcas: MarcaLocal[] | null, subidas: OperacionCola[], planId: string): MarcaLocal[] | null {
+  const prefijo = claveMarca(planId, "");
+  const mapa = new Map((marcas ?? []).map((m) => [m.elemento, m]));
+  for (const op of subidas) {
+    const c = op.cuerpo as { estado?: unknown; actualizado_cliente?: unknown } | undefined;
+    if (!op.clave.startsWith(prefijo) || !pareceMarca({ elemento: "x", ...c })) continue;
+    const elemento = op.clave.slice(prefijo.length);
+    mapa.set(elemento, { elemento, estado: c!.estado as EstadoMarca, actualizado_cliente: c!.actualizado_cliente as string });
+  }
+  return [...mapa.values()];
+}
+
 const selloMonotonico = (anterior: number) => Math.max(Date.now(), anterior + 1);
 
 // Casillas para preparar la maleta. Marcar es optimista: se encola en la cola
@@ -48,6 +61,7 @@ export function SeccionPreparativos({ planId, datos, latitud, tiposReserva }: Pr
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abiertaRef = useRef(false);
   const ultimoSello = useRef(0);
+  const anteriores = useRef<OperacionCola[]>([]);
   const montado = useRef(true);
   useEffect(() => {
     montado.current = true;
@@ -65,7 +79,16 @@ export function SeccionPreparativos({ planId, datos, latitud, tiposReserva }: Pr
   const refrescarOperaciones = useCallback(async () => {
     try {
       const pendientes = await colaPreparativos().pendientes(planId);
-      if (montado.current) setOperaciones(pendientes);
+      if (!montado.current) return;
+      // Una operación viva que desaparece de la cola es que el servidor la aceptó (las
+      // rechazadas se quedan hasta descartarlas). Su estado pasa a `marcas` en el mismo
+      // render en que la cola la suelta; si no, la fila vuelve un instante al estado viejo
+      // del servidor hasta que llega el GET, y un toque en ese hueco guarda lo contrario.
+      const siguen = new Set(pendientes.map((o) => o.clave));
+      const subidas = anteriores.current.filter((o) => o.estado !== "rechazada" && !siguen.has(o.clave));
+      anteriores.current = pendientes;
+      if (subidas.length > 0) setMarcas((m) => aplicarSubidas(m, subidas, planId));
+      setOperaciones(pendientes);
     } catch {
       if (montado.current) setOperaciones([]);
     }
